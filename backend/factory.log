@@ -1,0 +1,448 @@
+2026-01-05 01:49:45,745 - INFO -    File stable at 35.98 MB
+2026-01-05 01:49:45,751 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\teste.mp4
+2026-01-05 01:49:45,751 - INFO - Caption: teste - Synapse Auto
+2026-01-05 01:49:46,597 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 01:49:47,611 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 01:49:47,793 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 01:49:55,600 - INFO - Looking for file input or upload trigger...
+2026-01-05 01:49:55,633 - INFO - Found file input element
+2026-01-05 01:49:55,633 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\teste.mp4
+2026-01-05 01:49:55,667 - INFO - Waiting for upload to complete...
+2026-01-05 01:51:05,709 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 01:51:08,720 - INFO - Checking for onboarding popups...
+2026-01-05 01:51:08,785 - INFO - Popup dismissed with: button:has-text("Entendi")
+2026-01-05 01:51:11,797 - INFO - Looking for caption field...
+2026-01-05 01:51:15,583 - INFO - Caption filled using selector: div[contenteditable="true"]
+2026-01-05 01:51:18,755 - INFO - Screenshot saved: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 01:51:18,755 - INFO - Post mode disabled. Video is ready but NOT posted.
+2026-01-05 01:51:18,755 - INFO - Closing browser...
+2026-01-05 01:51:19,546 - INFO -    Screenshot: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 02:01:48,573 - INFO -    File stable at 35.98 MB
+2026-01-05 02:01:48,577 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p2_teste_multiconta.mp4
+2026-01-05 02:01:48,577 - INFO - Caption: @p2_teste_multiconta - Synapse Auto
+2026-01-05 02:01:49,398 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 02:01:49,905 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 02:01:49,905 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 02:01:57,144 - INFO - Looking for file input or upload trigger...
+2026-01-05 02:02:07,158 - INFO - No visible file input, trying alternative approach...
+2026-01-05 02:02:07,159 - INFO - Using file chooser approach...
+2026-01-05 02:02:25,213 - INFO - Trying click on page center...
+2026-01-05 02:02:30,253 - ERROR - Could not trigger file upload
+2026-01-05 02:02:30,344 - INFO - Closing browser...
+2026-01-05 02:02:30,646 - ERROR -    Reason: Could not trigger file upload
+2026-01-05 02:05:42,752 - INFO -    File stable at 35.98 MB
+2026-01-05 02:05:42,771 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p2_teste_multiconta.mp4
+2026-01-05 02:05:42,771 - INFO - Caption: @p2_teste_multiconta - Synapse Auto
+2026-01-05 02:05:43,528 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 02:05:44,478 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 02:05:44,479 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 02:05:51,326 - INFO - Looking for file input or upload trigger...
+2026-01-05 02:06:01,329 - INFO - No visible file input, trying alternative approach...
+2026-01-05 02:06:01,329 - INFO - Using file chooser approach...
+2026-01-05 02:06:19,387 - INFO - Trying click on page center...
+2026-01-05 02:06:24,397 - ERROR - Could not trigger file upload
+2026-01-05 02:06:24,477 - INFO - Closing browser...
+2026-01-05 02:06:24,830 - ERROR -    Reason: Could not trigger file upload
+2026-01-05 02:18:17,889 - INFO -    File stable at 35.98 MB
+2026-01-05 02:18:17,894 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p2_teste_multiconta.mp4
+2026-01-05 02:18:17,894 - INFO - Caption: teste_multiconta - Synapse Auto
+2026-01-05 02:18:18,777 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_02.json
+2026-01-05 02:18:19,458 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 02:18:19,458 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 02:18:26,016 - INFO - Looking for file input or upload trigger...
+2026-01-05 02:18:26,047 - INFO - Found file input element
+2026-01-05 02:18:26,047 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p2_teste_multiconta.mp4
+2026-01-05 02:18:26,118 - INFO - Waiting for upload to complete...
+2026-01-05 02:19:36,142 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 02:19:39,150 - INFO - Checking for onboarding popups...
+2026-01-05 02:19:39,221 - INFO - Popup dismissed with: button:has-text("Entendi")
+2026-01-05 02:19:42,245 - INFO - Looking for caption field...
+2026-01-05 02:19:46,400 - INFO - Caption filled using selector: div[contenteditable="true"]
+2026-01-05 02:19:49,602 - INFO - Screenshot saved: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 02:19:49,602 - INFO - Post mode disabled. Video is ready but NOT posted.
+2026-01-05 02:19:49,603 - INFO - Closing browser...
+2026-01-05 02:19:50,158 - INFO -    Screenshot: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 02:34:41,417 - INFO - Ignoring non-mp4 file: @p1_a9f6129e.txt
+2026-01-05 02:34:44,478 - INFO -    File stable at 0.00 MB
+2026-01-05 02:34:44,483 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_a9f6129e.mp4
+2026-01-05 02:34:44,484 - INFO - Caption: a9f6129e - Synapse Auto
+2026-01-05 02:34:52,483 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 02:34:53,331 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 02:34:53,333 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 02:35:00,791 - INFO - Looking for file input or upload trigger...
+2026-01-05 02:35:10,800 - INFO - No visible file input, trying alternative approach...
+2026-01-05 02:35:10,800 - INFO - Using file chooser approach...
+2026-01-05 02:35:28,851 - INFO - Trying click on page center...
+2026-01-05 02:35:33,995 - ERROR - Could not trigger file upload
+2026-01-05 02:35:34,079 - INFO - Closing browser...
+2026-01-05 02:35:34,956 - ERROR -    Reason: Could not trigger file upload
+2026-01-05 02:46:37,519 - INFO -    File stable at 0.13 MB
+2026-01-05 02:46:37,524 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p2_2bc75322.mp4
+2026-01-05 02:46:37,524 - INFO - Caption: 2bc75322 - Synapse Auto
+2026-01-05 02:46:38,139 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_02.json
+2026-01-05 02:46:38,892 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 02:46:38,892 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 02:46:45,464 - INFO - Looking for file input or upload trigger...
+2026-01-05 02:46:45,494 - INFO - Found file input element
+2026-01-05 02:46:45,494 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p2_2bc75322.mp4
+2026-01-05 02:46:45,528 - INFO - Waiting for upload to complete...
+2026-01-05 02:46:53,793 - ERROR - Upload failed: Page.wait_for_timeout: Target page, context or browser has been closed
+2026-01-05 02:46:53,795 - INFO - Closing browser...
+2026-01-05 02:46:54,508 - ERROR -    Reason: Upload failed: Page.wait_for_timeout: Target page, context or browser has been closed
+2026-01-05 02:49:20,775 - INFO -    File stable at 4.10 MB
+2026-01-05 02:49:20,780 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p2_9a21687f.mp4
+2026-01-05 02:49:20,780 - INFO - Caption: 9a21687f - Synapse Auto
+2026-01-05 02:49:21,424 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_02.json
+2026-01-05 02:49:21,917 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 02:49:21,917 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 02:49:28,882 - INFO - Looking for file input or upload trigger...
+2026-01-05 02:49:28,920 - INFO - Found file input element
+2026-01-05 02:49:28,920 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p2_9a21687f.mp4
+2026-01-05 02:49:28,962 - INFO - Waiting for upload to complete...
+2026-01-05 02:50:38,982 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 02:50:41,993 - INFO - Checking for onboarding popups...
+2026-01-05 02:50:42,052 - INFO - Popup dismissed with: button:has-text("Entendi")
+2026-01-05 02:50:45,079 - INFO - Looking for caption field...
+2026-01-05 02:50:49,026 - INFO - Caption filled using selector: div[contenteditable="true"]
+2026-01-05 02:50:52,157 - INFO - Screenshot saved: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 02:50:52,157 - INFO - Post mode disabled. Video is ready but NOT posted.
+2026-01-05 02:50:52,157 - INFO - Closing browser...
+2026-01-05 02:50:52,677 - INFO -    Screenshot: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 02:56:17,116 - INFO -    File stable at 4.10 MB
+2026-01-05 02:56:17,121 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_fe84ea05.mp4
+2026-01-05 02:56:17,121 - INFO - Caption: fe84ea05 - Synapse Auto
+2026-01-05 02:56:17,792 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 02:56:18,562 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 02:56:18,563 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 02:56:25,176 - INFO - Looking for file input or upload trigger...
+2026-01-05 02:56:35,186 - INFO - No visible file input, trying alternative approach...
+2026-01-05 02:56:35,186 - INFO - Using file chooser approach...
+2026-01-05 02:56:47,256 - INFO - Trying click on page center...
+2026-01-05 02:56:47,267 - ERROR - Could not trigger file upload
+2026-01-05 02:56:47,271 - ERROR - File upload failed: Page.screenshot: Target page, context or browser has been closed
+2026-01-05 02:56:47,274 - ERROR - Upload failed: Page.screenshot: Target page, context or browser has been closed
+2026-01-05 02:56:47,275 - INFO - Closing browser...
+2026-01-05 02:56:47,691 - ERROR -    Reason: Upload failed: Page.screenshot: Target page, context or browser has been closed
+2026-01-05 02:58:30,434 - INFO -    File stable at 4.10 MB
+2026-01-05 02:58:30,439 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p2_fb03629b.mp4
+2026-01-05 02:58:30,439 - INFO - Caption: fb03629b - Synapse Auto
+2026-01-05 02:58:30,969 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_02.json
+2026-01-05 02:58:31,807 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 02:58:31,807 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 02:58:38,344 - INFO - Looking for file input or upload trigger...
+2026-01-05 02:58:38,373 - ERROR - Task exception was never retrieved
+future: <Task finished name='Task-35' coro=<Waiter.reject_on_timeout.<locals>.reject() done, defined at C:\Users\guico\AppData\Local\Programs\Python\Python311\Lib\site-packages\playwright\_impl\_waiter.py:85> exception=TargetClosedError(': Target page, context or browser has been closed')>
+Traceback (most recent call last):
+  File "C:\Users\guico\AppData\Local\Programs\Python\Python311\Lib\site-packages\playwright\_impl\_waiter.py", line 87, in reject
+    self._reject(TimeoutError(message))
+  File "C:\Users\guico\AppData\Local\Programs\Python\Python311\Lib\site-packages\playwright\_impl\_waiter.py", line 105, in _reject
+    self._cleanup()
+  File "C:\Users\guico\AppData\Local\Programs\Python\Python311\Lib\site-packages\playwright\_impl\_waiter.py", line 96, in _cleanup
+    listener[0].remove_listener(listener[1], listener[2])
+  File "C:\Users\guico\AppData\Local\Programs\Python\Python311\Lib\site-packages\playwright\_impl\_connection.py", line 217, in remove_listener
+    self._update_subscription(event, False)
+  File "C:\Users\guico\AppData\Local\Programs\Python\Python311\Lib\site-packages\playwright\_impl\_connection.py", line 200, in _update_subscription
+    self._connection.wrap_api_call_sync(
+  File "C:\Users\guico\AppData\Local\Programs\Python\Python311\Lib\site-packages\playwright\_impl\_connection.py", line 577, in wrap_api_call_sync
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TargetClosedError: : Target page, context or browser has been closed
+2026-01-05 02:58:38,375 - INFO - Found file input element
+2026-01-05 02:58:38,376 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p2_fb03629b.mp4
+2026-01-05 02:58:38,411 - INFO - Waiting for upload to complete...
+2026-01-05 02:58:52,955 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 02:58:52,959 - ERROR - Upload failed: Page.wait_for_timeout: Target page, context or browser has been closed
+2026-01-05 02:58:52,961 - INFO - Closing browser...
+2026-01-05 02:58:53,621 - ERROR -    Reason: Upload failed: Page.wait_for_timeout: Target page, context or browser has been closed
+2026-01-05 03:04:01,628 - INFO -    File stable at 4.10 MB
+2026-01-05 03:04:01,633 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_6c4c7efd.mp4
+2026-01-05 03:04:01,634 - INFO - Caption: 6c4c7efd - Synapse Auto
+2026-01-05 03:04:02,225 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 03:04:02,601 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 03:04:02,602 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 03:04:09,813 - INFO - Looking for file input or upload trigger...
+2026-01-05 03:04:09,851 - INFO - Found file input element
+2026-01-05 03:04:09,851 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_6c4c7efd.mp4
+2026-01-05 03:04:09,891 - INFO - Waiting for upload to complete...
+2026-01-05 03:05:19,907 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 03:05:22,914 - INFO - Checking for onboarding popups...
+2026-01-05 03:05:24,411 - INFO - Popup dismissed with: button:has-text("Entendi")
+2026-01-05 03:05:27,442 - INFO - Looking for caption field...
+2026-01-05 03:05:33,264 - INFO - Caption filled using selector: div[contenteditable="true"]
+2026-01-05 03:05:37,574 - INFO - Screenshot saved: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 03:05:37,574 - INFO - Post mode disabled. Video is ready but NOT posted.
+2026-01-05 03:05:37,575 - INFO - Closing browser...
+2026-01-05 03:05:37,978 - INFO -    Screenshot: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 03:18:42,092 - INFO -    File stable at 4.10 MB
+2026-01-05 03:18:42,096 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_21df5aae.mp4
+2026-01-05 03:18:42,096 - INFO - Caption: 21df5aae - Synapse Auto
+2026-01-05 03:18:42,745 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 03:18:42,962 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 03:18:42,963 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 03:18:49,782 - INFO - Looking for file input or upload trigger...
+2026-01-05 03:18:49,812 - INFO - Found file input element
+2026-01-05 03:18:49,812 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_21df5aae.mp4
+2026-01-05 03:18:49,845 - INFO - Waiting for upload to complete...
+2026-01-05 03:19:05,488 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 03:19:05,493 - ERROR - Upload failed: Page.wait_for_timeout: Target page, context or browser has been closed
+2026-01-05 03:19:05,495 - INFO - Closing browser...
+2026-01-05 03:19:06,003 - ERROR -    Reason: Upload failed: Page.wait_for_timeout: Target page, context or browser has been closed
+2026-01-05 03:20:45,835 - INFO -    File stable at 4.10 MB
+2026-01-05 03:20:45,839 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p2_b7b25043.mp4
+2026-01-05 03:20:45,839 - INFO - Caption: b7b25043 - Synapse Auto
+2026-01-05 03:20:46,373 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_02.json
+2026-01-05 03:20:47,127 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 03:20:47,128 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 03:20:53,530 - INFO - Looking for file input or upload trigger...
+2026-01-05 03:20:53,561 - INFO - Found file input element
+2026-01-05 03:20:53,561 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p2_b7b25043.mp4
+2026-01-05 03:20:53,594 - INFO - Waiting for upload to complete...
+2026-01-05 03:21:38,933 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 03:21:38,936 - ERROR - Upload failed: Page.wait_for_timeout: Target page, context or browser has been closed
+2026-01-05 03:21:38,939 - INFO - Closing browser...
+2026-01-05 03:21:39,297 - ERROR -    Reason: Upload failed: Page.wait_for_timeout: Target page, context or browser has been closed
+2026-01-05 10:44:48,552 - INFO -    File stable at 4.10 MB
+2026-01-05 10:44:48,557 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p2_fed00f09.mp4
+2026-01-05 10:44:48,557 - INFO - Caption: fed00f09 - Synapse Auto
+2026-01-05 10:44:53,151 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_02.json
+2026-01-05 10:44:55,712 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 10:44:55,712 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 10:45:04,947 - INFO - Looking for file input or upload trigger...
+2026-01-05 10:45:06,551 - INFO - Found file input element
+2026-01-05 10:45:06,551 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p2_fed00f09.mp4
+2026-01-05 10:45:06,622 - INFO - Waiting for upload to complete...
+2026-01-05 10:45:16,547 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 10:45:16,776 - ERROR - Upload failed: Page.wait_for_timeout: Target page, context or browser has been closed
+2026-01-05 10:45:16,778 - INFO - Closing browser...
+2026-01-05 10:45:18,356 - ERROR -    Reason: Upload failed: Page.wait_for_timeout: Target page, context or browser has been closed
+2026-01-05 10:45:39,717 - INFO -    File stable at 4.10 MB
+2026-01-05 10:45:39,721 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_221175f6.mp4
+2026-01-05 10:45:39,721 - INFO - Caption: 221175f6 - Synapse Auto
+2026-01-05 10:45:40,763 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 10:45:41,499 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 10:45:41,499 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 10:45:50,178 - INFO - Looking for file input or upload trigger...
+2026-01-05 10:45:50,204 - INFO - Found file input element
+2026-01-05 10:45:50,204 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_221175f6.mp4
+2026-01-05 10:45:50,239 - INFO - Waiting for upload to complete...
+2026-01-05 10:46:00,646 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 10:46:00,695 - ERROR - Upload failed: Page.wait_for_timeout: Target page, context or browser has been closed
+2026-01-05 10:46:00,698 - INFO - Closing browser...
+2026-01-05 10:46:01,642 - ERROR -    Reason: Upload failed: Page.wait_for_timeout: Target page, context or browser has been closed
+2026-01-05 10:46:36,433 - INFO -    File stable at 4.10 MB
+2026-01-05 10:46:36,437 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_7ba663bb.mp4
+2026-01-05 10:46:36,437 - INFO - Caption: 7ba663bb - Synapse Auto
+2026-01-05 10:46:37,197 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 10:46:37,721 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 10:46:37,721 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 10:46:45,974 - INFO - Looking for file input or upload trigger...
+2026-01-05 10:46:46,004 - INFO - Found file input element
+2026-01-05 10:46:46,005 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_7ba663bb.mp4
+2026-01-05 10:46:46,043 - INFO - Waiting for upload to complete...
+2026-01-05 10:47:51,063 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 10:47:55,857 - INFO - Screenshot saved: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 10:47:55,857 - INFO - Post mode disabled. Video is ready but NOT posted.
+2026-01-05 10:47:55,857 - INFO - Closing browser...
+2026-01-05 10:47:57,137 - INFO -    Screenshot: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 10:53:49,055 - INFO -    File stable at 4.10 MB
+2026-01-05 10:53:49,059 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p2_7f5ff0f2.mp4
+2026-01-05 10:53:49,059 - INFO - Caption: 7f5ff0f2 - Synapse Auto
+2026-01-05 10:53:49,771 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_02.json
+2026-01-05 10:53:50,727 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 10:53:50,727 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 10:53:58,653 - INFO - Looking for file input or upload trigger...
+2026-01-05 10:53:58,678 - INFO - Found file input element
+2026-01-05 10:53:58,678 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p2_7f5ff0f2.mp4
+2026-01-05 10:53:58,711 - INFO - Waiting for upload to complete...
+2026-01-05 10:55:03,739 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 10:55:08,222 - INFO - Screenshot saved: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 10:55:08,222 - INFO - Post mode disabled. Video is ready but NOT posted.
+2026-01-05 10:55:08,222 - INFO - Closing browser...
+2026-01-05 10:55:09,492 - INFO -    Screenshot: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 11:00:27,155 - INFO -    File stable at 4.10 MB
+2026-01-05 11:00:27,159 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_a7b0850c.mp4
+2026-01-05 11:00:27,159 - INFO - Caption: a7b0850c - Synapse Auto
+2026-01-05 11:00:27,885 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 11:00:28,608 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 11:00:28,608 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 11:00:36,692 - INFO - Looking for file input or upload trigger...
+2026-01-05 11:00:36,730 - INFO - Found file input element
+2026-01-05 11:00:36,730 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_a7b0850c.mp4
+2026-01-05 11:00:36,777 - INFO - Waiting for upload to complete...
+2026-01-05 11:01:41,795 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 11:01:46,143 - INFO - Screenshot saved: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 11:01:46,144 - INFO - Post mode disabled. Video is ready but NOT posted.
+2026-01-05 11:01:46,144 - INFO - Closing browser...
+2026-01-05 11:01:47,232 - INFO -    Screenshot: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 11:05:57,042 - INFO -    File stable at 4.10 MB
+2026-01-05 11:05:57,047 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_d509ea3c.mp4
+2026-01-05 11:05:57,047 - INFO - Caption: d509ea3c - Synapse Auto
+2026-01-05 11:05:57,670 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 11:05:58,129 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 11:05:58,129 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 11:06:05,337 - INFO - Looking for file input or upload trigger...
+2026-01-05 11:06:05,369 - INFO - Found file input element
+2026-01-05 11:06:05,369 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_d509ea3c.mp4
+2026-01-05 11:06:05,408 - INFO - Waiting for upload to complete...
+2026-01-05 11:07:10,434 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 11:07:14,891 - INFO - Screenshot saved: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 11:07:14,891 - INFO - Post mode disabled. Video is ready but NOT posted.
+2026-01-05 11:07:14,891 - INFO - Closing browser...
+2026-01-05 11:07:15,399 - INFO -    Screenshot: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 11:12:03,802 - INFO -    File stable at 4.10 MB
+2026-01-05 11:12:03,806 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_a453c52f.mp4
+2026-01-05 11:12:03,806 - INFO - Caption: a453c52f - Synapse Auto
+2026-01-05 11:12:04,426 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 11:12:05,185 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 11:12:05,185 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 11:12:11,624 - INFO - Looking for file input or upload trigger...
+2026-01-05 11:12:11,653 - INFO - Found file input element
+2026-01-05 11:12:11,653 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_a453c52f.mp4
+2026-01-05 11:12:11,684 - INFO - Waiting for upload to complete...
+2026-01-05 11:13:16,711 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 11:13:21,011 - INFO - Screenshot saved: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 11:13:21,011 - INFO - Post mode disabled. Video is ready but NOT posted.
+2026-01-05 11:13:21,012 - INFO - Closing browser...
+2026-01-05 11:13:21,667 - INFO -    Screenshot: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 11:19:02,589 - INFO -    File stable at 4.10 MB
+2026-01-05 11:19:02,593 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_39e2e54b.mp4
+2026-01-05 11:19:02,594 - INFO - Caption: 39e2e54b - Synapse Auto
+2026-01-05 11:19:03,346 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 11:19:03,686 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 11:19:03,686 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 11:19:12,151 - INFO - Looking for file input or upload trigger...
+2026-01-05 11:19:12,177 - INFO - Found file input element
+2026-01-05 11:19:12,177 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_39e2e54b.mp4
+2026-01-05 11:19:12,208 - INFO - Waiting for upload to complete...
+2026-01-05 11:19:35,432 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 11:19:35,486 - ERROR - Upload failed: Page.wait_for_timeout: Target page, context or browser has been closed
+2026-01-05 11:19:35,490 - INFO - Closing browser...
+2026-01-05 11:19:36,092 - ERROR -    Reason: Upload failed: Page.wait_for_timeout: Target page, context or browser has been closed
+2026-01-05 11:19:53,687 - INFO -    File stable at 4.10 MB
+2026-01-05 11:19:53,692 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_b339d167.mp4
+2026-01-05 11:19:53,692 - INFO - Caption: b339d167 - Synapse Auto
+2026-01-05 11:19:54,265 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 11:19:55,551 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 11:19:55,551 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 11:20:02,069 - INFO - Looking for file input or upload trigger...
+2026-01-05 11:20:02,099 - INFO - Found file input element
+2026-01-05 11:20:02,099 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_b339d167.mp4
+2026-01-05 11:20:02,131 - INFO - Waiting for upload to complete...
+2026-01-05 11:21:07,157 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 11:21:12,123 - INFO - Screenshot saved: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 11:21:12,123 - INFO - Post mode disabled. Video is ready but NOT posted.
+2026-01-05 11:21:12,123 - INFO - Closing browser...
+2026-01-05 11:21:12,734 - INFO -    Screenshot: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 11:26:20,500 - INFO -    File stable at 4.10 MB
+2026-01-05 11:26:20,504 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_86417b09.mp4
+2026-01-05 11:26:20,504 - INFO - Caption: 86417b09 - Synapse Auto
+2026-01-05 11:26:21,126 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 11:26:21,672 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 11:26:21,672 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 11:26:28,890 - INFO - Looking for file input or upload trigger...
+2026-01-05 11:26:28,916 - INFO - Found file input element
+2026-01-05 11:26:28,916 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_86417b09.mp4
+2026-01-05 11:26:29,188 - INFO - Waiting for upload to complete...
+2026-01-05 11:26:41,375 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 11:26:41,380 - ERROR - Upload failed: Page.evaluate: Target page, context or browser has been closed
+2026-01-05 11:26:41,382 - INFO - Closing browser...
+2026-01-05 11:26:42,086 - ERROR -    Reason: Upload failed: Page.evaluate: Target page, context or browser has been closed
+2026-01-05 11:34:50,508 - INFO -    File stable at 0.00 MB
+2026-01-05 11:34:50,521 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_1995e48d.mp4
+2026-01-05 11:34:50,521 - INFO - Caption: 1995e48d - Synapse Auto
+2026-01-05 11:34:52,008 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 11:34:52,397 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 11:34:52,399 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 11:35:01,076 - INFO - Looking for file input or upload trigger...
+2026-01-05 11:35:01,305 - INFO - Found file input element
+2026-01-05 11:35:01,306 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_1995e48d.mp4
+2026-01-05 11:35:01,391 - INFO - Waiting for upload to complete...
+2026-01-05 11:36:06,424 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 11:36:19,463 - INFO - Screenshot saved: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 11:36:19,463 - INFO - Post mode disabled. Video is ready but NOT posted.
+2026-01-05 11:36:19,463 - INFO - Closing browser...
+2026-01-05 11:36:20,044 - INFO -    Screenshot: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 13:12:11,251 - INFO - Ignoring non-mp4 file: @p1_1c00ff38.mp4.json
+2026-01-05 13:12:14,332 - INFO -    File stable at 0.00 MB
+2026-01-05 13:15:05,602 - INFO - Ignoring non-mp4 file: @p1_cd537d50.mp4.json
+2026-01-05 13:15:08,632 - INFO -    File stable at 0.00 MB
+2026-01-05 13:21:46,150 - INFO - Ignoring non-mp4 file: @p1_6e723635.mp4.json
+2026-01-05 13:21:46,154 - INFO - Ignoring non-mp4 file: @p1_6e723635.mp4.json
+2026-01-05 13:21:49,176 - INFO -    File stable at 0.00 MB
+2026-01-05 13:21:49,193 - ERROR - File did not stabilize: @p1_6e723635.mp4
+2026-01-05 13:22:34,282 - INFO - Ignoring non-mp4 file: @p1_2c2dda40.mp4.json
+2026-01-05 13:22:34,284 - INFO - Ignoring non-mp4 file: @p1_2c2dda40.mp4.json
+2026-01-05 13:22:37,310 - INFO -    File stable at 4.10 MB
+2026-01-05 13:22:37,355 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_2c2dda40.mp4
+2026-01-05 13:22:37,355 - INFO - Caption: 2c2dda40 - Synapse Auto
+2026-01-05 13:22:37,937 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 13:22:38,498 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 13:22:38,498 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 13:22:45,623 - INFO - Looking for file input or upload trigger...
+2026-01-05 13:22:45,652 - INFO - Found file input element
+2026-01-05 13:22:45,652 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_2c2dda40.mp4
+2026-01-05 13:22:45,683 - INFO - Waiting for upload to complete...
+2026-01-05 13:23:50,699 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 13:24:03,513 - INFO - Screenshot saved: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 13:24:03,516 - INFO - Closing browser...
+2026-01-05 13:24:04,057 - INFO -    Screenshot: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 15:23:06,961 - INFO - Ignoring non-mp4 file: @p1_6f87d9b7.mp4.json
+2026-01-05 15:23:06,961 - INFO - Ignoring non-mp4 file: @p1_6f87d9b7.mp4.json
+2026-01-05 15:23:09,969 - INFO -    File stable at 4.10 MB
+2026-01-05 15:23:09,979 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_6f87d9b7.mp4
+2026-01-05 15:23:09,979 - INFO - Caption: Gravação de Tela 2026-01-05 023939 - Synapse Auto
+2026-01-05 15:23:10,713 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 15:23:11,361 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 15:23:11,361 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 15:23:18,805 - INFO - Looking for file input or upload trigger...
+2026-01-05 15:23:18,838 - INFO - Found file input element
+2026-01-05 15:23:18,838 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_6f87d9b7.mp4
+2026-01-05 15:23:18,886 - INFO - Waiting for upload to complete...
+2026-01-05 15:24:23,909 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 15:24:36,711 - INFO - Screenshot saved: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 15:24:36,714 - INFO - Closing browser...
+2026-01-05 15:24:39,116 - INFO -    Screenshot: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\static\upload_fixed.png
+2026-01-05 15:25:06,631 - INFO - Ignoring non-mp4 file: @p1_9d2655e1.mp4.json
+2026-01-05 15:25:06,631 - INFO - Ignoring non-mp4 file: @p1_9d2655e1.mp4.json
+2026-01-05 15:25:09,673 - INFO -    File stable at 4.10 MB
+2026-01-05 15:25:09,682 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_9d2655e1.mp4
+2026-01-05 15:25:09,682 - INFO - Caption: Gravação de Tela 2026-01-05 023939 - Synapse Auto
+2026-01-05 15:25:10,469 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 15:25:11,221 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 15:25:11,221 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 15:25:15,921 - ERROR - Upload failed: Page.wait_for_timeout: Target page, context or browser has been closed
+2026-01-05 15:25:15,922 - INFO - Closing browser...
+2026-01-05 15:25:17,888 - ERROR -    Reason: Upload failed: Page.wait_for_timeout: Target page, context or browser has been closed
+2026-01-05 15:25:47,449 - INFO - Ignoring non-mp4 file: @p1_1f76a060.mp4.json
+2026-01-05 15:25:47,449 - INFO - Ignoring non-mp4 file: @p1_1f76a060.mp4.json
+2026-01-05 15:25:50,469 - INFO -    File stable at 4.10 MB
+2026-01-05 15:25:50,476 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_1f76a060.mp4
+2026-01-05 15:25:50,477 - INFO - Caption: Gravação de Tela 2026-01-05 023939 - Synapse Auto
+2026-01-05 15:25:50,501 - ERROR - File did not stabilize: @p1_1f76a060.mp4
+2026-01-05 15:25:51,089 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 15:25:51,595 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 15:25:51,616 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 15:25:58,747 - INFO - Looking for file input or upload trigger...
+2026-01-05 15:25:58,781 - INFO - Found file input element
+2026-01-05 15:25:58,781 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_1f76a060.mp4
+2026-01-05 15:25:58,820 - INFO - Waiting for upload to complete...
+2026-01-05 15:26:21,246 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 15:26:21,252 - ERROR - Upload failed: Page.evaluate: Target page, context or browser has been closed
+2026-01-05 15:26:21,253 - INFO - Closing browser...
+2026-01-05 15:26:21,822 - ERROR -    Reason: Upload failed: Page.evaluate: Target page, context or browser has been closed
+2026-01-05 15:26:45,953 - INFO - Ignoring non-mp4 file: @p1_baf3874d.mp4.json
+2026-01-05 15:26:45,955 - INFO - Ignoring non-mp4 file: @p1_baf3874d.mp4.json
+2026-01-05 15:26:48,973 - INFO -    File stable at 4.10 MB
+2026-01-05 15:26:48,973 - INFO -    File stable at 4.10 MB
+2026-01-05 15:26:48,982 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_baf3874d.mp4
+2026-01-05 15:26:48,982 - INFO - Caption: Gravação de Tela 2026-01-05 023939 - Synapse Auto
+2026-01-05 15:26:49,554 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 15:26:50,487 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 15:26:50,487 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 15:26:56,927 - INFO - Looking for file input or upload trigger...
+2026-01-05 15:26:56,958 - INFO - Found file input element
+2026-01-05 15:26:56,958 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend\processing\@p1_baf3874d.mp4
+2026-01-05 15:26:56,991 - INFO - Waiting for upload to complete...
+2026-01-05 15:27:18,856 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 15:27:18,864 - ERROR - Upload failed: Page.evaluate: Target page, context or browser has been closed
+2026-01-05 15:27:18,867 - INFO - Closing browser...
+2026-01-05 15:27:19,336 - ERROR -    Reason: Upload failed: Page.evaluate: Target page, context or browser has been closed

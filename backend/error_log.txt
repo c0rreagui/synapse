@@ -1,0 +1,1 @@
+❌ Test Failed: AssertionError: Title mismatch. Expected 'Fábrica de Conteúdo', got 'SYNAPSE'

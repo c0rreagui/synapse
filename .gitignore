@@ -1,0 +1,19 @@
+# Dependencies
+backend/venv/
+backend/__pycache__/
+frontend/node_modules/
+frontend/.next/
+
+# Environment Variables
+.env
+*.env
+.env.local
+
+# Media Storage (Local)
+backend/media/
+*.mp4
+*.mov
+
+# IDE
+.vscode/
+.idea/

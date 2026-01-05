@@ -1,0 +1,2026 @@
+<!-- Dashboard (Command Center) -->
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Synapse Command Center</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#8b55f7",
+                        "primary-dark": "#6d42c3",
+                        "secondary": "#3b82f6","background-dark": "#050507",
+                        "surface-dark": "#0a0a0e",
+                        "border-dark": "rgba(255, 255, 255, 0.08)",
+                        "success": "#00ff9d","warning": "#fa6c38",
+                        "idle": "#fbbf24",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"],
+                    },
+                    backgroundImage: {
+                        'synapse-gradient': 'radial-gradient(circle at 50% -20%, rgba(139, 85, 247, 0.25), transparent 70%)',
+                        'grid-pattern': 'linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px)',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'radar-ping': 'ping 2s cubic-bezier(0, 0, 0.2, 1) infinite',
+                        'scan-rotate': 'spin 8s linear infinite',
+                        'data-flow': 'dataFlow 2s linear infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                        'float-delayed': 'float 6s ease-in-out 3s infinite',
+                        'glow-pulse': 'glowPulse 3s ease-in-out infinite',
+                        'spin-slow': 'spin 12s linear infinite',
+                        'reverse-spin': 'spin 15s linear infinite reverse',
+                    },
+                    keyframes: {
+                        dataFlow: {
+                            '0%': { transform: 'translateX(-100%)' },
+                            '100%': { transform: 'translateX(200%)' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        glowPulse: {
+                            '0%, 100%': { boxShadow: '0 0 10px rgba(139, 85, 247, 0.2)' },
+                            '50%': { boxShadow: '0 0 25px rgba(139, 85, 247, 0.6)' },
+                        }
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #050507;
+            color: #e2e8f0;
+        }
+        .synapse-grid {
+            background-size: 40px 40px;
+            mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
+        }
+        .glass-panel {
+            background: linear-gradient(180deg, rgba(16, 18, 27, 0.7) 0%, rgba(8, 8, 10, 0.85) 100%);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glass-panel::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(800px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 255, 255, 0.03), transparent 40%);
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .glass-panel:hover::after {
+            opacity: 1;
+        }
+        .glass-panel:hover {
+            border-color: rgba(139, 85, 247, 0.3);
+            box-shadow: 0 0 30px rgba(139, 85, 247, 0.15), inset 0 0 20px rgba(139, 85, 247, 0.05);
+            transform: translateY(-1px);
+        }
+        .data-flow-line {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 2px;
+            width: 100%;
+            background: linear-gradient(90deg, transparent, #00ff9d, transparent);transform: translateX(-100%);
+            animation: dataFlow 3s ease-in-out infinite;
+            filter: drop-shadow(0 0 5px #00ff9d);
+        }
+        .radar-scan-beam {
+            background: conic-gradient(from 0deg, transparent 0deg, rgba(139, 85, 247, 0.05) 60deg, rgba(139, 85, 247, 0.3) 90deg, rgba(255, 255, 255, 0.5) 90.1deg, transparent 90.5deg);
+            border-radius: 50%;
+            filter: drop-shadow(0 0 10px rgba(139, 85, 247, 0.5));
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #2d2440;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #8b55f7;
+        }
+        .nav-item-active {
+            background: linear-gradient(90deg, rgba(139,85,247,0.15) 0%, rgba(139,85,247,0) 100%);
+            border-left: 2px solid #8b55f7;
+        }
+        .neon-text {
+            text-shadow: 0 0 10px rgba(0, 255, 157, 0.5);
+        }
+        .connection-line {
+            stroke-dasharray: 4;
+            animation: dash 30s linear infinite;
+        }
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -1000;
+            }
+        }
+    </style>
+</head>
+<body class="font-display overflow-hidden relative selection:bg-primary/30 selection:text-white">
+<div class="fixed inset-0 z-0 bg-[#050507]"></div>
+<div class="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 blur-[150px] rounded-full opacity-40 pointer-events-none"></div>
+<div class="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/10 blur-[150px] rounded-full opacity-30 pointer-events-none"></div>
+<div class="absolute inset-0 z-0 synapse-grid bg-grid-pattern opacity-20 pointer-events-none"></div>
+<div class="absolute top-0 left-0 w-full h-[600px] bg-synapse-gradient opacity-40 pointer-events-none z-0"></div>
+<div class="flex h-screen w-full relative z-10">
+<div class="hidden md:flex flex-col w-72 border-r border-white/5 bg-[#050507]/60 backdrop-blur-2xl p-4 justify-between h-full relative z-50">
+<div class="flex flex-col gap-8">
+<div class="flex items-center gap-3 px-2 py-2">
+<div class="size-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-[0_0_20px_rgba(139,85,247,0.4)] relative overflow-hidden group">
+<div class="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+<span class="material-symbols-outlined text-white text-[24px]">neurology</span>
+</div>
+<div class="flex flex-col">
+<h1 class="text-white text-lg font-bold tracking-tight font-display">SYNAPSE</h1>
+<p class="text-primary/60 text-[10px] font-mono tracking-[0.2em]">ORCHESTRATOR_V4</p>
+</div>
+</div>
+<nav class="flex flex-col gap-1.5">
+<p class="px-4 text-[10px] font-bold text-[#475569] uppercase tracking-wider mb-2 font-mono">Operations</p>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg nav-item-active text-white group relative overflow-hidden" href="#">
+<div class="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<span class="material-symbols-outlined text-[20px] text-primary drop-shadow-[0_0_8px_rgba(139,85,247,0.8)]">dashboard</span>
+<span class="text-sm font-medium tracking-wide">Command Center</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-[#94a3b8] hover:text-white group relative overflow-hidden transition-colors" href="#">
+<div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">folder_open</span>
+<span class="text-sm font-medium tracking-wide">Dark Profiles</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-[#94a3b8] hover:text-white group relative overflow-hidden transition-colors" href="#">
+<div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">show_chart</span>
+<span class="text-sm font-medium tracking-wide">Growth Metrics</span>
+</a>
+<p class="px-4 text-[10px] font-bold text-[#475569] uppercase tracking-wider mb-2 mt-6 font-mono">Neural Net</p>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-[#94a3b8] hover:text-white group relative overflow-hidden transition-colors" href="#">
+<div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">hub</span>
+<span class="text-sm font-medium tracking-wide">Node Matrix</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-[#94a3b8] hover:text-white group relative overflow-hidden transition-colors" href="#">
+<div class="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<span class="material-symbols-outlined text-[20px] group-hover:text-primary transition-colors">settings_input_component</span>
+<span class="text-sm font-medium tracking-wide">Integrations</span>
+</a>
+</nav>
+</div>
+<div class="glass-panel rounded-xl p-3 flex items-center gap-3 border border-white/5 hover:border-primary/30 transition-all cursor-pointer group">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-lg size-9 ring-1 ring-white/10 group-hover:ring-primary/50 transition-all" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBmtFcygHM-XjbaE1KOGTW22gTuqgmMV8naX8HCJq3IrwMXLY7ds26yarLQV2hF_E53X7KY2HT4Eh7u3NFFnRATricFSIFz74RDb_06RxqpwVjck5BYOgImaDzzelNNsr0L3H3dZgBs0JqsQPc9irH3hxlfw17tpfr2WC0v5d6fNVESWFA3JyMTFYSM8O2hrvOfQOWUyoCwFtq4tLnvVr8Pu6I85lOTej-RpTBmoXk7tgG39tcbcXPayz_sjX-4bbGTZGETMjoLUQ");'></div>
+<div class="flex flex-col min-w-0">
+<p class="text-sm font-medium text-white truncate group-hover:text-primary transition-colors">Administrator</p>
+<p class="text-[10px] font-mono text-[#64748b] truncate">SYS_ADMIN_01</p>
+</div>
+<span class="material-symbols-outlined text-[#64748b] ml-auto text-lg group-hover:text-white transition-colors">more_vert</span>
+</div>
+</div>
+<div class="flex-1 flex flex-col h-full overflow-hidden relative">
+<header class="flex items-center justify-between border-b border-white/5 bg-[#050507]/80 backdrop-blur-md px-8 py-4 z-40 sticky top-0">
+<div class="flex items-center gap-4">
+<h2 class="text-white text-xl font-bold leading-tight tracking-tight flex items-center gap-3">
+<span class="material-symbols-outlined text-primary shadow-primary drop-shadow-[0_0_10px_rgba(139,85,247,0.5)]">space_dashboard</span>
+                    Command Center
+                </h2>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-3 bg-[#0a0a0e] border border-white/10 rounded-full pl-2 pr-4 py-1.5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]">
+<div class="relative flex items-center justify-center size-3">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+<span class="relative inline-flex rounded-full size-2 bg-success shadow-[0_0_8px_#0bda6f]"></span>
+</div>
+<span class="text-[10px] font-mono text-success/80 tracking-wide uppercase neon-text">System Active</span>
+</div>
+<div class="h-5 w-px bg-white/10"></div>
+<div class="flex items-center gap-2">
+<button class="flex items-center justify-center size-9 rounded-full hover:bg-white/5 text-[#94a3b8] hover:text-white transition-colors relative group">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+<span class="absolute top-2 right-2.5 size-1.5 bg-primary rounded-full ring-2 ring-[#050507]"></span>
+<div class="absolute inset-0 rounded-full border border-primary/30 scale-110 opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+</button>
+<button class="flex items-center justify-center size-9 rounded-full hover:bg-white/5 text-[#94a3b8] hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+</button>
+</div>
+</div>
+</header>
+<main class="flex-1 overflow-y-auto custom-scrollbar p-6 lg:p-8">
+<div class="max-w-[1800px] mx-auto flex flex-col gap-6">
+<div class="flex justify-between items-end mb-2">
+<div class="flex flex-col gap-1">
+<h3 class="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                            Network Telemetry
+                            <span class="w-16 h-[1px] bg-gradient-to-r from-primary/50 to-transparent"></span>
+</h3>
+</div>
+<div class="flex gap-2">
+<span class="text-[10px] font-mono text-primary/80 bg-primary/5 px-2 py-1 rounded border border-primary/20">v.3.4.1-stable</span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<div class="glass-panel rounded-2xl p-6 group">
+<div class="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-all transform group-hover:scale-110 duration-500">
+<span class="material-symbols-outlined text-8xl text-primary">layers</span>
+</div>
+<div class="relative z-10 flex flex-col h-full justify-between gap-4">
+<div class="flex items-center gap-3 text-[#94a3b8]">
+<div class="p-2 rounded-lg bg-white/5 border border-white/5 shadow-inner">
+<span class="material-symbols-outlined text-primary text-xl">layers</span>
+</div>
+<span class="text-xs font-mono font-medium uppercase tracking-wider text-white/60">Pending Clips</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-bold text-white tracking-tighter tabular-nums drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">14</span>
+<span class="text-xs font-mono text-[#94a3b8]">in queue</span>
+</div>
+<div class="flex items-center gap-2 text-[10px] font-mono font-medium text-warning bg-warning/5 border border-warning/10 self-start px-2 py-1 rounded">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+                                HIGH LOAD
+                            </div>
+</div>
+<div class="data-flow-line opacity-50"></div>
+</div>
+<div class="glass-panel rounded-2xl p-6 group">
+<div class="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-all transform group-hover:scale-110 duration-500">
+<span class="material-symbols-outlined text-8xl text-success">rocket_launch</span>
+</div>
+<div class="relative z-10 flex flex-col h-full justify-between gap-4">
+<div class="flex items-center gap-3 text-[#94a3b8]">
+<div class="p-2 rounded-lg bg-white/5 border border-white/5 shadow-inner">
+<span class="material-symbols-outlined text-success text-xl">rocket_launch</span>
+</div>
+<span class="text-xs font-mono font-medium uppercase tracking-wider text-white/60">Deployed Today</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-bold text-white tracking-tighter tabular-nums drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">32</span>
+<span class="text-xs font-mono text-[#94a3b8]">clips</span>
+</div>
+<div class="flex items-center gap-2 text-[10px] font-mono font-medium text-success bg-success/5 border border-success/10 self-start px-2 py-1 rounded">
+<span class="material-symbols-outlined text-sm">arrow_upward</span>
+                                +12% EFFICIENCY
+                            </div>
+</div>
+<div class="data-flow-line opacity-50" style="animation-delay: 1s;"></div>
+</div>
+<div class="glass-panel rounded-2xl p-6 group">
+<div class="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-all transform group-hover:scale-110 duration-500">
+<span class="material-symbols-outlined text-8xl text-secondary">memory</span>
+</div>
+<div class="relative z-10 flex flex-col h-full justify-between gap-4">
+<div class="flex items-center gap-3 text-[#94a3b8]">
+<div class="p-2 rounded-lg bg-white/5 border border-white/5 shadow-inner">
+<span class="material-symbols-outlined text-secondary text-xl">memory</span>
+</div>
+<span class="text-xs font-mono font-medium uppercase tracking-wider text-white/60">Compute Nodes</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-bold text-white tracking-tighter tabular-nums drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">4m 20s</span>
+<span class="text-xs font-mono text-[#94a3b8]">avg time</span>
+</div>
+<div class="h-6 flex items-end gap-1 mt-auto">
+<div class="w-full bg-secondary/20 h-[30%] rounded-sm"></div>
+<div class="w-full bg-secondary/30 h-[50%] rounded-sm"></div>
+<div class="w-full bg-secondary/40 h-[40%] rounded-sm"></div>
+<div class="w-full bg-secondary/60 h-[70%] rounded-sm"></div>
+<div class="w-full bg-secondary/50 h-[60%] rounded-sm"></div>
+<div class="w-full bg-secondary h-[85%] rounded-sm shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
+<div class="w-full bg-secondary/40 h-[55%] rounded-sm"></div>
+</div>
+</div>
+<div class="data-flow-line opacity-50" style="animation-delay: 0.5s;"></div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[600px]">
+<div class="lg:col-span-2 glass-panel rounded-2xl p-0 relative flex flex-col border-t border-t-white/10 overflow-hidden">
+<div class="absolute top-0 left-0 w-full p-6 flex justify-between items-start z-30 pointer-events-none">
+<div class="pointer-events-auto">
+<h3 class="text-lg font-bold text-white flex items-center gap-3 font-display">
+<span class="flex size-2 rounded-full bg-success shadow-[0_0_10px_#00ff9d] animate-pulse"></span>
+                                    Watch Folder Matrix
+                                </h3>
+<div class="flex items-center gap-2 mt-2">
+<p class="text-[10px] text-[#94a3b8] font-mono tracking-wide bg-black/40 px-2 py-0.5 rounded border border-white/5">PATH: /mnt/data/ingest/*.mp4</p>
+</div>
+</div>
+<div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-success/5 border border-success/20 backdrop-blur-md text-success text-[10px] font-bold uppercase tracking-wider shadow-[0_0_15px_rgba(0,255,157,0.1)]">
+<span class="material-symbols-outlined text-sm animate-spin">sync</span>
+                                Live Scanning
+                            </div>
+</div>
+<div class="absolute inset-0 flex items-center justify-center overflow-hidden bg-[#030304]">
+<svg class="absolute inset-0 w-full h-full z-10 pointer-events-none">
+<defs>
+<linearGradient id="lineGradient" x1="0%" x2="100%" y1="0%" y2="0%">
+<stop offset="0%" stop-color="rgba(139, 85, 247, 0.0)"></stop>
+<stop offset="50%" stop-color="rgba(139, 85, 247, 0.4)"></stop>
+<stop offset="100%" stop-color="rgba(139, 85, 247, 0.0)"></stop>
+</linearGradient>
+</defs>
+<line class="connection-line" stroke="url(#lineGradient)" stroke-width="1" x1="50%" x2="25%" y1="50%" y2="25%"></line>
+<line class="connection-line" stroke="url(#lineGradient)" stroke-width="1" style="animation-delay: -15s;" x1="50%" x2="80%" y1="50%" y2="70%"></line>
+<circle cx="50%" cy="50%" fill="none" r="225" stroke="rgba(255,255,255,0.03)" stroke-dasharray="4 4" stroke-width="1"></circle>
+</svg>
+<div class="absolute inset-0" style="background-image: radial-gradient(rgba(139, 85, 247, 0.05) 1px, transparent 1px); background-size: 30px 30px; opacity: 0.3;"></div>
+<div class="absolute size-[600px] border border-white/5 rounded-full"></div>
+<div class="absolute size-[450px] border border-white/5 rounded-full border-dashed animate-spin" style="animation-duration: 60s;"></div>
+<div class="absolute size-[300px] border border-primary/20 rounded-full shadow-[0_0_30px_rgba(139,85,247,0.1)]"></div>
+<div class="absolute size-[160px] flex items-center justify-center z-20">
+<div class="absolute inset-0 rounded-full border border-primary/30 border-t-primary/80 animate-spin-slow"></div>
+<div class="absolute inset-2 rounded-full border border-secondary/30 border-b-secondary/80 animate-reverse-spin"></div>
+<div class="absolute size-[100px] rounded-full bg-[#050507] border border-primary/50 shadow-[0_0_50px_rgba(139,85,247,0.4)] flex items-center justify-center group cursor-pointer hover:scale-105 transition-transform overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-tr from-primary/20 to-secondary/20 animate-pulse"></div>
+<div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent opacity-50"></div>
+<span class="material-symbols-outlined text-5xl text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.9)] relative z-10">neurology</span>
+<div class="absolute w-full h-[1px] bg-primary/50 top-1/2 animate-ping opacity-20"></div>
+<div class="absolute h-full w-[1px] bg-primary/50 left-1/2 animate-ping opacity-20" style="animation-delay: 0.5s"></div>
+</div>
+<div class="absolute inset-[-10px] animate-spin-slow" style="animation-duration: 8s;">
+<div class="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-white rounded-full shadow-[0_0_10px_white]"></div>
+</div>
+</div>
+<div class="absolute size-[600px] rounded-full animate-scan-rotate radar-scan-beam opacity-40 z-10 pointer-events-none"></div>
+<div class="absolute top-[25%] left-[25%] flex flex-col items-center gap-3 animate-float z-30 group cursor-pointer">
+<div class="relative">
+<div class="absolute -inset-2 rounded-xl bg-primary/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="bg-[#0f0f13] border border-primary/40 text-white p-3 rounded-xl shadow-[0_0_20px_rgba(139,85,247,0.2)] group-hover:border-primary group-hover:shadow-[0_0_30px_rgba(139,85,247,0.5)] transition-all relative">
+<span class="material-symbols-outlined text-2xl">movie</span>
+<div class="absolute -top-1 -right-1 size-3 bg-success rounded-full shadow-[0_0_8px_#00ff9d] border-2 border-[#0f0f13]"></div>
+</div>
+</div>
+<div class="flex flex-col items-center gap-1">
+<div class="text-[10px] text-white bg-black/80 backdrop-blur px-2 py-0.5 rounded border border-white/10 font-mono tracking-wider">clip_22.mp4</div>
+<div class="text-[8px] text-success font-mono uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Ready to Deploy</div>
+</div>
+</div>
+<div class="absolute bottom-[30%] right-[20%] flex flex-col items-center gap-3 animate-float-delayed z-30 group cursor-pointer">
+<div class="relative">
+<div class="absolute -inset-2 rounded-xl bg-primary/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="bg-[#0f0f13] border border-primary/40 text-white p-3 rounded-xl shadow-[0_0_20px_rgba(139,85,247,0.2)] group-hover:border-primary group-hover:shadow-[0_0_30px_rgba(139,85,247,0.5)] transition-all relative">
+<span class="material-symbols-outlined text-2xl">movie</span>
+<div class="absolute -top-1 -right-1 size-3 bg-success rounded-full shadow-[0_0_8px_#00ff9d] border-2 border-[#0f0f13]"></div>
+</div>
+</div>
+<div class="flex flex-col items-center gap-1">
+<div class="text-[10px] text-white bg-black/80 backdrop-blur px-2 py-0.5 rounded border border-white/10 font-mono tracking-wider">promo_v3.mp4</div>
+<div class="text-[8px] text-success font-mono uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Processing</div>
+</div>
+</div>
+<div class="absolute top-[20%] right-[30%] flex flex-col items-center gap-2 animate-pulse-slow z-20 opacity-60">
+<div class="size-2 bg-warning rounded-full shadow-[0_0_10px_#fa6c38]"></div>
+<span class="text-[9px] font-mono text-warning tracking-wider">SCANNING_NEW_FILES...</span>
+</div>
+</div>
+<div class="mt-auto z-30 bg-gradient-to-t from-[#050507] via-[#050507]/90 to-transparent p-6 pt-16 pointer-events-none">
+<div class="glass-panel p-3 rounded-xl border border-white/5 pointer-events-auto w-full max-w-sm ml-auto mr-0 backdrop-blur-xl">
+<div class="flex items-center gap-2 mb-3 px-1 border-b border-white/5 pb-2">
+<span class="size-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_5px_#8b55f7]"></span>
+<span class="text-[10px] font-bold text-white uppercase tracking-widest font-mono">Ingestion Log</span>
+</div>
+<div class="space-y-1">
+<div class="flex items-center justify-between text-xs p-2 rounded hover:bg-white/5 transition-colors cursor-default group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-sm text-primary">downloading</span>
+<span class="text-gray-200 font-mono text-[11px] group-hover:text-white transition-colors">interview_raw_04.mp4</span>
+</div>
+<span class="text-[#64748b] font-mono text-[10px]">2s ago</span>
+</div>
+<div class="flex items-center justify-between text-xs p-2 rounded hover:bg-white/5 transition-colors cursor-default opacity-60 hover:opacity-100">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-sm text-success">check_circle</span>
+<span class="text-gray-200 font-mono text-[11px]">social_cut_01.mp4</span>
+</div>
+<span class="text-[#64748b] font-mono text-[10px]">45s ago</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-6 h-full">
+<div class="flex items-center justify-between">
+<h3 class="text-lg font-bold text-white flex items-center gap-2">
+<span class="material-symbols-outlined text-success">monitor_heart</span>
+                                Neural Health
+                            </h3>
+<button class="text-[10px] font-mono text-primary hover:text-white transition-colors uppercase tracking-wider">View All Nodes</button>
+</div>
+<div class="flex flex-col gap-4 flex-1">
+<div class="glass-panel p-4 rounded-xl flex items-center justify-between group hover:border-primary/40 transition-all cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="relative">
+<div class="size-10 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)] group-hover:shadow-[0_0_25px_rgba(239,68,68,0.3)] transition-shadow">
+<svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"></path></svg>
+</div>
+<div class="absolute -bottom-1 -right-1 size-2.5 bg-[#050507] rounded-full flex items-center justify-center">
+<div class="size-1.5 bg-success rounded-full shadow-[0_0_5px_#00ff9d]"></div>
+</div>
+</div>
+<div>
+<h4 class="text-white font-semibold text-sm">YouTube Shorts</h4>
+<span class="text-[9px] font-mono text-[#94a3b8] uppercase tracking-wide">API Connected</span>
+</div>
+</div>
+<div class="text-right">
+<div class="flex flex-col items-end">
+<span class="text-xs font-mono text-success">45ms</span>
+<div class="flex gap-0.5 mt-1">
+<div class="w-1 h-2 bg-success rounded-sm"></div>
+<div class="w-1 h-2 bg-success rounded-sm"></div>
+<div class="w-1 h-2 bg-success/30 rounded-sm"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="glass-panel p-4 rounded-xl flex items-center justify-between group hover:border-secondary/40 transition-all cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="relative">
+<div class="size-10 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary border border-secondary/20 shadow-[0_0_15px_rgba(59,130,246,0.1)] group-hover:shadow-[0_0_25px_rgba(59,130,246,0.3)] transition-shadow">
+<svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"></path></svg>
+</div>
+<div class="absolute -bottom-1 -right-1 size-2.5 bg-[#050507] rounded-full flex items-center justify-center">
+<div class="size-1.5 bg-idle rounded-full"></div>
+</div>
+</div>
+<div>
+<h4 class="text-white font-semibold text-sm">LinkedIn Video</h4>
+<span class="text-[9px] font-mono text-[#94a3b8] uppercase tracking-wide">Awaiting Token</span>
+</div>
+</div>
+<div class="text-right">
+<button class="text-[9px] bg-idle/10 text-idle px-2 py-1 rounded border border-idle/20 hover:bg-idle/20 transition-colors uppercase font-mono tracking-wider">Refresh</button>
+</div>
+</div>
+<div class="glass-panel p-4 rounded-xl flex items-center justify-between group hover:border-pink-500/40 transition-all cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="relative">
+<div class="size-10 rounded-lg bg-pink-500/10 flex items-center justify-center text-pink-500 border border-pink-500/20 shadow-[0_0_15px_rgba(236,72,153,0.1)] group-hover:shadow-[0_0_25px_rgba(236,72,153,0.3)] transition-shadow">
+<svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93v6.16c0 2.52-1.12 4.84-2.9 6.24-1.72 1.36-4.04 1.86-6.23 1.3-3.17-.79-5.35-3.66-5.32-6.9-.02-3.4 2.59-6.31 5.96-6.66 1.43-.16 2.87.16 4.15.86v4.06c-1.21-.86-2.89-.9-4.13-.12-1.56.96-2.02 2.99-1.07 4.56.94 1.57 2.97 2.05 4.53 1.12.87-.52 1.41-1.45 1.41-2.47v-16.2z"></path></svg>
+</div>
+<div class="absolute -bottom-1 -right-1 size-2.5 bg-[#050507] rounded-full flex items-center justify-center">
+<div class="size-1.5 bg-success rounded-full shadow-[0_0_5px_#00ff9d]"></div>
+</div>
+</div>
+<div>
+<h4 class="text-white font-semibold text-sm">TikTok</h4>
+<span class="text-[9px] font-mono text-[#94a3b8] uppercase tracking-wide">Ready for Upload</span>
+</div>
+</div>
+<div class="text-right">
+<span class="block text-[9px] text-[#64748b] uppercase font-mono tracking-wider">Queue</span>
+<span class="text-sm font-bold text-white">Empty</span>
+</div>
+</div>
+<div class="glass-panel p-4 rounded-xl flex-1 flex flex-col gap-3 mt-auto border border-red-500/20 bg-red-900/5">
+<div class="flex justify-between items-center border-b border-white/5 pb-2">
+<h4 class="text-red-200 font-bold text-xs uppercase tracking-wider font-mono">System Alerts</h4>
+<span class="size-1.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_#ef4444]"></span>
+</div>
+<div class="flex flex-col gap-2">
+<div class="flex items-start gap-3 text-xs p-2 rounded bg-red-500/5 border border-red-500/10">
+<span class="material-symbols-outlined text-sm text-red-500 mt-0.5">warning</span>
+<div class="flex flex-col">
+<span class="text-red-200 font-medium">Upload Timeout</span>
+<span class="text-red-400/60 text-[10px] font-mono">ERR_504_GATEWAY</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="glass-panel rounded-2xl overflow-hidden mb-6">
+<div class="px-6 py-5 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+<h3 class="text-lg font-bold text-white flex items-center gap-2">
+<span class="material-symbols-outlined text-primary/70">history</span>
+                            Event Stream
+                        </h3>
+<div class="flex gap-2">
+<button class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-xs text-[#94a3b8] hover:text-white hover:bg-white/10 transition-colors font-mono tracking-wide">FILTER VIEW</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left text-sm text-[#94a3b8]">
+<thead class="bg-white/5 text-xs uppercase font-semibold text-[#64748b] tracking-wider font-mono">
+<tr>
+<th class="px-6 py-4">Asset ID</th>
+<th class="px-6 py-4">Destination</th>
+<th class="px-6 py-4">Status</th>
+<th class="px-6 py-4">Duration</th>
+<th class="px-6 py-4 text-right">Timestamp</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-white/5">
+<tr class="hover:bg-white/[0.02] transition-colors group">
+<td class="px-6 py-4 font-medium text-white flex items-center gap-4">
+<div class="size-8 rounded-lg bg-[#0f0f13] flex items-center justify-center text-primary border border-white/5 group-hover:border-primary/50 transition-colors shadow-lg">
+<span class="material-symbols-outlined text-base">play_circle</span>
+</div>
+<span class="font-mono text-xs text-primary/80">marketing_vid_final_v2.mp4</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-base">smart_display</span>
+                                            YouTube Shorts
+                                        </div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-success/10 text-success border border-success/20 shadow-[0_0_10px_rgba(11,218,111,0.1)]">
+<span class="size-1.5 rounded-full bg-success shadow-[0_0_5px_#0bda6f]"></span>
+                                            Published
+                                        </span>
+</td>
+<td class="px-6 py-4 font-mono text-xs">00:58:12</td>
+<td class="px-6 py-4 text-right font-mono text-xs text-white/50">14:02:45</td>
+</tr>
+<tr class="hover:bg-white/[0.02] transition-colors group">
+<td class="px-6 py-4 font-medium text-white flex items-center gap-4">
+<div class="size-8 rounded-lg bg-[#0f0f13] flex items-center justify-center text-primary border border-white/5 group-hover:border-primary/50 transition-colors shadow-lg">
+<span class="material-symbols-outlined text-base">play_circle</span>
+</div>
+<span class="font-mono text-xs text-primary/80">behind_scenes_ep4.mp4</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-base">music_note</span>
+                                            TikTok
+                                        </div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 shadow-[0_0_10px_rgba(139,85,247,0.1)]">
+<span class="size-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_5px_#8b55f7]"></span>
+                                            Processing
+                                        </span>
+</td>
+<td class="px-6 py-4 font-mono text-xs">01:30:00</td>
+<td class="px-6 py-4 text-right font-mono text-xs text-white/50">13:58:10</td>
+</tr>
+<tr class="hover:bg-white/[0.02] transition-colors group">
+<td class="px-6 py-4 font-medium text-white flex items-center gap-4">
+<div class="size-8 rounded-lg bg-[#0f0f13] flex items-center justify-center text-primary border border-white/5 group-hover:border-primary/50 transition-colors shadow-lg">
+<span class="material-symbols-outlined text-base">play_circle</span>
+</div>
+<span class="font-mono text-xs text-primary/80">podcast_clip_tech.mp4</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-base">work</span>
+                                            LinkedIn
+                                        </div>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-warning/10 text-warning border border-warning/20">
+<span class="size-1.5 rounded-full bg-warning"></span>
+                                            Queued
+                                        </span>
+</td>
+<td class="px-6 py-4 font-mono text-xs">02:15:00</td>
+<td class="px-6 py-4 text-right font-mono text-xs text-white/50">13:45:22</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+</body></html>
+
+<!-- Distribution -->
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Synapse - Distribution Flow</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "background-dark": "#050507",
+                        "surface-dark": "#0A0A0E",
+                        "surface-highlight": "#13131F",
+                        "synapse-blue": "#3b82f6",
+                        "synapse-purple": "#a855f7",
+                        "neon-blue": "#00f0ff",
+                        "neon-purple": "#bc13fe",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"],
+                    },
+                    boxShadow: {
+                        'glow-blue': '0 0 20px rgba(59, 130, 246, 0.3)',
+                        'glow-purple': '0 0 20px rgba(168, 85, 247, 0.3)',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'flow-h': 'flowHorizontal 3s linear infinite',
+                    },
+                    keyframes: {
+                        flowHorizontal: {
+                            '0%': { backgroundPosition: '100% 0' },
+                            '100%': { backgroundPosition: '-100% 0' },
+                        }
+                    }
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        .glass-panel {
+            @apply bg-[#0A0A0E]/60 backdrop-blur-xl border border-white/5;
+        }
+        .glass-panel-hover {
+            @apply hover:bg-[#0A0A0E]/80 hover:border-white/10 transition-all duration-300;
+        }
+        .text-gradient {
+            @apply bg-clip-text text-transparent bg-gradient-to-r from-synapse-blue to-synapse-purple;
+        }
+        .border-gradient-bottom {
+            background: linear-gradient(to right, #3b82f6, #a855f7) bottom no-repeat;
+            background-size: 100% 1px;
+        }::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #050507; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e1e2e; 
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3b82f6; 
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.filled {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+</head>
+<body class="bg-background-dark font-display text-slate-200 h-screen overflow-hidden flex selection:bg-synapse-blue/30">
+<div class="fixed inset-0 pointer-events-none z-0">
+<div class="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] rounded-full bg-synapse-blue/5 blur-[120px] mix-blend-screen animate-pulse-slow"></div>
+<div class="absolute bottom-[-20%] left-[-10%] w-[800px] h-[800px] rounded-full bg-synapse-purple/5 blur-[120px] mix-blend-screen animate-pulse-slow" style="animation-delay: 2s;"></div>
+<div class="absolute top-[40%] left-[50%] -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-indigo-500/5 blur-[100px]"></div>
+<div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTTAgNDBMMCAwTDQwIDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgyNTUsIDI1NSwgMjU1LCAwLjAzKSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIiAvPjwvc3ZnPg==')] opacity-20"></div>
+</div>
+<aside class="hidden lg:flex w-72 flex-col border-r border-white/5 bg-[#050507]/90 backdrop-blur-xl h-full shrink-0 z-20 relative">
+<div class="flex h-full flex-col justify-between p-6">
+<div class="space-y-8">
+<div class="px-2">
+<h1 class="text-white text-2xl font-bold tracking-tight flex items-center gap-3">
+<div class="relative flex items-center justify-center w-8 h-8">
+<div class="absolute inset-0 rounded-lg bg-gradient-to-tr from-synapse-blue to-synapse-purple opacity-20 blur-sm"></div>
+<span class="material-symbols-outlined text-transparent bg-clip-text bg-gradient-to-tr from-synapse-blue to-synapse-purple filled">neurology</span>
+</div>
+                        Synapse
+                    </h1>
+<div class="flex items-center gap-2 mt-2 ml-1">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+<p class="text-slate-500 text-[10px] font-mono uppercase tracking-widest">System Operational</p>
+</div>
+</div>
+<nav class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-synapse-blue transition-colors">grid_view</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/5 relative overflow-hidden group shadow-[0_0_15px_rgba(0,0,0,0.5)]" href="#">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-synapse-blue to-synapse-purple shadow-[0_0_10px_#3b82f6]"></div>
+<span class="material-symbols-outlined filled text-white text-[20px] relative z-10">hub</span>
+<span class="text-sm font-medium text-white relative z-10">Distribution</span>
+<div class="absolute right-4 w-1.5 h-1.5 rounded-full bg-synapse-purple animate-pulse"></div>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-synapse-purple transition-colors">monitor_heart</span>
+<span class="text-sm font-medium">Health</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-synapse-blue transition-colors">analytics</span>
+<span class="text-sm font-medium">Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:text-synapse-purple transition-colors">settings_suggest</span>
+<span class="text-sm font-medium">Configuration</span>
+</a>
+</nav>
+</div>
+<div class="px-2">
+<div class="glass-panel p-3 rounded-xl flex items-center gap-3 hover:border-synapse-blue/30 transition-colors cursor-pointer group">
+<div class="relative">
+<div class="size-9 rounded-full bg-cover bg-center ring-2 ring-white/10 group-hover:ring-synapse-blue/50 transition-all" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDb_aPtJFiJxyJCuMQxoCqxWu7YJFML8PNJabzsb4PpFDqlJ-hyyEcrB0cyEvwdEJqEjA1huBQexhe617Db_b-vMWDvK3ecyrMgVnB5McMJFm78IfBXsPllqmfQ8cB5zde3EInxSk83ATZ6ta4b2lNwzPQX-YVUol0w4A54HkQPo8bR40gUUfmqY_1uGlbMHunshmvxuxMw_QStN3J5sEK0huIlOZFiyNvemsj90CeIh2uNnwewDnp7iwrp96yr2xdPhAIZa9kR8g");'></div>
+<div class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-background-dark rounded-full flex items-center justify-center">
+<div class="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+</div>
+</div>
+<div class="overflow-hidden">
+<p class="truncate text-sm font-semibold text-white group-hover:text-synapse-blue transition-colors">Admin User</p>
+<p class="truncate text-[10px] text-slate-500 font-mono">ROOT_ACCESS</p>
+</div>
+<span class="material-symbols-outlined ml-auto text-slate-500 text-sm">more_vert</span>
+</div>
+</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-background-dark relative z-10">
+<div class="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-synapse-blue/50 to-transparent z-30"></div>
+<header class="flex items-center justify-between whitespace-nowrap border-b border-white/5 px-8 md:px-12 py-5 bg-background-dark/80 backdrop-blur-xl z-20 sticky top-0">
+<div class="flex items-center gap-6">
+<button class="lg:hidden text-white hover:text-synapse-blue transition-colors">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<div>
+<div class="flex items-center gap-3">
+<h2 class="text-white text-xl font-bold tracking-tight">Distribution Flow</h2>
+<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/5 text-synapse-blue border border-synapse-blue/20 font-mono">NODE-01: ACTIVE</span>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<span class="material-symbols-outlined text-[14px] text-synapse-purple">grain</span>
+<span class="text-xs text-slate-400 font-medium">Orchestrating 3 active streams</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden sm:flex items-center gap-3">
+<button class="relative overflow-hidden group rounded-lg px-5 py-2.5 bg-white/5 border border-white/10 hover:border-synapse-blue/50 transition-all">
+<div class="absolute inset-0 bg-gradient-to-r from-synapse-blue/20 to-synapse-purple/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<span class="relative flex items-center gap-2 text-sm font-bold text-white">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+                            New Pathway
+                        </span>
+</button>
+<div class="h-8 w-[1px] bg-white/10 mx-1"></div>
+<button class="size-10 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-slate-400 hover:text-white">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<button class="size-10 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-slate-400 hover:text-white">
+<span class="material-symbols-outlined text-[20px]">terminal</span>
+</button>
+</div>
+</div>
+</header>
+<div class="flex-1 overflow-y-auto p-8 md:px-16 md:py-10 space-y-10 scroll-smooth custom-scrollbar">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="glass-panel glass-panel-hover rounded-2xl p-6 relative overflow-hidden group">
+<div class="absolute -right-10 -top-10 w-32 h-32 bg-green-500/10 rounded-full blur-3xl group-hover:bg-green-500/20 transition-all"></div>
+<div class="flex justify-between items-start z-10 relative mb-4">
+<div class="flex items-center gap-2 text-slate-400 text-sm font-medium">
+<span class="material-symbols-outlined text-[18px]">scatter_plot</span>
+                            Neural Integrity
+                        </div>
+<span class="flex h-2 w-2 relative">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+</span>
+</div>
+<div class="flex items-baseline gap-2 z-10 relative">
+<span class="text-4xl font-bold text-white tracking-tight">99.8%</span>
+<span class="text-green-400 text-xs font-mono bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20">OPTIMAL</span>
+</div>
+<div class="mt-4 pt-4 border-t border-white/5 flex justify-between items-center z-10 relative">
+<span class="text-xs text-slate-500 font-mono">UPTIME: 42D 12H</span>
+<div class="flex gap-1">
+<div class="w-1 h-3 bg-green-500/40 rounded-sm"></div>
+<div class="w-1 h-3 bg-green-500/60 rounded-sm"></div>
+<div class="w-1 h-3 bg-green-500/80 rounded-sm"></div>
+<div class="w-1 h-3 bg-green-500 rounded-sm"></div>
+</div>
+</div>
+</div>
+<div class="glass-panel glass-panel-hover rounded-2xl p-6 relative overflow-hidden group">
+<div class="absolute -right-10 -top-10 w-32 h-32 bg-synapse-blue/10 rounded-full blur-3xl group-hover:bg-synapse-blue/20 transition-all"></div>
+<div class="flex justify-between items-start z-10 relative mb-4">
+<div class="flex items-center gap-2 text-slate-400 text-sm font-medium">
+<span class="material-symbols-outlined text-[18px]">timeline</span>
+                            Synaptic Throughput
+                        </div>
+<span class="material-symbols-outlined text-synapse-blue text-[20px]">trending_up</span>
+</div>
+<div class="flex items-baseline gap-2 z-10 relative">
+<span class="text-4xl font-bold text-white tracking-tight">12.5</span>
+<span class="text-slate-400 text-sm font-medium">Mbps</span>
+</div>
+<div class="mt-5 h-1.5 w-full bg-white/5 rounded-full overflow-hidden relative">
+<div class="absolute inset-0 bg-gradient-to-r from-synapse-blue to-synapse-purple w-[75%] rounded-full">
+<div class="absolute inset-0 bg-white/30 animate-flow-h" style="background-image: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent); background-size: 50% 100%; background-repeat: no-repeat;"></div>
+</div>
+</div>
+</div>
+<div class="glass-panel glass-panel-hover rounded-2xl p-6 relative overflow-hidden group">
+<div class="absolute -right-10 -top-10 w-32 h-32 bg-synapse-purple/10 rounded-full blur-3xl group-hover:bg-synapse-purple/20 transition-all"></div>
+<div class="flex justify-between items-start z-10 relative mb-4">
+<div class="flex items-center gap-2 text-slate-400 text-sm font-medium">
+<span class="material-symbols-outlined text-[18px]">memory</span>
+                            Active Nodes
+                        </div>
+<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-synapse-purple/10 text-synapse-purple border border-synapse-purple/20">SCALING</span>
+</div>
+<div class="flex items-baseline gap-1 z-10 relative">
+<span class="text-4xl font-bold text-white tracking-tight">3</span>
+<span class="text-slate-500 text-xl font-normal">/5</span>
+</div>
+<div class="mt-4 pt-4 border-t border-white/5 flex gap-2 z-10 relative">
+<div class="flex-1 bg-synapse-purple/20 h-1 rounded-full overflow-hidden">
+<div class="h-full w-full bg-synapse-purple shadow-[0_0_10px_#a855f7]"></div>
+</div>
+<div class="flex-1 bg-synapse-purple/20 h-1 rounded-full overflow-hidden">
+<div class="h-full w-full bg-synapse-purple shadow-[0_0_10px_#a855f7]"></div>
+</div>
+<div class="flex-1 bg-synapse-purple/20 h-1 rounded-full overflow-hidden">
+<div class="h-full w-full bg-synapse-purple shadow-[0_0_10px_#a855f7]"></div>
+</div>
+<div class="flex-1 bg-white/5 h-1 rounded-full"></div>
+<div class="flex-1 bg-white/5 h-1 rounded-full"></div>
+</div>
+</div>
+</div>
+<div class="space-y-6">
+<div class="flex items-center justify-between">
+<h2 class="text-white text-lg font-bold flex items-center gap-3">
+<span class="p-1.5 rounded-lg bg-synapse-blue/10 text-synapse-blue">
+<span class="material-symbols-outlined text-[20px]">polyline</span>
+</span>
+                        Active Data Pathways
+                    </h2>
+<button class="text-xs font-bold text-slate-400 hover:text-white uppercase tracking-wider flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[16px]">refresh</span>
+                        Refresh State
+                    </button>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+<div class="glass-panel rounded-2xl p-1 relative overflow-hidden group transition-all duration-300 hover:shadow-glow-blue hover:border-synapse-blue/30">
+<div class="bg-[#050507]/40 backdrop-blur-sm p-6 rounded-xl h-full flex flex-col gap-6 relative z-10">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-4">
+<div class="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)]">
+<span class="material-symbols-outlined filled text-[24px]">play_circle</span>
+</div>
+<div>
+<h3 class="text-white font-bold tracking-tight">YouTube Main</h3>
+<div class="flex items-center gap-1.5 mt-1">
+<span class="w-1.5 h-1.5 bg-green-500 rounded-full shadow-[0_0_5px_#22c55e]"></span>
+<span class="text-[10px] font-bold text-green-500 uppercase tracking-wider">Transmitting</span>
+</div>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox" value=""/>
+<div class="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-synapse-blue"></div>
+</label>
+</div>
+<div class="relative h-24 bg-black/40 rounded-lg border border-white/5 flex items-end justify-between px-3 pb-2 gap-1 overflow-hidden group-hover:border-synapse-blue/20 transition-colors">
+<div class="absolute top-2 right-2 flex items-center gap-1.5 px-2 py-1 rounded bg-black/60 border border-white/10 backdrop-blur-md z-20">
+<span class="w-1.5 h-1.5 rounded-full bg-synapse-blue animate-pulse"></span>
+<span class="text-[10px] font-mono text-white">4,500 kbps</span>
+</div>
+<div class="w-full h-full absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+')] opacity-20"></div>
+<div class="w-2 bg-gradient-to-t from-synapse-blue/20 to-synapse-purple/20 h-[40%] rounded-sm"></div>
+<div class="w-2 bg-gradient-to-t from-synapse-blue/40 to-synapse-purple/40 h-[60%] rounded-sm"></div>
+<div class="w-2 bg-gradient-to-t from-synapse-blue/60 to-synapse-purple/60 h-[50%] rounded-sm"></div>
+<div class="w-2 bg-gradient-to-t from-synapse-blue to-synapse-purple h-[75%] rounded-sm shadow-[0_0_10px_#3b82f6]"></div>
+<div class="w-2 bg-gradient-to-t from-synapse-blue to-synapse-purple h-[90%] rounded-sm shadow-[0_0_15px_#8b5cf6]"></div>
+<div class="w-2 bg-gradient-to-t from-synapse-blue/80 to-synapse-purple/80 h-[65%] rounded-sm"></div>
+<div class="w-2 bg-gradient-to-t from-synapse-blue/60 to-synapse-purple/60 h-[55%] rounded-sm"></div>
+<div class="w-2 bg-gradient-to-t from-synapse-blue/40 to-synapse-purple/40 h-[45%] rounded-sm"></div>
+<div class="w-2 bg-gradient-to-t from-synapse-blue/20 to-synapse-purple/20 h-[30%] rounded-sm"></div>
+</div>
+<div class="flex items-center justify-between border-t border-white/5 pt-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-slate-500">link</span>
+<span class="text-[11px] font-mono text-slate-400">rtmp://youtube-ingest...</span>
+</div>
+<button class="p-1.5 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+</button>
+</div>
+</div>
+<div class="absolute inset-0 bg-gradient-to-br from-synapse-blue/50 to-synapse-purple/50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-2xl" style="mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; padding: 1px;"></div>
+</div>
+<div class="glass-panel rounded-2xl p-1 relative overflow-hidden group transition-all duration-300 hover:border-white/20 opacity-70 hover:opacity-100">
+<div class="bg-[#050507]/40 backdrop-blur-sm p-6 rounded-xl h-full flex flex-col gap-6 relative z-10">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-4">
+<div class="p-3 rounded-xl bg-[#9146FF]/10 border border-[#9146FF]/20 text-[#9146FF]">
+<span class="material-symbols-outlined filled text-[24px]">videogame_asset</span>
+</div>
+<div>
+<h3 class="text-white font-bold tracking-tight">Twitch Backup</h3>
+<div class="flex items-center gap-1.5 mt-1">
+<span class="w-1.5 h-1.5 bg-slate-500 rounded-full"></span>
+<span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Standby</span>
+</div>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox" value=""/>
+<div class="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-synapse-blue"></div>
+</label>
+</div>
+<div class="relative h-24 bg-black/40 rounded-lg border border-white/5 flex items-center justify-center overflow-hidden">
+<div class="w-full h-[1px] bg-white/10"></div>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-[10px] font-mono text-slate-600">NO_SIGNAL</span>
+</div>
+</div>
+<div class="flex items-center justify-between border-t border-white/5 pt-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-slate-500">link</span>
+<span class="text-[11px] font-mono text-slate-400">rtmp://twitch-ingest...</span>
+</div>
+<button class="p-1.5 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+</button>
+</div>
+</div>
+</div>
+<div class="glass-panel rounded-2xl p-1 relative overflow-hidden group transition-all duration-300 hover:shadow-glow-purple hover:border-synapse-purple/30">
+<div class="bg-[#050507]/40 backdrop-blur-sm p-6 rounded-xl h-full flex flex-col gap-6 relative z-10">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-4">
+<div class="p-3 rounded-xl bg-[#1877F2]/10 border border-[#1877F2]/20 text-[#1877F2] shadow-[0_0_15px_rgba(24,119,242,0.2)]">
+<span class="material-symbols-outlined filled text-[24px]">public</span>
+</div>
+<div>
+<h3 class="text-white font-bold tracking-tight">Facebook Live</h3>
+<div class="flex items-center gap-1.5 mt-1">
+<span class="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></span>
+<span class="text-[10px] font-bold text-yellow-500 uppercase tracking-wider">Handshake...</span>
+</div>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox" value=""/>
+<div class="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-synapse-blue"></div>
+</label>
+</div>
+<div class="relative h-24 bg-black/40 rounded-lg border border-white/5 flex items-end px-3 pb-2 gap-1 overflow-hidden">
+<div class="absolute inset-0 flex items-center justify-center z-20">
+<span class="bg-yellow-500/10 text-yellow-500 text-[10px] font-mono px-2 py-1 rounded border border-yellow-500/20 animate-pulse">ESTABLISHING LINK</span>
+</div>
+<div class="w-2 bg-yellow-500/10 h-[10%] rounded-sm"></div>
+<div class="w-2 bg-yellow-500/20 h-[20%] rounded-sm"></div>
+<div class="w-2 bg-yellow-500/10 h-[15%] rounded-sm"></div>
+<div class="w-2 bg-yellow-500/30 h-[30%] rounded-sm"></div>
+</div>
+<div class="flex items-center justify-between border-t border-white/5 pt-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px] text-slate-500">link</span>
+<span class="text-[11px] font-mono text-slate-400">rtmp://fb-live...</span>
+</div>
+<button class="p-1.5 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[18px]">settings</span>
+</button>
+</div>
+</div>
+<div class="absolute inset-0 bg-gradient-to-br from-synapse-purple/50 to-blue-500/50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-2xl" style="mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; padding: 1px;"></div>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-4 min-h-[400px]">
+<div class="flex items-center justify-between px-1">
+<h2 class="text-white text-lg font-bold flex items-center gap-3">
+<span class="p-1.5 rounded-lg bg-synapse-purple/10 text-synapse-purple">
+<span class="material-symbols-outlined text-[20px]">terminal</span>
+</span>
+                        Synapse Console
+                    </h2>
+<div class="flex gap-3">
+<button class="px-3 py-1.5 rounded-md border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-red-400 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px]">block</span>
+                             Emergency Stop
+                        </button>
+</div>
+</div>
+<div class="w-full flex-1 bg-[#020203] rounded-2xl border border-white/10 overflow-hidden flex flex-col shadow-2xl relative group">
+<div class="absolute top-0 right-0 w-64 h-64 bg-synapse-blue/5 blur-[80px] pointer-events-none"></div>
+<div class="absolute bottom-0 left-0 w-64 h-64 bg-synapse-purple/5 blur-[80px] pointer-events-none"></div>
+<div class="flex items-center border-b border-white/5 bg-[#08080c] px-4 py-2 relative z-10">
+<div class="flex gap-2 mr-4">
+<div class="w-3 h-3 rounded-full bg-red-500/20 border border-red-500/50"></div>
+<div class="w-3 h-3 rounded-full bg-yellow-500/20 border border-yellow-500/50"></div>
+<div class="w-3 h-3 rounded-full bg-green-500/20 border border-green-500/50"></div>
+</div>
+<div class="h-4 w-[1px] bg-white/10 mr-4"></div>
+<div class="flex items-center gap-2 flex-1">
+<span class="text-synapse-blue font-mono font-bold">~</span>
+<input class="bg-transparent border-none text-xs text-slate-300 placeholder-slate-700 focus:ring-0 w-full font-mono p-0" placeholder="grep --filter=error" type="text"/>
+</div>
+<div class="flex items-center gap-4 text-xs text-slate-500 font-mono">
+<span>tail -f /var/log/synapse.log</span>
+<div class="h-4 w-[1px] bg-white/10"></div>
+<button class="hover:text-white transition-colors"><span class="material-symbols-outlined text-[16px]">download</span></button>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto p-5 font-mono text-sm leading-6 custom-scrollbar relative z-10 bg-black/20">
+<div class="text-slate-600 mb-4 text-[10px] uppercase tracking-widest border-b border-slate-800/50 pb-2">Session ID: #SYN-9982-AX [Connected]</div>
+<div class="space-y-1">
+<div class="flex gap-4 hover:bg-white/5 px-2 -mx-2 rounded transition-colors group">
+<span class="text-slate-600 w-[80px] shrink-0 opacity-50">10:42:01</span>
+<span class="text-synapse-blue font-bold w-[60px] shrink-0">INFO</span>
+<span class="text-slate-400 group-hover:text-slate-200">Stream handshake initiated <span class="text-slate-600">-&gt;</span> <span class="text-white underline decoration-slate-700 decoration-1 underline-offset-4">rtmp://youtube.com/live2</span></span>
+</div>
+<div class="flex gap-4 hover:bg-white/5 px-2 -mx-2 rounded transition-colors group">
+<span class="text-slate-600 w-[80px] shrink-0 opacity-50">10:42:02</span>
+<span class="text-synapse-blue font-bold w-[60px] shrink-0">INFO</span>
+<span class="text-slate-400 group-hover:text-slate-200">Audio encoder locked: <span class="text-neon-blue">AAC 160kbps</span></span>
+</div>
+<div class="flex gap-4 hover:bg-white/5 px-2 -mx-2 rounded transition-colors group">
+<span class="text-slate-600 w-[80px] shrink-0 opacity-50">10:42:05</span>
+<span class="text-yellow-500 font-bold w-[60px] shrink-0">WARN</span>
+<span class="text-yellow-200/60">Bitrate instability detected on Interface eth0. Compensating buffer...</span>
+</div>
+<div class="flex gap-4 bg-green-500/5 border-l-2 border-green-500 px-2 -mx-2 rounded-r transition-colors group my-2 py-1">
+<span class="text-slate-600 w-[80px] shrink-0 opacity-50">10:42:12</span>
+<span class="text-green-500 font-bold w-[60px] shrink-0">OK</span>
+<span class="text-green-200/80">Packet transmission stable. Latency: <span class="text-white font-bold">45ms</span>. Target: YouTube Main.</span>
+</div>
+<div class="flex gap-4 hover:bg-white/5 px-2 -mx-2 rounded transition-colors group">
+<span class="text-slate-600 w-[80px] shrink-0 opacity-50">10:42:16</span>
+<span class="text-synapse-purple font-bold w-[60px] shrink-0">DEBUG</span>
+<span class="text-slate-500 group-hover:text-slate-300">Auth Token verified. Key hash: <span class="blur-[2px] group-hover:blur-none transition-all duration-300 text-slate-300">8f9a-22x1-009z</span></span>
+</div>
+<div class="flex gap-4 bg-red-500/5 border-l-2 border-red-500 px-2 -mx-2 rounded-r transition-colors group my-2 py-1">
+<span class="text-slate-600 w-[80px] shrink-0 opacity-50">10:42:45</span>
+<span class="text-red-500 font-bold w-[60px] shrink-0">ERR</span>
+<span class="text-red-200/80">Connection timeout: Twitch Backup. Retry scheduled (5000ms).</span>
+</div>
+<div class="flex gap-4 items-center pt-2">
+<span class="text-slate-600 w-[80px] shrink-0 opacity-50">10:42:50</span>
+<span class="text-slate-500 font-bold w-[60px] shrink-0"> &gt;_ </span>
+<span class="text-slate-300 flex items-center gap-2">
+                                    Awaiting trigger...
+                                    <span class="block w-2 h-4 bg-synapse-blue animate-pulse shadow-[0_0_8px_#3b82f6]"></span>
+</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+
+</body></html>
+
+<!-- Ingestion (Drag & Drop) -->
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Ingestion - Synapse Platform</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#8b55f7",
+                        "primary-glow": "#a78bfa",
+                        "accent-green": "#10b981",
+                        "accent-cyan": "#06b6d4",
+                        "background-dark": "#050507", 
+                        "card-dark": "#0E0C15",
+                        "card-darker": "#09080F",
+                        "border-dark": "#1F1B2E",
+                        "border-glow": "#352F4F",
+                        "text-muted": "#6b7280",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"],
+                    },
+                    backgroundImage: {
+                        'neural-grad': "radial-gradient(circle at center, rgba(139, 85, 247, 0.15) 0%, transparent 70%)",
+                        'bio-glow': "radial-gradient(ellipse at top, rgba(16, 185, 129, 0.08) 0%, transparent 60%)",
+                        'data-stream': "linear-gradient(180deg, rgba(139,85,247,0) 0%, rgba(139,85,247,0.4) 50%, rgba(139,85,247,0) 100%)",
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                        'shimmer': 'shimmer 2s linear infinite',
+                        'shimmer-fast': 'shimmer 1s linear infinite',
+                        'spin-slow': 'spin 12s linear infinite',
+                        'grid-move': 'grid-move 20s linear infinite',
+                        'stream-down': 'stream-down 2.5s linear infinite',
+                        'scan-line': 'scan-line 3s ease-in-out infinite',
+                        'hex-pulse': 'hex-pulse 4s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        shimmer: {
+                            '0%': { backgroundPosition: '-200% 0' },
+                            '100%': { backgroundPosition: '200% 0' },
+                        },
+                        'grid-move': {
+                            '0%': { backgroundPosition: '0 0' },
+                            '100%': { backgroundPosition: '40px 40px' },
+                        },
+                        'stream-down': {
+                            '0%': { transform: 'translateY(-100%)', opacity: '0' },
+                            '50%': { opacity: '1' },
+                            '100%': { transform: 'translateY(100%)', opacity: '0' },
+                        },
+                        'scan-line': {
+                            '0%': { top: '0%', opacity: '0' },
+                            '10%': { opacity: '1' },
+                            '90%': { opacity: '1' },
+                            '100%': { top: '100%', opacity: '0' }
+                        },
+                         'hex-pulse': {
+                            '0%, 100%': { opacity: '0.1' },
+                            '50%': { opacity: '0.3' },
+                        }
+                    }
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        @layer utilities {
+            .bg-grid-neural {
+                background-image: linear-gradient(rgba(139, 85, 247, 0.05) 1px, transparent 1px),
+                                linear-gradient(90deg, rgba(139, 85, 247, 0.05) 1px, transparent 1px);
+                background-size: 40px 40px;
+            }
+            .bg-hex-pattern {
+                 background-image: url("data:image/svg+xml,%3Csvg width='24' height='40' viewBox='0 0 24 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40c5.523 0 10-4.477 10-10V10c0-5.523-4.477-10-10-10s-10 4.477-10 10v20c0 5.523 4.477 10 10 10z' fill='%238b55f7' fill-opacity='0.03' fill-rule='evenodd'/%3E%3C/svg%3E");
+            }
+            .glow-text {
+                text-shadow: 0 0 15px rgba(139, 85, 247, 0.8);
+            }
+            .glow-text-green {
+                text-shadow: 0 0 15px rgba(16, 185, 129, 0.8);
+            }
+            .glow-text-cyan {
+                text-shadow: 0 0 15px rgba(6, 182, 212, 0.8);
+            }
+            .glow-box-primary {
+                box-shadow: 0 0 25px rgba(139, 85, 247, 0.2);
+            }
+            .glow-box-green {
+                box-shadow: 0 0 25px rgba(16, 185, 129, 0.2);
+            }
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+            .neural-connection {
+                background: linear-gradient(90deg, transparent, rgba(139, 85, 247, 0.3), transparent);
+                height: 1px;
+            }
+            .glass-panel {
+                background: rgba(14, 12, 21, 0.4);
+                backdrop-filter: blur(12px);
+                border: 1px solid rgba(255, 255, 255, 0.05);
+            }
+            .glass-panel-heavy {
+                background: rgba(9, 8, 15, 0.6);
+                backdrop-filter: blur(16px);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+            }
+            .holographic-card {
+                background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+                backdrop-filter: blur(20px);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            }
+        }
+    </style>
+</head>
+<body class="bg-background-dark text-white font-display min-h-screen flex flex-col overflow-x-hidden selection:bg-primary/30 selection:text-white">
+<header class="flex items-center justify-between whitespace-nowrap border-b border-border-dark px-6 py-4 bg-card-dark/60 backdrop-blur-xl z-20 sticky top-0">
+<div class="flex items-center gap-4">
+<div class="size-10 text-primary relative flex items-center justify-center group cursor-pointer">
+<div class="absolute inset-0 bg-primary/20 blur-lg rounded-full animate-pulse-slow group-hover:bg-primary/30 transition-all duration-500"></div>
+<svg class="w-full h-full relative z-10 transition-transform duration-700 group-hover:rotate-180" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path d="M24 4C25.7818 14.2173 33.7827 22.2182 44 24C33.7827 25.7818 25.7818 33.7827 24 44C22.2182 33.7827 14.2173 25.7818 4 24C14.2173 22.2182 22.2182 14.2173 24 4Z" fill="currentColor"></path>
+</svg>
+</div>
+<h2 class="text-white text-xl font-bold leading-tight tracking-tight glow-text cursor-pointer">Synapse<span class="text-text-muted font-normal opacity-50 ml-1">.ai</span></h2>
+</div>
+<div class="flex flex-1 justify-end gap-6 items-center">
+<label class="flex flex-col min-w-40 !h-9 max-w-64 hidden sm:flex group relative z-10">
+<div class="flex w-full flex-1 items-stretch rounded-full h-full border border-border-dark bg-card-darker/50 group-focus-within:border-primary/50 group-focus-within:bg-card-darker group-focus-within:shadow-[0_0_15px_rgba(139,85,247,0.1)] transition-all">
+<div class="text-text-muted flex items-center justify-center pl-3">
+<span class="material-symbols-outlined text-[18px]">search</span>
+</div>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-full text-white focus:outline-0 focus:ring-0 border-none bg-transparent h-full placeholder:text-text-muted/50 px-3 text-xs font-normal leading-normal font-mono" placeholder="Query Neural Database..."/>
+</div>
+</label>
+<button class="relative flex items-center justify-center size-9 rounded-full hover:bg-white/5 text-text-muted transition-colors border border-transparent hover:border-border-dark group">
+<span class="absolute top-2 right-2.5 size-1.5 bg-accent-green rounded-full shadow-[0_0_8px_#10b981] animate-pulse"></span>
+<span class="material-symbols-outlined text-[20px] group-hover:text-white transition-colors">notifications</span>
+</button>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-9 ring-1 ring-border-dark ring-offset-2 ring-offset-background-dark shadow-lg cursor-pointer hover:ring-primary transition-all duration-300" data-alt="User profile avatar showing a person smiling" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBiufOI7zeZeqaMqISrziq29CrtFTfgCPzp5FpSb9K4io3TSn5M56RqwA2WNdwXH-6UVdbwE_99ycr5NG8apMJMFrv0x-S43sNpGDiQvQShy-F1v220eSZe26prq0DJ22e9ge_TU0FllftQJdYaX_4kp-s8j-MKmBCAAFe38vX6m3jDHPMRmSkf8_OGOI-vf_kziYwwBj73iUD6SZxQvckj0aYdVQLCForcEntHPCzUsFb_G_Jikv2wO0-6aBNGV6MBZo8sb0sdLg");'></div>
+</div>
+</header>
+<main class="flex-1 px-4 sm:px-8 md:px-12 py-8 w-full max-w-[1920px] mx-auto relative overflow-hidden">
+<div class="absolute inset-0 bg-grid-neural opacity-20 animate-grid-move pointer-events-none"></div>
+<div class="absolute top-0 left-1/4 w-1/2 h-96 bg-primary/5 blur-[120px] rounded-full pointer-events-none animate-pulse-slow"></div>
+<div class="absolute bottom-0 right-0 w-1/3 h-64 bg-accent-cyan/5 blur-[100px] rounded-full pointer-events-none"></div>
+<div class="flex flex-wrap justify-between items-end gap-4 mb-10 relative z-10">
+<div class="flex flex-col gap-2">
+<div class="flex items-center gap-2 mb-1">
+<span class="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-primary/10 text-primary border border-primary/30 shadow-[0_0_15px_rgba(139,85,247,0.2)] backdrop-blur-md">
+<span class="size-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_5px_#8b55f7]"></span>
+                    SYS.INGEST.V3.NODE
+                </span>
+<span class="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-border-dark/50 text-text-muted border border-white/5">
+                    UPTIME: 99.98%
+                </span>
+</div>
+<h1 class="text-4xl font-black leading-tight tracking-tight text-white drop-shadow-2xl">Ingestion Protocol</h1>
+<p class="text-text-muted text-sm font-normal max-w-lg">Neural intake mechanism active. Orchestrate media tensors for dark profile distribution.</p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-4 py-2 rounded-full glass-panel hover:bg-white/5 transition-all text-sm font-medium text-white group border border-border-dark hover:border-primary/40">
+<span class="material-symbols-outlined text-[18px] group-hover:rotate-180 transition-transform duration-700 text-text-muted group-hover:text-primary">settings</span>
+<span>Config Parameters</span>
+</button>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10 relative z-10">
+<div class="lg:col-span-2 flex flex-col h-full group perspective-1000">
+<div class="flex-1 relative flex flex-col items-center justify-center gap-8 rounded-[2rem] border border-white/10 bg-card-darker/60 hover:bg-card-darker/80 transition-all duration-500 cursor-pointer overflow-hidden backdrop-blur-md shadow-[0_0_50px_rgba(0,0,0,0.5)] group-hover:shadow-[0_0_60px_rgba(139,85,247,0.15)] group-hover:border-primary/30 relative isolate">
+<div class="absolute inset-0 bg-hex-pattern opacity-20 pointer-events-none animate-hex-pulse"></div>
+<div class="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none"></div>
+<div class="absolute left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-primary/50 to-transparent shadow-[0_0_15px_#8b55f7] animate-scan-line pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="absolute top-6 left-6 w-16 h-16 border-t-2 border-l-2 border-primary/20 rounded-tl-xl pointer-events-none group-hover:border-primary/60 transition-colors"></div>
+<div class="absolute top-6 right-6 w-16 h-16 border-t-2 border-r-2 border-primary/20 rounded-tr-xl pointer-events-none group-hover:border-primary/60 transition-colors"></div>
+<div class="absolute bottom-6 left-6 w-16 h-16 border-b-2 border-l-2 border-primary/20 rounded-bl-xl pointer-events-none group-hover:border-primary/60 transition-colors"></div>
+<div class="absolute bottom-6 right-6 w-16 h-16 border-b-2 border-r-2 border-primary/20 rounded-br-xl pointer-events-none group-hover:border-primary/60 transition-colors"></div>
+<div class="relative z-10 flex flex-col items-center">
+<div class="relative size-48 flex items-center justify-center mb-6">
+<div class="absolute inset-0 rounded-full border border-primary/20 border-t-primary animate-[spin_10s_linear_infinite] group-hover:border-primary/80 shadow-[0_0_40px_rgba(139,85,247,0.15)] transition-all duration-700"></div>
+<div class="absolute inset-4 rounded-full border border-accent-cyan/20 border-b-accent-cyan animate-[spin_15s_linear_infinite_reverse] group-hover:border-accent-cyan/80 shadow-[0_0_30px_rgba(6,182,212,0.15)] transition-all duration-700"></div>
+<div class="absolute inset-8 rounded-full bg-gradient-to-br from-card-dark to-black flex items-center justify-center border border-white/10 group-hover:scale-95 transition-transform duration-300 shadow-inner">
+<div class="text-center transform group-hover:-translate-y-1 transition-transform">
+<span class="material-symbols-outlined text-[64px] bg-clip-text text-transparent bg-gradient-to-br from-white to-primary/50 drop-shadow-[0_0_15px_rgba(139,85,247,0.5)]">cloud_upload</span>
+</div>
+</div>
+<div class="absolute inset-0 pointer-events-none">
+<span class="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full shadow-[0_0_10px_#8b55f7] animate-[ping_3s_linear_infinite]"></span>
+<span class="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 bg-accent-cyan rounded-full shadow-[0_0_10px_#06b6d4] animate-[ping_3s_linear_infinite_reverse]"></span>
+</div>
+</div>
+<div class="flex flex-col items-center gap-4 max-w-lg text-center">
+<h3 class="text-3xl font-display font-bold text-white tracking-tight group-hover:text-primary-glow transition-colors duration-300 drop-shadow-xl">
+                            Upload Neural Tensors
+                        </h3>
+<p class="text-text-muted text-sm font-normal max-w-xs leading-relaxed group-hover:text-white/80 transition-colors">
+                            Drop files here to initiate synaptic uplink or click to browse the neural network.
+                        </p>
+<div class="flex items-center gap-3 mt-4">
+<div class="px-3 py-1.5 rounded-md bg-white/5 border border-white/10 text-[10px] font-mono text-text-muted flex items-center gap-2 group-hover:border-primary/30 transition-colors">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                                SUPPORTED: MP4, MOV, MKV
+                            </div>
+<div class="px-3 py-1.5 rounded-md bg-white/5 border border-white/10 text-[10px] font-mono text-text-muted flex items-center gap-2 group-hover:border-accent-cyan/30 transition-colors">
+<span class="material-symbols-outlined text-[12px] text-accent-cyan">memory</span>
+                                MAX SIZE: 10GB
+                            </div>
+</div>
+</div>
+</div>
+<button class="relative mt-8 group/btn overflow-hidden rounded-xl bg-primary px-8 py-3 text-white shadow-[0_0_20px_rgba(139,85,247,0.3)] transition-all hover:bg-primary-glow hover:shadow-[0_0_40px_rgba(139,85,247,0.6)] hover:scale-105 active:scale-95 z-20">
+<div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover/btn:animate-[shimmer_1.5s_infinite]"></div>
+<span class="relative flex items-center gap-2 font-bold tracking-wide text-sm">
+<span class="material-symbols-outlined text-[20px]">folder_open</span>
+                        BROWSE SYSTEM
+                    </span>
+</button>
+<div class="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-primary/10 to-transparent pointer-events-none opacity-50 group-hover:opacity-100 transition-opacity duration-500"></div>
+</div>
+</div>
+<div class="flex flex-col gap-6 h-full">
+<div class="flex flex-col justify-between rounded-3xl bg-card-dark/40 backdrop-blur-md border border-border-dark p-6 shadow-xl h-full relative overflow-hidden group hover:border-accent-green/30 transition-colors duration-500">
+<div class="absolute -top-10 -right-10 w-48 h-48 bg-accent-green/5 blur-[80px] rounded-full pointer-events-none group-hover:bg-accent-green/15 transition-colors"></div>
+<div class="absolute inset-0 bg-gradient-to-b from-transparent to-card-darker/80 pointer-events-none"></div>
+<div class="flex justify-between items-start mb-6 relative z-10">
+<div class="flex items-center gap-4">
+<div class="size-12 rounded-xl bg-card-darker border border-border-dark flex items-center justify-center text-accent-green shadow-[inset_0_0_20px_rgba(16,185,129,0.1)] group-hover:shadow-[inset_0_0_20px_rgba(16,185,129,0.3)] transition-all group-hover:scale-105 group-hover:border-accent-green/50">
+<span class="material-symbols-outlined text-[24px]">satellite_alt</span>
+</div>
+<div>
+<p class="text-white text-base font-bold tracking-tight group-hover:text-accent-green transition-colors duration-300">Watch Folder</p>
+<div class="flex items-center gap-2 mt-1.5">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-green opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-accent-green shadow-[0_0_8px_#10b981]"></span>
+</span>
+<p class="text-accent-green text-[10px] font-mono uppercase tracking-wider font-bold glow-text-green">Live Link Active</p>
+</div>
+</div>
+</div>
+<button class="text-text-muted hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full">
+<span class="material-symbols-outlined text-[20px]">more_horiz</span>
+</button>
+</div>
+<div class="space-y-4 mb-6 relative z-10 flex-1">
+<div class="flex flex-col gap-1.5 p-4 rounded-xl bg-card-darker/60 border border-border-dark group-hover:border-accent-green/20 transition-colors shadow-inner relative overflow-hidden">
+<div class="absolute right-0 top-0 h-full w-[2px] bg-accent-green/20"></div>
+<span class="text-[10px] uppercase tracking-wider text-text-muted font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-[12px]">folder_copy</span>
+                            Source Path
+                        </span>
+<div class="flex items-center gap-2 overflow-hidden">
+<span class="text-white font-mono text-xs truncate opacity-80 group-hover:opacity-100 transition-opacity">/synapse_fs/incoming/ftp_node_01</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="flex flex-col gap-1 p-3 rounded-xl bg-card-darker/40 border border-border-dark hover:bg-card-darker/60 transition-colors">
+<span class="text-[10px] text-text-muted font-mono">LAST PING</span>
+<span class="text-white text-sm font-medium">0.2s ago</span>
+</div>
+<div class="flex flex-col gap-1 p-3 rounded-xl bg-card-darker/40 border border-border-dark hover:bg-card-darker/60 transition-colors">
+<span class="text-[10px] text-text-muted font-mono">QUEUE</span>
+<span class="text-white text-sm font-medium">Idle</span>
+</div>
+</div>
+</div>
+<button class="w-full relative overflow-hidden flex items-center justify-center gap-2 rounded-xl h-11 px-4 bg-accent-green/5 border border-accent-green/20 hover:bg-accent-green/10 hover:border-accent-green/40 text-accent-green text-xs uppercase tracking-wider font-bold transition-all group/sync shadow-[0_0_15px_rgba(16,185,129,0.05)] hover:shadow-[0_0_20px_rgba(16,185,129,0.1)] z-10">
+<span class="material-symbols-outlined text-[16px] group-hover/sync:rotate-180 transition-transform duration-700">sync</span>
+<span>Synchronize Node</span>
+</button>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-5 relative z-10">
+<div class="flex items-center justify-between px-1">
+<h3 class="text-xl font-bold text-white flex items-center gap-3">
+<span class="p-1.5 bg-primary/10 rounded-lg text-primary border border-primary/20 shadow-[0_0_10px_rgba(139,85,247,0.2)]">
+<span class="material-symbols-outlined text-[20px]">dataset</span>
+</span>
+                Active Neural Queue
+            </h3>
+<div class="flex gap-4 items-center">
+<div class="text-xs font-mono text-text-muted flex items-center gap-2">
+<div class="w-24 h-1.5 bg-card-darker rounded-full overflow-hidden border border-white/5">
+<div class="h-full bg-gradient-to-r from-primary to-accent-cyan w-[45%] shadow-[0_0_8px_rgba(139,85,247,0.5)]"></div>
+</div>
+<span>45% Cap</span>
+</div>
+<button class="text-xs font-mono text-primary hover:text-primary-glow uppercase tracking-wider hover:underline decoration-primary/50 underline-offset-4 transition-all">View System Logs</button>
+</div>
+</div>
+<div class="@container w-full overflow-hidden rounded-2xl border border-border-dark bg-card-dark/40 backdrop-blur-xl shadow-2xl relative">
+<div class="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent"></div>
+<table class="w-full min-w-[900px] text-left border-collapse">
+<thead>
+<tr class="text-text-muted border-b border-border-dark bg-card-darker/60">
+<th class="px-6 py-5 text-[10px] font-mono font-bold uppercase tracking-widest w-24">Preview</th>
+<th class="px-6 py-5 text-[10px] font-mono font-bold uppercase tracking-widest">Tensor Metadata</th>
+<th class="px-6 py-5 text-[10px] font-mono font-bold uppercase tracking-widest w-32">Res</th>
+<th class="px-6 py-5 text-[10px] font-mono font-bold uppercase tracking-widest w-32">Time</th>
+<th class="px-6 py-5 text-[10px] font-mono font-bold uppercase tracking-widest w-32">Size</th>
+<th class="px-6 py-5 text-[10px] font-mono font-bold uppercase tracking-widest w-72">Transformation Status</th>
+<th class="px-6 py-5 text-[10px] font-mono font-bold uppercase tracking-widest w-24 text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-border-dark/30">
+<tr class="group hover:bg-card-darker/50 transition-all duration-300 relative">
+<td class="px-6 py-5 relative">
+<div class="absolute left-0 top-3 bottom-3 w-[3px] bg-primary rounded-r-full opacity-0 group-hover:opacity-100 shadow-[0_0_15px_#8b55f7] transition-all duration-300 scale-y-0 group-hover:scale-y-100"></div>
+<div class="bg-center bg-no-repeat aspect-video bg-cover rounded-md w-20 h-12 ring-1 ring-border-dark opacity-80 group-hover:opacity-100 transition-all group-hover:ring-primary/50 group-hover:shadow-[0_0_20px_rgba(139,85,247,0.4)] relative overflow-hidden" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA-URpxyNAp4ERnz_B9SxYPbWXngMssNaHNKZXHYP4hix_iDHbeLfxucEL_NOQZDsLXCtkwtX_WfiQAyW3n5PHdEgZj7kRcZOLHIMG87KOPYtL10EIGJCLTz9oYChS6lKfJoYuPCIzwFVX6WR_5S9lwxzSskj-TKkJ-X1sJf6W8_xPSw8aVvR4AXVt9dIkQTMNd_oV-9igUdiy7IHNRDhz6Rod-BStktptoEeuvQd7R5exNylf8cjDCz_PgBMgRvAYTOp24LGz_hQ");'>
+<div class="absolute inset-0 bg-primary/20 animate-pulse"></div>
+<div class="absolute top-0 left-0 w-full h-[1px] bg-primary/50 animate-stream-down"></div>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex flex-col gap-1 relative">
+<div class="absolute left-[-24px] top-1/2 w-4 h-[1px] bg-gradient-to-r from-transparent to-primary/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+<div class="absolute right-0 top-1/2 -translate-y-1/2 size-1 bg-primary rounded-full shadow-[0_0_5px_#8b55f7]"></div>
+</div>
+<span class="text-sm font-bold text-white group-hover:text-primary-glow transition-colors font-mono tracking-tight group-hover:glow-text">interview_footage_raw.mp4</span>
+<span class="text-[10px] text-text-muted font-mono flex items-center gap-1.5 opacity-70 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[10px] text-primary">drag_indicator</span>
+                                    SRC: LOCAL_UPLINK
+                                </span>
+</div>
+</td>
+<td class="px-6 py-5 text-xs text-text-muted font-mono group-hover:text-white transition-colors">4K_UHD</td>
+<td class="px-6 py-5 text-xs text-text-muted font-mono group-hover:text-white transition-colors">12:30</td>
+<td class="px-6 py-5 text-xs text-text-muted font-mono group-hover:text-white transition-colors">4.2 GB</td>
+<td class="px-6 py-5">
+<div class="flex flex-col gap-2 w-full">
+<div class="flex items-center gap-2 text-primary">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-primary shadow-[0_0_8px_#8b55f7]"></span>
+</span>
+<span class="text-[10px] font-mono uppercase tracking-widest font-bold glow-text animate-pulse">Processando...</span>
+</div>
+<div class="h-1.5 w-full bg-card-darker rounded-full overflow-hidden border border-white/5 relative">
+<div class="absolute inset-0 bg-primary/10 blur-[1px]"></div>
+<div class="h-full bg-gradient-to-r from-transparent via-primary to-transparent w-[50%] rounded-full animate-shimmer absolute top-0 left-0 shadow-[0_0_10px_#8b55f7]"></div>
+</div>
+</div>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="text-text-muted hover:text-white p-2 rounded-full hover:bg-white/5 transition-colors group/del">
+<span class="material-symbols-outlined text-[18px] group-hover/del:text-red-400 group-hover/del:shadow-[0_0_10px_rgba(248,113,113,0.5)]">close</span>
+</button>
+</td>
+</tr>
+<tr class="group hover:bg-card-darker/50 transition-all duration-300 relative">
+<td class="px-6 py-5 relative">
+<div class="absolute left-0 top-3 bottom-3 w-[3px] bg-accent-green rounded-r-full opacity-0 group-hover:opacity-100 shadow-[0_0_15px_#10b981] transition-all duration-300 scale-y-0 group-hover:scale-y-100"></div>
+<div class="bg-center bg-no-repeat aspect-video bg-cover rounded-md w-20 h-12 ring-1 ring-border-dark opacity-80 group-hover:opacity-100 transition-all group-hover:ring-accent-green/50 group-hover:shadow-[0_0_20px_rgba(16,185,129,0.4)]" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuD0chag0gDU-N5YCm1xz9KM_bITIoMApGH2jky2s5-rSj2zLp_TC3BocopyyULazr2wawYK6f6o9deIQHQtmV4iaByLKmIv6RzT8faWULwwTbEe8fKCE_GyFP9-t76cKazuSLrstPyuFkPSCsYRQWp5BNPZs--LIR4UDTtoe6tcchtko_lzLEWMylXZvDVV0AGM-EpwE1iij2-Dxw0YC4u34n9yjewjtvR21hLw3h4exP5uEfWklguT3KQVENT7cjNe7nmLxRkocA");'></div>
+</td>
+<td class="px-6 py-5">
+<div class="flex flex-col gap-1 relative">
+<div class="absolute left-[-24px] top-1/2 w-4 h-[1px] bg-gradient-to-r from-transparent to-accent-green/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+<div class="absolute right-0 top-1/2 -translate-y-1/2 size-1 bg-accent-green rounded-full shadow-[0_0_5px_#10b981]"></div>
+</div>
+<span class="text-sm font-bold text-white group-hover:text-accent-green transition-colors font-mono tracking-tight group-hover:glow-text-green">promo_reel_v3.mov</span>
+<span class="text-[10px] text-text-muted font-mono flex items-center gap-1.5 opacity-70 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[10px] text-accent-green">dns</span>
+                                    SRC: FTP_WATCH
+                                </span>
+</div>
+</td>
+<td class="px-6 py-5 text-xs text-text-muted font-mono group-hover:text-white transition-colors">1080p</td>
+<td class="px-6 py-5 text-xs text-text-muted font-mono group-hover:text-white transition-colors">01:15</td>
+<td class="px-6 py-5 text-xs text-text-muted font-mono group-hover:text-white transition-colors">350 MB</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2 text-accent-green">
+<div class="relative size-4 flex items-center justify-center">
+<div class="absolute inset-0 bg-accent-green/20 rounded-full animate-ping"></div>
+<span class="material-symbols-outlined text-[18px] glow-text-green relative z-10">verified</span>
+</div>
+<span class="text-[10px] font-mono uppercase tracking-widest font-bold glow-text-green">Pronto</span>
+</div>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="text-text-muted hover:text-white p-2 rounded-full hover:bg-white/5 transition-colors group/del">
+<span class="material-symbols-outlined text-[18px] group-hover/del:text-red-400 group-hover/del:shadow-[0_0_10px_rgba(248,113,113,0.5)]">delete</span>
+</button>
+</td>
+</tr>
+<tr class="group hover:bg-card-darker/50 transition-all duration-300 relative">
+<td class="px-6 py-5 relative">
+<div class="absolute left-0 top-3 bottom-3 w-[3px] bg-accent-cyan rounded-r-full opacity-0 group-hover:opacity-100 shadow-[0_0_15px_#06b6d4] transition-all duration-300 scale-y-0 group-hover:scale-y-100"></div>
+<div class="bg-center bg-no-repeat aspect-video bg-cover rounded-md w-20 h-12 ring-1 ring-border-dark opacity-80 group-hover:opacity-100 transition-all group-hover:ring-accent-cyan/50 group-hover:shadow-[0_0_20px_rgba(6,182,212,0.4)]" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCNV-VZpK0T95Dq3v8R22DPu1rQ-PceN2NfzKcyvflL9dRtsMNxxmHmzV1jqoSePvDz95pFW5wquJummUImMIdufBjhTttE0xeOUZ5bM8F6v0UvKAeZpt0xzvZcEEdMLnBnl-TrF9MxP1TIWhcnp0rZ00V57mhb0mYDXCLIU_IvuUhMlegOW8waXYPmw-wuqjOtpsbjwDAqXcPFM_KDobWwl-LdWvMCBXOPdYjbEns4HdDtSNUjQ6RqS0TgZcmne9xAZLXY0vNn-g");'></div>
+</td>
+<td class="px-6 py-5">
+<div class="flex flex-col gap-1 relative">
+<div class="absolute left-[-24px] top-1/2 w-4 h-[1px] bg-gradient-to-r from-transparent to-accent-cyan/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+<div class="absolute right-0 top-1/2 -translate-y-1/2 size-1 bg-accent-cyan rounded-full shadow-[0_0_5px_#06b6d4]"></div>
+</div>
+<span class="text-sm font-bold text-white group-hover:text-accent-cyan transition-colors font-mono tracking-tight group-hover:glow-text-cyan">social_cut_1x1.mp4</span>
+<span class="text-[10px] text-text-muted font-mono flex items-center gap-1.5 opacity-70 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[10px] text-accent-cyan">drag_indicator</span>
+                                    SRC: LOCAL_UPLINK
+                                </span>
+</div>
+</td>
+<td class="px-6 py-5 text-xs text-text-muted font-mono group-hover:text-white transition-colors">1080_SQ</td>
+<td class="px-6 py-5 text-xs text-text-muted font-mono group-hover:text-white transition-colors">00:30</td>
+<td class="px-6 py-5 text-xs text-text-muted font-mono group-hover:text-white transition-colors">120 MB</td>
+<td class="px-6 py-5">
+<div class="flex flex-col gap-1.5 w-full">
+<div class="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-accent-cyan">
+<span class="flex items-center gap-2 glow-text-cyan">
+<span class="material-symbols-outlined text-[12px] animate-spin">sync</span>
+                                        Enviando...
+                                    </span>
+<span class="font-mono text-white">75%</span>
+</div>
+<div class="h-1.5 w-full bg-card-darker rounded-full overflow-hidden border border-white/5 relative shadow-[0_0_10px_rgba(6,182,212,0.1)]">
+<div class="h-full bg-gradient-to-r from-accent-cyan/50 via-accent-cyan to-white w-3/4 rounded-full shadow-[0_0_15px_rgba(6,182,212,0.8)] animate-[shimmer-fast_1.5s_linear_infinite]" style="background-size: 200% 100%;"></div>
+</div>
+</div>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="text-text-muted hover:text-white p-2 rounded-full hover:bg-white/5 transition-colors">
+<span class="material-symbols-outlined text-[18px]">pause</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</main>
+<div class="fixed bottom-6 right-6 z-50 w-full max-w-sm">
+<div class="bg-card-darker/90 backdrop-blur-xl border border-border-dark rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.8)] p-5 flex gap-4 items-center relative overflow-hidden group hover:border-primary/30 transition-colors">
+<div class="absolute top-0 left-0 w-full h-[2px] bg-card-darker">
+<div class="h-full w-[45%] bg-gradient-to-r from-primary via-accent-cyan to-accent-green shadow-[0_0_10px_#8b55f7] animate-shimmer" style="background-size: 200% 100%;"></div>
+</div>
+<div class="relative size-12 flex-shrink-0 flex items-center justify-center">
+<svg class="size-full -rotate-90" viewBox="0 0 36 36">
+<path class="text-card-dark" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3"></path>
+<path class="text-primary drop-shadow-[0_0_8px_rgba(139,85,247,0.8)]" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="45, 100" stroke-linecap="round" stroke-width="3"></path>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-[20px] animate-pulse">cloud_upload</span>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold text-white truncate flex items-center gap-2">
+                Batch Upload Active
+                <span class="flex size-1.5 rounded-full bg-accent-green animate-pulse shadow-[0_0_5px_#10b981]"></span>
+</p>
+<p class="text-xs text-text-muted truncate font-mono mt-1 flex items-center gap-2">
+<span class="text-primary">3 Objects</span>
+<span class="size-1 rounded-full bg-text-muted/30"></span>
+                ETA: 02m 15s
+            </p>
+</div>
+<button class="size-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-text-muted hover:text-white transition-colors">
+<span class="material-symbols-outlined text-[20px]">expand_less</span>
+</button>
+</div>
+</div>
+</body></html>
+
+<!-- Settings (Configuration Hub)  -->
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Synapse - Configuration Hub</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Configuration -->
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              background: "#050507",
+              surface: "#0f0f13",
+              primary: "#8b5cf6", // Electric Purple
+              secondary: "#10b981", // Emerald Green
+              "glass-border": "rgba(255, 255, 255, 0.08)",
+              "glass-bg": "rgba(20, 20, 25, 0.6)",
+            },
+            fontFamily: {
+              "display": ["Space Grotesk", "sans-serif"],
+              "body": ["Inter", "sans-serif"],
+              "mono": ["JetBrains Mono", "monospace"],
+            },
+            boxShadow: {
+              "glow": "0 0 20px rgba(139, 92, 246, 0.15)",
+              "glow-success": "0 0 15px rgba(16, 185, 129, 0.2)",
+            },
+            backgroundImage: {
+                "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        /* Custom Scrollbar for the dark theme */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #050507; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2e2839; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #8b5cf6; 
+        }
+
+        /* Glassmorphism Utilities */
+        .glass-panel {
+            background: rgba(15, 15, 20, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .glass-card {
+            background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .glass-card:hover {
+            border-color: rgba(139, 92, 246, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px -10px rgba(139, 92, 246, 0.15);
+        }
+
+        .neon-text {
+            text-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+        }
+        
+        /* Toggle Switch Custom */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #8b5cf6;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #8b5cf6;
+        }
+    </style>
+</head>
+<body class="bg-background text-white font-display overflow-hidden selection:bg-primary/30">
+<div class="flex h-screen w-full">
+<!-- Sidebar Navigation -->
+<aside class="w-20 lg:w-64 flex-shrink-0 flex flex-col border-r border-glass-border bg-background/50 backdrop-blur-md z-50 transition-all duration-300">
+<div class="h-16 flex items-center justify-center lg:justify-start lg:px-6 border-b border-glass-border">
+<div class="size-8 rounded-full bg-gradient-to-br from-primary to-purple-900 flex items-center justify-center shadow-glow">
+<span class="material-symbols-outlined text-white text-[20px]">neurology</span>
+</div>
+<span class="hidden lg:block ml-3 font-bold text-lg tracking-wide">Synapse</span>
+</div>
+<nav class="flex-1 overflow-y-auto py-6 flex flex-col gap-2 px-3">
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">dashboard</span>
+<span class="hidden lg:block text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">hub</span>
+<span class="hidden lg:block text-sm font-medium">Network Map</span>
+</a>
+<div class="my-2 border-t border-glass-border mx-3"></div>
+<p class="hidden lg:block px-3 text-xs font-mono text-gray-500 mb-1">CONFIGURATION</p>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-white bg-primary/10 border border-primary/20 shadow-glow transition-colors" href="#">
+<span class="material-symbols-outlined text-primary fill-1">tune</span>
+<span class="hidden lg:block text-sm font-medium">Config Hub</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">smart_toy</span>
+<span class="hidden lg:block text-sm font-medium">Automation</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">group</span>
+<span class="hidden lg:block text-sm font-medium">Profiles</span>
+</a>
+</nav>
+<div class="p-4 border-t border-glass-border">
+<button class="flex items-center justify-center lg:justify-start w-full gap-3 p-2 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-colors">
+<div class="size-8 rounded-full bg-cover bg-center border border-gray-600" data-alt="User avatar placeholder" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBprTaIdH4f39z9bcRW7RKcHmoNtWkxmEzIILdXLhXj_lpL2kXbTxSH0BcrRxgpU5LCbpD5fxClQ94YivrLJQLB_2ug60AQizfbnXh03g5D6Q2GwoeyfVU8iRpXu3x-xrMo76P-wVTUGwjrnc7y4aOMMztqkwlKsKqSEU1ZKJMT6luGcFPeTb4p16l-CpD3ynZpfdkE3FcU3KocPZO86YH6uOE3YuADGQ271uqS3YIG5TueZUwyg94N8sAlFqFOvKP9rFpvP6IyfQ')"></div>
+<div class="hidden lg:flex flex-col items-start">
+<span class="text-xs font-bold text-white">Admin</span>
+<span class="text-[10px] text-primary">Superuser</span>
+</div>
+<span class="material-symbols-outlined ml-auto hidden lg:block text-[18px]">logout</span>
+</button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col h-full overflow-hidden bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-background to-background">
+<!-- Top Navigation -->
+<header class="h-16 flex items-center justify-between px-6 border-b border-glass-border bg-background/30 backdrop-blur-sm z-40">
+<!-- Breadcrumbs -->
+<div class="flex items-center text-sm">
+<span class="text-gray-500">Home</span>
+<span class="material-symbols-outlined text-[14px] mx-2 text-gray-600">chevron_right</span>
+<span class="text-gray-500">Settings</span>
+<span class="material-symbols-outlined text-[14px] mx-2 text-gray-600">chevron_right</span>
+<span class="text-white font-medium neon-text">Configuration Hub</span>
+</div>
+<!-- Right Actions -->
+<div class="flex items-center gap-4">
+<!-- Search -->
+<div class="relative hidden md:block group">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-gray-500 group-focus-within:text-primary transition-colors">search</span>
+</div>
+<input class="bg-[#1a1a20] border border-glass-border text-sm rounded-full block w-64 pl-10 p-2 text-white placeholder-gray-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all font-sans" placeholder="Search parameters..." type="text"/>
+</div>
+<button class="size-9 rounded-full bg-[#1a1a20] border border-glass-border flex items-center justify-center text-gray-400 hover:text-white hover:border-primary/50 transition-all relative">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+<span class="absolute top-2 right-2 size-2 bg-primary rounded-full animate-pulse"></span>
+</button>
+<button class="bg-primary hover:bg-primary/80 text-white text-xs font-bold py-2 px-4 rounded-lg shadow-glow transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">save</span>
+                        SAVE CHANGES
+                    </button>
+</div>
+</header>
+<!-- Scrollable Page Content -->
+<div class="flex-1 overflow-y-auto p-6 lg:p-10 space-y-8 pb-20">
+<!-- Page Header -->
+<div class="flex flex-col gap-2">
+<h1 class="text-3xl md:text-4xl font-bold text-white tracking-tight">Configuration Hub</h1>
+<p class="text-gray-400 max-w-2xl font-body text-sm md:text-base">Manage your neural pathways, dark profiles, and integration logic to orchestrate content distribution at scale.</p>
+</div>
+<!-- Three Column Dashboard Grid -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+<!-- LEFT COLUMN: Platform Integrations (Span 4) -->
+<div class="xl:col-span-4 space-y-6">
+<div class="flex items-center justify-between">
+<h2 class="text-xl font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">share</span>
+                                Integrations
+                            </h2>
+<span class="text-xs font-mono text-secondary bg-secondary/10 px-2 py-1 rounded border border-secondary/20">ALL SYSTEMS OPERATIONAL</span>
+</div>
+<!-- Integration Card: YouTube -->
+<div class="glass-card rounded-xl p-5 relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-20 h-20 bg-red-600/10 blur-[40px] rounded-full -mr-10 -mt-10"></div>
+<div class="flex items-start justify-between mb-4">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-lg bg-[#282828] flex items-center justify-center border border-white/10">
+<!-- Placeholder for YouTube Icon -->
+<span class="material-symbols-outlined text-red-500 text-[24px]">play_arrow</span>
+</div>
+<div>
+<h3 class="font-bold text-white text-base">YouTube Shorts</h3>
+<div class="flex items-center gap-1.5 mt-0.5">
+<span class="size-1.5 rounded-full bg-secondary shadow-glow-success"></span>
+<span class="text-xs text-gray-400">Connected</span>
+</div>
+</div>
+</div>
+<label class="flex items-center cursor-pointer relative" for="toggle-yt">
+<input checked="" class="sr-only" id="toggle-yt" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-700 rounded-full border border-gray-600 toggle-label transition-colors duration-300"></div>
+<div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 transform translate-x-5"></div>
+</label>
+</div>
+<div class="grid grid-cols-2 gap-2 mt-4">
+<div class="bg-black/40 rounded p-2 border border-white/5">
+<p class="text-[10px] text-gray-500 font-mono uppercase">API Latency</p>
+<p class="text-sm font-mono text-white">24ms</p>
+</div>
+<div class="bg-black/40 rounded p-2 border border-white/5">
+<p class="text-[10px] text-gray-500 font-mono uppercase">Daily Quota</p>
+<p class="text-sm font-mono text-white">85%</p>
+</div>
+</div>
+</div>
+<!-- Integration Card: LinkedIn -->
+<div class="glass-card rounded-xl p-5 relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-20 h-20 bg-blue-600/10 blur-[40px] rounded-full -mr-10 -mt-10"></div>
+<div class="flex items-start justify-between mb-4">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-lg bg-[#0077b5]/20 flex items-center justify-center border border-white/10">
+<span class="material-symbols-outlined text-[#0077b5] text-[24px]">business_center</span>
+</div>
+<div>
+<h3 class="font-bold text-white text-base">LinkedIn</h3>
+<div class="flex items-center gap-1.5 mt-0.5">
+<span class="size-1.5 rounded-full bg-secondary shadow-glow-success"></span>
+<span class="text-xs text-gray-400">Connected</span>
+</div>
+</div>
+</div>
+<label class="flex items-center cursor-pointer relative" for="toggle-li">
+<input checked="" class="sr-only" id="toggle-li" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-700 rounded-full border border-gray-600 toggle-label transition-colors duration-300"></div>
+<div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 transform translate-x-5"></div>
+</label>
+</div>
+<div class="bg-black/40 rounded p-2 border border-white/5 mt-4 flex items-center justify-between">
+<span class="text-[10px] text-gray-500 font-mono uppercase">Last Sync</span>
+<span class="text-xs font-mono text-gray-300">2 mins ago</span>
+</div>
+</div>
+<!-- Integration Card: TikTok -->
+<div class="glass-card rounded-xl p-5 relative overflow-hidden group border-white/5 opacity-80 hover:opacity-100">
+<div class="absolute top-0 right-0 w-20 h-20 bg-pink-600/10 blur-[40px] rounded-full -mr-10 -mt-10"></div>
+<div class="flex items-start justify-between mb-2">
+<div class="flex items-center gap-3">
+<div class="size-10 rounded-lg bg-black flex items-center justify-center border border-white/10">
+<span class="material-symbols-outlined text-white text-[24px]">music_note</span>
+</div>
+<div>
+<h3 class="font-bold text-white text-base">TikTok</h3>
+<div class="flex items-center gap-1.5 mt-0.5">
+<span class="size-1.5 rounded-full bg-gray-500"></span>
+<span class="text-xs text-gray-500">Inactive</span>
+</div>
+</div>
+</div>
+<label class="flex items-center cursor-pointer relative" for="toggle-tk">
+<input class="sr-only" id="toggle-tk" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-800 rounded-full border border-gray-700 toggle-label transition-colors duration-300"></div>
+<div class="dot absolute left-1 top-1 bg-gray-400 w-4 h-4 rounded-full transition-transform duration-300"></div>
+</label>
+</div>
+<button class="mt-2 w-full py-1.5 rounded border border-dashed border-gray-700 text-xs text-gray-500 hover:text-white hover:border-gray-500 transition-colors">
+                                Configure API Keys
+                             </button>
+</div>
+</div>
+<!-- MIDDLE COLUMN: Automation Rules (Span 5) -->
+<div class="xl:col-span-5 space-y-6">
+<div class="flex items-center justify-between">
+<h2 class="text-xl font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">account_tree</span>
+                                Automation Logic
+                            </h2>
+<button class="text-primary hover:text-white transition-colors text-sm font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">add</span> NEW RULE
+                            </button>
+</div>
+<!-- Logic Builder Canvas -->
+<div class="glass-panel rounded-xl p-1 min-h-[400px] relative">
+<!-- Background Grid -->
+<div class="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] rounded-xl pointer-events-none"></div>
+<div class="relative z-10 p-5 space-y-4">
+<!-- Rule 1 -->
+<div class="flex flex-col gap-2">
+<div class="flex items-center gap-2 mb-1">
+<span class="text-xs font-mono text-gray-500">RULE_ID_842</span>
+<span class="h-px flex-1 bg-white/10"></span>
+<div class="flex gap-1">
+<button class="text-gray-500 hover:text-white"><span class="material-symbols-outlined text-[16px]">edit</span></button>
+<button class="text-gray-500 hover:text-red-400"><span class="material-symbols-outlined text-[16px]">delete</span></button>
+</div>
+</div>
+<!-- Logic Node Visual -->
+<div class="flex flex-col items-center">
+<!-- Condition Block -->
+<div class="w-full bg-[#1e1b24] border border-l-4 border-primary/50 border-white/5 rounded-r-md p-3 shadow-lg relative group hover:border-primary transition-colors">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-yellow-500 text-[18px]">bolt</span>
+<span class="text-sm font-mono text-gray-300">IF <span class="text-white font-bold">VIRAL_SCORE</span> &gt; 85</span>
+</div>
+<span class="size-2 rounded-full bg-secondary shadow-glow-success animate-pulse"></span>
+</div>
+</div>
+<!-- Connector -->
+<div class="h-6 w-0.5 bg-gradient-to-b from-primary/50 to-primary/20 my-1 relative">
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-1.5 rounded-full bg-primary shadow-glow"></div>
+</div>
+<!-- Action Block -->
+<div class="w-full bg-[#1e1b24] border border-l-4 border-secondary/50 border-white/5 rounded-r-md p-3 shadow-lg hover:border-secondary transition-colors">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[18px]">send</span>
+<span class="text-sm font-mono text-gray-300">THEN <span class="text-white font-bold">CROSSPOST</span> -&gt; LINKEDIN</span>
+</div>
+<div class="mt-2 text-xs text-gray-500 font-mono pl-7">
+                                                DELAY: 15min<br/>
+                                                TAGS: #Trending #Tech
+                                            </div>
+</div>
+</div>
+</div>
+<!-- Rule 2 (Collapsed) -->
+<div class="mt-6 pt-6 border-t border-white/5">
+<div class="flex flex-col gap-2 opacity-60 hover:opacity-100 transition-opacity">
+<div class="flex items-center gap-2 mb-1">
+<span class="text-xs font-mono text-gray-500">RULE_ID_105</span>
+<span class="h-px flex-1 bg-white/10"></span>
+</div>
+<div class="w-full bg-[#1e1b24] border border-white/5 rounded p-3 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-gray-400 text-[18px]">schedule</span>
+<span class="text-sm font-mono text-gray-400">EVERY <span class="text-white">FRIDAY @ 5PM</span> -&gt; ARCHIVE</span>
+</div>
+<div class="px-2 py-0.5 rounded bg-gray-800 text-[10px] text-gray-400 border border-gray-700">PAUSED</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- RIGHT COLUMN: Profile Management (Span 3) -->
+<div class="xl:col-span-3 space-y-6">
+<div class="flex items-center justify-between">
+<h2 class="text-xl font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">face</span>
+                                Dark Profiles
+                            </h2>
+</div>
+<div class="flex flex-col gap-4">
+<!-- Add New Button -->
+<button class="w-full py-3 rounded-xl border border-dashed border-primary/40 text-primary hover:bg-primary/5 hover:border-primary transition-all flex items-center justify-center gap-2 font-medium text-sm group">
+<span class="material-symbols-outlined group-hover:rotate-90 transition-transform">add_circle</span>
+                                Add Neural Profile
+                            </button>
+<!-- Profile List -->
+<div class="space-y-3">
+<!-- Profile Card 1 -->
+<div class="glass-card rounded-lg p-3 flex items-center gap-3">
+<div class="relative">
+<div class="size-10 rounded-full bg-cover bg-center border border-white/20" data-alt="Avatar of dark profile 1" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAWKVT8CYpnpF036fOMQeiJANmgmfNreIrIkkZzZsGHVs2E1K-Rh6sdFpqP3OAfELSqNIl5Enm8KvV42ax6lXEbHvkZ2he3MXDCtC35IG6Wks6rQcypVbfZitVXmrTxp0FBl233QfCEdLK9SnFpDpAacdyR8pJj5dOrSoqOj34zZZHoRl24Dy4s1zZP_i0NT5sX4vFXcmYDiJ8n93C4YXo4YYfy4H1Vgfjvk7gihWkWu25Nqwb2ey9AYxfND55U6ZTRcYcJngBlxQ')"></div>
+<div class="absolute -bottom-0.5 -right-0.5 size-3 bg-secondary rounded-full border-2 border-[#131118]"></div>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-sm font-bold text-white truncate">Nexus_Alpha</h4>
+<p class="text-xs text-gray-500 truncate">Tech Influencer (Lvl 5)</p>
+</div>
+<button class="text-gray-500 hover:text-white"><span class="material-symbols-outlined text-[18px]">more_vert</span></button>
+</div>
+<!-- Profile Card 2 -->
+<div class="glass-card rounded-lg p-3 flex items-center gap-3">
+<div class="relative">
+<div class="size-10 rounded-full bg-cover bg-center border border-white/20" data-alt="Avatar of dark profile 2" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDwHUeJD58tWBs3x5PYKffYT478Geh36MT5MNqKX2rCgXsDLmD1AZJyH3eVwnQ28l_wxXkE_QloFRDoKntDyhhb4uS6VryLQHtaGb9cBFzikgu9zLfqZxN9Nm6Gdedmnq3_J7PhAO-pOWb2f9L4YZZDO-ru3DSyjKMfrhZYiCh6F8_mdzyvrPXGFMIt5d9csXZlHe8UpZa0LuDxofGY51Gw_rsJMa9863BS54nb1ryVx6BSzju61F-7-mAlgQqd8QfkZ7hw4z6c4A')"></div>
+<div class="absolute -bottom-0.5 -right-0.5 size-3 bg-secondary rounded-full border-2 border-[#131118]"></div>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-sm font-bold text-white truncate">Crypto_Ghost</h4>
+<p class="text-xs text-gray-500 truncate">Finance (Lvl 3)</p>
+</div>
+<button class="text-gray-500 hover:text-white"><span class="material-symbols-outlined text-[18px]">more_vert</span></button>
+</div>
+<!-- Profile Card 3 -->
+<div class="glass-card rounded-lg p-3 flex items-center gap-3 opacity-75">
+<div class="relative">
+<div class="size-10 rounded-full bg-cover bg-center border border-white/20 grayscale" data-alt="Avatar of dark profile 3" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDOv9fbESSvEP6QbfYp1Y1TmPJtwvt-DvadE8mg9xN6oFAEpZy_a_w0yEi4umDRSG-Tt4uPCQ_J8V58Uk9BX8nXymoYFWza7-PoR0n00Km7HCFg7ldW2VvF6t4j1Uo3dFLB_NLD3D62leYjeZaiCTjPDjxFzzCCeu4hXAG_aKzEyklR8_KaKrc-wGx0_SFU52hgQR-GzcV30YhWhVWhYKKIt15wsG2stDwfgkKx9xag0rYoYZYVXyhqapIP-MGyaouX7HXS2fy1zQ')"></div>
+<div class="absolute -bottom-0.5 -right-0.5 size-3 bg-yellow-500 rounded-full border-2 border-[#131118]"></div>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-sm font-bold text-white truncate">Echo_V2</h4>
+<p class="text-xs text-gray-500 truncate">Lifestyle (Suspended)</p>
+</div>
+<button class="text-gray-500 hover:text-white"><span class="material-symbols-outlined text-[18px]">more_vert</span></button>
+</div>
+</div>
+<!-- Stats Box -->
+<div class="glass-panel p-4 rounded-xl mt-2 border-primary/20 bg-primary/5">
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-bold text-primary uppercase">Network Health</span>
+<span class="text-xs font-mono text-white">94%</span>
+</div>
+<div class="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-primary to-secondary w-[94%] shadow-[0_0_10px_rgba(139,92,246,0.5)]"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer / Status Bar -->
+<footer class="mt-8 border-t border-white/5 pt-6 flex flex-col md:flex-row items-center justify-between text-xs text-gray-600 font-mono gap-4">
+<div class="flex items-center gap-4">
+<span>SYNAPSE OS v3.4.1</span>
+<span class="size-1 bg-gray-600 rounded-full"></span>
+<span>SERVER: US-EAST-1</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px] text-secondary">check_circle</span>
+<span class="text-gray-400">All Systems Nominal</span>
+</div>
+</footer>
+</div>
+</main>
+</div>
+<!-- Toggle Script for UI interaction simulation -->
+<style>
+        .toggle-checkbox:checked ~ .dot {
+            transform: translateX(1.25rem);
+            background-color: white;
+        }
+        .toggle-checkbox:checked ~ .toggle-label {
+            background-color: #8b5cf6;
+            border-color: #8b5cf6;
+        }
+    </style>
+</body></html>
