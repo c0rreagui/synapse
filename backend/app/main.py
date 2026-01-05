@@ -13,8 +13,8 @@ app.add_middleware(
 
 from fastapi.staticfiles import StaticFiles
 import os
-from app.api.endpoints import content, ingestion
-from app.api import debug_router
+from .api.endpoints import content, ingestion
+from .api import debug_router
 
 # Mount static for debugging
 static_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")

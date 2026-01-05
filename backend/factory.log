@@ -446,3 +446,288 @@ playwright._impl._errors.TargetClosedError: : Target page, context or browser ha
 2026-01-05 15:27:18,864 - ERROR - Upload failed: Page.evaluate: Target page, context or browser has been closed
 2026-01-05 15:27:18,867 - INFO - Closing browser...
 2026-01-05 15:27:19,336 - ERROR -    Reason: Upload failed: Page.evaluate: Target page, context or browser has been closed
+2026-01-05 16:27:12,715 - INFO - Ignoring non-mp4 file: @p1_2adc6564.mp4.json
+2026-01-05 16:27:15,785 - INFO -    File stable at 4.10 MB
+2026-01-05 16:27:15,791 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\backend\processing\@p1_2adc6564.mp4
+2026-01-05 16:27:15,791 - INFO - Caption: Gravação de Tela 2026-01-05 023939 - Synapse Auto
+2026-01-05 16:27:27,630 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 16:27:28,682 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 16:27:28,683 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 16:27:39,309 - INFO - Looking for file input or upload trigger...
+2026-01-05 16:27:39,365 - INFO - Found file input element
+2026-01-05 16:27:39,365 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\backend\processing\@p1_2adc6564.mp4
+2026-01-05 16:27:39,448 - INFO - Waiting for upload to complete...
+2026-01-05 16:28:44,480 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 16:28:57,424 - INFO - Screenshot saved: C:\APPS - ANTIGRAVITY\Synapse\backend\static\upload_fixed.png
+2026-01-05 16:29:57,496 - ERROR - Failed to click action button: Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("button:has-text(\"Publicar\")").first
+    - locator resolved to <button role="button" type="button" data-size="large" data-loading="false" aria-disabled="false" data-disabled="false" data-icon-only="false" data-e2e="post_video_button" class="Button__root Button__root--shape-default Button__root--size-large Button__root--type-primary Button__root--loading-false">…</button>
+  - attempting click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay"></div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+    - retrying click action
+      - waiting 100ms
+    57 × waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+     - retrying click action
+       - waiting 500ms
+
+2026-01-05 16:29:57,496 - INFO - Closing browser...
+2026-01-05 16:29:58,400 - ERROR -    Reason: Failed to click action button: Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("button:has-text(\"Publicar\")").first
+    - locator resolved to <button role="button" type="button" data-size="large" data-loading="false" aria-disabled="false" data-disabled="false" data-icon-only="false" data-e2e="post_video_button" class="Button__root Button__root--shape-default Button__root--size-large Button__root--type-primary Button__root--loading-false">…</button>
+  - attempting click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay"></div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+    - retrying click action
+      - waiting 100ms
+    57 × waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+     - retrying click action
+       - waiting 500ms
+
+2026-01-05 16:41:03,529 - INFO - Ignoring non-mp4 file: @p1_ec7028e9.mp4.json
+2026-01-05 16:41:06,669 - INFO -    File stable at 4.10 MB
+2026-01-05 16:41:06,674 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\backend\processing\@p1_ec7028e9.mp4
+2026-01-05 16:41:06,674 - INFO - Caption: Gravação de Tela 2026-01-05 023939 - Synapse Auto
+2026-01-05 16:41:15,179 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 16:41:16,783 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 16:41:16,783 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 16:41:27,062 - INFO - Looking for file input or upload trigger...
+2026-01-05 16:41:27,266 - INFO - Found file input element
+2026-01-05 16:41:27,266 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\backend\processing\@p1_ec7028e9.mp4
+2026-01-05 16:41:27,627 - INFO - Waiting for upload to complete...
+2026-01-05 16:42:32,659 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 16:42:45,633 - INFO - Screenshot saved: C:\APPS - ANTIGRAVITY\Synapse\backend\static\upload_fixed.png
+2026-01-05 16:42:45,635 - INFO - Closing browser...
+2026-01-05 16:42:47,749 - INFO -    Screenshot: C:\APPS - ANTIGRAVITY\Synapse\backend\static\upload_fixed.png
+2026-01-05 16:48:51,198 - INFO - Ignoring non-mp4 file: @p1_29195b54.mp4.json
+2026-01-05 16:48:54,252 - INFO -    File stable at 4.10 MB
+2026-01-05 16:48:54,257 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\backend\processing\@p1_29195b54.mp4
+2026-01-05 16:48:54,257 - INFO - Caption: Gravação de Tela 2026-01-05 023939 - Synapse Auto
+2026-01-05 16:48:55,491 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 16:48:55,994 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 16:48:55,994 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 16:49:04,591 - INFO - Looking for file input or upload trigger...
+2026-01-05 16:49:04,633 - INFO - Found file input element
+2026-01-05 16:49:04,633 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\backend\processing\@p1_29195b54.mp4
+2026-01-05 16:49:04,685 - INFO - Waiting for upload to complete...
+2026-01-05 16:50:09,771 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 16:50:22,638 - INFO - Screenshot saved: C:\APPS - ANTIGRAVITY\Synapse\backend\static\upload_fixed.png
+2026-01-05 16:50:22,640 - INFO - Closing browser...
+2026-01-05 16:50:23,111 - INFO -    Screenshot: C:\APPS - ANTIGRAVITY\Synapse\backend\static\upload_fixed.png
+2026-01-05 17:01:48,030 - INFO - Ignoring non-mp4 file: @p1_116c9aa8.mp4.json
+2026-01-05 17:01:51,088 - INFO -    File stable at 4.10 MB
+2026-01-05 17:01:51,100 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\backend\processing\@p1_116c9aa8.mp4
+2026-01-05 17:01:51,100 - INFO - Caption: Gravação de Tela 2026-01-05 023939 - Synapse Auto
+2026-01-05 17:01:52,044 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 17:01:52,676 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 17:01:52,677 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 17:02:00,912 - INFO - Looking for file input or upload trigger...
+2026-01-05 17:02:01,003 - INFO - Found file input element
+2026-01-05 17:02:01,003 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\backend\processing\@p1_116c9aa8.mp4
+2026-01-05 17:02:01,137 - INFO - Waiting for upload to complete...
+2026-01-05 17:03:06,161 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 17:03:18,980 - INFO - Screenshot saved: C:\APPS - ANTIGRAVITY\Synapse\backend\static\upload_fixed.png
+2026-01-05 17:04:19,062 - ERROR - Failed to click action button: Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("button:has-text(\"Publicar\")").first
+    - locator resolved to <button role="button" type="button" data-size="large" data-loading="false" aria-disabled="false" data-disabled="false" data-icon-only="false" data-e2e="post_video_button" class="Button__root Button__root--shape-default Button__root--size-large Button__root--type-primary Button__root--loading-false">…</button>
+  - attempting click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay"></div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+    - retrying click action
+      - waiting 100ms
+    58 × waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+     - retrying click action
+       - waiting 500ms
+
+2026-01-05 17:04:19,063 - INFO - Closing browser...
+2026-01-05 17:04:19,715 - ERROR -    Reason: Failed to click action button: Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("button:has-text(\"Publicar\")").first
+    - locator resolved to <button role="button" type="button" data-size="large" data-loading="false" aria-disabled="false" data-disabled="false" data-icon-only="false" data-e2e="post_video_button" class="Button__root Button__root--shape-default Button__root--size-large Button__root--type-primary Button__root--loading-false">…</button>
+  - attempting click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay"></div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+    - retrying click action
+      - waiting 100ms
+    58 × waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+     - retrying click action
+       - waiting 500ms
+
+2026-01-05 17:07:51,647 - INFO - Ignoring non-mp4 file: @p1_929e7446.mp4.json
+2026-01-05 17:07:54,703 - INFO -    File stable at 4.10 MB
+2026-01-05 17:07:54,715 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\backend\processing\@p1_929e7446.mp4
+2026-01-05 17:07:54,715 - INFO - Caption: Gravação de Tela 2026-01-05 023939 - Synapse Auto
+2026-01-05 17:07:55,725 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 17:07:56,488 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 17:07:56,488 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 17:08:04,459 - INFO - Looking for file input or upload trigger...
+2026-01-05 17:08:04,498 - INFO - Found file input element
+2026-01-05 17:08:04,498 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\backend\processing\@p1_929e7446.mp4
+2026-01-05 17:08:04,562 - INFO - Waiting for upload to complete...
+2026-01-05 17:09:09,585 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 17:09:22,452 - INFO - Screenshot saved: C:\APPS - ANTIGRAVITY\Synapse\backend\static\upload_fixed.png
+2026-01-05 17:10:22,516 - ERROR - Failed to click action button: Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("button:has-text(\"Publicar\")").first
+    - locator resolved to <button role="button" type="button" data-size="large" data-loading="false" aria-disabled="false" data-disabled="false" data-icon-only="false" data-e2e="post_video_button" class="Button__root Button__root--shape-default Button__root--size-large Button__root--type-primary Button__root--loading-false">…</button>
+  - attempting click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay"></div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+    - retrying click action
+      - waiting 100ms
+    57 × waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+     - retrying click action
+       - waiting 500ms
+
+2026-01-05 17:10:22,516 - INFO - Closing browser...
+2026-01-05 17:10:23,137 - ERROR -    Reason: Failed to click action button: Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("button:has-text(\"Publicar\")").first
+    - locator resolved to <button role="button" type="button" data-size="large" data-loading="false" aria-disabled="false" data-disabled="false" data-icon-only="false" data-e2e="post_video_button" class="Button__root Button__root--shape-default Button__root--size-large Button__root--type-primary Button__root--loading-false">…</button>
+  - attempting click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay"></div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+    - retrying click action
+      - waiting 100ms
+    57 × waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+     - retrying click action
+       - waiting 500ms
+
+2026-01-05 17:17:24,903 - INFO - Ignoring non-mp4 file: @p1_c69ebe3e.mp4.json
+2026-01-05 17:17:28,015 - INFO -    File stable at 4.10 MB
+2026-01-05 17:17:28,027 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\backend\processing\@p1_c69ebe3e.mp4
+2026-01-05 17:17:28,028 - INFO - Caption: Gravação de Tela 2026-01-05 023939 - Synapse Auto
+2026-01-05 17:17:28,960 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\backend\data\sessions\tiktok_profile_01.json
+2026-01-05 17:17:29,760 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 17:17:29,760 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 17:17:37,326 - INFO - Looking for file input or upload trigger...
+2026-01-05 17:17:37,363 - INFO - Found file input element
+2026-01-05 17:17:37,364 - INFO - Uploading file: C:\APPS - ANTIGRAVITY\Synapse\backend\processing\@p1_c69ebe3e.mp4
+2026-01-05 17:17:37,422 - INFO - Waiting for upload to complete...
+2026-01-05 17:18:42,436 - WARNING - Could not confirm upload completion, proceeding anyway...
+2026-01-05 17:18:53,375 - INFO - Screenshot saved: C:\APPS - ANTIGRAVITY\Synapse\backend\static\upload_fixed.png
+2026-01-05 17:19:28,697 - INFO - Closing browser...
+2026-01-05 17:19:29,179 - ERROR -    Reason: Video processed successfully (Publicar)

@@ -309,10 +309,7 @@ export default function SettingsPage() {
                                     <div className="glass-card rounded-lg p-3 flex items-center gap-3">
                                         <div className="relative">
                                             <div
-                                                className="size-10 rounded-full bg-cover bg-center border border-white/20"
-                                                style={{
-                                                    backgroundImage: "url('https://api.dicebear.com/7.x/avataaars/svg?seed=nexus_alpha')",
-                                                }}
+                                                className="size-10 rounded-full bg-cover bg-center border border-white/20 avatar-nexus"
                                             ></div>
                                             <div className="absolute -bottom-0.5 -right-0.5 size-3 bg-secondary rounded-full border-2 border-[#131118]"></div>
                                         </div>
@@ -329,10 +326,7 @@ export default function SettingsPage() {
                                     <div className="glass-card rounded-lg p-3 flex items-center gap-3">
                                         <div className="relative">
                                             <div
-                                                className="size-10 rounded-full bg-cover bg-center border border-white/20"
-                                                style={{
-                                                    backgroundImage: "url('https://api.dicebear.com/7.x/avataaars/svg?seed=crypto_ghost')",
-                                                }}
+                                                className="size-10 rounded-full bg-cover bg-center border border-white/20 avatar-crypto"
                                             ></div>
                                             <div className="absolute -bottom-0.5 -right-0.5 size-3 bg-secondary rounded-full border-2 border-[#131118]"></div>
                                         </div>
@@ -349,10 +343,7 @@ export default function SettingsPage() {
                                     <div className="glass-card rounded-lg p-3 flex items-center gap-3 opacity-75">
                                         <div className="relative">
                                             <div
-                                                className="size-10 rounded-full bg-cover bg-center border border-white/20 grayscale"
-                                                style={{
-                                                    backgroundImage: "url('https://api.dicebear.com/7.x/avataaars/svg?seed=echo_v2')",
-                                                }}
+                                                className="size-10 rounded-full bg-cover bg-center border border-white/20 grayscale avatar-echo"
                                             ></div>
                                             <div className="absolute -bottom-0.5 -right-0.5 size-3 bg-yellow-500 rounded-full border-2 border-[#131118]"></div>
                                         </div>

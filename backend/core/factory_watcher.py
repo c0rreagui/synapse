@@ -18,6 +18,18 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.uploader import upload_video
 
+# Force UTF-8 stdout for Windows emoji support (CRITICAL FIX)
+if sys.platform == "win32":
+    # codecs needed for brutal force override if reconfigure fails or isn't enough
+    import codecs
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        # Fallback for older python or stubborn environments
+        sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
+        sys.stderr = codecs.getwriter("utf-8")(sys.stderr.detach())
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -176,15 +188,20 @@ class VideoHandler(FileSystemEventHandler):
                 except Exception as e:
                     logger.error(f"⚠️ Error reading metadata: {e}")
 
-            # Call the uploader with the routed session
-            logger.info(f"🚀 Starting upload: {filename} (Session: {session_name})")
+            # Construct full session path
+            full_session_path = os.path.join(BASE_DIR, "data", "sessions", f"{session_name}.json")
+            if not os.path.exists(full_session_path):
+                 logger.error(f"❌ Session file not found: {full_session_path}")
+                 # Fallback to default if needed, or error out. 
+                 # For now let's just log and try anyway or maybe default to profile 1?
+                 # Let's rely on the routing map being correct, but if file missing, it will fail in uploader.
+            
+            # Chama o uploader (Versão corrigida e limpa)
             result = await upload_video(
-                session_name=session_name,  # Dynamic session!
-                video_path=processing_path,
+                file_path=processing_path,
+                session_path=full_session_path,
                 caption=video_caption,
-                schedule_time=schedule_time, # Pass scheduling info
-                hashtags=["fy", "viral", "synapse"],
-                post=False  # Safety: don't auto-post
+                schedule_time=schedule_time
             )
             
             # Check result and move accordingly
@@ -211,9 +228,9 @@ class VideoHandler(FileSystemEventHandler):
                 logger.error(f"❌ FAILED: {filename} -> errors/")
                 logger.error(f"   Reason: {result.get('message')}")
                 
-                # Write error log
+                # Write error log (with UTF-8 force)
                 error_log_path = error_path + ".error.txt"
-                with open(error_log_path, 'w') as f:
+                with open(error_log_path, 'w', encoding='utf-8') as f:
                     f.write(f"Timestamp: {datetime.now().isoformat()}\n")
                     f.write(f"File: {filename}\n")
                     f.write(f"Error: {result.get('message')}\n")

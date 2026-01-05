@@ -52,15 +52,15 @@ export default function Sidebar() {
                             key={item.href}
                             href={item.href}
                             className={`flex items-center gap-3 px-4 py-3 rounded-lg group relative overflow-hidden transition-colors ${isActive(item.href)
-                                    ? "nav-item-active text-white"
-                                    : "text-[#94a3b8] hover:text-white hover:bg-white/5"
+                                ? "nav-item-active text-white"
+                                : "text-[#94a3b8] hover:text-white hover:bg-white/5"
                                 }`}
                         >
                             <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                             <span
                                 className={`material-symbols-outlined text-[20px] ${isActive(item.href)
-                                        ? "text-primary drop-shadow-[0_0_8px_rgba(139,85,247,0.8)]"
-                                        : "group-hover:text-primary transition-colors"
+                                    ? "text-primary drop-shadow-[0_0_8px_rgba(139,85,247,0.8)]"
+                                    : "group-hover:text-primary transition-colors"
                                     }`}
                             >
                                 {item.icon}
@@ -76,15 +76,15 @@ export default function Sidebar() {
                             key={item.href}
                             href={item.href}
                             className={`flex items-center gap-3 px-4 py-3 rounded-lg group relative overflow-hidden transition-colors ${isActive(item.href)
-                                    ? "nav-item-active text-white"
-                                    : "text-[#94a3b8] hover:text-white hover:bg-white/5"
+                                ? "nav-item-active text-white"
+                                : "text-[#94a3b8] hover:text-white hover:bg-white/5"
                                 }`}
                         >
                             <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                             <span
                                 className={`material-symbols-outlined text-[20px] ${isActive(item.href)
-                                        ? "text-primary drop-shadow-[0_0_8px_rgba(139,85,247,0.8)]"
-                                        : "group-hover:text-primary transition-colors"
+                                    ? "text-primary drop-shadow-[0_0_8px_rgba(139,85,247,0.8)]"
+                                    : "group-hover:text-primary transition-colors"
                                     }`}
                             >
                                 {item.icon}
@@ -98,10 +98,7 @@ export default function Sidebar() {
             {/* User Profile Card */}
             <div className="glass-panel rounded-xl p-3 flex items-center gap-3 border border-white/5 hover:border-primary/30 transition-all cursor-pointer group">
                 <div
-                    className="bg-center bg-no-repeat aspect-square bg-cover rounded-lg size-9 ring-1 ring-white/10 group-hover:ring-primary/50 transition-all"
-                    style={{
-                        backgroundImage: "url('https://api.dicebear.com/7.x/avataaars/svg?seed=admin')",
-                    }}
+                    className="bg-center bg-no-repeat aspect-square bg-cover rounded-lg size-9 ring-1 ring-white/10 group-hover:ring-primary/50 transition-all avatar-admin"
                 ></div>
                 <div className="flex flex-col min-w-0 hidden lg:block">
                     <p className="text-sm font-medium text-white truncate group-hover:text-primary transition-colors">Administrator</p>

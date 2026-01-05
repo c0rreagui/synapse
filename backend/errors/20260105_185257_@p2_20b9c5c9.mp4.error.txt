@@ -1,0 +1,3 @@
+Timestamp: 2026-01-05T18:52:57.484297
+File: @p2_20b9c5c9.mp4
+Error: Upload finalizado (Agendar)

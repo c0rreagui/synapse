@@ -1,5 +1,5 @@
-$backendPath = "c:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\backend"
-$frontendPath = "c:\APPS - ANTIGRAVITY\Synapse\auto-content-empire\frontend"
+$backendPath = "c:\APPS - ANTIGRAVITY\Synapse\backend"
+$frontendPath = "c:\APPS - ANTIGRAVITY\Synapse\frontend"
 
 # Start Backend
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$backendPath'; Write-Host '🚀 Starting Backend...'; python -m uvicorn app.main:app --reload --port 8000"
