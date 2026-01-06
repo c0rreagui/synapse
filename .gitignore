@@ -28,3 +28,11 @@ backend/factory.log
 
 # Monitoramento (capturas de tela)
 MONITOR/
+html de exemplo/dashboard_(command_center)/code.html
+html de exemplo/dashboard_(command_center)/screen.png
+html de exemplo/distribution/code.html
+html de exemplo/distribution/screen.png
+html de exemplo/ingestion_(drag_&_drop)/code.html
+html de exemplo/ingestion_(drag_&_drop)/screen.png
+html de exemplo/settings_(configuration_hub)_/code.html
+html de exemplo/settings_(configuration_hub)_/screen.png
