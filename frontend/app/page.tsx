@@ -3,43 +3,36 @@
 import { useState, useEffect } from 'react';
 import GlassCard from './components/GlassCard';
 import StatCard from './components/StatCard';
-import { CloudArrowUpIcon, FilmIcon, SignalIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
-
-interface Profile {
-  id: string;
-  label: string;
-  color?: string;
-}
+import {
+  CloudArrowUpIcon,
+  VideoCameraIcon,
+  SignalIcon,
+  CpuChipIcon,
+  CheckCircleIcon,
+  ArrowPathIcon
+} from '@heroicons/react/24/outline';
 
 export default function Home() {
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [isLoadingProfiles, setIsLoadingProfiles] = useState(true);
+  // --- LÓGICA DE ESTADO (MANTIDA) ---
+  const [profiles, setProfiles] = useState<any[]>([]);
   const [selectedProfile, setSelectedProfile] = useState("");
-  const [isDragging, setIsDragging] = useState(false);
+  const [isLoadingProfiles, setIsLoadingProfiles] = useState(true);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+  const [isDragging, setIsDragging] = useState(false);
 
-  // Fetch profiles on mount
+  // Fetch Perfis
   useEffect(() => {
     async function fetchProfiles() {
       try {
         const res = await fetch('http://localhost:8000/api/v1/profiles/list');
         if (res.ok) {
           const data = await res.json();
-          // Map backend data to UI format if needed
-          // Adicionando cores rotativas para manter o visual neon
-          const mappedProfile = data.map((p: Profile, index: number) => ({
-            ...p,
-            color: index % 2 === 0 ? "border-cyan-500" : "border-purple-500"
-          }));
-          setProfiles(mappedProfile);
-          if (mappedProfile.length > 0) setSelectedProfile(mappedProfile[0].id);
+          setProfiles(data);
+          if (data.length > 0) setSelectedProfile(data[0].id);
         }
-      } catch (e) {
-        console.error("Failed to load profiles", e);
-        // Fallback visual
-        setProfiles([
-          { id: "tiktok_profile_01", label: "⚠️ Modo Offline (@p1)", color: "border-gray-500" }
-        ]);
+      } catch (error) {
+        console.error("Erro API", error);
+        setProfiles([{ id: "offline", label: "⚠️ Backend Offline" }]);
       } finally {
         setIsLoadingProfiles(false);
       }
@@ -47,31 +40,8 @@ export default function Home() {
     fetchProfiles();
   }, []);
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0];
-      await handleUpload(file);
-    }
-  };
-
+  // Upload Handlers
   const handleUpload = async (file: File) => {
-    if (!selectedProfile) {
-      alert("Selecione um perfil primeiro!");
-      return;
-    }
     setUploadStatus('uploading');
     const formData = new FormData();
     formData.append("file", file);
@@ -82,183 +52,187 @@ export default function Home() {
         method: "POST",
         body: formData,
       });
-      if (response.ok) {
-        setUploadStatus('success');
-        setTimeout(() => setUploadStatus('idle'), 3000);
-      } else {
-        setUploadStatus('error');
-      }
-    } catch (error) {
-      console.error(error);
+      if (response.ok) setUploadStatus('success');
+      else setUploadStatus('error');
+      setTimeout(() => setUploadStatus('idle'), 3000);
+    } catch (e) {
       setUploadStatus('error');
     }
   };
 
+  const onDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
+  const onDragLeave = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); };
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files?.[0]) handleUpload(e.dataTransfer.files[0]);
+  };
+
+  // --- RENDERIZAÇÃO VISUAL (NOVA) ---
   return (
-    <main className="min-h-screen bg-[#030712] relative overflow-hidden selection:bg-cyan-500/30">
+    <main className="min-h-screen bg-synapse-bg text-synapse-text relative font-sans selection:bg-synapse-primary/30">
 
-      {/* Radial Gradient Glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-[radial-gradient(ellipse_at_top,rgba(6,182,212,0.15),transparent_70%)] pointer-events-none" />
+      {/* Background FX */}
+      <div className="absolute inset-0 bg-cyber-grid opacity-[0.05] pointer-events-none" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-glow-radial opacity-40 pointer-events-none" />
 
-      {/* Background Grid Effect */}
-      <div className="absolute inset-0 bg-grid-pattern opacity-[0.03] pointer-events-none" />
+      <div className="max-w-7xl mx-auto p-6 relative z-10 space-y-8">
 
-      <div className="max-w-7xl mx-auto relative z-10 space-y-6 p-4">
-
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        {/* Header */}
+        <header className="flex justify-between items-end border-b border-white/5 pb-6">
           <div>
-            <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500 mb-1">
-              Synapse Command Center
+            <h1 className="text-4xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500">
+              SYNAPSE
             </h1>
-            <p className="text-slate-400">Sistema Operacional de Mídia Autônoma</p>
+            <p className="text-synapse-muted mt-1 font-mono text-xs tracking-widest uppercase">
+              Automated Content Operations // v2.0
+            </p>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="flex h-3 w-3 relative">
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+            <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span className="text-sm font-mono text-emerald-400">SYSTEM ONLINE</span>
+            <span className="text-xs font-bold text-emerald-400">SYSTEM ONLINE</span>
           </div>
+        </header>
+
+        {/* Stats Row */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <StatCard label="Fila de Processamento" value="0" icon={CpuChipIcon} color="purple" />
+          <StatCard label="Uploads (24h)" value="12" icon={CloudArrowUpIcon} color="cyan" trend="+20% vs ontem" />
+          <StatCard label="Contas Ativas" value={profiles.length || "-"} icon={SignalIcon} color="emerald" />
+          <StatCard label="Taxa de Sucesso" value="99.9%" icon={CheckCircleIcon} color="emerald" />
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Videos na Fila" value="03" icon={<FilmIcon className="w-5 h-5" />} trend="+2 desde ontem" color="primary" />
-          <StatCard label="Uploads Hoje" value="12" icon={<CloudArrowUpIcon className="w-5 h-5" />} color="success" />
-          <StatCard label="Taxa de Sucesso" value="98.5%" icon={<CheckCircleIcon className="w-5 h-5" />} color="secondary" />
-          <StatCard label="Proxies Ativos" value="01" icon={<SignalIcon className="w-5 h-5" />} color="danger" />
-        </div>
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* Main Action Area */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Coluna Esquerda: Centro de Upload */}
+          <div className="lg:col-span-2">
+            <GlassCard title="Nova Transmissão" className="h-full">
 
-          {/* Left Column: Upload */}
-          <div className="lg:col-span-2 space-y-6">
-            <GlassCard title="Nova Transmissão" icon={<CloudArrowUpIcon className="w-5 h-5" />} className="border-t border-cyan-500/20">
-
-              {/* Profile Selector */}
-              <div className="mb-8 relative">
-                {/* Visual Connector Line */}
-                <div className="absolute left-4 top-8 bottom-[-40px] w-px bg-gradient-to-b from-cyan-500/50 to-transparent z-0 hidden md:block"></div>
-
-                <label className="block text-xs font-bold text-cyan-500 mb-4 font-mono uppercase tracking-widest flex items-center gap-2 relative z-10">
-                  <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse shadow-[0_0_8px_#22d3ee]"></span>
-                  1. Selecione o Canal de Destino
+              {/* 1. Profile Selector */}
+              <div className="mb-8">
+                <label className="block text-xs font-bold text-cyan-400 mb-4 font-mono uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-2 h-2 bg-cyan-400 rounded-sm"></span>
+                  Selecione o Canal de Destino
                 </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10 pl-6 md:pl-0">
-                  {isLoadingProfiles ? (
-                    <div className="col-span-2 flex items-center justify-center p-8 border border-dashed border-cyan-900/50 rounded-xl bg-cyan-950/10">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-                        <span className="text-cyan-400/70 text-sm font-mono tracking-wider animate-pulse">SINCRONIZANDO CANAIS...</span>
-                      </div>
-                    </div>
-                  ) : profiles.length === 0 ? (
-                    <div className="col-span-2 p-6 text-center text-amber-500 bg-amber-500/5 rounded-xl border border-amber-500/10 font-mono text-sm">
-                      <p className="font-bold">⚠ NENHUM PERFIL ENCONTRADO</p>
-                      <p className="text-xs text-amber-500/70 mt-1">Verifique a conexão com o módulo Brain</p>
-                    </div>
-                  ) : (
-                    profiles.map((p) => (
+
+                {isLoadingProfiles ? (
+                  <div className="h-16 w-full animate-pulse bg-white/5 rounded-lg"></div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {profiles.map((p) => (
                       <button
                         key={p.id}
                         onClick={() => setSelectedProfile(p.id)}
-                        className={`relative p-4 rounded-xl border transition-all duration-300 group overflow-hidden text-left
-                        ${selectedProfile === p.id
-                            ? `bg-cyan-950/40 ${p.color || 'border-cyan-500'} shadow-[0_0_20px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/50`
-                            : 'bg-slate-900/40 border-slate-800 hover:border-slate-600 hover:bg-slate-800/60'
-                          }`}
+                        className={`
+                          group relative p-4 rounded-lg border text-left transition-all duration-200
+                          ${selectedProfile === p.id
+                            ? 'bg-synapse-primary/10 border-synapse-primary shadow-[0_0_20px_rgba(6,182,212,0.1)]'
+                            : 'bg-synapse-surface border-synapse-border hover:border-synapse-primary/50'
+                          }
+                        `}
                       >
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-
-                        <div className="flex items-center justify-between relative z-10">
-                          <span className={`font-medium transition-colors ${selectedProfile === p.id ? 'text-cyan-50' : 'text-slate-400 group-hover:text-slate-200'}`}>
+                        <div className="flex items-center justify-between">
+                          <span className={`font-medium ${selectedProfile === p.id ? 'text-white' : 'text-slate-400 group-hover:text-white'}`}>
                             {p.label}
                           </span>
-                          {selectedProfile === p.id && (
-                            <div className="h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee] animate-pulse"></div>
-                          )}
+                          {selectedProfile === p.id && <div className="w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_8px_cyan]"></div>}
                         </div>
                       </button>
-                    )))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Dropzone */}
-              <div className="relative">
-                <label className="block text-xs font-bold text-cyan-500 mb-4 font-mono uppercase tracking-widest flex items-center gap-2 relative z-10">
-                  <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse shadow-[0_0_8px_#22d3ee]"></span>
-                  2. Arquivo de Vídeo (.MP4)
+              {/* 2. Dropzone */}
+              <div>
+                <label className="block text-xs font-bold text-purple-400 mb-4 font-mono uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-2 h-2 bg-purple-400 rounded-sm"></span>
+                  Upload de Mídia
                 </label>
+
                 <div
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleLeave}
-                  onDrop={handleDrop}
+                  onDragOver={onDragOver}
+                  onDragLeave={onDragLeave}
+                  onDrop={onDrop}
                   className={`
-                    relative border border-dashed rounded-xl p-12 text-center transition-all duration-300 cursor-pointer overflow-hidden group
+                    relative h-64 rounded-xl border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center cursor-pointer group
                     ${isDragging
-                      ? 'border-cyan-400 bg-cyan-500/10 scale-[1.01] shadow-[0_0_30px_rgba(6,182,212,0.1)]'
-                      : 'border-slate-800 hover:border-cyan-500/30 hover:bg-slate-900/60'
+                      ? 'border-cyan-400 bg-cyan-400/5 scale-[1.01] shadow-[0_0_30px_rgba(6,182,212,0.15)]'
+                      : 'border-synapse-border bg-synapse-surface/50 hover:border-synapse-primary/40 hover:bg-synapse-surface'
                     }
                     ${uploadStatus === 'success' ? 'border-emerald-500 bg-emerald-500/10' : ''}
                   `}
                 >
                   <input
                     type="file"
-                    title="Upload Video"
-                    aria-label="Upload Video"
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-                    onChange={(e) => e.target.files && handleUpload(e.target.files[0])}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
                     accept=".mp4,.mov"
                   />
 
-                  <div className="flex flex-col items-center justify-center space-y-3 relative z-10">
-                    <div className={`p-5 rounded-2xl bg-slate-900/80 border border-white/5 transition-transform duration-300 group-hover:scale-110 shadow-lg ${isDragging ? 'text-cyan-400' : 'text-slate-500 group-hover:text-cyan-400'}`}>
-                      {uploadStatus === 'uploading' ? (
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
-                      ) : uploadStatus === 'success' ? (
-                        <CheckCircleIcon className="w-8 h-8 text-emerald-500" />
-                      ) : (
-                        <CloudArrowUpIcon className="w-8 h-8" />
-                      )}
+                  {uploadStatus === 'uploading' ? (
+                    <div className="flex flex-col items-center animate-pulse">
+                      <ArrowPathIcon className="w-12 h-12 text-cyan-400 animate-spin mb-4" />
+                      <p className="text-cyan-400 font-mono text-sm">ENVIANDO DADOS...</p>
                     </div>
-                    <div>
-                      <p className={`text-lg font-bold transition-colors ${isDragging ? 'text-cyan-400' : 'text-white'}`}>
-                        {uploadStatus === 'success' ? 'Upload Recebido com Sucesso!' : 'Arraste o vídeo aqui'}
+                  ) : uploadStatus === 'success' ? (
+                    <div className="flex flex-col items-center">
+                      <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mb-4">
+                        <CheckCircleIcon className="w-10 h-10 text-emerald-400" />
+                      </div>
+                      <p className="text-emerald-400 font-bold">UPLOAD CONCLUÍDO</p>
+                      <p className="text-slate-500 text-sm mt-1">O robô iniciará o processamento em breve.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="w-16 h-16 rounded-full bg-synapse-surface border border-white/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                        <VideoCameraIcon className="w-8 h-8 text-slate-400 group-hover:text-cyan-400 transition-colors" />
+                      </div>
+                      <p className="text-lg font-medium text-white group-hover:text-cyan-200 transition-colors">
+                        Arraste o arquivo de vídeo aqui
                       </p>
-                      <p className="text-sm text-slate-500 mt-2 font-medium">ou clique para buscar seus arquivos</p>
-                    </div>
-                    <div className="pt-2">
-                      <span className="text-xs font-mono text-slate-600 bg-slate-900/50 px-2 py-1 rounded border border-white/5">MP4 / MOV • MAX 500MB</span>
-                    </div>
-                  </div>
+                      <p className="text-sm text-slate-500 mt-2">ou clique para navegar nos arquivos</p>
+                    </>
+                  )}
                 </div>
               </div>
 
             </GlassCard>
           </div>
 
-          {/* Right Column: Recent Activity */}
+          {/* Coluna Direita: Live Log (Mockup por enquanto) */}
           <div className="lg:col-span-1">
-            <GlassCard title="Log de Operações" icon={<SignalIcon className="w-5 h-5" />} className="h-full">
-              <div className="space-y-4">
-                {/* Mock Items - Futuramente virão do Backend */}
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-slate-800/30 border border-white/5 hover:border-white/10 transition-colors">
-                    <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">Video_Corte_0{i}.mp4</p>
-                      <p className="text-xs text-slate-500">@p1 • Agendado 18:00</p>
-                    </div>
-                    <span className="text-xs font-mono text-emerald-400">OK</span>
-                  </div>
-                ))}
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-800/30 border border-white/5 opacity-60">
-                  <div className="h-2 w-2 rounded-full bg-cyan-500 animate-pulse"></div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">Processando...</p>
-                    <p className="text-xs text-slate-500">Aguardando Fila</p>
+            <GlassCard title="Terminal de Eventos" className="h-full bg-black/20">
+              <div className="space-y-3 font-mono text-xs">
+                <div className="flex gap-3 text-slate-500 border-b border-white/5 pb-2">
+                  <span>TIME</span>
+                  <span>EVENT</span>
+                </div>
+                {/* Mock Logs */}
+                <div className="flex gap-3">
+                  <span className="text-slate-600">18:04:12</span>
+                  <span className="text-emerald-400">Upload success: @p2_vid.mp4</span>
+                </div>
+                <div className="flex gap-3">
+                  <span className="text-slate-600">18:03:45</span>
+                  <span className="text-cyan-400">Queue active: 2 jobs pending</span>
+                </div>
+                <div className="flex gap-3">
+                  <span className="text-slate-600">18:01:20</span>
+                  <span className="text-purple-400">Brain: Generating captions...</span>
+                </div>
+                <div className="flex gap-3 opacity-50">
+                  <span className="text-slate-600">18:00:00</span>
+                  <span className="text-slate-400">System initialized.</span>
+                </div>
+                <div className="mt-4 pt-4 border-t border-white/5">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-cyan-500 animate-pulse rounded-full"></span>
+                    <span className="text-cyan-500">Aguardando novos inputs...</span>
                   </div>
                 </div>
               </div>

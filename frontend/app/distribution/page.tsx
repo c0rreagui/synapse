@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Sidebar, Header, StatCard } from "../components";
+import { CpuChipIcon, BoltIcon, ServerIcon } from "@heroicons/react/24/outline";
 
 interface DataPathway {
     id: number;
@@ -64,25 +65,25 @@ export default function DistributionPage() {
     const getStatusConfig = (status: string) => {
         switch (status) {
             case "active":
-                return { label: "TRANSMITTING", dotClass: "bg-success animate-pulse shadow-[0_0_8px_#10b981]", textClass: "text-success" };
+                return { label: "TRANSMITTING", dotClass: "bg-synapse-success animate-pulse shadow-[0_0_8px_#10b981]", textClass: "text-synapse-success" };
             case "standby":
-                return { label: "STANDBY", dotClass: "bg-idle", textClass: "text-idle" };
+                return { label: "STANDBY", dotClass: "bg-yellow-500", textClass: "text-yellow-500" };
             default:
                 return { label: "OFFLINE", dotClass: "bg-gray-500", textClass: "text-gray-500" };
         }
     };
 
     return (
-        <main className="min-h-screen flex bg-background">
-            <div className="fixed inset-0 bg-synapse-gradient pointer-events-none z-0" />
-            <div className="fixed inset-0 bg-grid-pattern synapse-grid pointer-events-none opacity-30 animate-grid-move z-0" />
+        <main className="min-h-screen flex bg-synapse-bg">
+            <div className="fixed inset-0 bg-glow-radial pointer-events-none z-0" />
+            <div className="fixed inset-0 bg-cyber-grid pointer-events-none opacity-30 z-0" />
 
             <Sidebar />
 
             <div className="flex-1 flex flex-col h-screen overflow-hidden">
                 <Header title="Distribution Flow" subtitle="RELAY_NETWORK" />
 
-                <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-8">
                     {/* Stats Row */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
@@ -92,22 +93,22 @@ export default function DistributionPage() {
                         <StatCard
                             label="Neural Integrity"
                             value="99.7%"
-                            icon={<span className="material-symbols-outlined">hub</span>}
-                            color="success"
+                            icon={CpuChipIcon}
+                            color="emerald"
                             trend="Network stable"
                         />
                         <StatCard
                             label="Synaptic Throughput"
                             value="1.2K req/min"
-                            icon={<span className="material-symbols-outlined">speed</span>}
-                            color="primary"
+                            icon={BoltIcon}
+                            color="cyan"
                             trend="+18% peak"
                         />
                         <StatCard
                             label="Active Nodes"
                             value="2 of 3"
-                            icon={<span className="material-symbols-outlined">settings_input_component</span>}
-                            color="secondary"
+                            icon={ServerIcon}
+                            color="purple"
                             trend="1 offline"
                         />
                     </motion.div>
@@ -121,12 +122,12 @@ export default function DistributionPage() {
                             className="lg:col-span-2 glass-panel rounded-2xl p-6"
                         >
                             <div className="flex items-center gap-3 mb-6">
-                                <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
-                                    <span className="material-symbols-outlined text-primary text-xl">share</span>
+                                <div className="p-2 rounded-lg bg-synapse-primary/10 border border-synapse-primary/20">
+                                    <span className="material-symbols-outlined text-synapse-primary text-xl">share</span>
                                 </div>
                                 <div>
                                     <h3 className="text-lg font-bold text-white">Active Data Pathways</h3>
-                                    <p className="text-xs text-gray-500 font-mono">Real-time distribution status</p>
+                                    <p className="text-xs text-synapse-muted font-mono">Real-time distribution status</p>
                                 </div>
                             </div>
 
@@ -156,20 +157,20 @@ export default function DistributionPage() {
 
                                             <div className="space-y-2">
                                                 <div className="flex justify-between text-xs">
-                                                    <span className="text-gray-500">Throughput</span>
+                                                    <span className="text-synapse-muted">Throughput</span>
                                                     <span className="text-white font-mono">{pathway.throughput}</span>
                                                 </div>
                                                 <div className="flex justify-between text-xs">
-                                                    <span className="text-gray-500">Latency</span>
+                                                    <span className="text-synapse-muted">Latency</span>
                                                     <span className="text-white font-mono">{pathway.latency}</span>
                                                 </div>
                                                 <div className="flex justify-between text-xs">
-                                                    <span className="text-gray-500">Last Post</span>
+                                                    <span className="text-synapse-muted">Last Post</span>
                                                     <span className="text-white font-mono">{pathway.lastPost}</span>
                                                 </div>
                                             </div>
 
-                                            {pathway.status === "active" && <div className="data-flow-line mt-4"></div>}
+                                            {pathway.status === "active" && <div className="h-1 mt-4 rounded-full bg-synapse-success/30 overflow-hidden"><div className="h-full w-1/2 bg-synapse-success animate-pulse"></div></div>}
                                         </div>
                                     );
                                 })}
@@ -185,38 +186,38 @@ export default function DistributionPage() {
                         >
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-success/10 border border-success/20">
-                                        <span className="material-symbols-outlined text-success text-xl">terminal</span>
+                                    <div className="p-2 rounded-lg bg-synapse-success/10 border border-synapse-success/20">
+                                        <span className="material-symbols-outlined text-synapse-success text-xl">terminal</span>
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-bold text-white">Synapse Console</h3>
-                                        <p className="text-xs text-gray-500 font-mono">Live event stream</p>
+                                        <p className="text-xs text-synapse-muted font-mono">Live event stream</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                    <span className="size-2 rounded-full bg-success animate-pulse"></span>
-                                    <span className="text-[10px] text-success font-mono">LIVE</span>
+                                    <span className="size-2 rounded-full bg-synapse-success animate-pulse"></span>
+                                    <span className="text-[10px] text-synapse-success font-mono">LIVE</span>
                                 </div>
                             </div>
 
-                            <div className="flex-1 bg-black/40 rounded-lg border border-white/5 p-4 font-mono text-xs overflow-y-auto max-h-[400px] custom-scrollbar">
+                            <div className="flex-1 bg-black/40 rounded-lg border border-white/5 p-4 font-mono text-xs overflow-y-auto max-h-[400px]">
                                 {consoleLogs.map((log, index) => (
                                     <div key={index} className="flex gap-3 mb-2 last:mb-0">
-                                        <span className="text-gray-600">{log.time}</span>
+                                        <span className="text-synapse-muted">{log.time}</span>
                                         <span
                                             className={
                                                 log.type === "success"
-                                                    ? "text-success"
+                                                    ? "text-synapse-success"
                                                     : log.type === "warning"
-                                                        ? "text-warning"
-                                                        : "text-gray-400"
+                                                        ? "text-yellow-500"
+                                                        : "text-synapse-muted"
                                             }
                                         >
                                             {log.message}
                                         </span>
                                     </div>
                                 ))}
-                                <div className="flex items-center gap-2 mt-4 text-gray-500">
+                                <div className="flex items-center gap-2 mt-4 text-synapse-muted">
                                     <span className="animate-pulse">▊</span>
                                     <span>Awaiting next event...</span>
                                 </div>

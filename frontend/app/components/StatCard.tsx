@@ -1,43 +1,34 @@
 import React from 'react';
-import GlassCard from './GlassCard';
 
 interface StatCardProps {
     label: string;
     value: string | number;
-    icon: React.ReactNode;
+    icon: any; // Aceita ícones do Heroicons
     trend?: string;
-    color?: 'primary' | 'success' | 'danger' | 'secondary';
+    color?: 'cyan' | 'purple' | 'emerald' | 'red';
 }
 
-export default function StatCard({ label, value, icon, trend, color = 'primary' }: StatCardProps) {
-    const colorMap = {
-        primary: 'text-synapse-primary',
-        success: 'text-synapse-success',
-        danger: 'text-synapse-danger',
-        secondary: 'text-synapse-secondary'
+export default function StatCard({ label, value, icon: Icon, trend, color = 'cyan' }: StatCardProps) {
+    const colors = {
+        cyan: 'text-synapse-primary bg-synapse-primary/10 border-synapse-primary/20',
+        purple: 'text-synapse-secondary bg-synapse-secondary/10 border-synapse-secondary/20',
+        emerald: 'text-synapse-success bg-synapse-success/10 border-synapse-success/20',
+        red: 'text-red-500 bg-red-500/10 border-red-500/20',
     };
 
     return (
-        <GlassCard className="relative overflow-hidden group h-full flex flex-col justify-between">
-            <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity transform scale-150">
-                {icon}
+        <div className="glass-panel p-5 rounded-xl flex items-center gap-4 relative overflow-hidden group">
+            {/* Background Glow */}
+            <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full blur-2xl opacity-10 transition-opacity group-hover:opacity-20 ${colors[color].split(' ')[0].replace('text-', 'bg-')}`}></div>
+
+            <div className={`p-3 rounded-lg border ${colors[color]}`}>
+                <Icon className="w-6 h-6" />
             </div>
-            <div className="relative z-10 flex flex-col h-full justify-between">
-                <div>
-                    <div className={`p-1.5 rounded-lg bg-white/5 w-fit mb-2 ${colorMap[color]} ring-1 ring-white/10`}>
-                        {icon}
-                    </div>
-                    <p className="text-xs font-medium text-slate-400 uppercase tracking-widest">{label}</p>
-                </div>
-                <div>
-                    <h4 className="text-2xl font-bold text-white mt-1 tracking-tight drop-shadow-lg">{value}</h4>
-                    {trend && (
-                        <p className="text-[10px] mt-1 text-white/60 font-mono">
-                            {trend}
-                        </p>
-                    )}
-                </div>
+            <div>
+                <p className="text-xs text-synapse-muted font-medium uppercase tracking-wide">{label}</p>
+                <h4 className="text-2xl font-bold text-white mt-1">{value}</h4>
+                {trend && <span className="text-xs text-white/50">{trend}</span>}
             </div>
-        </GlassCard>
+        </div>
     );
 }
