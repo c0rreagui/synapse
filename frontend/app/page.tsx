@@ -103,7 +103,7 @@ export default function Home() {
       {/* Background Grid Effect */}
       <div className="absolute inset-0 bg-grid-pattern opacity-[0.03] pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto relative z-10 space-y-8">
+      <div className="max-w-7xl mx-auto relative z-10 space-y-6 p-4">
 
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -123,11 +123,11 @@ export default function Home() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard label="Videos na Fila" value="03" icon={<FilmIcon className="w-6 h-6" />} trend="+2 desde ontem" color="primary" />
-          <StatCard label="Uploads Hoje" value="12" icon={<CloudArrowUpIcon className="w-6 h-6" />} color="success" />
-          <StatCard label="Taxa de Sucesso" value="98.5%" icon={<CheckCircleIcon className="w-6 h-6" />} color="secondary" />
-          <StatCard label="Proxies Ativos" value="01" icon={<SignalIcon className="w-6 h-6" />} color="danger" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard label="Videos na Fila" value="03" icon={<FilmIcon className="w-5 h-5" />} trend="+2 desde ontem" color="primary" />
+          <StatCard label="Uploads Hoje" value="12" icon={<CloudArrowUpIcon className="w-5 h-5" />} color="success" />
+          <StatCard label="Taxa de Sucesso" value="98.5%" icon={<CheckCircleIcon className="w-5 h-5" />} color="secondary" />
+          <StatCard label="Proxies Ativos" value="01" icon={<SignalIcon className="w-5 h-5" />} color="danger" />
         </div>
 
         {/* Main Action Area */}
@@ -213,7 +213,7 @@ export default function Home() {
                     accept=".mp4,.mov"
                   />
 
-                  <div className="flex flex-col items-center justify-center space-y-4 relative z-10">
+                  <div className="flex flex-col items-center justify-center space-y-3 relative z-10">
                     <div className={`p-5 rounded-2xl bg-slate-900/80 border border-white/5 transition-transform duration-300 group-hover:scale-110 shadow-lg ${isDragging ? 'text-cyan-400' : 'text-slate-500 group-hover:text-cyan-400'}`}>
                       {uploadStatus === 'uploading' ? (
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
