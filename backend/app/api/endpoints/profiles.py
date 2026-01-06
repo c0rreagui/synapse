@@ -32,29 +32,36 @@ async def get_profiles():
         profile_id = os.path.splitext(filename)[0]
         
         # Tenta enriquecer metadados (cacheado)
-        meta = tiktok_profile.enrich_session_metadata(session_file)
+        # DESABILITADO POR SOLICITAÇÃO DO USUÁRIO (DADOS INCORRETOS)
+        # meta = tiktok_profile.enrich_session_metadata(session_file)
         
         display_name = ""
         username = ""
         avatar = ""
         
-        if meta:
-            # display_name na API as vezes é o username no JSON e vice-versa, depende da interpretação
-            # O enrich retorna: display_name, username, avatar_url
-            display_name = meta.get("display_name")
-            username = meta.get("username")
-            avatar = meta.get("avatar_url")
+        # if meta:
+        #     display_name = meta.get("display_name")
+        #     username = meta.get("username")
+        #     avatar = meta.get("avatar_url")
             
-        # Fallback se a API falhou ou não tem dados
+        # Fallback sempre ativo agora (Baseado no nome do arquivo)
         if not display_name:
+            # tiktok_profile_01 -> Perfil 01
+            # tiktok_profile_cortes -> Perfil Cortes
             clean_name = profile_id.replace("tiktok_profile_", "").replace("_", " ").title()
             display_name = f"Perfil {clean_name}" if clean_name.isdigit() else clean_name
 
+        # Gera ID curto para compatibilidade (tiktok_profile_01 -> p1)
+        # Remove zeros à esquerda dos números para ficar p1, p2 etc.
+        short_id = profile_id.replace("tiktok_profile_", "p")
+        if short_id.startswith("p0"):
+            short_id = short_id.replace("p0", "p")
+
         profiles.append({
-            "id": profile_id,
+            "id": short_id, # Frontend usa este ID curto (p1, p2)
             "name": display_name,
-            "username": username, # Novo campo útil para UI
-            "avatar": avatar,     # Novo campo útil para UI
+            "username": username,
+            "avatar": avatar,
             "filename": filename
         })
     

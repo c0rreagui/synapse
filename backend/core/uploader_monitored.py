@@ -33,7 +33,7 @@ async def upload_video_monitored(
     # 👁️ MONITOR ULTRA-DETALHADO (só ativa se solicitado)
     monitor = TikTokMonitor(session_name) if enable_monitor else None
     if enable_monitor:
-        logger.info(f"👁️ OLHO QUE TUDO VÊ ativado: {monitor.run_id}")
+        logger.info(f"👁️ OLHO DE DEUS ativado: {monitor.run_id}")
     else:
         logger.info("📹 Monitor desativado (modo produção)")
 
@@ -710,7 +710,7 @@ async def upload_video_monitored(
             await close_browser(p, browser)
             
             logger.info("="*60)
-            logger.info(f"👁️ MONITORAMENTO COMPLETO!")
+            logger.info(f"👁️ OLHO DE DEUS COMPLETO!")
             logger.info(f"📊 Relatório: {report_file}")
             if trace_file:
                 logger.info(f"🎬 Trace: {trace_file}")

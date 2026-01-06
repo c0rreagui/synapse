@@ -1,1 +1,395 @@
-{"cookies": [{"name": "delay_guest_mode_vid", "value": "5", "domain": ".www.tiktok.com", "path": "/", "expires": 1793027686, "httpOnly": false, "secure": true, "sameSite": "None"}, {"name": "tt_session_tlb_tag", "value": "sttt%7C1%7COiGJrTaFRavcty2m9v10D__________Sgt8wsCakrecyq8oe9kIyJ6zobfdpEUlfDb6gYA4ypb4%3D", "domain": ".tiktok.com", "path": "/", "expires": 1783140905.343278, "httpOnly": true, "secure": true, "sameSite": "None"}, {"name": "sid_guard", "value": "3a2189ad368545abdcb72da6f6fd740f%7C1767588915%7C15552000%7CSat%2C+04-Jul-2026+04%3A55%3A15+GMT", "domain": ".tiktok.com", "path": "/", "expires": 1798692905.343002, "httpOnly": true, "secure": true, "sameSite": "None"}, {"name": "ttwid", "value": "1%7CB_1UUt0A2J_hoOVQftLwnBVNky7Q-0O8DAR4X9FazVk%7C1767588920%7Ce504d7627e161422fd965dff8e37063e07a9c8cdafe8c0bc3b0dc9bf3705d6ea", "domain": ".tiktok.com", "path": "/", "expires": 1799124910.343013, "httpOnly": true, "secure": true, "sameSite": "None"}, {"name": "perf_feed_cache", "value": "{%22expireTimestamp%22:1767758400000%2C%22itemIds%22:[%227566338763840933138%22%2C%227577468095464312071%22%2C%227588913547544071444%22]}", "domain": ".www.tiktok.com", "path": "/", "expires": 1768191630, "httpOnly": false, "secure": true, "sameSite": "None"}, {"name": "uid_tt", "value": "64a303c48f8cc808918f4f375baa6a14541c58e7d4ad773c4f0206a27a148546", "domain": ".tiktok.com", "path": "/", "expires": 1783140905.343051, "httpOnly": true, "secure": true, "sameSite": "None"}, {"name": "passport_csrf_token_default", "value": "322bf482b6f2b8ca719d62781a1782db", "domain": ".tiktok.com", "path": "/", "expires": 1772291358.356909, "httpOnly": false, "secure": true, "sameSite": "None"}, {"name": "s_v_web_id", "value": "verify_mjsq3zsp_pYNec3Vr_Y4wu_4vba_9fn1_2um7Z4g1GEQa", "domain": ".tiktok.com", "path": "/", "expires": -1, "httpOnly": false, "secure": true, "sameSite": "None"}, {"name": "ssid_ucp_v1", "value": "1.0.1-KDVhNDdjZTg4YjA5NjNkYzM3N2Y1YTkzZGUxNmQ5NmYwZjI0Mjk4ZmYKIQiGiLjQg66mjGYQs4jtygYYswsgDDCTs-KwBjgIQBJIBBADGgJteSIgM2EyMTg5YWQzNjg1NDVhYmRjYjcyZGE2ZjZmZDc0MGYyTgog2TzMiBS6w47pmTH8GcVHUqQdOqomybU-z_dclJq1-HgSIO2z4qTJhYkhQBc7LVs2yz1coINJH0AM5erN2EZVVCt3GAEiBnRpa3Rvaw", "domain": ".tiktok.com", "path": "/", "expires": 1783140905.343374, "httpOnly": true, "secure": true, "sameSite": "None"}, {"name": "tiktok_webapp_theme", "value": "dark", "domain": ".www.tiktok.com", "path": "/", "expires": 1793508908, "httpOnly": false, "secure": true, "sameSite": "None"}, {"name": "_ttp", "value": "37IoZV7avrx1u0x3UzWYnFmqwCF", "domain": ".tiktok.com", "path": "/", "expires": 1800834763.446059, "httpOnly": false, "secure": true, "sameSite": "None"}, {"name": "cmpl_token", "value": "AgQYAPNk_hfkTtK2JnfXsjzdP_Myciu5jX-F72CiHZM", "domain": ".tiktok.com", "path": "/", "expires": 1772772905.342923, "httpOnly": true, "secure": true, "sameSite": "None"}, {"name": "multi_sids", "value": "7356798698599089158%3A3a2189ad368545abdcb72da6f6fd740f", "domain": ".tiktok.com", "path": "/", "expires": 1772772905.342786, "httpOnly": true, "secure": true, "sameSite": "None"}, {"name": "passport_auth_status_ss", "value": "16ae5976f80ea2628583d64d17d21120%2C", "domain": ".tiktok.com", "path": "/", "expires": 1770180905.342975, "httpOnly": true, "secure": true, "sameSite": "None"}, {"name": "passport_csrf_token", "value": "322bf482b6f2b8ca719d62781a1782db", "domain": ".tiktok.com", "path": "/", "expires": 1772291358.356795, "httpOnly": false, "secure": true, "sameSite": "None"}, {"name": "sessionid", "value": "3a2189ad368545abdcb72da6f6fd740f", "domain": ".tiktok.com", "path": "/", "expires": 1783140905.343189, "httpOnly": true, "secure": true, "sameSite": "None"}, {"name": "sessionid_ss", "value": "3a2189ad368545abdcb72da6f6fd740f", "domain": ".tiktok.com", "path": "/", "expires": 1783140905.343233, "httpOnly": true, "secure": true, "sameSite": "None"}, {"name": "sid_tt", "value": "3a2189ad368545abdcb72da6f6fd740f", "domain": ".tiktok.com", "path": "/", "expires": 1783140905.343143, "httpOnly": true, "secure": true, "sameSite": "None"}, {"name": "sid_ucp_v1", "value": "1.0.1-KDVhNDdjZTg4YjA5NjNkYzM3N2Y1YTkzZGUxNmQ5NmYwZjI0Mjk4ZmYKIQiGiLjQg66mjGYQs4jtygYYswsgDDCTs-KwBjgIQBJIBBADGgJteSIgM2EyMTg5YWQzNjg1NDVhYmRjYjcyZGE2ZjZmZDc0MGYyTgog2TzMiBS6w47pmTH8GcVHUqQdOqomybU-z_dclJq1-HgSIO2z4qTJhYkhQBc7LVs2yz1coINJH0AM5erN2EZVVCt3GAEiBnRpa3Rvaw", "domain": ".tiktok.com", "path": "/", "expires": 1783140905.343324, "httpOnly": true, "secure": true, "sameSite": "None"}, {"name": "tiktok_webapp_theme_source", "value": "auto", "domain": ".www.tiktok.com", "path": "/", "expires": 1793508908, "httpOnly": false, "secure": true, "sameSite": "None"}, {"name": "tt_chain_token", "value": "YYzJnWZfyeto9dXhzFx59Q==", "domain": ".tiktok.com", "path": "/", "expires": 1783140907.065079, "httpOnly": true, "secure": true, "sameSite": "None"}, {"name": "tt_csrf_token", "value": "6yONU8bP-5axN8_rqskpmi0gcO9NFrax0cVI", "domain": ".tiktok.com", "path": "/", "expires": -1, "httpOnly": true, "secure": true, "sameSite": "Lax"}, {"name": "uid_tt_ss", "value": "64a303c48f8cc808918f4f375baa6a14541c58e7d4ad773c4f0206a27a148546", "domain": ".tiktok.com", "path": "/", "expires": 1783140905.343097, "httpOnly": true, "secure": true, "sameSite": "None"}, {"name": "odin_tt", "value": "8920202a20a1de23987c7f2f8d59a706b52b96f0478383109ad9976255edddf022f98c3dcdea8ae1483a0a1743ba2d7db975386ce4e161abcb713b619d3be726490247e7233b54898bca7711ea01f463", "domain": ".tiktok.com", "path": "/", "expires": 1799125205.590072, "httpOnly": true, "secure": false, "sameSite": "Lax"}, {"name": "msToken", "value": "C7LIeYyWk0wmKL-lt4XXfhCDnV1zDfD_zHIZ3spJu7WYrrK4zfA0aCQlDMjKz4G-6qB1S_io_o6KT44LehzWvEEmhpJAOhd_pReWDNW6CFqwTFwXd6BMNaUNdtrvQFuXWGFQvvjViVMogtBOPy4GWBPc-w==", "domain": ".byteoversea.com", "path": "/", "expires": 1768453207.484177, "httpOnly": false, "secure": true, "sameSite": "None"}, {"name": "msToken", "value": "C7LIeYyWk0wmKL-lt4XXfhCDnV1zDfD_zHIZ3spJu7WYrrK4zfA0aCQlDMjKz4G-6qB1S_io_o6KT44LehzWvEEmhpJAOhd_pReWDNW6CFqwTFwXd6BMNaUNdtrvQFuXWGFQvvjViVMogtBOPy4GWBPc-w==", "domain": "www.tiktok.com", "path": "/", "expires": 1775365207, "httpOnly": false, "secure": false, "sameSite": "Lax"}, {"name": "msToken", "value": "GGmDRI_eLKZcm9ZTNQfmlJBXhjArdT8xoAkobuFUlZ5vAE1gHWe5f2PuZM1gIG2jl8G5tZVGsjQU25-H3W1nMALiXs6uRUQIBRnXR-2X1KlgYVfIyMdXQ5ngpkuFaEof3N_vcbRVsZ9P4e7n3K7lPry8jw==", "domain": ".tiktok.com", "path": "/", "expires": 1768453210.269383, "httpOnly": false, "secure": true, "sameSite": "None"}], "origins": [{"origin": "https://www.tiktok.com", "localStorage": [{"name": "__tea_cache_first_1988", "value": "1"}, {"name": "SLARDARwebmssdk", "value": "JTdCJTIydXNlcklkJTIyOiUyMmI4ODEyNDNjLWEwMDktNDE4NS1hODhhLTQzZWQ1OTY5ZGJjNCUyMiwlMjJkZXZpY2VJZCUyMjolMjI0Mzk5Mjk4OC0yMTg1LTRlZGMtODg0MC0zODcwYTllZmIwNzglMjIsJTIyZXhwaXJlcyUyMjoxNzc1MzY1MjA3MTE5JTdE"}, {"name": "", "value": ""}, {"name": "SLARDARpns_cookie_banner_slardar", "value": "JTdCJTIydXNlcklkJTIyOiUyMmZjNDc4MDc1LTZiNTQtNGRkZS1iOTNmLTk1MTdlNTE5YWYzYiUyMiwlMjJkZXZpY2VJZCUyMjolMjI3OTFmZWE5MC1lYTZmLTRkNWUtODI5NC1kMmFmODJkNWU0MzAlMjIsJTIyZXhwaXJlcyUyMjoxNzc1MzY1MjA3MTIxJTdE"}, {"name": "xmst", "value": "C7LIeYyWk0wmKL-lt4XXfhCDnV1zDfD_zHIZ3spJu7WYrrK4zfA0aCQlDMjKz4G-6qB1S_io_o6KT44LehzWvEEmhpJAOhd_pReWDNW6CFqwTFwXd6BMNaUNdtrvQFuXWGFQvvjViVMogtBOPy4GWBPc-w=="}, {"name": "__tea_cache_first_906553", "value": "1"}, {"name": "__tea_sdk_ab_version_1988", "value": "{\"data\":{\"add_kr_consent_web\":{\"val\":{\"enable\":false},\"vid\":\"74942580\"},\"can_show_podcast_page\":{\"val\":false,\"vid\":\"121374463\"},\"cr_blocking_popup\":{\"val\":true,\"vid\":\"121468990\"},\"creation_use_zti\":{\"val\":true,\"vid\":\"121439635\"},\"csi_tabs_fe_fallback\":{\"val\":{\"events\":{\"E_COMMERCE\":{\"SINGLE_TAB\":{\"forYou\":\"E-commerce\",\"inspirationType\":\"ecom\",\"pageTab\":\"E-commerce\",\"tooltip_token_type\":\"ecommerce_bubble\",\"trending\":\"all\"}},\"FOR_YOU\":{\"ALL\":{\"forYou\":\"all\",\"pageTab\":\"For you\",\"trending\":\"all\"},\"CONTENT_GAP\":{\"forYou\":\"Content gap\",\"pageTab\":\"Content gap\",\"tooltip_token_type\":\"content_gap_bubble\",\"trending\":\"all\"},\"E_COMMERCE\":{\"forYou\":\"E-commerce\",\"inspirationType\":\"ecom\",\"pageTab\":\"E-commerce\",\"tooltip_token_type\":\"ecommerce_bubble\",\"trending\":\"all\"},\"LIFESTYLE\":{\"forYou\":\"Lifestyle\",\"pageTab\":\"Lifestyle\",\"tooltip_token_type\":\"poi_bubble\",\"trending\":\"all\"},\"SEARCHES_BY_FOLLOWERS\":{\"forYou\":\"Searches by followers\",\"pageTab\":\"Followers Searched\",\"trending\":\"all\"}},\"GAMING_LEVEL1\":{\"SINGLE_TAB\":{\"forYou\":\"all\",\"pageTab\":\"gaming_single\",\"tooltip_token_type\":\"gaming_single_bubble\",\"trending\":\"all\"}},\"LIFESTYLE\":{\"SINGLE_TAB\":{\"forYou\":\"Lifestyle\",\"pageTab\":\"Lifestyle\",\"tooltip_token_type\":\"poi_bubble\",\"trending\":\"all\"}},\"TRENDING\":{\"ALL\":{\"forYou\":\"all\",\"pageTab\":\"Trending\",\"trending\":\"all\"},\"CHALLENGES\":{\"forYou\":\"all\",\"pageTab\":\"trending_viral_activities\",\"trending\":\"trending_viral_activities\"},\"EFFECTS\":{\"forYou\":\"all\",\"pageTab\":\"trending_effects\",\"trending\":\"trending_effects\"},\"EVENTS\":{\"forYou\":\"all\",\"pageTab\":\"trending_events\",\"trending\":\"trending_events\"},\"FASHION\":{\"forYou\":\"all\",\"pageTab\":\"Fashion\",\"trending\":\"Fashion\"},\"FOOD\":{\"forYou\":\"all\",\"pageTab\":\"Food\",\"trending\":\"Food\"},\"GAMING\":{\"forYou\":\"all\",\"pageTab\":\"Gaming\",\"trending\":\"Gaming\"},\"HASHTAGS\":{\"forYou\":\"all\",\"pageTab\":\"trending_hashtags\",\"trending\":\"trending_hashtags\"},\"LOCAL_TRENDS\":{\"forYou\":\"all\",\"pageTab\":\"Local trends\",\"trending\":\"Local trends\"},\"SCIENCE\":{\"forYou\":\"all\",\"pageTab\":\"Science\",\"trending\":\"Science\"},\"SOUNDS\":{\"forYou\":\"all\",\"pageTab\":\"trending_sounds\",\"trending\":\"trending_sounds\"},\"SPORTS\":{\"forYou\":\"all\",\"pageTab\":\"Sports\",\"trending\":\"Sports\"},\"TEMPLATES\":{\"forYou\":\"all\",\"pageTab\":\"trending_templates\",\"trending\":\"trending_templates\"},\"TOPICS\":{\"forYou\":\"all\",\"pageTab\":\"trending_topic\",\"trending\":\"trending_topic\"},\"TOURISM\":{\"forYou\":\"all\",\"pageTab\":\"Tourism\",\"trending\":\"Tourism\"}}},\"fallbackTabs\":[{\"channel_key\":\"FOR_YOU\",\"channel_starling_key\":\"suggested\",\"tabs\":[{\"enable_user_set_language\":true,\"endpoint\":\"comprehensive\",\"key\":\"ALL\",\"query_key\":\"all\",\"refresh\":\"enable\",\"starling_key\":\"all\"},{\"enable_user_set_language\":true,\"endpoint\":\"comprehensive\",\"key\":\"CONTENT_GAP\",\"query_key\":\"content_gap\",\"refresh\":\"enable\",\"starling_key\":\"content_gap\",\"tooltip\":{\"tooltip_content_starling\":\"content_gap_tooltip\",\"tooltip_show\":\"click\"}},{\"endpoint\":\"comprehensive\",\"key\":\"SEARCHES_BY_FOLLOWERS\",\"query_key\":\"follower_searched\",\"refresh\":\"enable\",\"starling_key\":\"searches_by_followers\"}]},{\"channel_key\":\"TRENDING\",\"channel_starling_key\":\"trending\",\"tabs\":[{\"endpoint\":\"trending\",\"key\":\"ALL\",\"query_key\":\"all\",\"refresh\":\"enable\",\"starling_key\":\"all\"},{\"endpoint\":\"trending\",\"key\":\"FASHION\",\"query_key\":\"Fashion\",\"refresh\":\"enable\",\"starling_key\":\"fashion\"},{\"endpoint\":\"trending\",\"key\":\"FOOD\",\"query_key\":\"Food\",\"refresh\":\"enable\",\"starling_key\":\"food\"},{\"endpoint\":\"trending\",\"key\":\"SPORTS\",\"query_key\":\"Sports\",\"refresh\":\"enable\",\"starling_key\":\"sports\"},{\"endpoint\":\"trending\",\"key\":\"TOURISM\",\"query_key\":\"Tourism\",\"refresh\":\"enable\",\"starling_key\":\"tourism\"},{\"endpoint\":\"trending\",\"key\":\"GAMING\",\"query_key\":\"Gaming\",\"refresh\":\"enable\",\"starling_key\":\"gaming\"},{\"endpoint\":\"trending\",\"key\":\"SCIENCE\",\"query_key\":\"Science\",\"refresh\":\"enable\",\"starling_key\":\"science\"}]}]},\"vid\":\"121749182\"},\"data_selection\":{\"val\":{\"enable\":true},\"vid\":\"121433650\"},\"data_selection_eu\":{\"val\":{\"enable\":false},\"vid\":\"121404359\"},\"dyd_drill\":{\"val\":{\"enable\":false},\"vid\":\"121497414\"},\"expanded_data_types\":{\"val\":{\"enable\":false},\"vid\":\"121477481\"},\"facebook_login_reauthentication\":{\"val\":{\"vid\":\"v2\"},\"vid\":\"121351166\"},\"improved_selfie\":{\"val\":{\"enable\":true},\"vid\":\"121811500\"},\"is_deletion_pipo\":{\"val\":{\"enable\":true},\"vid\":\"121960941\"},\"is_v0_ui_expanded\":{\"val\":{\"enable\":false},\"vid\":\"121860360\"},\"live_bean_emoji_comment_enable\":{\"val\":true,\"vid\":\"121844502\"},\"tiktok-zti-crypto\":{\"val\":\"0.1.11\",\"vid\":\"121487028\"},\"videoEmbedIterationsPlayer\":{\"val\":{\"autoplayOnShow\":true,\"useControllableProgressBar\":false},\"vid\":\"121331973\"},\"video_embed_iterations\":{\"val\":{\"show_description_on_player\":false,\"show_description_only_on_interaction\":false,\"use_mobile_ratio_on_pc\":true,\"use_new_CTA_text\":true},\"vid\":\"120811592\"},\"video_embed_user_flow\":{\"val\":{\"should_redirect_to_download_page\":false},\"vid\":\"120810756\"},\"zti_package_version\":{\"val\":{\"eu\":\"1.0.0.37\",\"oci\":\"2.0.0.40\",\"sg\":\"1.0.0.37\",\"va\":\"1.0.0.37\"},\"vid\":\"121885509\"}},\"uuid\":\"7589668285731456519\",\"timestamp\":1767589207588,\"ab_version_multilink\":[],\"ab_ext_version\":[],\"ab_version\":[\"121439635\"]}"}, {"name": "HYBRID_SLARDAR_WEBtiktok_pns_web_runtime", "value": "{\"userId\":\"98e2f1fc-9ed1-42ed-bd80-b86f34984098\",\"deviceId\":\"ed071f01-8102-49d9-863e-a9dbc8727e66\"}"}, {"name": "__tea_cache_tokens_1988", "value": "{\"web_id\":\"7591737856524158482\",\"user_unique_id\":\"7591737856524158482\",\"timestamp\":1767589207116,\"_type_\":\"default\"}"}, {"name": "SLARDARtiktok_creator_center", "value": "JTdCJTIydXNlcklkJTIyOiUyMmVkOWJiZjUxLTVlM2EtNGVhNS1iNjAxLTE0NGYxMTI1NTA2MiUyMiwlMjJkZXZpY2VJZCUyMjolMjJiOGYwNjY3MS04MmUwLTQ0NTItYWU4NC0yZjc0M2ZiN2E5YjklMjIsJTIyZXhwaXJlcyUyMjoxNzc1MzY1MjA1MzkzJTdE"}, {"name": "LOCAL_IS_EFFECTIVE", "value": "0"}, {"name": "SLARDARtiktok_creator", "value": "JTdCJTIydXNlcklkJTIyOiUyMmNmZWM2MGIyLTVhNjItNDE4Zi1hYmYwLTFiNDgyMDczYzg1NyUyMiwlMjJkZXZpY2VJZCUyMjolMjI2OTJkN2FhYi0wOWM4LTRiZjgtYmNjYi03YmNkYmRlZWViNmIlMjIsJTIyZXhwaXJlcyUyMjoxNzc1MzY1MjA1OTU0JTdE"}, {"name": "__tea_cache_tokens_345918", "value": "{\"web_id\":\"7591737852834383367\",\"user_unique_id\":\"7591737852834383367\",\"timestamp\":1767589206600,\"_type_\":\"default\"}"}, {"name": "__tea_cache_tokens_906553", "value": "{\"web_id\":\"7591737852959655432\",\"user_unique_id\":\"7591737852959655432\",\"timestamp\":1767589206393,\"_type_\":\"default\"}"}, {"name": "tiktok_studio_music_lib_tooltip", "value": "true"}, {"name": "SLARDARclip_forge", "value": "JTdCJTIydXNlcklkJTIyOiUyMmY3YjFmYjQxLTY3ZjMtNDNhMi1hODM1LTRiNzcyNTEzNjU0NyUyMiwlMjJkZXZpY2VJZCUyMjolMjIyZWE3M2JhNy0yOTU1LTRjNzQtYjllMS02NzRmOGY4YjQxZmMlMjIsJTIyZXhwaXJlcyUyMjoxNzc1MzY1MjA3MTUzJTdE"}, {"name": "xmsi", "value": "3"}, {"name": "__tea_cache_first_3297", "value": "1"}, {"name": "__tea_cache_tokens_335386", "value": "{\"web_id\":\"7591737851616839176\",\"user_unique_id\":\"7356798698599089158\",\"timestamp\":1767589205753,\"_type_\":\"default\"}"}, {"name": "__tea_cache_first_611736", "value": "1"}, {"name": "PUMBAA_FREQ", "value": "{\"AbsoluteOrientationSensor\":2,\"Accelerometer\":2,\"addEventListener('devicemotion')\":0.01,\"addEventListener('deviceorientation')\":0.01,\"addEventListener('deviceorientationabsolute')\":0.1,\"addEventListener('MozOrientation')\":2,\"document.addEventListener('copy')\":0,\"document.addEventListener('cut')\":0,\"document.addEventListener('paste')\":0,\"navigator.geolocation.clearWatch\":2,\"document.cookie\":0,\"navigator.credentials.create\":0,\"CookieStore.delete\":0,\"document.execCommand('cut')\":0,\"document.execCommand('copy')\":2,\"document.execCommand('paste')\":2,\"CookieStore.get\":0,\"navigator.credentials.get\":0,\"CookieStore.getAll\":0,\"navigator.getBattery\":0,\"navigator.geolocation.getCurrentPosition\":2,\"navigator.mediaDevices.getDisplayMedia\":2,\"navigator.mediaDevices.getUserMedia\":2,\"navigator.getUserMedia\":2,\"GravitySensor\":2,\"Gyroscope\":2,\"LinearAccelerationSensor\":2,\"Magnetometer\":2,\"navigator.mozGetUserMedia\":2,\"navigator.mozNotification\":2,\"navigator.mozVibrate\":2,\"navigator.msVibrate\":2,\"Notification\":2,\"ondevicemotion\":0,\"ondeviceorientation\":2,\"ondeviceorientationabsolute\":2,\"open\":0,\"OrientationSensor\":0,\"PaymentRequest\":0,\"navigator.clipboard.read\":0,\"navigator.clipboard.readText\":2,\"document.referrer\":0.0001,\"RelativeOrientationSensor\":2,\"RTCPeerConnection\":0,\"screen\":0,\"CookieStore.set\":0,\"navigator.share\":0,\"navigator.userAgent\":0,\"navigator.vibrate\":2,\"navigator.geolocation.watchPosition\":2,\"navigator.webkitGetUserMedia\":2,\"webkitNotification\":2,\"navigator.webkitVibrate\":2,\"WebSocket\":0,\"navigator.clipboard.write\":0,\"navigator.clipboard.writeText\":2,\"network_ga\":2}"}, {"name": "__tea_cache_tokens_611736", "value": "{\"web_id\":\"7591737855237932551\",\"user_unique_id\":\"7356798698599089158\",\"timestamp\":1767589207130,\"_type_\":\"default\"}"}, {"name": "__tea_cache_tokens_3297", "value": "{\"web_id\":\"7591737853094544904\",\"user_unique_id\":\"7591737853094544904\",\"timestamp\":1767589206433,\"_type_\":\"default\"}"}, {"name": "__tea_cache_first_335386", "value": "1"}, {"name": "__tea_cache_first_345918", "value": "1"}, {"name": "msToken", "value": "C7LIeYyWk0wmKL-lt4XXfhCDnV1zDfD_zHIZ3spJu7WYrrK4zfA0aCQlDMjKz4G-6qB1S_io_o6KT44LehzWvEEmhpJAOhd_pReWDNW6CFqwTFwXd6BMNaUNdtrvQFuXWGFQvvjViVMogtBOPy4GWBPc-w=="}, {"name": "SLARDARpns_consent_system", "value": "JTdCJTIydXNlcklkJTIyOiUyMmZlMzg1MmVlLTY0MTgtNDliMy04YmYxLTBkYjg3NmM0ZjkzMCUyMiwlMjJkZXZpY2VJZCUyMjolMjIzNDJjYWQ5Mi0yZmZhLTQ3YjUtYmNjYS0wNTc5YzM5NjA2YWQlMjIsJTIyZXhwaXJlcyUyMjoxNzc1MzY1MjA3MTI4JTdE"}]}]}
+{
+  "cookies": [
+    {
+      "name": "delay_guest_mode_vid",
+      "value": "5",
+      "domain": ".www.tiktok.com",
+      "path": "/",
+      "expires": 1793027686,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "tt_session_tlb_tag",
+      "value": "sttt%7C1%7COiGJrTaFRavcty2m9v10D__________Sgt8wsCakrecyq8oe9kIyJ6zobfdpEUlfDb6gYA4ypb4%3D",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": 1783140905.343278,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "sid_guard",
+      "value": "3a2189ad368545abdcb72da6f6fd740f%7C1767588915%7C15552000%7CSat%2C+04-Jul-2026+04%3A55%3A15+GMT",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": 1798692905.343002,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "ttwid",
+      "value": "1%7CB_1UUt0A2J_hoOVQftLwnBVNky7Q-0O8DAR4X9FazVk%7C1767588920%7Ce504d7627e161422fd965dff8e37063e07a9c8cdafe8c0bc3b0dc9bf3705d6ea",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": 1799124910.343013,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "perf_feed_cache",
+      "value": "{%22expireTimestamp%22:1767758400000%2C%22itemIds%22:[%227566338763840933138%22%2C%227577468095464312071%22%2C%227588913547544071444%22]}",
+      "domain": ".www.tiktok.com",
+      "path": "/",
+      "expires": 1768191630,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "uid_tt",
+      "value": "64a303c48f8cc808918f4f375baa6a14541c58e7d4ad773c4f0206a27a148546",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": 1783140905.343051,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "passport_csrf_token_default",
+      "value": "322bf482b6f2b8ca719d62781a1782db",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": 1772291358.356909,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "s_v_web_id",
+      "value": "verify_mjsq3zsp_pYNec3Vr_Y4wu_4vba_9fn1_2um7Z4g1GEQa",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "ssid_ucp_v1",
+      "value": "1.0.1-KDVhNDdjZTg4YjA5NjNkYzM3N2Y1YTkzZGUxNmQ5NmYwZjI0Mjk4ZmYKIQiGiLjQg66mjGYQs4jtygYYswsgDDCTs-KwBjgIQBJIBBADGgJteSIgM2EyMTg5YWQzNjg1NDVhYmRjYjcyZGE2ZjZmZDc0MGYyTgog2TzMiBS6w47pmTH8GcVHUqQdOqomybU-z_dclJq1-HgSIO2z4qTJhYkhQBc7LVs2yz1coINJH0AM5erN2EZVVCt3GAEiBnRpa3Rvaw",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": 1783140905.343374,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "tiktok_webapp_theme",
+      "value": "dark",
+      "domain": ".www.tiktok.com",
+      "path": "/",
+      "expires": 1793508908,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_ttp",
+      "value": "37IoZV7avrx1u0x3UzWYnFmqwCF",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": 1800834763.446059,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "cmpl_token",
+      "value": "AgQYAPNk_hfkTtK2JnfXsjzdP_Myciu5jX-F72CiHZM",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": 1772772905.342923,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "multi_sids",
+      "value": "7356798698599089158%3A3a2189ad368545abdcb72da6f6fd740f",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": 1772772905.342786,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "passport_auth_status_ss",
+      "value": "16ae5976f80ea2628583d64d17d21120%2C",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": 1770180905.342975,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "passport_csrf_token",
+      "value": "322bf482b6f2b8ca719d62781a1782db",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": 1772291358.356795,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "sessionid",
+      "value": "3a2189ad368545abdcb72da6f6fd740f",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": 1783140905.343189,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "sessionid_ss",
+      "value": "3a2189ad368545abdcb72da6f6fd740f",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": 1783140905.343233,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "sid_tt",
+      "value": "3a2189ad368545abdcb72da6f6fd740f",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": 1783140905.343143,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "sid_ucp_v1",
+      "value": "1.0.1-KDVhNDdjZTg4YjA5NjNkYzM3N2Y1YTkzZGUxNmQ5NmYwZjI0Mjk4ZmYKIQiGiLjQg66mjGYQs4jtygYYswsgDDCTs-KwBjgIQBJIBBADGgJteSIgM2EyMTg5YWQzNjg1NDVhYmRjYjcyZGE2ZjZmZDc0MGYyTgog2TzMiBS6w47pmTH8GcVHUqQdOqomybU-z_dclJq1-HgSIO2z4qTJhYkhQBc7LVs2yz1coINJH0AM5erN2EZVVCt3GAEiBnRpa3Rvaw",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": 1783140905.343324,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "tiktok_webapp_theme_source",
+      "value": "auto",
+      "domain": ".www.tiktok.com",
+      "path": "/",
+      "expires": 1793508908,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "tt_chain_token",
+      "value": "YYzJnWZfyeto9dXhzFx59Q==",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": 1783140907.065079,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "tt_csrf_token",
+      "value": "6yONU8bP-5axN8_rqskpmi0gcO9NFrax0cVI",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "uid_tt_ss",
+      "value": "64a303c48f8cc808918f4f375baa6a14541c58e7d4ad773c4f0206a27a148546",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": 1783140905.343097,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "odin_tt",
+      "value": "8920202a20a1de23987c7f2f8d59a706b52b96f0478383109ad9976255edddf022f98c3dcdea8ae1483a0a1743ba2d7db975386ce4e161abcb713b619d3be726490247e7233b54898bca7711ea01f463",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": 1799125205.590072,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "msToken",
+      "value": "C7LIeYyWk0wmKL-lt4XXfhCDnV1zDfD_zHIZ3spJu7WYrrK4zfA0aCQlDMjKz4G-6qB1S_io_o6KT44LehzWvEEmhpJAOhd_pReWDNW6CFqwTFwXd6BMNaUNdtrvQFuXWGFQvvjViVMogtBOPy4GWBPc-w==",
+      "domain": ".byteoversea.com",
+      "path": "/",
+      "expires": 1768453207.484177,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "msToken",
+      "value": "C7LIeYyWk0wmKL-lt4XXfhCDnV1zDfD_zHIZ3spJu7WYrrK4zfA0aCQlDMjKz4G-6qB1S_io_o6KT44LehzWvEEmhpJAOhd_pReWDNW6CFqwTFwXd6BMNaUNdtrvQFuXWGFQvvjViVMogtBOPy4GWBPc-w==",
+      "domain": "www.tiktok.com",
+      "path": "/",
+      "expires": 1775365207,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "msToken",
+      "value": "GGmDRI_eLKZcm9ZTNQfmlJBXhjArdT8xoAkobuFUlZ5vAE1gHWe5f2PuZM1gIG2jl8G5tZVGsjQU25-H3W1nMALiXs6uRUQIBRnXR-2X1KlgYVfIyMdXQ5ngpkuFaEof3N_vcbRVsZ9P4e7n3K7lPry8jw==",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": 1768453210.269383,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://www.tiktok.com",
+      "localStorage": [
+        {
+          "name": "__tea_cache_first_1988",
+          "value": "1"
+        },
+        {
+          "name": "SLARDARwebmssdk",
+          "value": "JTdCJTIydXNlcklkJTIyOiUyMmI4ODEyNDNjLWEwMDktNDE4NS1hODhhLTQzZWQ1OTY5ZGJjNCUyMiwlMjJkZXZpY2VJZCUyMjolMjI0Mzk5Mjk4OC0yMTg1LTRlZGMtODg0MC0zODcwYTllZmIwNzglMjIsJTIyZXhwaXJlcyUyMjoxNzc1MzY1MjA3MTE5JTdE"
+        },
+        {
+          "name": "",
+          "value": ""
+        },
+        {
+          "name": "SLARDARpns_cookie_banner_slardar",
+          "value": "JTdCJTIydXNlcklkJTIyOiUyMmZjNDc4MDc1LTZiNTQtNGRkZS1iOTNmLTk1MTdlNTE5YWYzYiUyMiwlMjJkZXZpY2VJZCUyMjolMjI3OTFmZWE5MC1lYTZmLTRkNWUtODI5NC1kMmFmODJkNWU0MzAlMjIsJTIyZXhwaXJlcyUyMjoxNzc1MzY1MjA3MTIxJTdE"
+        },
+        {
+          "name": "xmst",
+          "value": "C7LIeYyWk0wmKL-lt4XXfhCDnV1zDfD_zHIZ3spJu7WYrrK4zfA0aCQlDMjKz4G-6qB1S_io_o6KT44LehzWvEEmhpJAOhd_pReWDNW6CFqwTFwXd6BMNaUNdtrvQFuXWGFQvvjViVMogtBOPy4GWBPc-w=="
+        },
+        {
+          "name": "__tea_cache_first_906553",
+          "value": "1"
+        },
+        {
+          "name": "__tea_sdk_ab_version_1988",
+          "value": "{\"data\":{\"add_kr_consent_web\":{\"val\":{\"enable\":false},\"vid\":\"74942580\"},\"can_show_podcast_page\":{\"val\":false,\"vid\":\"121374463\"},\"cr_blocking_popup\":{\"val\":true,\"vid\":\"121468990\"},\"creation_use_zti\":{\"val\":true,\"vid\":\"121439635\"},\"csi_tabs_fe_fallback\":{\"val\":{\"events\":{\"E_COMMERCE\":{\"SINGLE_TAB\":{\"forYou\":\"E-commerce\",\"inspirationType\":\"ecom\",\"pageTab\":\"E-commerce\",\"tooltip_token_type\":\"ecommerce_bubble\",\"trending\":\"all\"}},\"FOR_YOU\":{\"ALL\":{\"forYou\":\"all\",\"pageTab\":\"For you\",\"trending\":\"all\"},\"CONTENT_GAP\":{\"forYou\":\"Content gap\",\"pageTab\":\"Content gap\",\"tooltip_token_type\":\"content_gap_bubble\",\"trending\":\"all\"},\"E_COMMERCE\":{\"forYou\":\"E-commerce\",\"inspirationType\":\"ecom\",\"pageTab\":\"E-commerce\",\"tooltip_token_type\":\"ecommerce_bubble\",\"trending\":\"all\"},\"LIFESTYLE\":{\"forYou\":\"Lifestyle\",\"pageTab\":\"Lifestyle\",\"tooltip_token_type\":\"poi_bubble\",\"trending\":\"all\"},\"SEARCHES_BY_FOLLOWERS\":{\"forYou\":\"Searches by followers\",\"pageTab\":\"Followers Searched\",\"trending\":\"all\"}},\"GAMING_LEVEL1\":{\"SINGLE_TAB\":{\"forYou\":\"all\",\"pageTab\":\"gaming_single\",\"tooltip_token_type\":\"gaming_single_bubble\",\"trending\":\"all\"}},\"LIFESTYLE\":{\"SINGLE_TAB\":{\"forYou\":\"Lifestyle\",\"pageTab\":\"Lifestyle\",\"tooltip_token_type\":\"poi_bubble\",\"trending\":\"all\"}},\"TRENDING\":{\"ALL\":{\"forYou\":\"all\",\"pageTab\":\"Trending\",\"trending\":\"all\"},\"CHALLENGES\":{\"forYou\":\"all\",\"pageTab\":\"trending_viral_activities\",\"trending\":\"trending_viral_activities\"},\"EFFECTS\":{\"forYou\":\"all\",\"pageTab\":\"trending_effects\",\"trending\":\"trending_effects\"},\"EVENTS\":{\"forYou\":\"all\",\"pageTab\":\"trending_events\",\"trending\":\"trending_events\"},\"FASHION\":{\"forYou\":\"all\",\"pageTab\":\"Fashion\",\"trending\":\"Fashion\"},\"FOOD\":{\"forYou\":\"all\",\"pageTab\":\"Food\",\"trending\":\"Food\"},\"GAMING\":{\"forYou\":\"all\",\"pageTab\":\"Gaming\",\"trending\":\"Gaming\"},\"HASHTAGS\":{\"forYou\":\"all\",\"pageTab\":\"trending_hashtags\",\"trending\":\"trending_hashtags\"},\"LOCAL_TRENDS\":{\"forYou\":\"all\",\"pageTab\":\"Local trends\",\"trending\":\"Local trends\"},\"SCIENCE\":{\"forYou\":\"all\",\"pageTab\":\"Science\",\"trending\":\"Science\"},\"SOUNDS\":{\"forYou\":\"all\",\"pageTab\":\"trending_sounds\",\"trending\":\"trending_sounds\"},\"SPORTS\":{\"forYou\":\"all\",\"pageTab\":\"Sports\",\"trending\":\"Sports\"},\"TEMPLATES\":{\"forYou\":\"all\",\"pageTab\":\"trending_templates\",\"trending\":\"trending_templates\"},\"TOPICS\":{\"forYou\":\"all\",\"pageTab\":\"trending_topic\",\"trending\":\"trending_topic\"},\"TOURISM\":{\"forYou\":\"all\",\"pageTab\":\"Tourism\",\"trending\":\"Tourism\"}}},\"fallbackTabs\":[{\"channel_key\":\"FOR_YOU\",\"channel_starling_key\":\"suggested\",\"tabs\":[{\"enable_user_set_language\":true,\"endpoint\":\"comprehensive\",\"key\":\"ALL\",\"query_key\":\"all\",\"refresh\":\"enable\",\"starling_key\":\"all\"},{\"enable_user_set_language\":true,\"endpoint\":\"comprehensive\",\"key\":\"CONTENT_GAP\",\"query_key\":\"content_gap\",\"refresh\":\"enable\",\"starling_key\":\"content_gap\",\"tooltip\":{\"tooltip_content_starling\":\"content_gap_tooltip\",\"tooltip_show\":\"click\"}},{\"endpoint\":\"comprehensive\",\"key\":\"SEARCHES_BY_FOLLOWERS\",\"query_key\":\"follower_searched\",\"refresh\":\"enable\",\"starling_key\":\"searches_by_followers\"}]},{\"channel_key\":\"TRENDING\",\"channel_starling_key\":\"trending\",\"tabs\":[{\"endpoint\":\"trending\",\"key\":\"ALL\",\"query_key\":\"all\",\"refresh\":\"enable\",\"starling_key\":\"all\"},{\"endpoint\":\"trending\",\"key\":\"FASHION\",\"query_key\":\"Fashion\",\"refresh\":\"enable\",\"starling_key\":\"fashion\"},{\"endpoint\":\"trending\",\"key\":\"FOOD\",\"query_key\":\"Food\",\"refresh\":\"enable\",\"starling_key\":\"food\"},{\"endpoint\":\"trending\",\"key\":\"SPORTS\",\"query_key\":\"Sports\",\"refresh\":\"enable\",\"starling_key\":\"sports\"},{\"endpoint\":\"trending\",\"key\":\"TOURISM\",\"query_key\":\"Tourism\",\"refresh\":\"enable\",\"starling_key\":\"tourism\"},{\"endpoint\":\"trending\",\"key\":\"GAMING\",\"query_key\":\"Gaming\",\"refresh\":\"enable\",\"starling_key\":\"gaming\"},{\"endpoint\":\"trending\",\"key\":\"SCIENCE\",\"query_key\":\"Science\",\"refresh\":\"enable\",\"starling_key\":\"science\"}]}]},\"vid\":\"121749182\"},\"data_selection\":{\"val\":{\"enable\":true},\"vid\":\"121433650\"},\"data_selection_eu\":{\"val\":{\"enable\":false},\"vid\":\"121404359\"},\"dyd_drill\":{\"val\":{\"enable\":false},\"vid\":\"121497414\"},\"expanded_data_types\":{\"val\":{\"enable\":false},\"vid\":\"121477481\"},\"facebook_login_reauthentication\":{\"val\":{\"vid\":\"v2\"},\"vid\":\"121351166\"},\"improved_selfie\":{\"val\":{\"enable\":true},\"vid\":\"121811500\"},\"is_deletion_pipo\":{\"val\":{\"enable\":true},\"vid\":\"121960941\"},\"is_v0_ui_expanded\":{\"val\":{\"enable\":false},\"vid\":\"121860360\"},\"live_bean_emoji_comment_enable\":{\"val\":true,\"vid\":\"121844502\"},\"tiktok-zti-crypto\":{\"val\":\"0.1.11\",\"vid\":\"121487028\"},\"videoEmbedIterationsPlayer\":{\"val\":{\"autoplayOnShow\":true,\"useControllableProgressBar\":false},\"vid\":\"121331973\"},\"video_embed_iterations\":{\"val\":{\"show_description_on_player\":false,\"show_description_only_on_interaction\":false,\"use_mobile_ratio_on_pc\":true,\"use_new_CTA_text\":true},\"vid\":\"120811592\"},\"video_embed_user_flow\":{\"val\":{\"should_redirect_to_download_page\":false},\"vid\":\"120810756\"},\"zti_package_version\":{\"val\":{\"eu\":\"1.0.0.37\",\"oci\":\"2.0.0.40\",\"sg\":\"1.0.0.37\",\"va\":\"1.0.0.37\"},\"vid\":\"121885509\"}},\"uuid\":\"7589668285731456519\",\"timestamp\":1767589207588,\"ab_version_multilink\":[],\"ab_ext_version\":[],\"ab_version\":[\"121439635\"]}"
+        },
+        {
+          "name": "HYBRID_SLARDAR_WEBtiktok_pns_web_runtime",
+          "value": "{\"userId\":\"98e2f1fc-9ed1-42ed-bd80-b86f34984098\",\"deviceId\":\"ed071f01-8102-49d9-863e-a9dbc8727e66\"}"
+        },
+        {
+          "name": "__tea_cache_tokens_1988",
+          "value": "{\"web_id\":\"7591737856524158482\",\"user_unique_id\":\"7591737856524158482\",\"timestamp\":1767589207116,\"_type_\":\"default\"}"
+        },
+        {
+          "name": "SLARDARtiktok_creator_center",
+          "value": "JTdCJTIydXNlcklkJTIyOiUyMmVkOWJiZjUxLTVlM2EtNGVhNS1iNjAxLTE0NGYxMTI1NTA2MiUyMiwlMjJkZXZpY2VJZCUyMjolMjJiOGYwNjY3MS04MmUwLTQ0NTItYWU4NC0yZjc0M2ZiN2E5YjklMjIsJTIyZXhwaXJlcyUyMjoxNzc1MzY1MjA1MzkzJTdE"
+        },
+        {
+          "name": "LOCAL_IS_EFFECTIVE",
+          "value": "0"
+        },
+        {
+          "name": "SLARDARtiktok_creator",
+          "value": "JTdCJTIydXNlcklkJTIyOiUyMmNmZWM2MGIyLTVhNjItNDE4Zi1hYmYwLTFiNDgyMDczYzg1NyUyMiwlMjJkZXZpY2VJZCUyMjolMjI2OTJkN2FhYi0wOWM4LTRiZjgtYmNjYi03YmNkYmRlZWViNmIlMjIsJTIyZXhwaXJlcyUyMjoxNzc1MzY1MjA1OTU0JTdE"
+        },
+        {
+          "name": "__tea_cache_tokens_345918",
+          "value": "{\"web_id\":\"7591737852834383367\",\"user_unique_id\":\"7591737852834383367\",\"timestamp\":1767589206600,\"_type_\":\"default\"}"
+        },
+        {
+          "name": "__tea_cache_tokens_906553",
+          "value": "{\"web_id\":\"7591737852959655432\",\"user_unique_id\":\"7591737852959655432\",\"timestamp\":1767589206393,\"_type_\":\"default\"}"
+        },
+        {
+          "name": "tiktok_studio_music_lib_tooltip",
+          "value": "true"
+        },
+        {
+          "name": "SLARDARclip_forge",
+          "value": "JTdCJTIydXNlcklkJTIyOiUyMmY3YjFmYjQxLTY3ZjMtNDNhMi1hODM1LTRiNzcyNTEzNjU0NyUyMiwlMjJkZXZpY2VJZCUyMjolMjIyZWE3M2JhNy0yOTU1LTRjNzQtYjllMS02NzRmOGY4YjQxZmMlMjIsJTIyZXhwaXJlcyUyMjoxNzc1MzY1MjA3MTUzJTdE"
+        },
+        {
+          "name": "xmsi",
+          "value": "3"
+        },
+        {
+          "name": "__tea_cache_first_3297",
+          "value": "1"
+        },
+        {
+          "name": "__tea_cache_tokens_335386",
+          "value": "{\"web_id\":\"7591737851616839176\",\"user_unique_id\":\"7356798698599089158\",\"timestamp\":1767589205753,\"_type_\":\"default\"}"
+        },
+        {
+          "name": "__tea_cache_first_611736",
+          "value": "1"
+        },
+        {
+          "name": "PUMBAA_FREQ",
+          "value": "{\"AbsoluteOrientationSensor\":2,\"Accelerometer\":2,\"addEventListener('devicemotion')\":0.01,\"addEventListener('deviceorientation')\":0.01,\"addEventListener('deviceorientationabsolute')\":0.1,\"addEventListener('MozOrientation')\":2,\"document.addEventListener('copy')\":0,\"document.addEventListener('cut')\":0,\"document.addEventListener('paste')\":0,\"navigator.geolocation.clearWatch\":2,\"document.cookie\":0,\"navigator.credentials.create\":0,\"CookieStore.delete\":0,\"document.execCommand('cut')\":0,\"document.execCommand('copy')\":2,\"document.execCommand('paste')\":2,\"CookieStore.get\":0,\"navigator.credentials.get\":0,\"CookieStore.getAll\":0,\"navigator.getBattery\":0,\"navigator.geolocation.getCurrentPosition\":2,\"navigator.mediaDevices.getDisplayMedia\":2,\"navigator.mediaDevices.getUserMedia\":2,\"navigator.getUserMedia\":2,\"GravitySensor\":2,\"Gyroscope\":2,\"LinearAccelerationSensor\":2,\"Magnetometer\":2,\"navigator.mozGetUserMedia\":2,\"navigator.mozNotification\":2,\"navigator.mozVibrate\":2,\"navigator.msVibrate\":2,\"Notification\":2,\"ondevicemotion\":0,\"ondeviceorientation\":2,\"ondeviceorientationabsolute\":2,\"open\":0,\"OrientationSensor\":0,\"PaymentRequest\":0,\"navigator.clipboard.read\":0,\"navigator.clipboard.readText\":2,\"document.referrer\":0.0001,\"RelativeOrientationSensor\":2,\"RTCPeerConnection\":0,\"screen\":0,\"CookieStore.set\":0,\"navigator.share\":0,\"navigator.userAgent\":0,\"navigator.vibrate\":2,\"navigator.geolocation.watchPosition\":2,\"navigator.webkitGetUserMedia\":2,\"webkitNotification\":2,\"navigator.webkitVibrate\":2,\"WebSocket\":0,\"navigator.clipboard.write\":0,\"navigator.clipboard.writeText\":2,\"network_ga\":2}"
+        },
+        {
+          "name": "__tea_cache_tokens_611736",
+          "value": "{\"web_id\":\"7591737855237932551\",\"user_unique_id\":\"7356798698599089158\",\"timestamp\":1767589207130,\"_type_\":\"default\"}"
+        },
+        {
+          "name": "__tea_cache_tokens_3297",
+          "value": "{\"web_id\":\"7591737853094544904\",\"user_unique_id\":\"7591737853094544904\",\"timestamp\":1767589206433,\"_type_\":\"default\"}"
+        },
+        {
+          "name": "__tea_cache_first_335386",
+          "value": "1"
+        },
+        {
+          "name": "__tea_cache_first_345918",
+          "value": "1"
+        },
+        {
+          "name": "msToken",
+          "value": "C7LIeYyWk0wmKL-lt4XXfhCDnV1zDfD_zHIZ3spJu7WYrrK4zfA0aCQlDMjKz4G-6qB1S_io_o6KT44LehzWvEEmhpJAOhd_pReWDNW6CFqwTFwXd6BMNaUNdtrvQFuXWGFQvvjViVMogtBOPy4GWBPc-w=="
+        },
+        {
+          "name": "SLARDARpns_consent_system",
+          "value": "JTdCJTIydXNlcklkJTIyOiUyMmZlMzg1MmVlLTY0MTgtNDliMy04YmYxLTBkYjg3NmM0ZjkzMCUyMiwlMjJkZXZpY2VJZCUyMjolMjIzNDJjYWQ5Mi0yZmZhLTQ3YjUtYmNjYS0wNTc5YzM5NjA2YWQlMjIsJTIyZXhwaXJlcyUyMjoxNzc1MzY1MjA3MTI4JTdE"
+        }
+      ]
+    }
+  ],
+  "synapse_meta": {
+    "display_name": "criandoibope",
+    "username": "Guilherme Corrêa",
+    "avatar_url": "https://p16-amd-va.tiktokcdn.com/img/user-avatar-musically/cc8b5769f66e9d88ae6b9e0fb28f5596~120x256.image",
+    "last_checked": 1767727492.0552704
+  }
+}

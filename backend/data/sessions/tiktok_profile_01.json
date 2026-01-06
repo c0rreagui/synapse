@@ -211,5 +211,11 @@
       "sameSite": "None"
     }
   ],
-  "origins": []
+  "origins": [],
+  "synapse_meta": {
+    "display_name": "tododiaumcorte.aleatorio",
+    "username": "Guilherme Corrêa825",
+    "avatar_url": "https://sf16-passport-va.ibytedtos.com/img/user-avatar-musically/fdd108ea01a90c621cb9fb5e7b079ee1~300x300.image",
+    "last_checked": 1767727491.1563709
+  }
 }

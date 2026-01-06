@@ -1,309 +1,206 @@
-"use client";
+'use client';
 
-import { useState, useCallback, useEffect } from "react";
-import { useDropzone } from "react-dropzone";
-import { Toaster, toast } from "sonner";
-import {
-  UploadCloud,
-  Zap,
-  CheckCircle2,
-  Cpu,
-  Radio,
-  Sparkles,
-  CalendarClock
-} from "lucide-react";
+import { useState } from 'react';
+import GlassCard from './components/GlassCard';
+import StatCard from './components/StatCard';
+import { CloudArrowUpIcon, FilmIcon, SignalIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+
+const PROFILES = [
+  { id: "tiktok_profile_01", label: "✂️ Cortes Aleatórios (@p1)", color: "border-cyan-500" },
+  { id: "tiktok_profile_02", label: "🔥 Criando Ibope (@p2)", color: "border-purple-500" },
+];
 
 export default function Home() {
-  const [uploading, setUploading] = useState(false);
-  const [profile, setProfile] = useState("p1");
-  const [scheduleTime, setScheduleTime] = useState("");
-  const [isScheduleEnabled, setIsScheduleEnabled] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState("tiktok_profile_01");
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
 
-  // Estado para perfis dinâmicos
-  const [availableProfiles, setAvailableProfiles] = useState<{ id: string, name: string, username?: string, avatar?: string }[]>([]);
-
-  // Carrega perfis ao iniciar
-  useEffect(() => {
-    fetch("http://localhost:8000/api/v1/profiles")
-      .then(res => res.json())
-      .then(data => {
-        setAvailableProfiles(data);
-        if (data.length > 0 && !profile) {
-          setProfile(data[0].id);
-        }
-      })
-      .catch((err) => {
-        console.error("Erro ao carregar perfis:", err);
-        // Fallback local
-        setAvailableProfiles([
-          { id: "tiktok_profile_01", name: "Perfil 01 (Offline)" },
-          { id: "tiktok_profile_02", name: "Perfil 02 (Offline)" }
-        ]);
-      });
-  }, []);
-
-  // Função para definir horários rápidos (Atalhos)
-  const setQuickTime = (hour: number) => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(hour, 0, 0, 0);
-
-    // Formato manual para preservar o fuso horário local (YYYY-MM-DDTHH:MM)
-    const year = tomorrow.getFullYear();
-    const month = String(tomorrow.getMonth() + 1).padStart(2, '0');
-    const day = String(tomorrow.getDate()).padStart(2, '0');
-    const hours = String(tomorrow.getHours()).padStart(2, '0');
-    const minutes = String(tomorrow.getMinutes()).padStart(2, '0');
-
-    const localIsoString = `${year}-${month}-${day}T${hours}:${minutes}`;
-
-    setScheduleTime(localIsoString);
-    setIsScheduleEnabled(true);
-    toast.success(`Agendado para amanhã às ${hour}:00`);
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
   };
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    if (acceptedFiles.length === 0) return;
+  const handleLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
 
-    setUploading(true);
-    const file = acceptedFiles[0];
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      await handleUpload(file);
+    }
+  };
+
+  const handleUpload = async (file: File) => {
+    setUploadStatus('uploading');
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("profile_id", profile);
-
-    // Só envia a data se o checkbox estiver marcado e tiver data
-    if (isScheduleEnabled && scheduleTime) {
-      formData.append("schedule_time", scheduleTime);
-      toast.info(`⏳ Injetando no fluxo temporal: ${new Date(scheduleTime).toLocaleString()}`);
-    } else {
-      toast.info("⚡ Iniciando transmissão neural imediata...");
-    }
+    formData.append("profile_key", selectedProfile);
 
     try {
       const response = await fetch("http://localhost:8000/api/v1/ingest/upload", {
         method: "POST",
         body: formData,
       });
-
       if (response.ok) {
-        toast.success("✅ Dados assimilados pela Fábrica!");
+        setUploadStatus('success');
+        setTimeout(() => setUploadStatus('idle'), 3000);
       } else {
-        toast.error("❌ Falha na conexão neural.");
+        setUploadStatus('error');
       }
-    } catch {
-      toast.error("⚠️ Erro crítico no uplink.");
-    } finally {
-      setUploading(false);
+    } catch (error) {
+      console.error(error);
+      setUploadStatus('error');
     }
-  }, [profile, scheduleTime, isScheduleEnabled]);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { "video/mp4": [".mp4", ".mov"] },
-    maxFiles: 1,
-  });
+  };
 
   return (
-    <div className="min-h-screen bg-[#050507] text-white font-sans selection:bg-blue-500/30 relative overflow-hidden">
-      {/* Background Grid Mesh */}
-      <div className="absolute inset-0 bg-grid-white [mask-image:linear-gradient(0deg,transparent,black)] pointer-events-none" />
-      <div className="absolute top-0 center-0 w-full h-96 bg-blue-900/10 blur-[120px] rounded-full pointer-events-none mix-blend-screen" />
+    <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#030712] to-black p-8 text-white relative overflow-hidden">
 
-      <Toaster position="bottom-right" theme="dark" closeButton />
+      {/* Background Grid Effect */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-[0.03] pointer-events-none" />
 
-      <main className="max-w-4xl mx-auto pt-16 px-6 relative z-10">
+      <div className="max-w-7xl mx-auto relative z-10 space-y-8">
 
-        {/* HEADER */}
-        <header className="mb-12 text-center space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-mono mb-4">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500 mb-1">
+              Synapse Command Center
+            </h1>
+            <p className="text-slate-400">Sistema Operacional de Mídia Autônoma</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="flex h-3 w-3 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
             </span>
-            SYSTEM ONLINE
+            <span className="text-sm font-mono text-emerald-400">SYSTEM ONLINE</span>
           </div>
+        </div>
 
-          <h1 className="text-5xl md:text-6xl font-black tracking-tighter bg-gradient-to-br from-white via-white to-blue-500 bg-clip-text text-transparent transform hover:scale-[1.01] transition-transform cursor-default">
-            SYNAPSE
-            <span className="text-blue-600">.</span>
-            AUTO
-          </h1>
-          <p className="text-lg text-neutral-400 font-medium max-w-xl mx-auto leading-relaxed">
-            Central de Comando de Conteúdo Neural
-          </p>
-        </header>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatCard label="Videos na Fila" value="03" icon={<FilmIcon className="w-6 h-6" />} trend="+2 desde ontem" color="primary" />
+          <StatCard label="Uploads Hoje" value="12" icon={<CloudArrowUpIcon className="w-6 h-6" />} color="success" />
+          <StatCard label="Taxa de Sucesso" value="98.5%" icon={<CheckCircleIcon className="w-6 h-6" />} color="secondary" />
+          <StatCard label="Proxies Ativos" value="01" icon={<SignalIcon className="w-6 h-6" />} color="danger" />
+        </div>
 
-        {/* MAIN CONTROL PANEL */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        {/* Main Action Area */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-          {/* SIDEBAR / CONTROLS (4 cols) */}
-          <div className="md:col-span-4 space-y-6">
+          {/* Left Column: Upload */}
+          <div className="lg:col-span-2 space-y-6">
+            <GlassCard title="Nova Transmissão" icon={<CloudArrowUpIcon className="w-5 h-5" />} className="border-t border-cyan-500/20">
 
-
-            {/* PROFILE SELECTOR */}
-            <div className="p-5 rounded-2xl bg-neutral-900/40 border border-white/5 backdrop-blur-md shadow-xl hover:border-white/10 transition-colors">
-              <div className="flex items-center gap-2 mb-4 text-sm font-semibold text-neutral-300">
-                <Radio className="w-4 h-4 text-blue-500" />
-                CANAL DE TRANSMISSÃO
-              </div>
-
-              <div className="flex flex-col gap-2 bg-neutral-900 p-1 rounded-lg border border-neutral-800">
-                {availableProfiles.length === 0 && (
-                  <div className="text-center text-xs text-neutral-500 py-4">Carregando canais...</div>
-                )}
-                {availableProfiles.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setProfile(p.id)}
-                    className={`w-full flex items-center justify-between p-2 pl-2 pr-3 rounded-xl transition-all duration-300 border ${profile === p.id
-                      ? "bg-blue-600/10 border-blue-500/50 text-white translate-x-1"
-                      : "bg-neutral-800/30 border-transparent text-neutral-400 hover:bg-neutral-800 hover:text-white"
-                      }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      {p.avatar ? (
-                        <img src={p.avatar} alt={p.name} className="w-9 h-9 rounded-full border border-white/10 object-cover" />
-                      ) : (
-                        <div className="w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center text-xs font-bold border border-white/5">
-                          {p.name.charAt(0)}
-                        </div>
+              {/* Profile Selector */}
+              <div className="mb-8">
+                <label className="block text-sm font-bold text-cyan-400 mb-3 font-mono uppercase tracking-wider">
+                  1. Selecione o Canal de Destino
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {PROFILES.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => setSelectedProfile(p.id)}
+                      className={`relative p-4 rounded-lg border flex items-center justify-between transition-all duration-200 group
+                        ${selectedProfile === p.id
+                          ? `bg-cyan-500/10 ${p.color} shadow-[0_0_15px_rgba(6,182,212,0.15)]`
+                          : 'bg-slate-800/50 border-slate-700 hover:border-slate-500 hover:bg-slate-800'
+                        }`}
+                    >
+                      <span className="font-medium text-white group-hover:text-cyan-300 transition-colors">{p.label}</span>
+                      {selectedProfile === p.id && (
+                        <div className="h-3 w-3 rounded-full bg-cyan-400 shadow-[0_0_10px_#22d3ee]"></div>
                       )}
-                      <div className="text-left">
-                        <div className={`text-sm font-medium leading-tight ${profile === p.id ? "text-blue-400" : "text-neutral-200"}`}>
-                          {p.name}
-                        </div>
-                        {p.username && (
-                          <div className="text-[10px] text-neutral-500 font-mono mt-0.5">
-                            @{p.username}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {profile === p.id && <CheckCircle2 className="w-4 h-4 text-blue-400" />}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* SCHEDULER PANEL */}
-            <div className={`p-5 rounded-2xl border transition-all duration-300 ${isScheduleEnabled
-              ? "bg-blue-900/10 border-blue-500/30"
-              : "bg-neutral-900/40 border-white/5"
-              } backdrop-blur-md`}>
-
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2 text-sm font-semibold text-neutral-300">
-                  <CalendarClock className={`w-4 h-4 ${isScheduleEnabled ? "text-blue-400" : "text-neutral-500"}`} />
-                  TIME TRAVEL
+                    </button>
+                  ))}
                 </div>
+              </div>
+
+              {/* Dropzone */}
+              <div>
+                <label className="block text-sm font-bold text-cyan-400 mb-3 font-mono uppercase tracking-wider">
+                  2. Arquivo de Vídeo (.MP4)
+                </label>
                 <div
-                  onClick={() => {
-                    setIsScheduleEnabled(!isScheduleEnabled);
-                    if (!isScheduleEnabled) toast("Protocolo de Tempo Ativado");
-                  }}
-                  className={`w-10 h-6 rounded-full p-1 cursor-pointer transition-colors duration-300 ${isScheduleEnabled ? "bg-blue-500" : "bg-neutral-700"
-                    }`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleLeave}
+                  onDrop={handleDrop}
+                  className={`
+                    relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 cursor-pointer overflow-hidden
+                    ${isDragging
+                      ? 'border-cyan-400 bg-cyan-400/5 scale-[1.01]'
+                      : 'border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800/50'
+                    }
+                    ${uploadStatus === 'success' ? 'border-emerald-500 bg-emerald-500/10' : ''}
+                  `}
                 >
-                  <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-300 ${isScheduleEnabled ? "translate-x-4" : "translate-x-0"
-                    }`} />
+                  <input
+                    type="file"
+                    title="Upload Video"
+                    aria-label="Upload Video"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={(e) => e.target.files && handleUpload(e.target.files[0])}
+                    accept=".mp4,.mov"
+                  />
+
+                  <div className="flex flex-col items-center justify-center space-y-4">
+                    <div className={`p-4 rounded-full bg-slate-800/80 ${isDragging ? 'text-cyan-400' : 'text-slate-400'}`}>
+                      {uploadStatus === 'uploading' ? (
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+                      ) : uploadStatus === 'success' ? (
+                        <CheckCircleIcon className="w-8 h-8 text-emerald-500" />
+                      ) : (
+                        <CloudArrowUpIcon className="w-8 h-8" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-lg font-medium text-white">
+                        {uploadStatus === 'success' ? 'Upload Recebido com Sucesso!' : 'Arraste o vídeo aqui ou clique para buscar'}
+                      </p>
+                      <p className="text-sm text-slate-500 mt-1">Suporta MP4 e MOV (Max 500MB)</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* EXPANDABLE AREA */}
-              <div className={`space-y-4 overflow-hidden transition-all duration-500 ${isScheduleEnabled ? "max-h-64 opacity-100" : "max-h-0 opacity-50"
-                }`}>
-                <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => setQuickTime(10)} className="p-2 text-xs bg-neutral-800 rounded-lg hover:bg-neutral-700 border border-white/5 transition-colors">
-                    ⛅ Amanhã 10h
-                  </button>
-                  <button onClick={() => setQuickTime(14)} className="p-2 text-xs bg-neutral-800 rounded-lg hover:bg-neutral-700 border border-white/5 transition-colors">
-                    ☀️ Amanhã 14h
-                  </button>
-                  <button onClick={() => setQuickTime(18)} className="p-2 text-xs bg-neutral-800 rounded-lg hover:bg-neutral-700 border border-white/5 transition-colors">
-                    🌙 Amanhã 18h
-                  </button>
-                  <button onClick={() => setQuickTime(20)} className="p-2 text-xs bg-neutral-800 rounded-lg hover:bg-neutral-700 border border-white/5 transition-colors">
-                    🌃 Amanhã 20h
-                  </button>
-                </div>
-
-                <input
-                  type="datetime-local"
-                  aria-label="Selecionar data e hora do agendamento"
-                  value={scheduleTime}
-                  onChange={(e) => setScheduleTime(e.target.value)}
-                  className="w-full bg-[#0a0a0c] border border-neutral-800 text-white text-xs rounded-lg p-3 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all [color-scheme:dark]"
-                />
-              </div>
-            </div>
-
+            </GlassCard>
           </div>
 
-          {/* DROPZONE AREA (8 cols) */}
-          <div className="md:col-span-8">
-            <div
-              {...getRootProps()}
-              className={`
-                h-full min-h-[400px] rounded-3xl border-2 border-dashed transition-all duration-300 relative group
-                flex flex-col items-center justify-center p-12 text-center overflow-hidden
-                ${isDragActive
-                  ? "border-blue-500 bg-blue-500/5 shadow-[0_0_50px_-12px_rgba(59,130,246,0.3)] scale-[1.01]"
-                  : "border-neutral-800 bg-neutral-900/20 hover:border-neutral-700 hover:bg-neutral-900/40"
-                }
-              `}
-            >
-              <input {...getInputProps()} />
-
-              {/* Animated Glow Effect */}
-              <div className="absolute inset-0 bg-blue-500/5 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-
-              <div className={`
-                w-24 h-24 mb-6 rounded-2xl flex items-center justify-center
-                bg-gradient-to-br from-[#1a1a1f] to-[#0d0d10] border border-white/5 shadow-2xl
-                group-hover:scale-110 group-hover:border-blue-500/30 transition-all duration-300
-              `}>
-                {uploading ? (
-                  <Zap className="w-10 h-10 text-yellow-400 animate-pulse" />
-                ) : isDragActive ? (
-                  <UploadCloud className="w-10 h-10 text-blue-400 animate-bounce" />
-                ) : (
-                  <Sparkles className="w-10 h-10 text-neutral-500 group-hover:text-blue-400 transition-colors" />
-                )}
+          {/* Right Column: Recent Activity */}
+          <div className="lg:col-span-1">
+            <GlassCard title="Log de Operações" icon={<SignalIcon className="w-5 h-5" />} className="h-full">
+              <div className="space-y-4">
+                {/* Mock Items - Futuramente virão do Backend */}
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-slate-800/30 border border-white/5 hover:border-white/10 transition-colors">
+                    <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">Video_Corte_0{i}.mp4</p>
+                      <p className="text-xs text-slate-500">@p1 • Agendado 18:00</p>
+                    </div>
+                    <span className="text-xs font-mono text-emerald-400">OK</span>
+                  </div>
+                ))}
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-800/30 border border-white/5 opacity-60">
+                  <div className="h-2 w-2 rounded-full bg-cyan-500 animate-pulse"></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">Processando...</p>
+                    <p className="text-xs text-slate-500">Aguardando Fila</p>
+                  </div>
+                </div>
               </div>
-
-              <h2 className="text-2xl font-bold text-white mb-2 relative z-10">
-                {isDragActive ? "Liberar Carga de Dados" : "Iniciar Ingestão"}
-              </h2>
-
-              <p className="text-neutral-500 text-sm max-w-sm mx-auto leading-relaxed relative z-10">
-                Arraste arquivos de vídeo para o portal ou clique para acessar o diretório local.
-              </p>
-
-              <div className="mt-8 flex items-center gap-4 text-xs font-mono text-neutral-600 border border-white/5 rounded-full px-4 py-2 bg-[#050507]/50 backdrop-blur-sm">
-                <span className="flex items-center gap-1.5"><Cpu className="w-3 h-3" /> MP4/MOV READY</span>
-                <span className="w-px h-3 bg-neutral-800" />
-                <span className="flex items-center gap-1.5"><Zap className="w-3 h-3" /> ULTRA FAST</span>
-              </div>
-
-            </div>
+            </GlassCard>
           </div>
 
         </div>
-
-        {/* FOOTER STATUS */}
-        <footer className="mt-12 border-t border-white/5 pt-8 pb-8 flex justify-between items-center text-xs text-neutral-600 font-mono">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500/20 border border-emerald-500/50"></span>
-            FACTORIES: OPERATIONAL
-          </div>
-          <div>
-            VERSION 2.1.0-NEURAL
-          </div>
-        </footer>
-
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }
-

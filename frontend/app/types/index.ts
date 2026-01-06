@@ -102,23 +102,6 @@ export interface UploadQueueItem {
 }
 
 // Component Props Types
-export interface StatCardProps {
-    title: string;
-    value: string | number;
-    icon: string;
-    trend?: {
-        value: number;
-        direction: "up" | "down";
-    };
-    loading?: boolean;
-}
-
-export interface GlassCardProps {
-    children: React.ReactNode;
-    className?: string;
-    onClick?: () => void;
-}
-
 export interface ToggleProps {
     checked: boolean;
     onChange: (checked: boolean) => void;

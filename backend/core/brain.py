@@ -46,7 +46,8 @@ async def generate_smart_caption(filename: str, profile_prefix: str = None) -> d
     try:
         # 1. Detectar Perfil se não fornecido
         if not profile_prefix:
-            match = re.match(r"^@?(p\d+)_", filename)
+            # Aceita p1, p2, pcortes, pnews (alfanumérico após @)
+            match = re.match(r"^@?([a-zA-Z0-9]+)_", filename)
             profile_prefix = match.group(1) if match else "default"
         
         # Normaliza chave (caso venha vazia ou errada)

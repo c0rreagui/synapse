@@ -91,30 +91,24 @@ export default function DistributionPage() {
                     >
                         <StatCard
                             label="Neural Integrity"
-                            value="99.7"
-                            unit="%"
-                            icon="hub"
+                            value="99.7%"
+                            icon={<span className="material-symbols-outlined">hub</span>}
                             color="success"
                             trend="Network stable"
-                            trendType="neutral"
                         />
                         <StatCard
                             label="Synaptic Throughput"
-                            value="1.2K"
-                            unit="req/min"
-                            icon="speed"
+                            value="1.2K req/min"
+                            icon={<span className="material-symbols-outlined">speed</span>}
                             color="primary"
                             trend="+18% peak"
-                            trendType="up"
                         />
                         <StatCard
                             label="Active Nodes"
-                            value="2"
-                            unit="of 3"
-                            icon="settings_input_component"
+                            value="2 of 3"
+                            icon={<span className="material-symbols-outlined">settings_input_component</span>}
                             color="secondary"
                             trend="1 offline"
-                            trendType="down"
                         />
                     </motion.div>
 
@@ -142,7 +136,7 @@ export default function DistributionPage() {
                                     return (
                                         <div
                                             key={pathway.id}
-                                            className={`glass-card rounded-xl p-5 relative overflow-hidden group ${pathway.status === "offline" ? "opacity-60" : ""
+                                            className={`glass-panel rounded-xl p-5 relative overflow-hidden group ${pathway.status === "offline" ? "opacity-60" : ""
                                                 }`}
                                         >
                                             {/* Glow effect */}
