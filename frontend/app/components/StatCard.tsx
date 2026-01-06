@@ -23,13 +23,13 @@ export default function StatCard({ label, value, icon, trend, color = 'primary' 
                 {icon}
             </div>
             <div className="relative z-10">
-                <div className={`p-2 rounded-lg bg-white/5 w-fit mb-3 ${colorMap[color]}`}>
+                <div className={`p-2 rounded-lg bg-white/5 w-fit mb-3 ${colorMap[color]} ring-1 ring-white/10`}>
                     {icon}
                 </div>
-                <p className="text-sm font-medium text-slate-400 uppercase tracking-wider">{label}</p>
-                <h4 className="text-3xl font-bold text-white mt-1">{value}</h4>
+                <p className="text-sm font-medium text-slate-400 uppercase tracking-widest">{label}</p>
+                <h4 className="text-4xl font-bold text-white mt-2 tracking-tight drop-shadow-lg">{value}</h4>
                 {trend && (
-                    <p className="text-xs mt-2 text-white/60">
+                    <p className="text-xs mt-2 text-white/60 font-mono">
                         {trend}
                     </p>
                 )}

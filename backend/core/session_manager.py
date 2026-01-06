@@ -1,45 +1,51 @@
 import os
-import logging
-from playwright.async_api import BrowserContext
+import glob
+from typing import List, Dict
 
-logger = logging.getLogger(__name__)
+# CONSTANTS
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+SESSIONS_DIR = os.path.join(BASE_DIR, "data", "sessions")
 
-SESSIONS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "sessions")
+if not os.path.exists(SESSIONS_DIR):
+    os.makedirs(SESSIONS_DIR)
 
-def ensure_session_dir():
+def get_session_path(session_name: str) -> str:
+    """Returns the absolute path for a session file."""
+    return os.path.join(SESSIONS_DIR, f"{session_name}.json")
+
+def session_exists(session_name: str) -> bool:
+    """Checks if a session file exists."""
+    return os.path.exists(get_session_path(session_name))
+
+def list_available_sessions() -> List[Dict[str, str]]:
+    """
+    Scans the sessions directory and returns a list of available profiles.
+    Returns: [{'id': 'tiktok_profile_01', 'label': 'Perfile 01 (Cortes)', 'status': 'active'}]
+    """
+    sessions = []
     if not os.path.exists(SESSIONS_DIR):
-        os.makedirs(SESSIONS_DIR, exist_ok=True)
-
-async def save_session(context: BrowserContext, session_id: str):
-    """
-    Saves the browser context storage state (cookies, local storage) to a file.
-    """
-    ensure_session_dir()
-    path = os.path.join(SESSIONS_DIR, f"{session_id}.json")
-    try:
-        await context.storage_state(path=path)
-        logger.info(f"Session saved for {session_id} at {path}")
-        return True
-    except Exception as e:
-        logger.error(f"Failed to save session for {session_id}: {str(e)}")
-        return False
-
-async def load_session(context: BrowserContext, session_id: str) -> bool:
-    """
-    Loads a storage state into a NEW context (must be done at context creation usually, 
-    but Playwright doesn't support loading into existing context easily without hack).
-    
-    Actually, context.storage_state() is for export. 
-    To import, we usually pass storage_state to browser.new_context().
-    
-    This function checks if session exists and returns the path to be used in new_context.
-    """
-    ensure_session_dir()
-    path = os.path.join(SESSIONS_DIR, f"{session_id}.json")
-    if os.path.exists(path):
-        return path
-    return None
-
-def get_session_path(session_id: str) -> str:
-    ensure_session_dir()
-    return os.path.join(SESSIONS_DIR, f"{session_id}.json")
+        return []
+        
+    # List all .json files in sessions dir
+    for filename in os.listdir(SESSIONS_DIR):
+        if filename.endswith(".json") and filename.startswith("tiktok_profile"):
+            profile_id = filename.replace(".json", "")
+            
+            # Formata o label para ficar amigável
+            # Ex: tiktok_profile_01 -> Perfil 01
+            clean_name = profile_id.replace("tiktok_profile_", "").replace("_", " ").title()
+            label = f"Perfil {clean_name}"
+            
+            # Adiciona metadados manuais conhecidos (Mock para MVP)
+            if "01" in profile_id: label = f"✂️ {label} (Cortes)"
+            if "02" in profile_id: label = f"🔥 {label} (Ibope)"
+            
+            sessions.append({
+                "id": profile_id,
+                "label": label,
+                "status": "active" # Futuramente validaremos o cookie
+            })
+            
+    # Sort by ID to ensure consistency
+    sessions.sort(key=lambda x: x['id'])
+    return sessions

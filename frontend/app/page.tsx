@@ -1,19 +1,47 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import GlassCard from './components/GlassCard';
 import StatCard from './components/StatCard';
 import { CloudArrowUpIcon, FilmIcon, SignalIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 
-const PROFILES = [
-  { id: "tiktok_profile_01", label: "✂️ Cortes Aleatórios (@p1)", color: "border-cyan-500" },
-  { id: "tiktok_profile_02", label: "🔥 Criando Ibope (@p2)", color: "border-purple-500" },
-];
+interface Profile {
+  id: string;
+  label: string;
+  color?: string;
+}
 
 export default function Home() {
-  const [selectedProfile, setSelectedProfile] = useState("tiktok_profile_01");
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [isLoadingProfiles, setIsLoadingProfiles] = useState(true);
+  const [selectedProfile, setSelectedProfile] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+
+  // Fetch profiles on mount
+  useEffect(() => {
+    async function fetchProfiles() {
+      try {
+        const res = await fetch('http://localhost:8000/api/v1/profiles/list');
+        if (res.ok) {
+          const data = await res.json();
+          // Map backend data to UI format if needed
+          // Adicionando cores rotativas para manter o visual neon
+          const mappedProfile = data.map((p: any, index: number) => ({
+            ...p,
+            color: index % 2 === 0 ? "border-cyan-500" : "border-purple-500"
+          }));
+          setProfiles(mappedProfile);
+          if (mappedProfile.length > 0) setSelectedProfile(mappedProfile[0].id);
+        }
+      } catch (e) {
+        console.error("Failed to load profiles", e);
+      } finally {
+        setIsLoadingProfiles(false);
+      }
+    }
+    fetchProfiles();
+  }, []);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -36,6 +64,10 @@ export default function Home() {
   };
 
   const handleUpload = async (file: File) => {
+    if (!selectedProfile) {
+      alert("Selecione um perfil primeiro!");
+      return;
+    }
     setUploadStatus('uploading');
     const formData = new FormData();
     formData.append("file", file);
@@ -59,7 +91,10 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#030712] to-black p-8 text-white relative overflow-hidden">
+    <main className="min-h-screen bg-[#030712] relative overflow-hidden selection:bg-cyan-500/30">
+
+      {/* Radial Gradient Glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-[radial-gradient(ellipse_at_top,rgba(6,182,212,0.15),transparent_70%)] pointer-events-none" />
 
       {/* Background Grid Effect */}
       <div className="absolute inset-0 bg-grid-pattern opacity-[0.03] pointer-events-none" />
@@ -100,32 +135,52 @@ export default function Home() {
 
               {/* Profile Selector */}
               <div className="mb-8">
-                <label className="block text-sm font-bold text-cyan-400 mb-3 font-mono uppercase tracking-wider">
+                <label className="block text-xs font-bold text-cyan-500 mb-4 font-mono uppercase tracking-widest flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
                   1. Selecione o Canal de Destino
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {PROFILES.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => setSelectedProfile(p.id)}
-                      className={`relative p-4 rounded-lg border flex items-center justify-between transition-all duration-200 group
+                  {isLoadingProfiles ? (
+                    <div className="col-span-2 flex items-center justify-center p-8 border border-dashed border-slate-800 rounded-xl bg-slate-900/50">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-slate-400 text-sm font-mono">SINCRONIZANDO PERFIS...</span>
+                      </div>
+                    </div>
+                  ) : profiles.length === 0 ? (
+                    <div className="col-span-2 p-4 text-center text-amber-500 bg-amber-500/10 rounded-xl border border-amber-500/20 font-mono text-sm">
+                      ⚠ NENHUM PERFIL ENCONTRADO NA BASE DE DADOS
+                    </div>
+                  ) : (
+                    profiles.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => setSelectedProfile(p.id)}
+                        className={`relative p-4 rounded-xl border transition-all duration-300 group overflow-hidden
                         ${selectedProfile === p.id
-                          ? `bg-cyan-500/10 ${p.color} shadow-[0_0_15px_rgba(6,182,212,0.15)]`
-                          : 'bg-slate-800/50 border-slate-700 hover:border-slate-500 hover:bg-slate-800'
-                        }`}
-                    >
-                      <span className="font-medium text-white group-hover:text-cyan-300 transition-colors">{p.label}</span>
-                      {selectedProfile === p.id && (
-                        <div className="h-3 w-3 rounded-full bg-cyan-400 shadow-[0_0_10px_#22d3ee]"></div>
-                      )}
-                    </button>
-                  ))}
+                            ? `bg-cyan-950/30 ${p.color} shadow-[0_0_20px_rgba(6,182,212,0.1)] ring-1 ring-cyan-500/50`
+                            : 'bg-slate-900/40 border-slate-800 hover:border-slate-600 hover:bg-slate-800/60'
+                          }`}
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+
+                        <div className="flex items-center justify-between relative z-10">
+                          <span className={`font-medium transition-colors ${selectedProfile === p.id ? 'text-cyan-50' : 'text-slate-400 group-hover:text-slate-200'}`}>
+                            {p.label}
+                          </span>
+                          {selectedProfile === p.id && (
+                            <div className="h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></div>
+                          )}
+                        </div>
+                      </button>
+                    )))}
                 </div>
               </div>
 
               {/* Dropzone */}
               <div>
-                <label className="block text-sm font-bold text-cyan-400 mb-3 font-mono uppercase tracking-wider">
+                <label className="block text-xs font-bold text-cyan-500 mb-4 font-mono uppercase tracking-widest flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
                   2. Arquivo de Vídeo (.MP4)
                 </label>
                 <div
@@ -133,10 +188,10 @@ export default function Home() {
                   onDragLeave={handleLeave}
                   onDrop={handleDrop}
                   className={`
-                    relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 cursor-pointer overflow-hidden
+                    relative border border-dashed rounded-xl p-12 text-center transition-all duration-300 cursor-pointer overflow-hidden group
                     ${isDragging
-                      ? 'border-cyan-400 bg-cyan-400/5 scale-[1.01]'
-                      : 'border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800/50'
+                      ? 'border-cyan-400 bg-cyan-500/10 scale-[1.01] shadow-[0_0_30px_rgba(6,182,212,0.1)]'
+                      : 'border-slate-800 hover:border-cyan-500/30 hover:bg-slate-900/60'
                     }
                     ${uploadStatus === 'success' ? 'border-emerald-500 bg-emerald-500/10' : ''}
                   `}
@@ -145,13 +200,13 @@ export default function Home() {
                     type="file"
                     title="Upload Video"
                     aria-label="Upload Video"
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
                     onChange={(e) => e.target.files && handleUpload(e.target.files[0])}
                     accept=".mp4,.mov"
                   />
 
-                  <div className="flex flex-col items-center justify-center space-y-4">
-                    <div className={`p-4 rounded-full bg-slate-800/80 ${isDragging ? 'text-cyan-400' : 'text-slate-400'}`}>
+                  <div className="flex flex-col items-center justify-center space-y-4 relative z-10">
+                    <div className={`p-5 rounded-2xl bg-slate-900/80 border border-white/5 transition-transform duration-300 group-hover:scale-110 ${isDragging ? 'text-cyan-400' : 'text-slate-500 group-hover:text-cyan-400'}`}>
                       {uploadStatus === 'uploading' ? (
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
                       ) : uploadStatus === 'success' ? (
@@ -161,10 +216,13 @@ export default function Home() {
                       )}
                     </div>
                     <div>
-                      <p className="text-lg font-medium text-white">
-                        {uploadStatus === 'success' ? 'Upload Recebido com Sucesso!' : 'Arraste o vídeo aqui ou clique para buscar'}
+                      <p className={`text-lg font-bold transition-colors ${isDragging ? 'text-cyan-400' : 'text-white'}`}>
+                        {uploadStatus === 'success' ? 'Upload Recebido com Sucesso!' : 'Arraste o vídeo aqui'}
                       </p>
-                      <p className="text-sm text-slate-500 mt-1">Suporta MP4 e MOV (Max 500MB)</p>
+                      <p className="text-sm text-slate-500 mt-2 font-medium">ou clique para buscar seus arquivos</p>
+                    </div>
+                    <div className="pt-2">
+                      <span className="text-xs font-mono text-slate-600 bg-slate-900/50 px-2 py-1 rounded border border-white/5">MP4 / MOV • MAX 500MB</span>
                     </div>
                   </div>
                 </div>
