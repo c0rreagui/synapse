@@ -27,7 +27,7 @@ export default function Home() {
           const data = await res.json();
           // Map backend data to UI format if needed
           // Adicionando cores rotativas para manter o visual neon
-          const mappedProfile = data.map((p: any, index: number) => ({
+          const mappedProfile = data.map((p: Profile, index: number) => ({
             ...p,
             color: index % 2 === 0 ? "border-cyan-500" : "border-purple-500"
           }));
@@ -134,31 +134,35 @@ export default function Home() {
             <GlassCard title="Nova Transmissão" icon={<CloudArrowUpIcon className="w-5 h-5" />} className="border-t border-cyan-500/20">
 
               {/* Profile Selector */}
-              <div className="mb-8">
-                <label className="block text-xs font-bold text-cyan-500 mb-4 font-mono uppercase tracking-widest flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
+              <div className="mb-8 relative">
+                {/* Visual Connector Line */}
+                <div className="absolute left-4 top-8 bottom-[-40px] w-px bg-gradient-to-b from-cyan-500/50 to-transparent z-0 hidden md:block"></div>
+
+                <label className="block text-xs font-bold text-cyan-500 mb-4 font-mono uppercase tracking-widest flex items-center gap-2 relative z-10">
+                  <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse shadow-[0_0_8px_#22d3ee]"></span>
                   1. Selecione o Canal de Destino
                 </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10 pl-6 md:pl-0">
                   {isLoadingProfiles ? (
-                    <div className="col-span-2 flex items-center justify-center p-8 border border-dashed border-slate-800 rounded-xl bg-slate-900/50">
+                    <div className="col-span-2 flex items-center justify-center p-8 border border-dashed border-cyan-900/50 rounded-xl bg-cyan-950/10">
                       <div className="flex flex-col items-center gap-3">
                         <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-                        <span className="text-slate-400 text-sm font-mono">SINCRONIZANDO PERFIS...</span>
+                        <span className="text-cyan-400/70 text-sm font-mono tracking-wider animate-pulse">SINCRONIZANDO CANAIS...</span>
                       </div>
                     </div>
                   ) : profiles.length === 0 ? (
-                    <div className="col-span-2 p-4 text-center text-amber-500 bg-amber-500/10 rounded-xl border border-amber-500/20 font-mono text-sm">
-                      ⚠ NENHUM PERFIL ENCONTRADO NA BASE DE DADOS
+                    <div className="col-span-2 p-6 text-center text-amber-500 bg-amber-500/5 rounded-xl border border-amber-500/10 font-mono text-sm">
+                      <p className="font-bold">⚠ NENHUM PERFIL ENCONTRADO</p>
+                      <p className="text-xs text-amber-500/70 mt-1">Verifique a conexão com o módulo Brain</p>
                     </div>
                   ) : (
                     profiles.map((p) => (
                       <button
                         key={p.id}
                         onClick={() => setSelectedProfile(p.id)}
-                        className={`relative p-4 rounded-xl border transition-all duration-300 group overflow-hidden
+                        className={`relative p-4 rounded-xl border transition-all duration-300 group overflow-hidden text-left
                         ${selectedProfile === p.id
-                            ? `bg-cyan-950/30 ${p.color} shadow-[0_0_20px_rgba(6,182,212,0.1)] ring-1 ring-cyan-500/50`
+                            ? `bg-cyan-950/40 ${p.color || 'border-cyan-500'} shadow-[0_0_20px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/50`
                             : 'bg-slate-900/40 border-slate-800 hover:border-slate-600 hover:bg-slate-800/60'
                           }`}
                       >
@@ -169,7 +173,7 @@ export default function Home() {
                             {p.label}
                           </span>
                           {selectedProfile === p.id && (
-                            <div className="h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></div>
+                            <div className="h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee] animate-pulse"></div>
                           )}
                         </div>
                       </button>
@@ -178,9 +182,9 @@ export default function Home() {
               </div>
 
               {/* Dropzone */}
-              <div>
-                <label className="block text-xs font-bold text-cyan-500 mb-4 font-mono uppercase tracking-widest flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
+              <div className="relative">
+                <label className="block text-xs font-bold text-cyan-500 mb-4 font-mono uppercase tracking-widest flex items-center gap-2 relative z-10">
+                  <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse shadow-[0_0_8px_#22d3ee]"></span>
                   2. Arquivo de Vídeo (.MP4)
                 </label>
                 <div
@@ -206,7 +210,7 @@ export default function Home() {
                   />
 
                   <div className="flex flex-col items-center justify-center space-y-4 relative z-10">
-                    <div className={`p-5 rounded-2xl bg-slate-900/80 border border-white/5 transition-transform duration-300 group-hover:scale-110 ${isDragging ? 'text-cyan-400' : 'text-slate-500 group-hover:text-cyan-400'}`}>
+                    <div className={`p-5 rounded-2xl bg-slate-900/80 border border-white/5 transition-transform duration-300 group-hover:scale-110 shadow-lg ${isDragging ? 'text-cyan-400' : 'text-slate-500 group-hover:text-cyan-400'}`}>
                       {uploadStatus === 'uploading' ? (
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
                       ) : uploadStatus === 'success' ? (
