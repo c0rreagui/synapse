@@ -40,6 +40,11 @@ class VideoHandler(FileSystemEventHandler):
 
     def on_created(self, event):
         if not event.is_directory and event.src_path.endswith(".mp4"):
+            fname = os.path.basename(event.src_path)
+            # Ignora arquivos de teste (começam com @ ou contêm 'test')
+            if fname.startswith('@') or 'test' in fname.lower():
+                logger.info(f"⏭️ Ignorando arquivo de teste: {fname}")
+                return
             self.trigger(event.src_path)
             
     def trigger(self, path):
@@ -135,6 +140,10 @@ async def main():
     print("🔍 Escaneando arquivos existentes...")
     for f in os.listdir(INPUTS_DIR):
         if f.endswith(".mp4"):
+            # Ignora arquivos de teste (começam com @ ou contêm 'test')
+            if f.startswith('@') or 'test' in f.lower():
+                logger.info(f"⏭️ Ignorando arquivo de teste: {f}")
+                continue
             path = os.path.join(INPUTS_DIR, f)
             handler.trigger(path)
             

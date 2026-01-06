@@ -31,7 +31,7 @@ async def main():
         session_name="tiktok_profile_02",
         video_path=video_path,
         caption="🎯 Teste Visual Agendamento CLICK #SynapseAI #Auto",
-        schedule_time="2026-01-08T20:30",
+        schedule_time="2026-01-09T21:55",
         post=True # Vamos tentar clicar (mas em schedule mode ele deve clicar em Programar)
     )
     

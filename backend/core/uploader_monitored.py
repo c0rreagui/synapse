@@ -25,13 +25,17 @@ async def upload_video_monitored(
     caption: str,
     hashtags: list = None,
     schedule_time: str = None, 
-    post: bool = False
+    post: bool = False,
+    enable_monitor: bool = False  # 👁️ Monitor desativado por padrão
 ) -> dict:
     result = {"status": "error", "message": "", "screenshot_path": None}
     
-    # 👁️ ATIVAR MONITOR ULTRA-DETALHADO
-    monitor = TikTokMonitor(session_name)
-    logger.info(f"👁️ OLHO QUE TUDO VÊ ativado: {monitor.run_id}")
+    # 👁️ MONITOR ULTRA-DETALHADO (só ativa se solicitado)
+    monitor = TikTokMonitor(session_name) if enable_monitor else None
+    if enable_monitor:
+        logger.info(f"👁️ OLHO QUE TUDO VÊ ativado: {monitor.run_id}")
+    else:
+        logger.info("📹 Monitor desativado (modo produção)")
 
     if not os.path.exists(video_path):
         return {"status": "error", "message": "Video not found"}
@@ -39,29 +43,30 @@ async def upload_video_monitored(
     session_path = get_session_path(session_name)
     p, browser, context, page = await launch_browser(headless=False, storage_state=session_path)
     
-    # 🎬 INICIAR PLAYWRIGHT TRACE (captura TUDO automaticamente)
-    await monitor.start_tracing(context)
-    
-    # 📝 Injetar console logger ULTRA-DETALHADO
-    await monitor.inject_console_logger(page)
-    
-    # 📸 INICIAR CAPTURA CONTÍNUA (500ms)
-    await monitor.start_continuous_screenshot(page, interval=0.5)
+    # 🎬 INICIAR PLAYWRIGHT TRACE (só se monitor ativo)
+    if monitor:
+        await monitor.start_tracing(context)
+        # 📝 Injetar console logger ULTRA-DETALHADO
+        await monitor.inject_console_logger(page)
+        # 📸 INICIAR CAPTURA CONTÍNUA (500ms)
+        await monitor.start_continuous_screenshot(page, interval=0.5)
     
     try:
         # ========== STEP 1: NAVEGAÇÃO ==========
         await page.goto("https://www.tiktok.com/tiktokstudio/upload", timeout=120000)
         await page.wait_for_timeout(5000)
-        await monitor.capture_full_state(page, "navegacao_inicial", 
-                                        "Página de upload do TikTok Studio carregada")
+        if monitor:
+            await monitor.capture_full_state(page, "navegacao_inicial", 
+                                            "Página de upload do TikTok Studio carregada")
         
         # ========== STEP 2: UPLOAD DO VÍDEO ==========
         file_input = await page.wait_for_selector('input[type="file"]', timeout=15000, state="attached")
         await file_input.set_input_files(video_path)
         logger.info("📤 Upload do arquivo iniciad o...")
         await page.wait_for_timeout(2000)
-        await monitor.capture_full_state(page, "pos_upload_arquivo",
-                                        f"Arquivo {os.path.basename(video_path)} enviado")
+        if monitor:
+            await monitor.capture_full_state(page, "pos_upload_arquivo",
+                                            f"Arquivo {os.path.basename(video_path)} enviado")
         
         # ========== PROTOCOLO DOM NUKER CIRÚRGICO ==========
         logger.info("🎯 Executando DOM NUKER CIRÚRGICO (Somente Tutoriais)...")
@@ -152,8 +157,9 @@ async def upload_video_monitored(
         """)
         
         await page.wait_for_timeout(3000)
-        await monitor.capture_full_state(page, "pos_dom_nuker",
-                                        "DOM Nuker executado - Overlays e tutoriais removidos")
+        if monitor:
+            await monitor.capture_full_state(page, "pos_dom_nuker",
+                                            "DOM Nuker executado - Overlays e tutoriais removidos")
 
         # ========== PREENCHIMENTO DA LEGENDA (FOCO ALVO) ==========
         full_caption = f"{caption} " + " ".join([f"#{h}" for h in hashtags]) if hashtags else caption
@@ -170,8 +176,9 @@ async def upload_video_monitored(
             # Clica no canto superior esquerdo para tirar foco e fechar sugestões de hashtag
             await page.mouse.click(10, 10) 
             
-            await monitor.capture_full_state(page, "legenda_preenchida",
-                                            f"Legenda preenchida: {full_caption[:50]}...")
+            if monitor:
+                await monitor.capture_full_state(page, "legenda_preenchida",
+                                                f"Legenda preenchida: {full_caption[:50]}...")
         
         # ========== AGUARDAR UPLOAD (CRÍTICO) ==========
         logger.info("⏳ Aguardando conclusão do upload...")
@@ -208,7 +215,8 @@ async def upload_video_monitored(
         
         if not upload_success:
             logger.warning("⚠️ Tempo limite de espera do upload excedido ou não detectado. Tentando prosseguir...")
-            await monitor.capture_full_state(page, "aviso_upload_timeout", "Timeout esperando upload")
+            if monitor:
+                await monitor.capture_full_state(page, "aviso_upload_timeout", "Timeout esperando upload")
 
         # ========== AGENDAMENTO (VISUAL HUMANO - CLIQUE) ==========
         if schedule_time:
@@ -267,9 +275,10 @@ async def upload_video_monitored(
                 await page.wait_for_timeout(1000)
                 
                 # Debug Visual: Salvar o estado do calendário aberto
-                debug_shot = monitor.screenshots_path / "debug_calendar_open.jpg"
-                try: await page.screenshot(path=str(debug_shot))
-                except: pass
+                if monitor:
+                    debug_shot = monitor.screenshots_path / "debug_calendar_open.jpg"
+                    try: await page.screenshot(path=str(debug_shot))
+                    except: pass
 
                 # Tentar clicar no dia exato usando múltiplas estratégias
                 day_found = False
@@ -360,8 +369,9 @@ async def upload_video_monitored(
                 await page.wait_for_timeout(1000)
                 
                 # Debug Shot
-                try: await page.screenshot(path=str(monitor.screenshots_path / "debug_time_open.jpg"))
-                except: pass
+                if monitor:
+                    try: await page.screenshot(path=str(monitor.screenshots_path / "debug_time_open.jpg"))
+                    except: pass
                 
                 time_found = False
                 time_pattern = re.compile(f"^\s*{time_str}\s*$")
@@ -455,82 +465,94 @@ async def upload_video_monitored(
                         column_click_result = await page.evaluate("""([targetH, targetM]) => {
                             // Encontra elementos que parecem colunas de picker (múltiplos seletores)
                             let allCandidates = Array.from(document.querySelectorAll(
-                                'ul, [role="listbox"], [class*="column"], [class*="picker"], [class*="list"], [class*="scroll"], [class*="time"]'
+                                'ul, [role="listbox"], [class*="column"], [class*="picker"], [class*="list"], [class*="scroll"]'
                             )).filter(el => {
                                 const items = el.querySelectorAll('li, div, span');
                                 const hasNumbers = Array.from(items).some(i => /^\d{1,2}$/.test(i.innerText.trim()));
                                 return el.offsetHeight > 50 && items.length > 3 && hasNumbers;
                             });
                             
-                            // Filtra para remover elementos aninhados (pega apenas os de nível mais externo)
-                            let columns = allCandidates.filter(col => {
-                                return !allCandidates.some(other => other !== col && other.contains(col));
-                            });
-                            
-                            // Debug: conta todos os elementos candidatos
-                            if (columns.length < 2) {
-                                return {success: false, error: 'less_than_2_columns', count: columns.length, candidateCount: allCandidates.length};
+                            if (allCandidates.length < 1) {
+                                return {success: false, error: 'no_candidates', count: 0};
                             }
                             
-                            // Ordena por posição X (esquerda para direita)
-                            columns.sort((a, b) => a.getBoundingClientRect().x - b.getBoundingClientRect().x);
+                            // Ordena por posição X
+                            allCandidates.sort((a, b) => a.getBoundingClientRect().x - b.getBoundingClientRect().x);
                             
-                            // Pega as duas primeiras colunas com posições X distintas (pelo menos 30px de diferença)
-                            let hourCol = columns[0];
-                            let minCol = null;
-                            for (let i = 1; i < columns.length; i++) {
-                                if (columns[i].getBoundingClientRect().x - hourCol.getBoundingClientRect().x > 30) {
-                                    minCol = columns[i];
-                                    break;
+                            // Agrupa por posição X (colunas com X próximo são consideradas a mesma coluna)
+                            const groups = [];
+                            let currentGroup = [allCandidates[0]];
+                            for (let i = 1; i < allCandidates.length; i++) {
+                                const prevX = currentGroup[0].getBoundingClientRect().x;
+                                const currX = allCandidates[i].getBoundingClientRect().x;
+                                if (Math.abs(currX - prevX) < 30) {
+                                    currentGroup.push(allCandidates[i]);
+                                } else {
+                                    groups.push(currentGroup);
+                                    currentGroup = [allCandidates[i]];
                                 }
                             }
-                            if (!minCol) minCol = columns[1] || columns[0];
+                            groups.push(currentGroup);
+                            
+                            if (groups.length < 2) {
+                                return {success: false, error: 'less_than_2_groups', groupCount: groups.length, candidateCount: allCandidates.length};
+                            }
+                            
+                            // Pega o elemento mais interno de cada grupo (menor width)
+                            const hourCol = groups[0].sort((a, b) => a.offsetWidth - b.offsetWidth)[0];
+                            const minCol = groups[1].sort((a, b) => a.offsetWidth - b.offsetWidth)[0];
                             
                             // Debug: informações das colunas
                             const hourBox = hourCol.getBoundingClientRect();
                             const minBox = minCol.getBoundingClientRect();
                             
-                            // Função para clicar no item correto (com scroll para virtualizados)
-                            const clickItem = (col, val, colName) => {
+                            // Função para ENCONTRAR o item e retornar coordenadas (não clicar)
+                            const findItem = (col, val, colName) => {
                                 // Reseta o scroll da coluna
                                 col.scrollTop = 0;
                                 
-                                // Tenta encontrar e clicar várias vezes com scroll progressivo
+                                // Tenta encontrar várias vezes com scroll progressivo
                                 for (let attempt = 0; attempt < 15; attempt++) {
                                     const items = col.querySelectorAll('li, div, span');
                                     for (const item of items) {
                                         const text = item.innerText.trim();
                                         if (text === val || text === val.padStart(2, '0')) {
-                                            // Clica diretamente no elemento
                                             item.scrollIntoView({block: 'center', behavior: 'instant'});
-                                            item.dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));
-                                            item.dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));
-                                            item.dispatchEvent(new MouseEvent('click', {bubbles: true}));
-                                            return {success: true, val, attempt};
+                                            const rect = item.getBoundingClientRect();
+                                            return {found: true, x: rect.x + rect.width/2, y: rect.y + rect.height/2, val, attempt};
                                         }
                                     }
                                     // Scroll para revelar mais itens
                                     col.scrollTop += 40;
                                 }
-                                return {success: false, val, attempts: 15};
+                                return {found: false, val, attempts: 15};
                             };
                             
-                            const hourResult = clickItem(hourCol, targetH, 'HOUR');
-                            const minResult = clickItem(minCol, targetM, 'MIN');
+                            const hourResult = findItem(hourCol, targetH, 'HOUR');
+                            const minResult = findItem(minCol, targetM, 'MIN');
                             
                             return {
-                                success: hourResult.success && minResult.success, 
-                                hourClicked: hourResult.success, 
-                                minClicked: minResult.success,
-                                hourBox: {x: hourBox.x, y: hourBox.y, w: hourBox.width},
-                                minBox: {x: minBox.x, y: minBox.y, w: minBox.width},
-                                columnsFound: columns.length
+                                success: hourResult.found && minResult.found, 
+                                hourFound: hourResult.found,
+                                hourX: hourResult.x,
+                                hourY: hourResult.y,
+                                minFound: minResult.found,
+                                minX: minResult.x,
+                                minY: minResult.y,
+                                columnsFound: groups.length
                             };
                         }""", [target_hour, target_minute])
                         
                         logger.info(f"📊 Resultado Column Click: {column_click_result}")
                         
-                        if not column_click_result.get('success'):
+                        if column_click_result.get('success'):
+                            # Usa Playwright para cliques REAIS
+                            await page.mouse.click(column_click_result['hourX'], column_click_result['hourY'])
+                            await page.wait_for_timeout(300)
+                            await page.mouse.click(column_click_result['minX'], column_click_result['minY'])
+                            await page.wait_for_timeout(500)
+                            logger.info(f"✅ Cliques Playwright em ({column_click_result['hourX']:.0f}, {column_click_result['hourY']:.0f}) e ({column_click_result['minX']:.0f}, {column_click_result['minY']:.0f})")
+                        else:
                             logger.warning("⚠️ Column Click falhou. Tentando fallback com teclado...")
                             # Fallback: tenta teclado
                             await page.keyboard.press("Control+A")
@@ -542,7 +564,8 @@ async def upload_video_monitored(
                         await page.keyboard.press("Escape")
                         await page.wait_for_timeout(500)
 
-            await monitor.capture_full_state(page, "pos_agendamento_click", "Dados selecionados via clique")
+            if monitor:
+                await monitor.capture_full_state(page, "pos_agendamento_click", "Dados selecionados via clique")
 
         # ========== VERIFICAÇÃO FINAL ANTES DE CONFIRMAR ==========
         logger.info("🔍 Iniciando VERIFICAÇÃO FINAL antes de confirmar...")
@@ -590,7 +613,8 @@ async def upload_video_monitored(
             
             await page.wait_for_timeout(500)
         
-        await monitor.capture_full_state(page, "pos_verificacao_final", "Após verificação final")
+        if monitor:
+            await monitor.capture_full_state(page, "pos_verificacao_final", "Após verificação final")
         
         # ========== CLICK FINAL & MODAL DE CONFIRMAÇÃO ==========
         logger.info("🚀 Preparando para finalizar...")
@@ -622,7 +646,8 @@ async def upload_video_monitored(
                     
                     if await modal_confirm.count() > 0 and await modal_confirm.is_visible():
                         logger.info(f"📢 Modal de confirmação detectado (Attempt {m_attempt+1}). Confirmando...")
-                        await monitor.capture_full_state(page, f"modal_confirm_attempt_{m_attempt}", "Modal detectado")
+                        if monitor:
+                            await monitor.capture_full_state(page, f"modal_confirm_attempt_{m_attempt}", "Modal detectado")
                         await modal_confirm.click(force=True)
                         await page.wait_for_timeout(3000)
                     else:
@@ -646,7 +671,8 @@ async def upload_video_monitored(
 
         # Wait for completion/redirect logic or final checks
         await page.wait_for_timeout(5000)
-        await monitor.capture_full_state(page, "estado_final", "Após tentativa de publicação")
+        if monitor:
+            await monitor.capture_full_state(page, "estado_final", "Após tentativa de publicação")
         
         # Check for error toasts
         if await page.locator('.toast-error, .start-toast-error').count() > 0:
@@ -659,34 +685,38 @@ async def upload_video_monitored(
         result["message"] = str(e)
         # Captura estado de erro
         try:
-            await monitor.capture_full_state(page, "ERRO_FINAL",
-                                            f"Erro durante execução: {str(e)[:100]}")
+            if monitor:
+                await monitor.capture_full_state(page, "ERRO_FINAL",
+                                                f"Erro durante execução: {str(e)[:100]}")
         except:
             pass
     finally:
-        # Pagar captura contínua
-        await monitor.stop_continuous_screenshot()
-        
-        # Captura final
-        await monitor.capture_full_state(page, "estado_final",
-                                        f"Estado final - Status: {result['status']}")
-        
-        # 🎬 PARAR TRACE E SALVAR
-        trace_file = await monitor.stop_tracing(context)
-        result["trace_file"] = trace_file
-        
-        # 📊 SALVAR RELATÓRIO ULTRA-COMPLETO
-        report_file = monitor.save_final_report()
-        result["monitor_report"] = report_file
-        
-        await close_browser(p, browser)
-        
-        logger.info("="*60)
-        logger.info(f"👁️ MONITORAMENTO COMPLETO!")
-        logger.info(f"📊 Relatório: {report_file}")
-        if trace_file:
-            logger.info(f"🎬 Trace: {trace_file}")
-            logger.info(f"👉 Análise interativa: npx playwright show-trace {trace_file}")
-        logger.info("="*60)
+        if monitor:
+            # Pagar captura contínua
+            await monitor.stop_continuous_screenshot()
+            
+            # Captura final
+            await monitor.capture_full_state(page, "estado_final",
+                                            f"Estado final - Status: {result['status']}")
+            
+            # 🎬 PARAR TRACE E SALVAR
+            trace_file = await monitor.stop_tracing(context)
+            result["trace_file"] = trace_file
+            
+            # 📊 SALVAR RELATÓRIO ULTRA-COMPLETO
+            report_file = monitor.save_final_report()
+            result["monitor_report"] = report_file
+
+            await close_browser(p, browser)
+            
+            logger.info("="*60)
+            logger.info(f"👁️ MONITORAMENTO COMPLETO!")
+            logger.info(f"📊 Relatório: {report_file}")
+            if trace_file:
+                logger.info(f"🎬 Trace: {trace_file}")
+                logger.info(f"👉 Análise interativa: npx playwright show-trace {trace_file}")
+            logger.info("="*60)
+        else:
+            await close_browser(p, browser)
         
     return result
