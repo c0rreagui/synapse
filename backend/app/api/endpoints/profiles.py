@@ -20,8 +20,8 @@ async def get_profiles():
     # Fallback/Mock se a pasta não existir ou estiver vazia
     # Garante que a UI sempre tenha algo para mostrar no MVP
     default_profiles = [
-        {"id": "tiktok_profile_01", "label": "✂️ Cortes Aleatórios (@p1)"},
-        {"id": "tiktok_profile_02", "label": "🔥 Criando Ibope (@p2)"}
+        {"id": "tiktok_profile_01", "label": "✂️ Cortes Aleatórios (Offline)"},
+        {"id": "tiktok_profile_02", "label": "🔥 Criando Ibope (Offline)"}
     ]
     
     # Tenta ler do disco real

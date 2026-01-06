@@ -36,6 +36,10 @@ export default function Home() {
         }
       } catch (e) {
         console.error("Failed to load profiles", e);
+        // Fallback visual
+        setProfiles([
+          { id: "tiktok_profile_01", label: "⚠️ Modo Offline (@p1)", color: "border-gray-500" }
+        ]);
       } finally {
         setIsLoadingProfiles(false);
       }
