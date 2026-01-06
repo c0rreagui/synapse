@@ -1,324 +1,148 @@
 """
-Factory Watcher - Synapse Ingestion Engine
-Monitors the inputs folder for new videos and processes them through the upload pipeline.
+Factory Watcher V2 - Synapse Engine
+Features:
+- Integração com JSON de metadados
+- Suporte a Agendamento
+- Olho Que Tudo Vê (Monitoramento) 👁️
+- Scan inicial de arquivos
 """
 import asyncio
 import os
 import sys
 import shutil
-import time
 import logging
-from datetime import datetime
-from pathlib import Path
+import json
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-# Add parent dir to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from core.uploader import upload_video
-
-# Force UTF-8 stdout for Windows emoji support (CRITICAL FIX)
+# Fix para emojis no Windows
 if sys.platform == "win32":
-    # codecs needed for brutal force override if reconfigure fails or isn't enough
-    import codecs
-    try:
-        sys.stdout.reconfigure(encoding='utf-8')
-        sys.stderr.reconfigure(encoding='utf-8')
-    except Exception:
-        # Fallback for older python or stubborn environments
-        sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
-        sys.stderr = codecs.getwriter("utf-8")(sys.stderr.detach())
+    sys.stdout.reconfigure(encoding='utf-8')
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'factory.log'))
-    ]
-)
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from core.uploader_monitored import upload_video_monitored
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Folder paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INPUTS_DIR = os.path.join(BASE_DIR, "inputs")
 PROCESSING_DIR = os.path.join(BASE_DIR, "processing")
 DONE_DIR = os.path.join(BASE_DIR, "done")
 ERRORS_DIR = os.path.join(BASE_DIR, "errors")
 
-# ========== MULTI-TENANCY PROFILE MAP ==========
-# Maps filename tags to session files
-# Usage: @p1_video.mp4 -> uses tiktok_profile_01.json
-#        @p2_funny.mp4 -> uses tiktok_profile_02.json
-#        video.mp4     -> uses default (tiktok_profile_01.json)
-PROFILE_MAP = {
-    "@p1": "tiktok_profile_01",
-    "@p2": "tiktok_profile_02",
-    "@p3": "tiktok_profile_03",
-    "@main": "tiktok_profile_01",
-    "@backup": "tiktok_profile_02",
-}
-
-DEFAULT_PROFILE = "tiktok_profile_01"
-
-def parse_profile_from_filename(filename: str) -> tuple:
-    """
-    Parse profile tag from filename.
-    
-    Args:
-        filename: e.g., "@p2_funny_video.mp4"
-        
-    Returns:
-        tuple: (session_name, clean_filename)
-        - session_name: The session to use (e.g., "tiktok_profile_02")
-        - clean_filename: Filename without profile tag (e.g., "funny_video.mp4")
-    """
-    base = os.path.splitext(filename)[0]
-    ext = os.path.splitext(filename)[1]
-    
-    for tag, session in PROFILE_MAP.items():
-        if base.startswith(tag + "_"):
-            # Found a tag - extract clean name
-            clean_base = base[len(tag) + 1:]  # Remove tag and underscore
-            clean_filename = clean_base + ext
-            return session, clean_filename
-        elif base == tag:
-            # Filename is just the tag (unlikely but handle it)
-            return session, filename
-    
-    # No tag found - use default
-    return DEFAULT_PROFILE, filename
-
-# ================================================
-
-# Ensure all directories exist
-for d in [INPUTS_DIR, PROCESSING_DIR, DONE_DIR, ERRORS_DIR]:
-    os.makedirs(d, exist_ok=True)
-
+for d in [INPUTS_DIR, PROCESSING_DIR, DONE_DIR, ERRORS_DIR]: os.makedirs(d, exist_ok=True)
 
 class VideoHandler(FileSystemEventHandler):
-    """Handles file creation events in the inputs folder."""
-    
     def __init__(self, loop):
         self.loop = loop
-        self.processing_queue = set()  # Track files being processed
-        
-    def on_created(self, event):
-        if event.is_directory:
-            return
-            
-        filepath = event.src_path
-        filename = os.path.basename(filepath)
-        
-        # Only process MP4 files
-        if not filename.lower().endswith('.mp4'):
-            logger.info(f"Ignoring non-mp4 file: {filename}")
-            return
-            
-        # Avoid duplicate processing
-        if filepath in self.processing_queue:
-            return
-            
-        logger.info(f"🎬 New video detected: {filename}")
-        self.processing_queue.add(filepath)
-        
-        # Schedule processing in the async loop
-        asyncio.run_coroutine_threadsafe(
-            self.process_video(filepath),
-            self.loop
-        )
-    
-    async def process_video(self, filepath: str):
-        """Process a video through the upload pipeline."""
-        filename = os.path.basename(filepath)
-        
-        try:
-            # ========== MULTI-TENANCY ROUTING ==========
-            session_name, clean_filename = parse_profile_from_filename(filename)
-            
-            # Log the routing decision
-            if filename != clean_filename:
-                logger.info(f"🔀 ROUTING: {filename} -> Perfil: {session_name}")
-                print(f"\n{'='*50}")
-                print(f"🔀 Arquivo detectado: {filename}")
-                print(f"   -> Roteando para: {session_name}")
-                print(f"   -> Nome limpo: {clean_filename}")
-                print(f"{'='*50}\n")
-            else:
-                logger.info(f"📌 DEFAULT ROUTE: {filename} -> Perfil: {session_name}")
-                print(f"\n📌 Arquivo: {filename} -> Usando perfil padrão: {session_name}\n")
-            # =============================================
-            
-            # Wait for file to stabilize (avoid processing incomplete transfers)
-            logger.info(f"⏳ Waiting for file to stabilize: {filename}")
-            if not await self.wait_for_stable_file(filepath):
-                logger.error(f"File did not stabilize: {filename}")
-                self.processing_queue.discard(filepath)
-                return
-            
-            # Move to processing folder
-            processing_path = os.path.join(PROCESSING_DIR, filename)
-            logger.info(f"📦 Moving to processing: {filename}")
-            shutil.move(filepath, processing_path)
-            
-            # Check for Metadata JSON (Sidecar)
-            # Expecting filename.mp4.json
-            metadata_filename = f"{filename}.json"
-            metadata_src = os.path.join(INPUTS_DIR, metadata_filename)
-            metadata_proc = os.path.join(PROCESSING_DIR, metadata_filename)
-            
-            video_caption = f"{os.path.splitext(clean_filename)[0]} - Synapse Auto"
-            schedule_time = None
-            
-            if os.path.exists(metadata_src):
-                logger.info(f"📄 Found metadata sidecar: {metadata_filename}")
-                shutil.move(metadata_src, metadata_proc)
-                
-                try:
-                    import json
-                    with open(metadata_proc, 'r', encoding='utf-8') as f:
-                        meta = json.load(f)
-                        if meta.get("caption"):
-                            video_caption = meta.get("caption")
-                        if meta.get("schedule_time"):
-                            schedule_time = meta.get("schedule_time")
-                            logger.info(f"⏰ SCHEDULE DETECTED: {schedule_time}")
-                except Exception as e:
-                    logger.error(f"⚠️ Error reading metadata: {e}")
+        self.queue = set()
 
-            # Construct full session path
-            full_session_path = os.path.join(BASE_DIR, "data", "sessions", f"{session_name}.json")
-            if not os.path.exists(full_session_path):
-                 logger.error(f"❌ Session file not found: {full_session_path}")
-                 # Fallback to default if needed, or error out. 
-                 # For now let's just log and try anyway or maybe default to profile 1?
-                 # Let's rely on the routing map being correct, but if file missing, it will fail in uploader.
+    def on_created(self, event):
+        if not event.is_directory and event.src_path.endswith(".mp4"):
+            self.trigger(event.src_path)
             
-            # Chama o uploader (Versão corrigida e limpa)
-            result = await upload_video(
-                file_path=processing_path,
-                session_path=full_session_path,
-                caption=video_caption,
-                schedule_time=schedule_time
+    def trigger(self, path):
+        if path not in self.queue:
+            logger.info(f"🎬 Detectado: {os.path.basename(path)}")
+            self.queue.add(path)
+            asyncio.run_coroutine_threadsafe(self.process(path), self.loop)
+
+    async def process(self, path):
+        fname = os.path.basename(path)
+        proc_path = os.path.join(PROCESSING_DIR, fname)
+        
+        # Busca metadados (JSON)
+        # Suporta input.mp4.json e input.json
+        json_candidates = [path + ".json", os.path.splitext(path)[0] + ".json"]
+        meta = {}
+        found_json_path = None
+        
+        # Espera estabilizar escrita
+        await asyncio.sleep(2)
+        
+        for json_path in json_candidates:
+            if os.path.exists(json_path):
+                try:
+                    with open(json_path, 'r', encoding='utf-8') as f:
+                        meta = json.load(f)
+                    found_json_path = json_path
+                    logger.info(f"📄 Metadados carregados de {os.path.basename(json_path)}")
+                    break
+                except Exception as e:
+                    logger.error(f"⚠️ Erro ao ler JSON {json_path}: {e}")
+
+        try:
+            # Move vídeo para processamento
+            shutil.move(path, proc_path)
+            
+            # Move JSON se existir
+            curr_json_path = None
+            if found_json_path:
+                curr_json_path = os.path.join(PROCESSING_DIR, os.path.basename(found_json_path))
+                shutil.move(found_json_path, curr_json_path)
+
+            # Executa Upload Monitorado
+            schedule_time = meta.get("schedule_time")
+            logger.info(f"🚀 Iniciando processo para: {fname}")
+            if schedule_time:
+                logger.info(f"📅 Agendamento solicitado para: {schedule_time}")
+            
+            result = await upload_video_monitored(
+                session_name="tiktok_profile_01",
+                video_path=proc_path, 
+                caption=meta.get("caption", f"Upload {fname}"),
+                hashtags=meta.get("hashtags", []),
+                schedule_time=schedule_time,
+                post=False
             )
             
-            # Check result and move accordingly
-            if result.get("status") in ["ready", "posted"]:
-                # Success - move to done
-                done_path = os.path.join(DONE_DIR, f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}")
-                shutil.move(processing_path, done_path)
-                
-                # Move metadata if exists
-                if os.path.exists(metadata_proc):
-                    shutil.move(metadata_proc, done_path + ".json")
-                    
-                logger.info(f"✅ SUCCESS: {filename} -> done/")
-                logger.info(f"   Screenshot: {result.get('screenshot_path')}")
+            # Processa resultado
+            if result["status"] == "ready":
+                dest = os.path.join(DONE_DIR, fname)
+                shutil.move(proc_path, dest)
+                if curr_json_path: 
+                    shutil.move(curr_json_path, os.path.join(DONE_DIR, os.path.basename(curr_json_path)))
+                logger.info(f"✅ SUCESSO! Movido para DONE.")
             else:
-                # Error - move to errors
-                error_path = os.path.join(ERRORS_DIR, f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{filename}")
-                shutil.move(processing_path, error_path)
+                dest = os.path.join(ERRORS_DIR, fname)
+                shutil.move(proc_path, dest)
+                if curr_json_path:
+                    shutil.move(curr_json_path, os.path.join(ERRORS_DIR, os.path.basename(curr_json_path)))
                 
-                # Move metadata if exists
-                if os.path.exists(metadata_proc):
-                    shutil.move(metadata_proc, error_path + ".json")
-                    
-                logger.error(f"❌ FAILED: {filename} -> errors/")
-                logger.error(f"   Reason: {result.get('message')}")
+                # Salva log de erro
+                with open(dest + ".error.txt", "w", encoding='utf-8') as f:
+                    f.write(result.get("message", "Unknown error"))
+                logger.error(f"❌ FALHA. Movido para ERRORS. Msg: {result.get('message')}")
                 
-                # Write error log (with UTF-8 force)
-                error_log_path = error_path + ".error.txt"
-                with open(error_log_path, 'w', encoding='utf-8') as f:
-                    f.write(f"Timestamp: {datetime.now().isoformat()}\n")
-                    f.write(f"File: {filename}\n")
-                    f.write(f"Error: {result.get('message')}\n")
-                    
         except Exception as e:
-            logger.error(f"💥 Exception processing {filename}: {e}")
-            import traceback
-            traceback.print_exc()
-            
-            # Try to move to errors if file still exists
-            try:
-                if os.path.exists(filepath):
-                    error_path = os.path.join(ERRORS_DIR, f"exception_{filename}")
-                    shutil.move(filepath, error_path)
-            except:
-                pass
-                
+            logger.error(f"💥 Falha crítica no watcher: {e}", exc_info=True)
         finally:
-            self.processing_queue.discard(filepath)
-    
-    async def wait_for_stable_file(self, filepath: str, timeout: int = 30, check_interval: float = 1.0) -> bool:
-        """Wait for file size to stabilize (indicates transfer complete)."""
-        if not os.path.exists(filepath):
-            return False
-            
-        last_size = -1
-        stable_count = 0
-        elapsed = 0
-        
-        while elapsed < timeout:
-            if not os.path.exists(filepath):
-                return False
-                
-            current_size = os.path.getsize(filepath)
-            
-            if current_size == last_size and current_size > 0:
-                stable_count += 1
-                if stable_count >= 3:  # Stable for 3 checks (3 seconds)
-                    logger.info(f"   File stable at {current_size / (1024*1024):.2f} MB")
-                    return True
-            else:
-                stable_count = 0
-                
-            last_size = current_size
-            await asyncio.sleep(check_interval)
-            elapsed += check_interval
-            
-        return False
-
+            self.queue.discard(path)
 
 async def main():
-    """Main entry point for the factory watcher."""
-    print("=" * 60)
-    print("🏭 SYNAPSE FACTORY WATCHER - MULTI-TENANCY MODE")
-    print("=" * 60)
-    print(f"📂 Watching: {INPUTS_DIR}")
-    print(f"📦 Processing: {PROCESSING_DIR}")
-    print(f"✅ Done: {DONE_DIR}")
-    print(f"❌ Errors: {ERRORS_DIR}")
-    print("-" * 60)
-    print("🔑 Profile Map:")
-    for tag, session in PROFILE_MAP.items():
-        print(f"   {tag}_ -> {session}")
-    print(f"   (default) -> {DEFAULT_PROFILE}")
-    print("=" * 60)
-    print("⏳ Waiting for videos... (Drop .mp4 files into 'inputs' folder)")
-    print("   Example: @p2_funny_video.mp4 -> uses profile 02")
-    print("   Press Ctrl+C to stop\n")
+    print("👁️ SYNAPSE WATCHER + MONITOR ATIVO")
+    print("=" * 40)
+    print(f"📂 Monitorando: {INPUTS_DIR}")
     
-    # Get the current event loop
     loop = asyncio.get_event_loop()
-    
-    # Create handler and observer
     handler = VideoHandler(loop)
     observer = Observer()
-    observer.schedule(handler, INPUTS_DIR, recursive=False)
+    observer.schedule(handler, INPUTS_DIR)
     observer.start()
     
+    # scan inicial
+    print("🔍 Escaneando arquivos existentes...")
+    for f in os.listdir(INPUTS_DIR):
+        if f.endswith(".mp4"):
+            path = os.path.join(INPUTS_DIR, f)
+            handler.trigger(path)
+            
     try:
-        while True:
-            await asyncio.sleep(1)
+        while True: await asyncio.sleep(1)
     except KeyboardInterrupt:
-        print("\n🛑 Shutting down factory watcher...")
         observer.stop()
-        
     observer.join()
-    print("👋 Factory watcher stopped.")
-
 
 if __name__ == "__main__":
     asyncio.run(main())

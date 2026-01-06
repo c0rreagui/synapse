@@ -731,3 +731,220 @@ Call log:
 2026-01-05 17:18:53,375 - INFO - Screenshot saved: C:\APPS - ANTIGRAVITY\Synapse\backend\static\upload_fixed.png
 2026-01-05 17:19:28,697 - INFO - Closing browser...
 2026-01-05 17:19:29,179 - ERROR -    Reason: Video processed successfully (Publicar)
+2026-01-05 20:00:49,872 - INFO - Ignoring non-mp4 file: @p2_9f558cb3.mp4.json
+2026-01-05 20:00:52,906 - INFO -    File stable at 4.10 MB
+2026-01-05 20:05:21,113 - INFO - 🎬 New video detected: @p2_8682b755.mp4
+2026-01-05 20:05:21,113 - INFO - 🔀 ROUTING: @p2_8682b755.mp4 -> Perfil: tiktok_profile_02
+2026-01-05 20:05:21,113 - INFO - ⏳ Waiting for file to stabilize: @p2_8682b755.mp4
+2026-01-05 20:05:21,114 - INFO - Ignoring non-mp4 file: @p2_8682b755.mp4.json
+2026-01-05 20:05:24,153 - INFO - 📦 Moving to processing: @p2_8682b755.mp4
+2026-01-05 20:05:24,154 - INFO - 📄 Found metadata sidecar: @p2_8682b755.mp4.json
+2026-01-05 20:05:24,154 - INFO - ⏰ SCHEDULE DETECTED: 2026-01-06T10:00
+2026-01-05 20:05:24,154 - INFO - 🚀 Starting upload: @p2_8682b755.mp4 (Session: tiktok_profile_02)
+2026-01-05 20:05:24,154 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\backend\processing\@p2_8682b755.mp4
+2026-01-05 20:05:25,034 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\backend\data\sessions\tiktok_profile_02.json
+2026-01-05 20:05:25,956 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 20:05:25,956 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 20:05:35,606 - INFO - Uploading file via hidden input: C:\APPS - ANTIGRAVITY\Synapse\backend\processing\@p2_8682b755.mp4
+2026-01-05 20:05:35,663 - INFO - Waiting for upload processing...
+2026-01-05 20:05:40,679 - INFO - 💉 Injetando 'Vacina Anti-Popup'...
+2026-01-05 20:05:40,685 - INFO - 📝 Preenchendo legenda...
+2026-01-05 20:06:10,728 - WARNING - Erro menor na legenda: Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator(".public-DraftEditor-content")
+    - locator resolved to <div role="combobox" spellcheck="false" aria-expanded="false" contenteditable="true" aria-autocomplete="list" class="notranslate public-DraftEditor-content">…</div>
+  - attempting click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay"></div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+    - retrying click action
+      - waiting 100ms
+    23 × waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+     - retrying click action
+       - waiting 500ms
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay"></div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  33 × retrying click action
+       - waiting 500ms
+       - waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 500ms
+
+2026-01-05 20:06:12,745 - INFO - ⏳ Iniciando fluxo de Agendamento para: 2026-01-06T10:00
+2026-01-05 20:06:12,746 - INFO - 🔘 Buscando Toggle 'Programar vídeo'...
+2026-01-05 20:06:42,766 - ERROR - ❌ Erro Crítico no Agendamento: Locator.scroll_into_view_if_needed: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("div, label").filter(has_text="Programar vídeo").last
+
+2026-01-05 20:06:43,113 - INFO - 🚀 Clicando em: Publicar
+2026-01-05 20:07:13,152 - ERROR - Global Error: Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("button:has-text(\"Publicar\")").first
+    - locator resolved to <button role="button" type="button" data-size="large" data-loading="false" aria-disabled="false" data-disabled="false" data-icon-only="false" data-e2e="post_video_button" class="Button__root Button__root--shape-default Button__root--size-large Button__root--type-primary Button__root--loading-false">…</button>
+  - attempting click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay"></div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+    - retrying click action
+      - waiting 100ms
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 500ms
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay"></div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  36 × retrying click action
+       - waiting 500ms
+       - waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 500ms
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay"></div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  18 × retrying click action
+       - waiting 500ms
+       - waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 500ms
+
+2026-01-05 20:07:13,869 - ERROR - ❌ FAILED: @p2_8682b755.mp4 -> errors/
+2026-01-05 20:07:13,870 - ERROR -    Reason: Global Error: Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("button:has-text(\"Publicar\")").first
+    - locator resolved to <button role="button" type="button" data-size="large" data-loading="false" aria-disabled="false" data-disabled="false" data-icon-only="false" data-e2e="post_video_button" class="Button__root Button__root--shape-default Button__root--size-large Button__root--type-primary Button__root--loading-false">…</button>
+  - attempting click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay"></div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+    - retrying click action
+      - waiting 100ms
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 500ms
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay"></div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  36 × retrying click action
+       - waiting 500ms
+       - waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 500ms
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay"></div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  18 × retrying click action
+       - waiting 500ms
+       - waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 500ms
+
+2026-01-05 20:13:11,948 - INFO - 🎬 New video detected: @p2_0e845679.mp4
+2026-01-05 20:13:11,951 - INFO - 🔀 ROUTING: @p2_0e845679.mp4 -> Perfil: tiktok_profile_02
+2026-01-05 20:13:11,951 - INFO - Ignoring non-mp4 file: @p2_0e845679.mp4.json
+2026-01-05 20:13:11,951 - INFO - ⏳ Waiting for file to stabilize: @p2_0e845679.mp4
+2026-01-05 20:13:15,002 - INFO - 📦 Moving to processing: @p2_0e845679.mp4
+2026-01-05 20:13:15,003 - INFO - 📄 Found metadata sidecar: @p2_0e845679.mp4.json
+2026-01-05 20:13:15,004 - INFO - ⏰ SCHEDULE DETECTED: 2026-01-06T10:00
+2026-01-05 20:13:15,005 - INFO - 🚀 Starting upload: @p2_0e845679.mp4 (Session: tiktok_profile_02)
+2026-01-05 20:13:15,005 - INFO - Starting upload: C:\APPS - ANTIGRAVITY\Synapse\backend\processing\@p2_0e845679.mp4
+2026-01-05 20:13:15,703 - INFO - Loading session from: C:\APPS - ANTIGRAVITY\Synapse\backend\data\sessions\tiktok_profile_02.json
+2026-01-05 20:13:16,142 - INFO - Browser launched successfully (Headless: False)
+2026-01-05 20:13:16,142 - INFO - Navigating to https://www.tiktok.com/tiktokstudio/upload
+2026-01-05 20:13:22,623 - INFO - Waiting for upload processing...
+2026-01-05 20:13:27,634 - INFO - ☢️ Iniciando Protocolo DOM NUKER (Remoção de Overlays)...
+2026-01-05 20:13:29,655 - INFO - 📝 Preenchendo legenda (Área limpa)...
+2026-01-05 20:13:33,244 - INFO - ⏳ Agendando: 2026-01-06T10:00
+2026-01-05 20:14:03,255 - ERROR - Erro Agendamento: Locator.scroll_into_view_if_needed: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("div, label").filter(has_text="Programar vídeo").last
+
+2026-01-05 20:14:03,255 - INFO - 🚀 Clicando: Publicar
+2026-01-05 20:14:08,853 - INFO - ✅ SUCCESS: @p2_0e845679.mp4 -> done/

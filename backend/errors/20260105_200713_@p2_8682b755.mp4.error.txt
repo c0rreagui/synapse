@@ -1,0 +1,63 @@
+Timestamp: 2026-01-05T20:07:13.874134
+File: @p2_8682b755.mp4
+Error: Global Error: Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("button:has-text(\"Publicar\")").first
+    - locator resolved to <button role="button" type="button" data-size="large" data-loading="false" aria-disabled="false" data-disabled="false" data-icon-only="false" data-e2e="post_video_button" class="Button__root Button__root--shape-default Button__root--size-large Button__root--type-primary Button__root--loading-false">…</button>
+  - attempting click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay"></div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+    - retrying click action
+      - waiting 100ms
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 500ms
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay"></div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  36 × retrying click action
+       - waiting 500ms
+       - waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 500ms
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay"></div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  18 × retrying click action
+       - waiting 500ms
+       - waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <div role="presentation" data-test-id="overlay" class="react-joyride__overlay">…</div> from <div id="react-joyride-portal">…</div> subtree intercepts pointer events
+  - retrying click action
+    - waiting 500ms
+

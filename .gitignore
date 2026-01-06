@@ -1,6 +1,7 @@
 # Dependencies
 backend/venv/
-backend/__pycache__/
+**/__pycache__/
+*.pyc
 frontend/node_modules/
 frontend/.next/
 
@@ -17,3 +18,13 @@ backend/media/
 # IDE
 .vscode/
 .idea/
+
+# Logs temporários
+*.log
+debug_test.log
+error_trace.log
+syntax_error.log
+backend/factory.log
+
+# Monitoramento (capturas de tela)
+MONITOR/
