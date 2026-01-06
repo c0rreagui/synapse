@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import { Toaster, toast } from "sonner";
 import {
@@ -18,6 +18,29 @@ export default function Home() {
   const [profile, setProfile] = useState("p1");
   const [scheduleTime, setScheduleTime] = useState("");
   const [isScheduleEnabled, setIsScheduleEnabled] = useState(false);
+
+  // Estado para perfis dinâmicos
+  const [availableProfiles, setAvailableProfiles] = useState<{ id: string, name: string, username?: string, avatar?: string }[]>([]);
+
+  // Carrega perfis ao iniciar
+  useEffect(() => {
+    fetch("http://localhost:8000/api/v1/profiles")
+      .then(res => res.json())
+      .then(data => {
+        setAvailableProfiles(data);
+        if (data.length > 0 && !profile) {
+          setProfile(data[0].id);
+        }
+      })
+      .catch((err) => {
+        console.error("Erro ao carregar perfis:", err);
+        // Fallback local
+        setAvailableProfiles([
+          { id: "tiktok_profile_01", name: "Perfil 01 (Offline)" },
+          { id: "tiktok_profile_02", name: "Perfil 02 (Offline)" }
+        ]);
+      });
+  }, []);
 
   // Função para definir horários rápidos (Atalhos)
   const setQuickTime = (hour: number) => {
@@ -116,6 +139,7 @@ export default function Home() {
           {/* SIDEBAR / CONTROLS (4 cols) */}
           <div className="md:col-span-4 space-y-6">
 
+
             {/* PROFILE SELECTOR */}
             <div className="p-5 rounded-2xl bg-neutral-900/40 border border-white/5 backdrop-blur-md shadow-xl hover:border-white/10 transition-colors">
               <div className="flex items-center gap-2 mb-4 text-sm font-semibold text-neutral-300">
@@ -123,18 +147,40 @@ export default function Home() {
                 CANAL DE TRANSMISSÃO
               </div>
 
-              <div className="flex gap-2 bg-neutral-900 p-1 rounded-lg border border-neutral-800">
-                {["p1", "p2"].map((p) => (
+              <div className="flex flex-col gap-2 bg-neutral-900 p-1 rounded-lg border border-neutral-800">
+                {availableProfiles.length === 0 && (
+                  <div className="text-center text-xs text-neutral-500 py-4">Carregando canais...</div>
+                )}
+                {availableProfiles.map((p) => (
                   <button
-                    key={p}
-                    onClick={() => setProfile(p)}
-                    className={`w-full flex items-center justify-between p-3 rounded-xl text-sm font-medium transition-all duration-300 border ${profile === p
-                      ? "bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20 translate-x-1"
-                      : "bg-neutral-800/50 border-transparent text-neutral-400 hover:bg-neutral-800 hover:text-white"
+                    key={p.id}
+                    onClick={() => setProfile(p.id)}
+                    className={`w-full flex items-center justify-between p-2 pl-2 pr-3 rounded-xl transition-all duration-300 border ${profile === p.id
+                      ? "bg-blue-600/10 border-blue-500/50 text-white translate-x-1"
+                      : "bg-neutral-800/30 border-transparent text-neutral-400 hover:bg-neutral-800 hover:text-white"
                       }`}
                   >
-                    <span>Perfil {p.replace("p", "0")}</span>
-                    {profile === p && <CheckCircle2 className="w-4 h-4" />}
+                    <div className="flex items-center gap-3">
+                      {p.avatar ? (
+                        <img src={p.avatar} alt={p.name} className="w-9 h-9 rounded-full border border-white/10 object-cover" />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center text-xs font-bold border border-white/5">
+                          {p.name.charAt(0)}
+                        </div>
+                      )}
+                      <div className="text-left">
+                        <div className={`text-sm font-medium leading-tight ${profile === p.id ? "text-blue-400" : "text-neutral-200"}`}>
+                          {p.name}
+                        </div>
+                        {p.username && (
+                          <div className="text-[10px] text-neutral-500 font-mono mt-0.5">
+                            @{p.username}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {profile === p.id && <CheckCircle2 className="w-4 h-4 text-blue-400" />}
                   </button>
                 ))}
               </div>

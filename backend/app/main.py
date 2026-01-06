@@ -13,7 +13,7 @@ app.add_middleware(
 
 from fastapi.staticfiles import StaticFiles
 import os
-from .api.endpoints import content, ingestion
+from .api.endpoints import content, ingestion, profiles
 from .api import debug_router
 
 # Mount static for debugging
@@ -24,6 +24,7 @@ app.mount("/static", StaticFiles(directory=static_path), name="static")
 
 app.include_router(content.router, prefix="/api/v1/content", tags=["content"])
 app.include_router(ingestion.router, prefix="/api/v1/ingest", tags=["ingestion"])
+app.include_router(profiles.router, prefix="/api/v1/profiles", tags=["profiles"])
 app.include_router(debug_router.router, prefix="/api/v1", tags=["debug"])
 
 @app.get("/")

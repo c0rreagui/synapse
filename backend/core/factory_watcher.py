@@ -1,11 +1,3 @@
-"""
-Factory Watcher V2 - Synapse Engine
-Features:
-- Integração com JSON de metadados
-- Suporte a Agendamento
-- Olho Que Tudo Vê (Monitoramento) 👁️
-- Scan inicial de arquivos
-"""
 import asyncio
 import os
 import sys
@@ -14,144 +6,218 @@ import logging
 import json
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+from typing import Set
 
-# Fix para emojis no Windows
-if sys.platform == "win32":
-    sys.stdout.reconfigure(encoding='utf-8')
-
+# Ajuste de path e imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.uploader_monitored import upload_video_monitored
+from core import brain
 
+# Configuração de Logger
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# Configuração no Windows
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8')
+
+# Diretórios
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INPUTS_DIR = os.path.join(BASE_DIR, "inputs")
 PROCESSING_DIR = os.path.join(BASE_DIR, "processing")
 DONE_DIR = os.path.join(BASE_DIR, "done")
 ERRORS_DIR = os.path.join(BASE_DIR, "errors")
 
-for d in [INPUTS_DIR, PROCESSING_DIR, DONE_DIR, ERRORS_DIR]: os.makedirs(d, exist_ok=True)
+for d in [INPUTS_DIR, PROCESSING_DIR, DONE_DIR, ERRORS_DIR]: 
+    os.makedirs(d, exist_ok=True)
 
-class VideoHandler(FileSystemEventHandler):
-    def __init__(self, loop):
+class QueueHandler(FileSystemEventHandler):
+    def __init__(self, queue: asyncio.Queue, loop: asyncio.AbstractEventLoop):
+        self.queue = queue
         self.loop = loop
-        self.queue = set()
+        self.processed: Set[str] = set()
 
     def on_created(self, event):
         if not event.is_directory and event.src_path.endswith(".mp4"):
-            fname = os.path.basename(event.src_path)
-            # Ignora arquivos de teste (começam com @ ou contêm 'test')
-            if fname.startswith('@') or 'test' in fname.lower():
-                logger.info(f"⏭️ Ignorando arquivo de teste: {fname}")
-                return
             self.trigger(event.src_path)
-            
-    def trigger(self, path):
-        if path not in self.queue:
-            logger.info(f"🎬 Detectado: {os.path.basename(path)}")
-            self.queue.add(path)
-            asyncio.run_coroutine_threadsafe(self.process(path), self.loop)
 
-    async def process(self, path):
+    def trigger(self, path: str):
         fname = os.path.basename(path)
-        proc_path = os.path.join(PROCESSING_DIR, fname)
         
-        # Busca metadados (JSON)
-        # Suporta input.mp4.json e input.json
-        json_candidates = [path + ".json", os.path.splitext(path)[0] + ".json"]
-        meta = {}
-        found_json_path = None
-        
-        # Espera estabilizar escrita
-        await asyncio.sleep(2)
-        
-        for json_path in json_candidates:
-            if os.path.exists(json_path):
-                try:
-                    with open(json_path, 'r', encoding='utf-8') as f:
-                        meta = json.load(f)
-                    found_json_path = json_path
-                    logger.info(f"📄 Metadados carregados de {os.path.basename(json_path)}")
-                    break
-                except Exception as e:
-                    logger.error(f"⚠️ Erro ao ler JSON {json_path}: {e}")
-
-        try:
-            # Move vídeo para processamento
-            shutil.move(path, proc_path)
+        # Ignora testes
+        if fname.startswith('@') or 'test' in fname.lower():
+            logger.info(f"⏭️ Ignorando arquivo de teste: {fname}")
+            return
             
-            # Move JSON se existir
-            curr_json_path = None
-            if found_json_path:
-                curr_json_path = os.path.join(PROCESSING_DIR, os.path.basename(found_json_path))
-                shutil.move(found_json_path, curr_json_path)
+        if path not in self.processed:
+            logger.info(f"📥 Enfileirado: {fname}")
+            self.processed.add(path)
+            # Coloca na fila de forma thread-safe
+            self.loop.call_soon_threadsafe(self.queue.put_nowait, path)
 
-            # Executa Upload Monitorado
-            schedule_time = meta.get("schedule_time")
-            logger.info(f"🚀 Iniciando processo para: {fname}")
-            if schedule_time:
-                logger.info(f"📅 Agendamento solicitado para: {schedule_time}")
+async def wait_for_file_stabilization(path: str, timeout: int = 60) -> bool:
+    """Aguarda o arquivo parar de crescer (upload completo) e verifica se não está bloqueado"""
+    last_size = -1
+    stable_count = 0
+    
+    for _ in range(timeout):
+        if not os.path.exists(path):
+            return False
+            
+        try:
+            current_size = os.path.getsize(path)
+        except OSError:
+            # Arquivo pode estar bloqueado ou sendo movido
+            await asyncio.sleep(1)
+            continue
+            
+        if current_size == last_size and current_size > 0:
+            stable_count += 1
+            if stable_count >= 3: # Estável por 3 segundos
+                return True
+        else:
+            stable_count = 0
+            
+        last_size = current_size
+        await asyncio.sleep(1)
+        
+    return False
+
+async def worker(queue: asyncio.Queue):
+    """Consumidor da Fila: Processa um vídeo por vez"""
+    logger.info("👷 Worker iniciado e aguardando tarefas...")
+    
+    while True:
+        try:
+            # Pega tarefa
+            original_path = await queue.get()
+            fname = os.path.basename(original_path)
+            
+            logger.info(f"🎬 Iniciando processamento: {fname}")
+            
+            # 1. Estabilização
+            if not await wait_for_file_stabilization(original_path):
+                logger.error(f"❌ Arquivo instável, incompleto ou inacessível: {fname}")
+                # Remove do processed set para permitir retentativa futura se recriado
+                # (Seria ideal ter acesso ao handler, mas ok por agora)
+                queue.task_done()
+                continue
+                
+            # 2. Mover para Processing
+            proc_path = os.path.join(PROCESSING_DIR, fname)
+            try:
+                # Se já existir em processing, remove (limpeza de falha anterior)
+                if os.path.exists(proc_path):
+                    os.remove(proc_path)
+                shutil.move(original_path, proc_path)
+            except Exception as e:
+                logger.error(f"❌ Erro ao mover para processing: {e}")
+                queue.task_done()
+                continue
+                
+            # 3. Brain: Gerar Metadados
+            logger.info("🧠 Brain analisando conteúdo...")
+            brain_data = await brain.generate_smart_caption(fname)
+            
+            # TODO: Futuramente, ler JSON sidecar para override manual
+            meta = {
+                "caption": brain_data["caption"],
+                "hashtags": brain_data["hashtags"],
+                "schedule_time": None
+            }
+            
+            # Salva o JSON gerado pelo Brain na pasta processing para debug
+            with open(proc_path + ".json", 'w', encoding='utf-8') as f:
+                json.dump(meta, f, ensure_ascii=False, indent=2)
+            
+            # 4. Upload
+            logger.info(f"🚀 Iniciando Upload: {fname}")
+            logger.info(f"📝 Legenda: {meta['caption']}")
             
             result = await upload_video_monitored(
                 session_name="tiktok_profile_01",
-                video_path=proc_path, 
-                caption=meta.get("caption", f"Upload {fname}"),
-                hashtags=meta.get("hashtags", []),
-                schedule_time=schedule_time,
-                post=False
+                video_path=proc_path,
+                caption=meta["caption"],
+                hashtags=meta["hashtags"],
+                schedule_time=meta.get("schedule_time"),
+                post=False # Rascunho padrão
             )
             
-            # Processa resultado
+            # 5. Backup e Cleanup
             if result["status"] == "ready":
-                dest = os.path.join(DONE_DIR, fname)
-                shutil.move(proc_path, dest)
-                if curr_json_path: 
-                    shutil.move(curr_json_path, os.path.join(DONE_DIR, os.path.basename(curr_json_path)))
-                logger.info(f"✅ SUCESSO! Movido para DONE.")
+                final_dest = os.path.join(DONE_DIR, fname)
+                if os.path.exists(final_dest): os.remove(final_dest)
+                shutil.move(proc_path, final_dest)
+                
+                # Move JSON também
+                if os.path.exists(proc_path + ".json"):
+                    shutil.move(proc_path + ".json", os.path.join(DONE_DIR, fname + ".json"))
+                    
+                logger.info(f"✅ SUCESSO! Vídeo processado e movido para DONE.")
             else:
-                dest = os.path.join(ERRORS_DIR, fname)
-                shutil.move(proc_path, dest)
-                if curr_json_path:
-                    shutil.move(curr_json_path, os.path.join(ERRORS_DIR, os.path.basename(curr_json_path)))
+                error_dest = os.path.join(ERRORS_DIR, fname)
+                if os.path.exists(error_dest): os.remove(error_dest)
+                shutil.move(proc_path, error_dest)
                 
                 # Salva log de erro
-                with open(dest + ".error.txt", "w", encoding='utf-8') as f:
+                with open(error_dest + ".error.txt", "w", encoding='utf-8') as f:
                     f.write(result.get("message", "Unknown error"))
-                logger.error(f"❌ FALHA. Movido para ERRORS. Msg: {result.get('message')}")
-                
+                logger.error(f"❌ FALHA no Upload. Movido para ERRORS. Msg: {result.get('message')}")
+            
         except Exception as e:
-            logger.error(f"💥 Falha crítica no watcher: {e}", exc_info=True)
+            logger.error(f"💥 Erro fatal no worker: {e}", exc_info=True)
         finally:
-            self.queue.discard(path)
+            queue.task_done()
+            logger.info("💤 Worker aguardando próxima tarefa...")
 
 async def main():
-    print("👁️ SYNAPSE WATCHER + MONITOR ATIVO")
+    print("👁️ SYNAPSE QUEUE MANAGER + BRAIN ATIVO")
     print("=" * 40)
     print(f"📂 Monitorando: {INPUTS_DIR}")
+    print(f"🧠 Brain ativado para geração de legendas")
     
-    loop = asyncio.get_event_loop()
-    handler = VideoHandler(loop)
+    loop = asyncio.get_running_loop()
+    queue = asyncio.Queue()
+    
+    # Inicia Watcher
+    handler = QueueHandler(queue, loop)
     observer = Observer()
     observer.schedule(handler, INPUTS_DIR)
     observer.start()
     
-    # scan inicial
+    # Scan Inicial
     print("🔍 Escaneando arquivos existentes...")
+    count = 0
     for f in os.listdir(INPUTS_DIR):
         if f.endswith(".mp4"):
-            # Ignora arquivos de teste (começam com @ ou contêm 'test')
+             # Ignora testes
             if f.startswith('@') or 'test' in f.lower():
-                logger.info(f"⏭️ Ignorando arquivo de teste: {f}")
                 continue
             path = os.path.join(INPUTS_DIR, f)
             handler.trigger(path)
+            count += 1
             
+    print(f"📥 {count} arquivos na fila inicial.")
+    
+    # Inicia Worker
+    # Worker roda indefinidamente até ser cancelado
+    workers = [asyncio.create_task(worker(queue))]
+    
     try:
-        while True: await asyncio.sleep(1)
+        # Aguarda workers (que nunca terminam sozinhos)
+        await asyncio.gather(*workers)
     except KeyboardInterrupt:
+        logger.info("🛑 Parando sistema...")
         observer.stop()
+        for w in workers: w.cancel()
+    
     observer.join()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        # Policy fix para Windows (evita RuntimeError em loop closure)
+        if sys.platform == 'win32':
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass
