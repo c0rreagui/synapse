@@ -9,10 +9,10 @@ interface GlassCardProps {
 
 export default function GlassCard({ children, className = "", title, action }: GlassCardProps) {
     return (
-        <div className={`glass-panel rounded-xl overflow-hidden transition-all duration-300 hover:border-white/10 ${className}`}>
+        <div className={`stitch-card rounded-xl overflow-hidden ${className}`}>
             {(title || action) && (
                 <div className="px-6 py-4 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-                    {title && <h3 className="text-sm font-semibold text-synapse-text uppercase tracking-wider">{title}</h3>}
+                    {title && <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">{title}</h3>}
                     {action && <div>{action}</div>}
                 </div>
             )}

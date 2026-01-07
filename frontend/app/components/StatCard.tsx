@@ -3,31 +3,28 @@ import React from 'react';
 interface StatCardProps {
     label: string;
     value: string | number;
-    icon: any; // Aceita ícones do Heroicons
+    icon: React.ElementType;
     trend?: string;
-    color?: 'cyan' | 'purple' | 'emerald' | 'red';
+    color?: 'cyan' | 'purple' | 'emerald' | 'amber';
 }
 
 export default function StatCard({ label, value, icon: Icon, trend, color = 'cyan' }: StatCardProps) {
     const colors = {
-        cyan: 'text-synapse-primary bg-synapse-primary/10 border-synapse-primary/20',
-        purple: 'text-synapse-secondary bg-synapse-secondary/10 border-synapse-secondary/20',
-        emerald: 'text-synapse-success bg-synapse-success/10 border-synapse-success/20',
-        red: 'text-red-500 bg-red-500/10 border-red-500/20',
+        cyan: 'text-cyan-400',
+        purple: 'text-purple-400',
+        emerald: 'text-emerald-400',
+        amber: 'text-amber-400',
     };
 
     return (
-        <div className="glass-panel p-5 rounded-xl flex items-center gap-4 relative overflow-hidden group">
-            {/* Background Glow */}
-            <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full blur-2xl opacity-10 transition-opacity group-hover:opacity-20 ${colors[color].split(' ')[0].replace('text-', 'bg-')}`}></div>
-
-            <div className={`p-3 rounded-lg border ${colors[color]}`}>
-                <Icon className="w-6 h-6" />
-            </div>
+        <div className="stitch-card p-5 rounded-lg flex items-center justify-between group hover:-translate-y-1 transition-transform">
             <div>
-                <p className="text-xs text-synapse-muted font-medium uppercase tracking-wide">{label}</p>
-                <h4 className="text-2xl font-bold text-white mt-1">{value}</h4>
-                {trend && <span className="text-xs text-white/50">{trend}</span>}
+                <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-1 font-mono">{label}</p>
+                <p className="text-3xl font-bold text-white group-hover:text-glow transition-all">{value}</p>
+                {trend && <p className="text-xs text-slate-600 mt-1">{trend}</p>}
+            </div>
+            <div className={`p-3 rounded-full bg-white/5 border border-white/5 group-hover:border-white/20 transition-colors ${colors[color]}`}>
+                <Icon className="w-6 h-6 opacity-80" />
             </div>
         </div>
     );

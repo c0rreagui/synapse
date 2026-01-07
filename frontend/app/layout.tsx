@@ -25,7 +25,16 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="font-display bg-background text-white overflow-hidden selection:bg-primary/30 selection:text-white antialiased">
+      {/* 
+        Updates:
+        1. bg-[#02040a]: Matches the 'deep space' background of page.tsx
+        2. text-slate-300: Standard text color for the app
+        3. suppressHydrationWarning: Fixes the 'data-jetski-tab-id' mismatch error from extensions
+      */}
+      <body
+        className="font-display bg-[#050507] text-slate-300 overflow-hidden antialiased selection:bg-primary/30 selection:text-white"
+        suppressHydrationWarning={true}
+      >
         {children}
       </body>
     </html>
