@@ -94,21 +94,21 @@ export default function DistributionPage() {
                             label="Neural Integrity"
                             value="99.7%"
                             icon={CpuChipIcon}
-                            color="emerald"
+                            color="mint"
                             trend="Network stable"
                         />
                         <StatCard
                             label="Synaptic Throughput"
                             value="1.2K req/min"
                             icon={BoltIcon}
-                            color="cyan"
+                            color="teal"
                             trend="+18% peak"
                         />
                         <StatCard
                             label="Active Nodes"
                             value="2 of 3"
                             icon={ServerIcon}
-                            color="purple"
+                            color="violet"
                             trend="1 offline"
                         />
                     </motion.div>

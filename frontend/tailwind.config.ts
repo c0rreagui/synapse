@@ -9,24 +9,40 @@ export default {
     theme: {
         extend: {
             colors: {
-                synapse: {
-                    bg: "#02040a",
-                    surface: "#0b101b",
-                    border: "#1e293b",
-                    primary: "#06b6d4",
-                    secondary: "#8b5cf6",
-                    success: "#10b981",
-                    text: "#e2e8f0",
-                    muted: "#64748b",
+                cmd: {
+                    bg: "#0d1117",
+                    surface: "#161b22",
+                    card: "#1c2128",
+                    border: "#30363d",
+                    text: "#c9d1d9",
+                    muted: "#8b949e",
+                    accent: "#58a6ff",
+                    green: "#3fb950",
+                    red: "#f85149",
+                    yellow: "#d29922",
+                    purple: "#a371f7",
+                    cyan: "#39d353",
                 }
             },
-            backgroundImage: {
-                'glow-radial': "radial-gradient(circle at center, rgba(6, 182, 212, 0.15) 0%, transparent 70%)",
-            },
             animation: {
-                'spin-slow': 'spin 8s linear infinite',
-                'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-            }
+                'radar-scan': 'radarScan 4s linear infinite',
+                'pulse-slow': 'pulse 3s ease-in-out infinite',
+                'orbit': 'orbit 20s linear infinite',
+            },
+            keyframes: {
+                radarScan: {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' },
+                },
+                orbit: {
+                    '0%': { transform: 'rotate(0deg) translateX(120px) rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg) translateX(120px) rotate(-360deg)' },
+                },
+            },
+            fontFamily: {
+                sans: ['Inter', 'system-ui', 'sans-serif'],
+                mono: ['JetBrains Mono', 'Consolas', 'monospace'],
+            },
         },
     },
     plugins: [],

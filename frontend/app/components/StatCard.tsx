@@ -5,26 +5,63 @@ interface StatCardProps {
     value: string | number;
     icon: React.ElementType;
     trend?: string;
-    color?: 'cyan' | 'purple' | 'emerald' | 'amber';
+    color?: 'magenta' | 'violet' | 'teal' | 'mint';
 }
 
-export default function StatCard({ label, value, icon: Icon, trend, color = 'cyan' }: StatCardProps) {
-    const colors = {
-        cyan: 'text-cyan-400',
-        purple: 'text-purple-400',
-        emerald: 'text-emerald-400',
-        amber: 'text-amber-400',
-    };
+const colorConfig = {
+    magenta: {
+        text: 'text-aurora-magenta',
+        glow: 'shadow-aurora-magenta/30',
+        bg: 'bg-aurora-magenta/10',
+        border: 'border-aurora-magenta/30',
+    },
+    violet: {
+        text: 'text-aurora-violet',
+        glow: 'shadow-aurora-violet/30',
+        bg: 'bg-aurora-violet/10',
+        border: 'border-aurora-violet/30',
+    },
+    teal: {
+        text: 'text-aurora-teal',
+        glow: 'shadow-aurora-teal/30',
+        bg: 'bg-aurora-teal/10',
+        border: 'border-aurora-teal/30',
+    },
+    mint: {
+        text: 'text-aurora-mint',
+        glow: 'shadow-aurora-mint/30',
+        bg: 'bg-aurora-mint/10',
+        border: 'border-aurora-mint/30',
+    },
+};
+
+export default function StatCard({ label, value, icon: Icon, trend, color = 'violet' }: StatCardProps) {
+    const config = colorConfig[color];
 
     return (
-        <div className="stitch-card p-5 rounded-lg flex items-center justify-between group hover:-translate-y-1 transition-transform">
-            <div>
-                <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-1 font-mono">{label}</p>
-                <p className="text-3xl font-bold text-white group-hover:text-glow transition-all">{value}</p>
-                {trend && <p className="text-xs text-slate-600 mt-1">{trend}</p>}
-            </div>
-            <div className={`p-3 rounded-full bg-white/5 border border-white/5 group-hover:border-white/20 transition-colors ${colors[color]}`}>
-                <Icon className="w-6 h-6 opacity-80" />
+        <div className="aurora-card group p-6 cursor-default">
+            {/* Ambient Glow */}
+            <div className={`absolute -inset-1 rounded-3xl blur-2xl ${config.bg} opacity-0 group-hover:opacity-60 transition-opacity duration-700`} />
+
+            <div className="relative z-10 flex items-start justify-between">
+                <div className="space-y-3">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-white/40 font-mono">
+                        {label}
+                    </p>
+                    <p className={`text-4xl font-bold stat-value ${config.text} transition-all duration-500`}>
+                        {value}
+                    </p>
+                    {trend && (
+                        <p className="text-xs text-white/50 flex items-center gap-1.5">
+                            <span className="text-aurora-mint">↗</span>
+                            <span className="font-mono">{trend}</span>
+                        </p>
+                    )}
+                </div>
+
+                <div className={`p-3 rounded-2xl ${config.bg} border ${config.border} group-hover:scale-110 transition-transform duration-500`}>
+                    <Icon className={`w-6 h-6 ${config.text}`} />
+                </div>
             </div>
         </div>
     );

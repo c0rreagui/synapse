@@ -1,110 +1,71 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import {
+    Squares2X2Icon, UserGroupIcon, CubeTransparentIcon,
+    DocumentTextIcon, ChartBarIcon
+} from '@heroicons/react/24/outline';
 
-interface NavItem {
-    icon: string;
-    label: string;
-    href: string;
-}
-
-const mainNavItems: NavItem[] = [
-    { icon: "dashboard", label: "Command Center", href: "/" },
-    { icon: "folder_open", label: "Dark Profiles", href: "/profiles" },
-    { icon: "show_chart", label: "Growth Metrics", href: "/metrics" },
-];
-
-const neuralNavItems: NavItem[] = [
-    { icon: "hub", label: "Node Matrix", href: "/distribution" },
-    { icon: "settings_input_component", label: "Integrations", href: "/settings" },
+const navItems = [
+    { href: '/', icon: Squares2X2Icon, label: 'Command Center' },
+    { href: '/profiles', icon: UserGroupIcon, label: 'Perfis TikTok' },
+    { href: '/factory', icon: CubeTransparentIcon, label: 'Factory Watcher' },
+    { href: '/metrics', icon: ChartBarIcon, label: 'Métricas' },
+    { href: '/logs', icon: DocumentTextIcon, label: 'Logs' },
 ];
 
 export default function Sidebar() {
     const pathname = usePathname();
 
-    const isActive = (href: string) => {
-        if (href === "/") return pathname === "/";
-        return pathname.startsWith(href);
-    };
-
     return (
-        <aside className="hidden md:flex flex-col w-20 lg:w-72 border-r border-white/5 bg-[#050507]/60 backdrop-blur-2xl p-4 justify-between h-full relative z-50 transition-all">
-            <div className="flex flex-col gap-8">
-                {/* Logo */}
-                <div className="flex items-center gap-3 px-2 py-2">
-                    <div className="size-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-[0_0_20px_rgba(139,85,247,0.4)] relative overflow-hidden group">
-                        <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-                        <span className="material-symbols-outlined text-white text-[24px]">neurology</span>
+        <aside style={{ width: '256px', backgroundColor: '#161b22', borderRight: '1px solid #30363d', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+            {/* Logo */}
+            <div style={{ padding: '24px', borderBottom: '1px solid #30363d' }}>
+                <Link href="/" style={{ textDecoration: 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(63,185,80,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Squares2X2Icon style={{ width: '20px', height: '20px', color: '#3fb950' }} />
+                        </div>
+                        <div>
+                            <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#fff', margin: 0 }}>SYNAPSE</h1>
+                            <p style={{ fontSize: '10px', color: '#8b949e', fontFamily: 'monospace', margin: 0 }}>CONTENT AUTOMATION</p>
+                        </div>
                     </div>
-                    <div className="hidden lg:block">
-                        <h1 className="text-white text-lg font-bold tracking-tight font-display">SYNAPSE</h1>
-                        <p className="text-primary/60 text-[10px] font-mono tracking-[0.2em]">ORCHESTRATOR_V4</p>
-                    </div>
-                </div>
-
-                {/* Navigation */}
-                <nav className="flex flex-col gap-1.5">
-                    <p className="px-4 text-[10px] font-bold text-[#475569] uppercase tracking-wider mb-2 font-mono hidden lg:block">Operations</p>
-
-                    {mainNavItems.map((item) => (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-lg group relative overflow-hidden transition-colors ${isActive(item.href)
-                                ? "nav-item-active text-white"
-                                : "text-[#94a3b8] hover:text-white hover:bg-white/5"
-                                }`}
-                        >
-                            <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                            <span
-                                className={`material-symbols-outlined text-[20px] ${isActive(item.href)
-                                    ? "text-primary drop-shadow-[0_0_8px_rgba(139,85,247,0.8)]"
-                                    : "group-hover:text-primary transition-colors"
-                                    }`}
-                            >
-                                {item.icon}
-                            </span>
-                            <span className="text-sm font-medium tracking-wide hidden lg:block">{item.label}</span>
-                        </Link>
-                    ))}
-
-                    <p className="px-4 text-[10px] font-bold text-[#475569] uppercase tracking-wider mb-2 mt-6 font-mono hidden lg:block">Neural Net</p>
-
-                    {neuralNavItems.map((item) => (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-lg group relative overflow-hidden transition-colors ${isActive(item.href)
-                                ? "nav-item-active text-white"
-                                : "text-[#94a3b8] hover:text-white hover:bg-white/5"
-                                }`}
-                        >
-                            <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                            <span
-                                className={`material-symbols-outlined text-[20px] ${isActive(item.href)
-                                    ? "text-primary drop-shadow-[0_0_8px_rgba(139,85,247,0.8)]"
-                                    : "group-hover:text-primary transition-colors"
-                                    }`}
-                            >
-                                {item.icon}
-                            </span>
-                            <span className="text-sm font-medium tracking-wide hidden lg:block">{item.label}</span>
-                        </Link>
-                    ))}
-                </nav>
+                </Link>
             </div>
 
-            {/* User Profile Card */}
-            <div className="glass-panel rounded-xl p-3 flex items-center gap-3 border border-white/5 hover:border-primary/30 transition-all cursor-pointer group">
-                <div
-                    className="bg-center bg-no-repeat aspect-square bg-cover rounded-lg size-9 ring-1 ring-white/10 group-hover:ring-primary/50 transition-all avatar-admin"
-                ></div>
-                <div className="flex flex-col min-w-0 hidden lg:block">
-                    <p className="text-sm font-medium text-white truncate group-hover:text-primary transition-colors">Administrator</p>
-                    <p className="text-[10px] font-mono text-[#64748b] truncate">SYS_ADMIN_01</p>
+            {/* Navigation */}
+            <nav style={{ flex: 1, padding: '16px' }}>
+                <p style={{ fontSize: '10px', color: '#8b949e', fontFamily: 'monospace', marginBottom: '12px', paddingLeft: '8px' }}>MENU</p>
+                {navItems.map((item) => {
+                    const isActive = pathname === item.href;
+                    return (
+                        <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
+                            <div style={{
+                                display: 'flex', alignItems: 'center', gap: '12px',
+                                padding: '10px 12px', borderRadius: '8px', marginBottom: '4px',
+                                cursor: 'pointer',
+                                backgroundColor: isActive ? 'rgba(56,139,253,0.1)' : 'transparent',
+                                color: isActive ? '#58a6ff' : '#8b949e'
+                            }}>
+                                <item.icon style={{ width: '20px', height: '20px' }} />
+                                <span style={{ fontSize: '14px' }}>{item.label}</span>
+                            </div>
+                        </Link>
+                    );
+                })}
+            </nav>
+
+            {/* Footer */}
+            <div style={{ padding: '16px', borderTop: '1px solid #30363d' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, #a371f7, #58a6ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold' }}>S</div>
+                    <div>
+                        <p style={{ fontSize: '14px', color: '#fff', margin: 0 }}>Synapse Admin</p>
+                        <p style={{ fontSize: '10px', color: '#8b949e', fontFamily: 'monospace', margin: 0 }}>v1.0.0</p>
+                    </div>
                 </div>
-                <span className="material-symbols-outlined text-[#64748b] ml-auto text-lg group-hover:text-white transition-colors hidden lg:block">more_vert</span>
             </div>
         </aside>
     );
