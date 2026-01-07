@@ -13,6 +13,14 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  // Custom rules
+  {
+    rules: {
+      // Disable inline styles warning - we use them intentionally to bypass Tailwind issues
+      "@next/next/no-inline-styles": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;
+

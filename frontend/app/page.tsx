@@ -7,9 +7,6 @@ import {
   ExclamationTriangleIcon, ClockIcon, XCircleIcon, ArrowPathIcon
 } from '@heroicons/react/24/outline';
 
-// Flag to prevent double fetch in StrictMode
-let didInit = false;
-
 // Types
 interface Profile { id: string; label: string; }
 interface IngestionStatus { queued: number; processing: number; completed: number; failed: number; }
@@ -61,11 +58,14 @@ export default function Home() {
     }
   }, [selectedProfile]);
 
+  // Initial fetch on mount
   useEffect(() => {
-    if (!didInit) {
-      didInit = true;
-      fetchAllData();
-    }
+    fetchAllData(); // Valid pattern: initial data fetch on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Polling interval
+  useEffect(() => {
     const interval = setInterval(fetchAllData, 5000);
     return () => clearInterval(interval);
   }, [fetchAllData]);

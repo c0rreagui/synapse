@@ -65,9 +65,15 @@ export default function LogsPage() {
         } catch { }
     };
 
-    // Initial load + polling
+
+    // Initial load
     useEffect(() => {
-        fetchLogs();
+        fetchLogs(); // Valid pattern: initial data fetch on mount
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Polling interval
+    useEffect(() => {
         const interval = setInterval(fetchLogs, 3000);
         return () => clearInterval(interval);
     }, [fetchLogs]);
@@ -112,10 +118,10 @@ export default function LogsPage() {
                         <button onClick={() => addTestLog('success')} style={{ padding: '8px 12px', borderRadius: '8px', backgroundColor: '#1c2128', border: '1px solid #3fb950', color: '#3fb950', cursor: 'pointer', fontSize: '12px' }}>+ Success</button>
                         <button onClick={() => addTestLog('warning')} style={{ padding: '8px 12px', borderRadius: '8px', backgroundColor: '#1c2128', border: '1px solid #d29922', color: '#d29922', cursor: 'pointer', fontSize: '12px' }}>+ Warning</button>
                         <button onClick={() => addTestLog('error')} style={{ padding: '8px 12px', borderRadius: '8px', backgroundColor: '#1c2128', border: '1px solid #f85149', color: '#f85149', cursor: 'pointer', fontSize: '12px' }}>+ Error</button>
-                        <button onClick={clearLogs} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', backgroundColor: '#1c2128', border: '1px solid #30363d', color: '#8b949e', cursor: 'pointer' }}>
+                        <button onClick={clearLogs} title="Limpar logs" aria-label="Limpar logs" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', backgroundColor: '#1c2128', border: '1px solid #30363d', color: '#8b949e', cursor: 'pointer' }}>
                             <TrashIcon style={{ width: '16px', height: '16px' }} />
                         </button>
-                        <button onClick={fetchLogs} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', backgroundColor: '#238636', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                        <button onClick={fetchLogs} title="Atualizar logs" aria-label="Atualizar logs" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', backgroundColor: '#238636', border: 'none', color: '#fff', cursor: 'pointer' }}>
                             <ArrowPathIcon style={{ width: '16px', height: '16px' }} />
                         </button>
                     </div>
@@ -141,6 +147,8 @@ export default function LogsPage() {
                         <span style={{ fontSize: '12px', color: '#8b949e' }}>Auto-scroll</span>
                         <button
                             onClick={() => setAutoScroll(!autoScroll)}
+                            title={`Auto-scroll: ${autoScroll ? 'ativado' : 'desativado'}`}
+                            aria-label={`Auto-scroll: ${autoScroll ? 'ativado' : 'desativado'}`}
                             style={{
                                 width: '40px', height: '20px', borderRadius: '10px', border: 'none', cursor: 'pointer',
                                 backgroundColor: autoScroll ? '#238636' : '#30363d',
