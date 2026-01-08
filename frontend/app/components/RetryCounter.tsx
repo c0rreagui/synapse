@@ -38,10 +38,7 @@ export default function RetryCounter({
         }
     }, [retryCount, maxRetries, onRetry, onMaxRetriesReached]);
 
-    // Expose method to show retry UI
-    const triggerRetry = useCallback(() => {
-        setShowRetry(true);
-    }, []);
+
 
     if (!showRetry) {
         return <>{children}</>;

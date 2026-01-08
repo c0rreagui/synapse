@@ -21,14 +21,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    // Load from localStorage on mount - using useEffect correctly
+    // Load from localStorage on mount
     useEffect(() => {
-        const saved = localStorage.getItem('synapse-theme') as Theme;
-        if (saved) {
-            setThemeState(saved);
-            applyTheme(saved);
-        }
-    }, []);
+        const handleLoad = () => {
+            const saved = localStorage.getItem('synapse-theme') as Theme;
+            if (saved && saved !== theme) {
+                setThemeState(saved);
+                applyTheme(saved);
+            } else if (saved) {
+                applyTheme(saved);
+            }
+        };
+        requestAnimationFrame(handleLoad);
+    }, [theme]);
 
     const setTheme = (t: Theme) => {
         setThemeState(t);

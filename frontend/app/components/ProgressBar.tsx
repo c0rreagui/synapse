@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+
 
 interface ProgressBarProps {
     progress: number; // 0-100

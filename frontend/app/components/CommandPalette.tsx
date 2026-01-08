@@ -161,7 +161,7 @@ export default function CommandPalette({ isOpen, onClose, commands }: CommandPal
                             }}>
                                 {category}
                             </div>
-                            {items.map((cmd, i) => {
+                            {items.map((cmd) => {
                                 const globalIndex = filteredCommands.indexOf(cmd);
                                 return (
                                     <div

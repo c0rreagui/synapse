@@ -75,7 +75,7 @@ export default function ContextMenu({ items, children }: ContextMenuProps) {
             }
           `}</style>
 
-                    {items.map((item, i) => (
+                    {items.map((item) => (
                         <button
                             key={item.id}
                             onClick={() => { item.action(); setIsOpen(false); }}
