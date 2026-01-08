@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Sidebar from '../components/Sidebar';
+import Badge from '../components/Badge';
+import Spinner from '../components/Spinner';
+import EmptyState from '../components/EmptyState';
+import AnimatedCounter from '../components/AnimatedCounter';
 import {
     ArrowPathIcon, TrashIcon,
     CheckCircleIcon, ExclamationTriangleIcon, InformationCircleIcon, XCircleIcon
@@ -173,7 +177,7 @@ export default function LogsPage() {
                         { label: 'Error', count: stats.error, color: '#f85149' },
                     ].map((stat) => (
                         <div key={stat.label} style={{ padding: '16px', borderRadius: '8px', backgroundColor: '#1c2128', border: '1px solid #30363d', textAlign: 'center' }}>
-                            <p style={{ fontSize: '24px', fontWeight: 'bold', color: stat.color, margin: 0 }}>{stat.count}</p>
+                            <AnimatedCounter value={stat.count} style={{ fontSize: '24px', fontWeight: 'bold', color: stat.color }} />
                             <p style={{ fontSize: '12px', color: '#8b949e', margin: '4px 0 0' }}>{stat.label}</p>
                         </div>
                     ))}
@@ -188,8 +192,8 @@ export default function LogsPage() {
                     }}
                 >
                     {loading ? (
-                        <div style={{ padding: '48px', textAlign: 'center' }}>
-                            <p style={{ color: '#8b949e' }}>Carregando logs...</p>
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '48px' }}>
+                            <Spinner size="lg" />
                         </div>
                     ) : logs.length > 0 ? logs.map((log) => (
                         <div
@@ -201,19 +205,17 @@ export default function LogsPage() {
                         >
                             {getLevelIcon(log.level)}
                             <span style={{ fontSize: '12px', color: '#8b949e', fontFamily: 'monospace', minWidth: '70px' }}>{log.timestamp}</span>
-                            <span style={{
-                                fontSize: '10px', padding: '2px 6px', borderRadius: '4px',
-                                backgroundColor: `${getLevelColor(log.level)}20`, color: getLevelColor(log.level),
-                                fontFamily: 'monospace', minWidth: '80px', textAlign: 'center'
-                            }}>
+                            <Badge variant={log.level === 'success' ? 'success' : log.level === 'warning' ? 'warning' : log.level === 'error' ? 'error' : 'info'} size="sm">
                                 {log.source}
-                            </span>
+                            </Badge>
                             <span style={{ fontSize: '13px', color: '#c9d1d9', flex: 1 }}>{log.message}</span>
                         </div>
                     )) : (
-                        <div style={{ padding: '48px', textAlign: 'center' }}>
-                            <p style={{ color: '#8b949e' }}>Nenhum log encontrado</p>
-                        </div>
+                        <EmptyState
+                            title="Nenhum log encontrado"
+                            description="Os logs do sistema aparecerão aqui automaticamente"
+                            icon={<InformationCircleIcon style={{ width: '48px', height: '48px', color: '#58a6ff' }} />}
+                        />
                     )}
                 </div>
             </main>

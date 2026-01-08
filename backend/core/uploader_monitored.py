@@ -59,10 +59,95 @@ async def upload_video_monitored(
             await monitor.capture_full_state(page, "navegacao_inicial", 
                                             "Página de upload do TikTok Studio carregada")
         
-        # ========== STEP 2: UPLOAD DO VÍDEO ==========
-        file_input = await page.wait_for_selector('input[type="file"]', timeout=15000, state="attached")
-        await file_input.set_input_files(video_path)
-        logger.info("📤 Upload do arquivo iniciad o...")
+        
+        # ========== STEP 2: UPLOAD DO VÍDEO (COM FALLBACKS) ==========
+        logger.info("⏳ Aguardando página carregar completamente...")
+        
+        # Aguarda elementos indicativos que a página carregou
+        try:
+            # Aguarda pelo menos um destes elementos aparecer (indica página carregada)
+            await page.wait_for_selector(
+                'button:has-text("Selecionar"), input[type="file"], .upload-card',
+                timeout=20000,
+                state="attached"
+            )
+            logger.info("✅ Página de upload carregada!")
+        except Exception as e:
+            logger.warning(f"⚠️ Timeout aguardando elementos de upload: {e}")
+        
+        # Aguarda um pouco mais para garantir que JS terminou
+        await page.wait_for_timeout(3000)
+        
+        logger.info("🔍 Procurando seletor de upload...")
+        
+        upload_successful = False
+        
+        # ESTRATÉGIA 1: Tentar botão visível primeiro
+        try:
+            logger.info("Tentando Estratégia 1: Botão 'Selecionar vídeo'...")
+            upload_buttons = [
+                'button:has-text("Selecionar vídeo")',
+                'button:has-text("Select video")',
+                'button:has-text("Selecionar")',
+                'button:has-text("Upload")'
+            ]
+            
+            for btn_selector in upload_buttons:
+                if await page.locator(btn_selector).count() > 0:
+                    logger.info(f"✅ Botão encontrado: {btn_selector}")
+                    # Não clica no botão, só localiza o input associado
+                    break
+        except Exception as e:
+            logger.warning(f"Estratégia 1 falhou: {e}")
+        
+        # ESTRATÉGIA 2: Usar input file diretamente (pode estar oculto)
+        try:
+            logger.info("Tentando Estratégia 2: Input file direto...")
+            # Procura por input file mesmo que esteja hidden
+            file_input_locator = page.locator('input[type="file"]')
+            input_count = await file_input_locator.count()
+            
+            # Verifica se existe
+            if input_count > 0:
+                logger.info(f"✅ Input file encontrado ({input_count} elemento(s)) - fazendo upload...")
+                await file_input_locator.first.set_input_files(video_path)
+                upload_successful = True
+                logger.info("📤 Upload do arquivo iniciado com sucesso!")
+            else:
+                raise Exception("Input file não encontrado (count = 0)")
+                
+        except Exception as e:
+            logger.error(f"❌ Estratégia 2 falhou: {e}")
+            
+            # ESTRATÉGIA 3: FALLBACK FINAL - Tentar seletores alternativos
+            logger.info("Tentando Estratégia 3: Seletores alternativos...")
+            alternate_selectors = [
+                'input[accept*="video"]',
+                'input[accept*="mp4"]',
+                '[data-e2e="upload-input"]',
+                '.upload-input'
+            ]
+            
+            for selector in alternate_selectors:
+                try:
+                    selector_count = await page.locator(selector).count()
+                    if selector_count > 0:
+                        logger.info(f"✅ Seletor alternativo encontrado: {selector} ({selector_count} elemento(s))")
+                        await page.locator(selector).first.set_input_files(video_path)
+                        upload_successful = True
+                        logger.info("📤 Upload iniciado com seletor alternativo!")
+                        break
+                except Exception as ex:
+                    logger.warning(f"Seletor '{selector}' falhou: {ex}")
+                    continue
+        
+        if not upload_successful:
+            error_msg = "Não foi possível encontrar seletor de upload após todas as estratégias"
+            logger.error(f"❌ {error_msg}")
+            if monitor:
+                await monitor.capture_full_state(page, "ERRO_upload_selector", error_msg)
+            return {"status": "error", "message": error_msg}
+        
         await page.wait_for_timeout(2000)
         if monitor:
             await monitor.capture_full_state(page, "pos_upload_arquivo",

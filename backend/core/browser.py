@@ -63,28 +63,28 @@ async def launch_browser(
         logger.info(f"Launching browser with proxy: {proxy.get('server')}")
 
     try:
-        browser = await p.chromium.launch(**launch_options)
+        # SIMPLIFIED LAUNCH - Remove aggressive stealth that triggers detection
+        browser = await p.chromium.launch(
+            headless=headless,
+            # Removed: args, ignore_default_args - TikTok detects these
+        )
+        logger.info(f"Browser launched (headless={headless})")
         
-        context_options = {
-            "user_agent": user_agent,
+        # SIMPLIFIED CONTEXT - Minimal options
+        context_options: Dict[str, Any] = {
             "viewport": viewport or {"width": 1920, "height": 1080},
-            "ignore_https_errors": True,
-            "java_script_enabled": True,
-            "bypass_csp": True,
+            # Removed: bypass_csp, ignore_https_errors - conflicts with cookies
+            # Removed: custom user_agent - use default to match cookie origin
         }
 
         if storage_state and os.path.exists(storage_state):
              context_options["storage_state"] = storage_state
-             logger.info(f"Loading session from: {storage_state}")
+             logger.info(f"✅ Loading session from: {storage_state}")
         
         context = await browser.new_context(**context_options)
         
-        # Apply stealth scripts to context
-        await context.add_init_script("""
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => undefined
-            });
-        """)
+        # REMOVED: Stealth init_script - TikTok detects webdriver override
+        # The best stealth is NO stealth when using authenticated sessions!
         
         page = await context.new_page()
         

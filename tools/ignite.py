@@ -1,7 +1,14 @@
+import sys
+import os
+
+# Force UTF-8 encoding for Windows console
+if sys.platform == "win32":
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8')
+    os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
+
 import subprocess
 import time
-import os
-import sys
 
 def main():
     print("--- 🔌 INICIANDO SYNAPSE (MODO DIRETO + UTF-8) ---")

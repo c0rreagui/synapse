@@ -4,11 +4,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
     Squares2X2Icon, UserGroupIcon, CubeTransparentIcon,
-    DocumentTextIcon, ChartBarIcon
+    DocumentTextIcon, ChartBarIcon, ClockIcon
 } from '@heroicons/react/24/outline';
 
 const navItems = [
     { href: '/', icon: Squares2X2Icon, label: 'Command Center' },
+    { href: '/queue', icon: ClockIcon, label: 'Fila de Aprovação' },
     { href: '/profiles', icon: UserGroupIcon, label: 'Perfis TikTok' },
     { href: '/factory', icon: CubeTransparentIcon, label: 'Factory Watcher' },
     { href: '/metrics', icon: ChartBarIcon, label: 'Métricas' },

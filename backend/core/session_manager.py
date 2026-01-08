@@ -3,7 +3,9 @@ import glob
 from typing import List, Dict
 
 # CONSTANTS
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# session_manager.py is in: backend/core/session_manager.py
+# We need BASE_DIR to be: backend/
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SESSIONS_DIR = os.path.join(BASE_DIR, "data", "sessions")
 
 if not os.path.exists(SESSIONS_DIR):

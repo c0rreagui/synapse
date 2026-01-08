@@ -44,16 +44,23 @@ class QueueHandler(FileSystemEventHandler):
     def trigger(self, path: str):
         fname = os.path.basename(path)
         
-        # Ignora testes
-        if fname.startswith('@') or 'test' in fname.lower():
-            logger.info(f"⏭️ Ignorando arquivo de teste: {fname}")
-            return
-            
-        if path not in self.processed:
-            logger.info(f"📥 Enfileirado: {fname}")
-            self.processed.add(path)
-            # Coloca na fila de forma thread-safe
-            self.loop.call_soon_threadsafe(self.queue.put_nowait, path)
+        # AUTO-PROCESSING DISABLED - Manual approval workflow active
+        # Files are now processed via manual approval in /api/v1/queue
+        logger.info(f"ℹ️ Arquivo detectado (auto-processing desabilitado): {fname}")
+        logger.info(f"   Use o painel de aprovação para processar este arquivo.")
+        return
+        
+        # Original auto-processing code below (disabled)
+        # # Ignora testes
+        # if fname.startswith('@') or 'test' in fname.lower():
+        #     logger.info(f"⏭️ Ignorando arquivo de teste: {fname}")
+        #     return
+        #     
+        # if path not in self.processed:
+        #     logger.info(f"📥 Enfileirado: {fname}")
+        #     self.processed.add(path)
+        #     # Coloca na fila de forma thread-safe
+        #     self.loop.call_soon_threadsafe(self.queue.put_nowait, path)
 
 async def wait_for_file_stabilization(path: str, timeout: int = 60) -> bool:
     """Aguarda o arquivo parar de crescer (upload completo) e verifica se não está bloqueado"""

@@ -12,10 +12,10 @@ router = APIRouter()
 
 # Base paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-INPUTS_DIR = os.path.join(BASE_DIR, "inputs")
+PENDING_DIR = os.path.join(BASE_DIR, "data", "pending")
 
-# Ensure inputs directory exists
-os.makedirs(INPUTS_DIR, exist_ok=True)
+# Ensure pending directory exists
+os.makedirs(PENDING_DIR, exist_ok=True)
 
 class IngestResponse(BaseModel):
     success: bool
@@ -58,10 +58,10 @@ async def upload_video(
     # Generate unique ID
     file_id = str(uuid.uuid4())[:8]
     
-    # Build filename with profile tag: @p1_abc123.mp4
+    # Build filename with profile tag: p1_abc123.mp4
     extension = os.path.splitext(file.filename)[1] or ".mp4"
-    tagged_filename = f"@{profile_id}_{file_id}{extension}"
-    file_path = os.path.join(INPUTS_DIR, tagged_filename)
+    tagged_filename = f"{profile_id}_{file_id}{extension}"
+    file_path = os.path.join(PENDING_DIR, tagged_filename)
     
     try:
         # Save the video file
@@ -85,8 +85,8 @@ async def upload_video(
             "uploaded_at": str(uuid.uuid1()) # Timestamp
         }
         
-        metadata_filename = f"{tagged_filename}.json" # e.g. @p1_xxx.mp4.json
-        metadata_path = os.path.join(INPUTS_DIR, metadata_filename)
+        metadata_filename = f"{tagged_filename}.json" # e.g. p1_xxx.mp4.json
+        metadata_path = os.path.join(PENDING_DIR, metadata_filename)
         
         with open(metadata_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2, ensure_ascii=False)
@@ -122,7 +122,7 @@ async def get_ingestion_status():
         return len([f for f in os.listdir(directory) if f.endswith('.mp4')])
     
     return {
-        "queued": count_files(INPUTS_DIR),
+        "queued": count_files(PENDING_DIR),
         "processing": count_files(processing_dir),
         "completed": count_files(done_dir),
         "failed": count_files(errors_dir)
