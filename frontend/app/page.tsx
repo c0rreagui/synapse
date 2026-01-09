@@ -7,6 +7,7 @@ import Toast from './components/Toast';
 import ConnectionStatus from './components/ConnectionStatus';
 import CommandPalette from './components/CommandPalette';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import useWebSocket from './hooks/useWebSocket';
 import {
   PlayCircleIcon, CpuChipIcon, CheckCircleIcon,
   ClockIcon, XCircleIcon, XMarkIcon,
@@ -66,11 +67,20 @@ export default function Home() {
   const [lastUpdate, setLastUpdate] = useState('');
   const [showCommandPalette, setShowCommandPalette] = useState(false);
 
+  // WebSocket for real-time updates
+  const { isConnected: wsConnected } = useWebSocket({
+    onPipelineUpdate: (data) => {
+      setIngestionStatus(data as IngestionStatus);
+      setLastUpdate(new Date().toLocaleTimeString());
+    },
+  });
+
   // Helper: Show Toast
   const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info', duration = 3000) => {
     setToast({ message, type, duration });
     if (duration > 0) setTimeout(() => setToast(null), duration + 300); // Cleanup callback handled by Toast component effectively, but explicit nulling good for React state
   };
+
 
   // Fetch Data
   const fetchAllData = useCallback(async () => {

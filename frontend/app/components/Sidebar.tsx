@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
     Squares2X2Icon, UserGroupIcon, CubeTransparentIcon,
-    DocumentTextIcon, ChartBarIcon, ClockIcon
+    DocumentTextIcon, ChartBarIcon
 } from '@heroicons/react/24/outline';
 
 const navItems = [

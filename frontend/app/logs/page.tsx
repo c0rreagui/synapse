@@ -6,6 +6,7 @@ import Badge from '../components/Badge';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
 import AnimatedCounter from '../components/AnimatedCounter';
+import useWebSocket from '../hooks/useWebSocket';
 import {
     ArrowPathIcon, TrashIcon,
     CheckCircleIcon, ExclamationTriangleIcon, InformationCircleIcon, XCircleIcon
@@ -28,6 +29,19 @@ export default function LogsPage() {
     const [autoScroll, setAutoScroll] = useState(true);
     const [loading, setLoading] = useState(true);
     const logContainerRef = useRef<HTMLDivElement>(null);
+
+    // WebSocket for real-time log updates
+    useWebSocket({
+        onLogEntry: (data) => {
+            const newLog = data as LogEntry;
+            setLogs(prev => [newLog, ...prev].slice(0, 100)); // Keep last 100 logs
+            setStats(prev => ({
+                ...prev,
+                [newLog.level]: prev[newLog.level as keyof typeof prev] + 1,
+                total: prev.total + 1
+            }));
+        },
+    });
 
     const fetchLogs = useCallback(async () => {
         try {

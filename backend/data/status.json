@@ -1,0 +1,11 @@
+{
+  "state": "idle",
+  "last_updated": "2026-01-09T16:18:37.745623",
+  "timestamp": 1767986317.745623,
+  "job": {
+    "name": "None",
+    "progress": 0,
+    "step": "Aguardando tarefas...",
+    "logs": []
+  }
+}
