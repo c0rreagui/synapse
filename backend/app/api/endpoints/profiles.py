@@ -17,47 +17,79 @@ async def get_profiles():
     Lista os arquivos de sessão JSON disponíveis na pasta de dados.
     Retorna uma lista formatada para o Frontend.
     """
-    # Fallback/Mock se a pasta não existir ou estiver vazia
-    # Garante que a UI sempre tenha algo para mostrar no MVP
-    default_profiles = [
-        {"id": "tiktok_profile_01", "label": "✂️ Cortes Aleatórios (Offline)"},
-        {"id": "tiktok_profile_02", "label": "🔥 Criando Ibope (Offline)"}
-    ]
-    
-    # Tenta ler do disco real
-    real_sessions = []
-    
-    if os.path.exists(SESSIONS_DIR):
-        try:
-            for filename in os.listdir(SESSIONS_DIR):
-                if filename.endswith(".json") and filename.startswith("tiktok_profile"):
-                    profile_id = filename.replace(".json", "")
-                    
-                    # Formata o label para ficar amigável
-                    clean_name = profile_id.replace("tiktok_profile_", "").replace("_", " ").title()
-                    label = f"Perfil {clean_name}"
-                    
-                    if "01" in profile_id: label = f"✂️ {label} (Cortes)"
-                    if "02" in profile_id: label = f"🔥 {label} (Ibope)"
-                    
-                    real_sessions.append({
-                        "id": profile_id,
-                        "label": label
-                    })
-            # Se achou algo real, prioriza. Se não, retorna default para não quebrar UI
-            if real_sessions:
-                # Opcional: Merge com default ou usar apenas real.
-                # Para MVP, se achou real, usa real.
-                real_sessions.sort(key=lambda x: x['id'])
-                return real_sessions
-                
-        except Exception as e:
-            print(f"Error scanning sessions: {e}")
-            
-    # Retorna defaults se não achou nada ou deu erro
-    return default_profiles
+    # Usando o Session Manager como fonte única da verdade
+    # Usando o Session Manager como fonte única da verdade
+    from backend.core.session_manager import list_available_sessions
+    return list_available_sessions()
 
 # Alias root para list
 @router.get("/", response_model=List[Dict[str, str]])
 async def get_profiles_root():
     return await get_profiles()
+
+from pydantic import BaseModel
+
+class ImportProfileRequest(BaseModel):
+    label: str
+    cookies: str
+
+@router.post("/import")
+async def import_profile_endpoint(request: ImportProfileRequest):
+    """
+    Importa um novo perfil a partir de um JSON de cookies.
+    """
+    from fastapi import HTTPException
+    from backend.core.session_manager import import_session
+    
+    try:
+        profile_id = import_session(request.label, request.cookies)
+        return {"status": "success", "id": profile_id, "message": "Perfil importado com sucesso"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/validate/{profile_id}")
+async def validate_profile_endpoint(profile_id: str):
+    """
+    Lança um navegador headless para extrair avatar e nome reais do TikTok.
+    """
+    import subprocess
+    import sys
+    import json
+    from fastapi import HTTPException
+    
+    script_path = os.path.join(BASE_DIR, "core", "validator_cli.py")
+    
+    try:
+        # Run subprocess to isolate event loop (fix for Windows + Uvicorn)
+        result_proc = subprocess.run(
+            [sys.executable, script_path, profile_id],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        
+        if result_proc.returncode != 0:
+            raise Exception(f"Script Error: {result_proc.stderr}")
+            
+        output = result_proc.stdout.strip()
+        # Extract JSON from output (handle potential log noise)
+        start_idx = output.find("{")
+        end_idx = output.rfind("}")
+        
+        if start_idx != -1 and end_idx != -1:
+            json_str = output[start_idx:end_idx+1]
+            result = json.loads(json_str)
+        else:
+            raise Exception(f"No valid JSON in output: {output}")
+
+        if result.get("status") == "error":
+            raise HTTPException(status_code=500, detail=result["message"])
+            
+        return result
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+

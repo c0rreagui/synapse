@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from typing import Optional
 
-from core.browser import launch_browser, close_browser
+from backend.core.browser import launch_browser, close_browser
 
 router = APIRouter(prefix="/debug", tags=["Debug"])
 logger = logging.getLogger(__name__)

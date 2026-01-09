@@ -45,10 +45,8 @@ export default function LogsPage() {
                 setStats(await statsRes.json());
             }
         } catch {
-            // Backend offline - use mock data
-            setLogs([
-                { id: '1', timestamp: new Date().toLocaleTimeString('pt-BR'), level: 'warning', message: 'Backend offline - usando dados locais', source: 'frontend' }
-            ]);
+            // Error handling - keep existing logs or set empty if critical failure
+            // No mock data injected
         }
         setLoading(false);
     }, [filter]);

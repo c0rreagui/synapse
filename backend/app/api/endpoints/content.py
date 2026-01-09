@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from typing import List
-from ...core.ingestion import ingestion_service
+from typing import List
+from backend.core.ingestion import ingestion_service
 
 router = APIRouter()
 

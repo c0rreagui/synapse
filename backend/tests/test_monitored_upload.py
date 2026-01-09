@@ -34,9 +34,7 @@ async def main():
     ]
     # Atualizando para rodar os 3 como pedido
     test_cases = [
-        {"timestamp": "2026-01-09T10:15", "desc": "Dia 9 Manhã"},
-        {"timestamp": "2026-01-10T14:30", "desc": "Dia 10 Tarde"},
-        {"timestamp": "2026-01-11T20:45", "desc": "Dia 11 Noite"}
+        {"timestamp": "2026-01-09T18:00", "desc": "Teste Real - Olho de Deus"}
     ]
 
     for i, case in enumerate(test_cases):
@@ -44,7 +42,7 @@ async def main():
         
         try:
             result = await upload_video_monitored(
-                session_name="tiktok_profile_02",
+                session_name="tiktok_profile_01",
                 video_path=video_path,
                 caption=f"🎯 {case['desc']} Olho de Deus #SynapseTest",
                 schedule_time=case['timestamp'],

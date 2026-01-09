@@ -17,6 +17,7 @@ APPROVED_DIR = os.path.join(BASE_DIR, "data", "approved")
 sys.path.append(BASE_DIR)
 
 from core.manual_executor import execute_approved_video
+from core.status_manager import status_manager
 
 async def worker_loop():
     logger.info("🚀 Queue Worker Iniciado - Monitorando pasta APPROVED...")
@@ -53,11 +54,28 @@ async def worker_loop():
             # Execute (Síncrono para o worker, espera terminar)
             start_time = time.time()
             try:
+                # Report Start
+                status_manager.update_status(
+                    state="busy",
+                    current_task=target_file,
+                    step="Iniciando processamento...",
+                    progress=5,
+                    logs=[f"Encontrado: {target_file}"]
+                )
+
                 result = await execute_approved_video(target_file)
                 duration = time.time() - start_time
                 
                 status = result.get('status', 'unknown')
                 logger.info(f"✅ Concluído: {target_file} | Status: {status} | Tempo: {duration:.1f}s")
+                
+                # Report Done
+                if status == 'success':
+                    status_manager.update_status("idle", progress=100, step="Concluído com sucesso", logs=[f"Finalizado em {duration:.1f}s"])
+                else:
+                    status_manager.update_status("error", step="Falha no processamento", logs=[result.get('message', 'Erro desconhecido')])
+                    time.sleep(5) # Pause to let user see error status before idle
+                    status_manager.set_idle()
                 
             except Exception as e:
                 logger.error(f"❌ Falha ao processar {target_file}: {e}")

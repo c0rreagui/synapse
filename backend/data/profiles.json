@@ -1,0 +1,18 @@
+{
+    "tiktok_profile_01": {
+        "label": "Todo dia um corte aleat\u00f3rio",
+        "icon": "\u2702\ufe0f",
+        "type": "cuts",
+        "active": true,
+        "avatar_url": "https://p16-sign-va.tiktokcdn.com/tos-maliva-avt-0068/2fb7c5b686d2aab51afeadc5d84eea97~tplv-tiktokx-cropcenter:720:720.jpeg?dr=14579&refresh_token=79b7513b&x-expires=1768107600&x-signature=k2Un8YnKjAehs88PasjLAQsxbAg%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
+        "username": "tododiaumcorte.aleatorio"
+    },
+    "tiktok_profile_02": {
+        "label": "Criando Ibope",
+        "icon": "\ud83d\udd25",
+        "type": "main",
+        "active": true,
+        "avatar_url": "https://p16-sign-va.tiktokcdn.com/tos-maliva-avt-0068/c0b102e4406bc5bc92c6b3415af77f01~tplv-tiktokx-cropcenter:720:720.jpeg?dr=14579&refresh_token=e0c2359f&x-expires=1768107600&x-signature=AEI3u4W4J69AbNOpP5meyjezU%2F8%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
+        "username": "criandoibope"
+    }
+}

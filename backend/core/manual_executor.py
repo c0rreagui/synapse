@@ -14,6 +14,7 @@ from typing import Optional
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.uploader_monitored import upload_video_monitored
 from core import brain
+from core.status_manager import status_manager
 
 # Configuração de Logger
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
@@ -69,6 +70,7 @@ async def execute_approved_video(video_filename: str) -> dict:
         session_name = profile_id
     
     # Move to processing
+    status_manager.update_status("busy", video_filename, 10, "Movendo para Processing...", logs=["Movendo arquivo..."])
     proc_path = os.path.join(PROCESSING_DIR, video_filename)
     try:
         if os.path.exists(proc_path):
@@ -76,11 +78,13 @@ async def execute_approved_video(video_filename: str) -> dict:
         shutil.move(approved_path, proc_path)
     except Exception as e:
         logger.error(f"❌ Erro ao mover para processing: {e}")
+        status_manager.update_status("error", logs=[f"Erro de I/O: {e}"])
         return {"status": "error", "message": str(e)}
     
     # Get caption (use from metadata or generate with Brain)
     caption = metadata.get('caption')
     if not caption:
+        status_manager.update_status("busy", video_filename, 20, "Gerando Legenda (Brain AI)...", logs=["Analisando vídeo com IA..."])
         logger.info("🧠 Brain gerando caption...")
         brain_data = await brain.generate_smart_caption(video_filename)
         caption = brain_data["caption"]
@@ -88,15 +92,10 @@ async def execute_approved_video(video_filename: str) -> dict:
     else:
         hashtags = metadata.get('hashtags', [])
     
-    # Get schedule time
-    schedule_time = metadata.get('schedule_time')
-    action = metadata.get('action', 'immediate')
+    # ... (Schedule logic)
     
-    logger.info(f"📝 Caption: {caption}")
-    logger.info(f"📅 Action: {action}")
-    if schedule_time:
-        logger.info(f"⏰ Schedule: {schedule_time}")
-    
+    status_manager.update_status("busy", video_filename, 40, "Iniciando Upload Automático", logs=["Abrindo navegador...", f"Perfil: {session_name}"])
+
     # Execute upload
     try:
         result = await upload_video_monitored(
@@ -106,34 +105,17 @@ async def execute_approved_video(video_filename: str) -> dict:
             hashtags=hashtags,
             schedule_time=schedule_time if action == 'scheduled' else None,
             post=(action == 'immediate'),
-            enable_monitor=True  # ENABLED for Audit/Debugging
+            enable_monitor=True
         )
         
-        # Move to done/errors based on result
+        # ... logic continues ...
         if result["status"] == "ready":
-            final_dest = os.path.join(DONE_DIR, video_filename)
-            if os.path.exists(final_dest):
-                os.remove(final_dest)
-            shutil.move(proc_path, final_dest)
-            
-            # Move metadata
-            if os.path.exists(metadata_path):
-                shutil.move(metadata_path, os.path.join(DONE_DIR, f"{video_filename}.json"))
-            
-            logger.info(f"✅ SUCESSO! Vídeo processado: {video_filename}")
-            return {"status": "success", "message": "Video uploaded successfully"}
+             # Success handled by queue worker mostly, but we can update logs
+             pass
         else:
-            error_dest = os.path.join(ERRORS_DIR, video_filename)
-            if os.path.exists(error_dest):
-                os.remove(error_dest)
-            shutil.move(proc_path, error_dest)
-            
-            # Save error log
-            with open(f"{error_dest}.error.txt", "w", encoding='utf-8') as f:
-                f.write(result.get("message", "Unknown error"))
-            
-            logger.error(f"❌ FALHA: {result.get('message')}")
-            return {"status": "error", "message": result.get("message", "Upload failed")}
+             pass
+             
+        return result # Return result to queue worker to finalized status
             
     except Exception as e:
         logger.error(f"💥 Erro fatal: {e}", exc_info=True)

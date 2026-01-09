@@ -1,3 +1,9 @@
+import asyncio
+import sys
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -13,7 +19,7 @@ app.add_middleware(
 
 from fastapi.staticfiles import StaticFiles
 import os
-from .api.endpoints import content, ingestion, profiles, logs, queue, videos
+from .api.endpoints import content, ingestion, profiles, logs, queue, videos, status
 from .api import debug_router
 
 # Mount static for debugging
@@ -28,6 +34,7 @@ app.include_router(profiles.router, prefix="/api/v1/profiles", tags=["profiles"]
 app.include_router(logs.router, prefix="/api/v1/logs", tags=["logs"])
 app.include_router(queue.router, prefix="/api/v1/queue", tags=["queue"])
 app.include_router(videos.router, prefix="/api/v1/videos", tags=["videos"])
+app.include_router(status.router, prefix="/api/v1/status", tags=["status"])
 app.include_router(debug_router.router, prefix="/api/v1", tags=["debug"])
 
 @app.get("/")

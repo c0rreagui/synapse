@@ -18,13 +18,14 @@ export default function Toast({ message, type, duration = 3000, onClose }: Toast
         // Animate in
         requestAnimationFrame(() => setIsVisible(true));
 
-        // Auto-close
-        const timer = setTimeout(() => {
-            setIsLeaving(true);
-            setTimeout(onClose, 300);
-        }, duration);
-
-        return () => clearTimeout(timer);
+        // Auto-close only if duration > 0
+        if (duration > 0 && duration !== Infinity) {
+            const timer = setTimeout(() => {
+                setIsLeaving(true);
+                setTimeout(onClose, 300);
+            }, duration);
+            return () => clearTimeout(timer);
+        }
     }, [duration, onClose]);
 
     const colors = {
