@@ -176,3 +176,49 @@ export interface ContentState {
         search?: string;
     };
 }
+
+// --- SYSTEM STATUS TYPES (Synced with backend/core/status_manager.py) ---
+
+export type SystemState = 'idle' | 'busy' | 'error' | 'paused' | 'unknown';
+
+export interface JobStatus {
+    name: string | null;
+    progress: number;
+    step: string;
+    logs: string[];
+}
+
+export interface SystemStats {
+    cpu_percent: number;
+    ram_percent: number;
+    disk_usage: number;
+}
+
+export interface BackendStatus {
+    state: SystemState;
+    last_updated: string;
+    timestamp?: number;
+    job: JobStatus;
+    system?: SystemStats;
+}
+
+// --- PROFILE TYPES (Synced with backend/core/session_manager.py) ---
+
+export interface TikTokProfile {
+    id: string;
+    label: string;
+    username?: string;
+    avatar_url?: string;
+    icon?: string;
+    status: 'active' | 'inactive' | 'expired';
+    session_valid?: boolean;
+}
+
+// --- WEBSOCKET TYPES ---
+
+export type WebSocketMessageType = 'pipeline_update' | 'log_entry' | 'profile_change' | 'ping' | 'connected' | 'error';
+
+export interface WebSocketPayload<T = unknown> {
+    type: WebSocketMessageType;
+    data: T;
+}

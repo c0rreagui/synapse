@@ -1,7 +1,7 @@
-
 import os
 import json
 import uuid
+import asyncio
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
@@ -16,9 +16,13 @@ if not os.path.exists(LOGS_DIR):
 class JsonLogger:
     def __init__(self, file_path: str = LOG_FILE):
         self.file_path = file_path
-        # Mem cache for read performance (last 200 logs)
         self._mem_buffer: List[Dict] = []
         self._load_from_file()
+        self.async_callback = None  # NEW: Callback for Websocket
+
+    def set_async_callback(self, callback):
+        """Sets the async callback for real-time updates."""
+        self.async_callback = callback
 
     def _load_from_file(self):
         """Loads last N logs from file into memory."""
@@ -29,12 +33,8 @@ class JsonLogger:
         try:
             with open(self.file_path, 'r', encoding='utf-8') as f:
                 lines = f.readlines()
-                # Tail 200
                 last_lines = lines[-200:]
                 self._mem_buffer = [json.loads(line) for line in last_lines if line.strip()]
-                # Reverse to show newest first? Logic usually expects newest first.
-                # If file is appended, newest is at bottom.
-                # So we reverse buffer for frontend display (descending)
                 self._mem_buffer.reverse() 
         except Exception as e:
             print(f"Error loading logs: {e}")
@@ -62,7 +62,17 @@ class JsonLogger:
         self._mem_buffer.insert(0, entry) # Newest first
         if len(self._mem_buffer) > 200:
             self._mem_buffer.pop()
-            
+        
+        # Trigger Async Callback (WebSocket Broadcast)
+        if self.async_callback:
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.run_coroutine_threadsafe(self.async_callback(entry), loop)
+            except Exception as e:
+                 # Fail silently to avoid breaking the logger
+                 pass
+
         return entry
 
     def get_logs(self, limit: int = 50, level: Optional[str] = None, source: Optional[str] = None) -> List[Dict]:

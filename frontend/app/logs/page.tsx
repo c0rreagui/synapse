@@ -5,11 +5,11 @@ import Sidebar from '../components/Sidebar';
 import Badge from '../components/Badge';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
-import AnimatedCounter from '../components/AnimatedCounter';
 import useWebSocket from '../hooks/useWebSocket';
 import {
     ArrowPathIcon, TrashIcon,
-    CheckCircleIcon, ExclamationTriangleIcon, InformationCircleIcon, XCircleIcon
+    CheckCircleIcon, ExclamationTriangleIcon, InformationCircleIcon, XCircleIcon,
+    ClockIcon, FunnelIcon
 } from '@heroicons/react/24/outline';
 
 interface LogEntry {
@@ -33,11 +33,18 @@ export default function LogsPage() {
     // WebSocket for real-time log updates
     useWebSocket({
         onLogEntry: (data) => {
-            const newLog = data as LogEntry;
-            setLogs(prev => [newLog, ...prev].slice(0, 100)); // Keep last 100 logs
+            // Ensure data is treated as LogEntry
+            const newLog = (typeof data === 'string' ? JSON.parse(data) : data) as LogEntry;
+
+            // Filter client-side if needed, but usually we define that in the prompt or backend
+            setLogs(prev => {
+                const updated = [newLog, ...prev].slice(0, 200); // Keep last 200 logs
+                return updated;
+            });
+
             setStats(prev => ({
                 ...prev,
-                [newLog.level]: prev[newLog.level as keyof typeof prev] + 1,
+                [newLog.level]: (prev[newLog.level as keyof typeof prev] || 0) + 1,
                 total: prev.total + 1
             }));
         },
@@ -58,177 +65,215 @@ export default function LogsPage() {
             if (statsRes.ok) {
                 setStats(await statsRes.json());
             }
-        } catch {
-            // Error handling - keep existing logs or set empty if critical failure
-            // No mock data injected
+        } catch (err) {
+            console.error("Failed to fetch logs:", err);
         }
         setLoading(false);
     }, [filter]);
 
     const clearLogs = async () => {
+        if (!confirm('Tem certeza que deseja limpar todos os logs?')) return;
         try {
             await fetch(`${API_BASE}/logs/clear`, { method: 'DELETE' });
-            fetchLogs();
-        } catch {
             setLogs([]);
+            setStats({ info: 0, success: 0, warning: 0, error: 0, total: 0 });
+        } catch {
+            console.error("Failed to clear logs");
         }
     };
 
     const addTestLog = async (level: string) => {
         try {
             await fetch(`${API_BASE}/logs/add?level=${level}&message=Log de teste (${level})&source=frontend`, { method: 'POST' });
-            fetchLogs();
+            // No need to fetchLogs here, WebSocket should handle it
         } catch { }
     };
 
-
     // Initial load
     useEffect(() => {
-        fetchLogs(); // Valid pattern: initial data fetch on mount
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // Polling interval
-    useEffect(() => {
-        const interval = setInterval(fetchLogs, 3000);
-        return () => clearInterval(interval);
+        fetchLogs();
     }, [fetchLogs]);
 
+    // Auto-scroll logic
     useEffect(() => {
         if (autoScroll && logContainerRef.current) {
+            // Scroll to top because list is reversed (newest first)
             logContainerRef.current.scrollTop = 0;
         }
     }, [logs, autoScroll]);
 
     const getLevelIcon = (level: string) => {
         switch (level) {
-            case 'success': return <CheckCircleIcon style={{ width: '16px', height: '16px', color: '#3fb950' }} />;
-            case 'warning': return <ExclamationTriangleIcon style={{ width: '16px', height: '16px', color: '#d29922' }} />;
-            case 'error': return <XCircleIcon style={{ width: '16px', height: '16px', color: '#f85149' }} />;
-            default: return <InformationCircleIcon style={{ width: '16px', height: '16px', color: '#58a6ff' }} />;
+            case 'success': return <CheckCircleIcon className="w-4 h-4 text-cmd-green" />;
+            case 'warning': return <ExclamationTriangleIcon className="w-4 h-4 text-cmd-yellow" />;
+            case 'error': return <XCircleIcon className="w-4 h-4 text-cmd-red" />;
+            default: return <InformationCircleIcon className="w-4 h-4 text-cmd-blue" />;
         }
     };
 
-    const getLevelColor = (level: string) => {
+    const getLevelClass = (level: string) => {
         switch (level) {
-            case 'success': return '#3fb950';
-            case 'warning': return '#d29922';
-            case 'error': return '#f85149';
-            default: return '#58a6ff';
+            case 'success': return 'text-cmd-green bg-cmd-green/10 border-cmd-green/20';
+            case 'warning': return 'text-cmd-yellow bg-cmd-yellow/10 border-cmd-yellow/20';
+            case 'error': return 'text-cmd-red bg-cmd-red/10 border-cmd-red/20';
+            default: return 'text-cmd-blue bg-cmd-blue/10 border-cmd-blue/20';
         }
     };
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0d1117', color: '#c9d1d9', fontFamily: 'Inter, system-ui, sans-serif' }}>
+        <div className="flex min-h-screen bg-cmd-bg text-gray-300 font-sans selection:bg-cmd-purple selection:text-white">
             <Sidebar />
 
-            <main style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
+            <main className="flex-1 p-8 overflow-y-auto max-h-screen custom-scrollbar">
                 {/* Header */}
-                <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+                <header className="flex items-center justify-between mb-8 fade-in">
                     <div>
-                        <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff', margin: 0 }}>System Logs</h2>
-                        <p style={{ fontSize: '12px', color: '#8b949e', margin: '4px 0 0' }}>Histórico de eventos do sistema • Atualizando a cada 3s</p>
+                        <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400 tracking-tight">System Logs</h2>
+                        <p className="text-xs text-cmd-text-muted flex items-center gap-2 font-mono mt-1">
+                            <ClockIcon className="w-3 h-3" /> Eventos em tempo real via WebSocket
+                        </p>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => addTestLog('info')} style={{ padding: '8px 12px', borderRadius: '8px', backgroundColor: '#1c2128', border: '1px solid #58a6ff', color: '#58a6ff', cursor: 'pointer', fontSize: '12px' }}>+ Info</button>
-                        <button onClick={() => addTestLog('success')} style={{ padding: '8px 12px', borderRadius: '8px', backgroundColor: '#1c2128', border: '1px solid #3fb950', color: '#3fb950', cursor: 'pointer', fontSize: '12px' }}>+ Success</button>
-                        <button onClick={() => addTestLog('warning')} style={{ padding: '8px 12px', borderRadius: '8px', backgroundColor: '#1c2128', border: '1px solid #d29922', color: '#d29922', cursor: 'pointer', fontSize: '12px' }}>+ Warning</button>
-                        <button onClick={() => addTestLog('error')} style={{ padding: '8px 12px', borderRadius: '8px', backgroundColor: '#1c2128', border: '1px solid #f85149', color: '#f85149', cursor: 'pointer', fontSize: '12px' }}>+ Error</button>
-                        <button onClick={clearLogs} title="Limpar logs" aria-label="Limpar logs" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', backgroundColor: '#1c2128', border: '1px solid #30363d', color: '#8b949e', cursor: 'pointer' }}>
-                            <TrashIcon style={{ width: '16px', height: '16px' }} />
+                    <div className="flex gap-2">
+                        {/* Test Buttons - Hidden on very small screens */}
+                        <div className="hidden lg:flex gap-2 mr-4">
+                            {['info', 'success', 'warning', 'error'].map(level => (
+                                <button
+                                    key={level}
+                                    onClick={() => addTestLog(level)}
+                                    className={`px-3 py-1.5 rounded-lg border text-xs font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${getLevelClass(level)}`}
+                                >
+                                    + {level}
+                                </button>
+                            ))}
+                        </div>
+
+                        <button
+                            onClick={clearLogs}
+                            title="Limpar todos os logs"
+                            className="p-2.5 rounded-lg border border-cmd-border bg-cmd-card text-gray-400 hover:text-cmd-red hover:border-cmd-red/30 transition-all"
+                        >
+                            <TrashIcon className="w-5 h-5" />
                         </button>
-                        <button onClick={fetchLogs} title="Atualizar logs" aria-label="Atualizar logs" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', backgroundColor: '#238636', border: 'none', color: '#fff', cursor: 'pointer' }}>
-                            <ArrowPathIcon style={{ width: '16px', height: '16px' }} />
+                        <button
+                            onClick={fetchLogs}
+                            title="Forçar atualização"
+                            className="p-2.5 rounded-lg border border-cmd-border bg-cmd-card text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+                        >
+                            <ArrowPathIcon className="w-5 h-5" />
                         </button>
                     </div>
                 </header>
 
-                {/* Filters */}
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                    {['all', 'info', 'success', 'warning', 'error'].map((level) => (
-                        <button
-                            key={level}
-                            onClick={() => setFilter(level)}
-                            style={{
-                                padding: '6px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                                backgroundColor: filter === level ? (level === 'all' ? '#58a6ff' : getLevelColor(level)) : '#1c2128',
-                                color: filter === level ? '#fff' : '#8b949e',
-                                fontSize: '12px', fontWeight: 500, textTransform: 'capitalize'
-                            }}
-                        >
-                            {level === 'all' ? 'Todos' : level}
-                        </button>
-                    ))}
-                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '12px', color: '#8b949e' }}>Auto-scroll</span>
+                {/* Filters & Controls */}
+                <div className="flex flex-wrap items-center gap-4 mb-6 fade-in stagger-1">
+                    <div className="flex items-center gap-2 p-1 rounded-lg bg-cmd-card border border-cmd-border">
+                        <div className="px-3 py-1.5 text-xs font-bold text-gray-500 uppercase flex items-center gap-2">
+                            <FunnelIcon className="w-3 h-3" /> Filtro
+                        </div>
+                        {['all', 'info', 'success', 'warning', 'error'].map((level) => (
+                            <button
+                                key={level}
+                                onClick={() => setFilter(level)}
+                                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${filter === level
+                                        ? 'bg-white/10 text-white shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+                                    }`}
+                            >
+                                {level === 'all' ? 'Todos' : level.charAt(0).toUpperCase() + level.slice(1)}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="ml-auto flex items-center gap-3 bg-cmd-card px-4 py-2 rounded-lg border border-cmd-border hover:border-cmd-purple/30 transition-colors">
+                        <span className="text-xs font-mono text-gray-400">AUTO-SCROLL</span>
                         <button
                             onClick={() => setAutoScroll(!autoScroll)}
-                            title={`Auto-scroll: ${autoScroll ? 'ativado' : 'desativado'}`}
-                            aria-label={`Auto-scroll: ${autoScroll ? 'ativado' : 'desativado'}`}
-                            style={{
-                                width: '40px', height: '20px', borderRadius: '10px', border: 'none', cursor: 'pointer',
-                                backgroundColor: autoScroll ? '#238636' : '#30363d',
-                                position: 'relative', transition: 'background-color 0.2s'
-                            }}
+                            className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${autoScroll ? 'bg-cmd-green' : 'bg-gray-700'}`}
                         >
-                            <div style={{
-                                width: '16px', height: '16px', borderRadius: '50%', backgroundColor: '#fff',
-                                position: 'absolute', top: '2px', left: autoScroll ? '22px' : '2px',
-                                transition: 'left 0.2s'
-                            }} />
+                            <div className={`w-3 h-3 bg-white rounded-full absolute top-1 transition-transform duration-300 ${autoScroll ? 'translate-x-6' : 'translate-x-1'}`} />
                         </button>
                     </div>
                 </div>
 
-                {/* Stats */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 fade-in stagger-2">
                     {[
-                        { label: 'Info', count: stats.info, color: '#58a6ff' },
-                        { label: 'Success', count: stats.success, color: '#3fb950' },
-                        { label: 'Warning', count: stats.warning, color: '#d29922' },
-                        { label: 'Error', count: stats.error, color: '#f85149' },
+                        { label: 'Info', count: stats.info, color: 'text-cmd-blue', border: 'border-cmd-blue/20' },
+                        { label: 'Success', count: stats.success, color: 'text-cmd-green', border: 'border-cmd-green/20' },
+                        { label: 'Warning', count: stats.warning, color: 'text-cmd-yellow', border: 'border-cmd-yellow/20' },
+                        { label: 'Error', count: stats.error, color: 'text-cmd-red', border: 'border-cmd-red/20' },
                     ].map((stat) => (
-                        <div key={stat.label} style={{ padding: '16px', borderRadius: '8px', backgroundColor: '#1c2128', border: '1px solid #30363d', textAlign: 'center' }}>
-                            <AnimatedCounter value={stat.count} style={{ fontSize: '24px', fontWeight: 'bold', color: stat.color }} />
-                            <p style={{ fontSize: '12px', color: '#8b949e', margin: '4px 0 0' }}>{stat.label}</p>
+                        <div key={stat.label} className={`bg-cmd-card border border-cmd-border rounded-xl p-4 flex flex-col items-center justify-center hover:border-opacity-50 transition-all group ${stat.border}`}>
+                            <span className={`text-2xl font-bold font-mono ${stat.color} group-hover:scale-110 transition-transform`}>
+                                {stat.count}
+                            </span>
+                            <span className="text-xs text-gray-500 uppercase tracking-widest mt-1">{stat.label}</span>
                         </div>
                     ))}
                 </div>
 
-                {/* Log List */}
+                {/* Log Stream */}
                 <div
-                    ref={logContainerRef}
-                    style={{
-                        backgroundColor: '#1c2128', borderRadius: '12px', border: '1px solid #30363d',
-                        maxHeight: 'calc(100vh - 320px)', overflowY: 'auto'
-                    }}
+                    className="glass-card flex-1 overflow-hidden flex flex-col fade-in stagger-3"
+                    style={{ maxHeight: 'calc(100vh - 350px)', minHeight: '400px' }}
                 >
-                    {loading ? (
-                        <div style={{ display: 'flex', justifyContent: 'center', padding: '48px' }}>
-                            <Spinner size="lg" />
-                        </div>
-                    ) : logs.length > 0 ? logs.map((log) => (
-                        <div
-                            key={log.id}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px',
-                                borderBottom: '1px solid #30363d'
-                            }}
-                        >
-                            {getLevelIcon(log.level)}
-                            <span style={{ fontSize: '12px', color: '#8b949e', fontFamily: 'monospace', minWidth: '70px' }}>{log.timestamp}</span>
-                            <Badge variant={log.level === 'success' ? 'success' : log.level === 'warning' ? 'warning' : log.level === 'error' ? 'error' : 'info'} size="sm">
-                                {log.source}
-                            </Badge>
-                            <span style={{ fontSize: '13px', color: '#c9d1d9', flex: 1 }}>{log.message}</span>
-                        </div>
-                    )) : (
-                        <EmptyState
-                            title="Nenhum log encontrado"
-                            description="Os logs do sistema aparecerão aqui automaticamente"
-                            icon={<InformationCircleIcon style={{ width: '48px', height: '48px', color: '#58a6ff' }} />}
-                        />
-                    )}
+                    <div className="p-4 border-b border-white/5 bg-black/20 flex justify-between items-center">
+                        <h3 className="text-sm font-bold text-gray-300 flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-cmd-purple animate-pulse"></span>
+                            Terminal Stream
+                        </h3>
+                        <span className="text-[10px] font-mono text-gray-600 border border-gray-700 px-2 py-0.5 rounded">
+                            {logs.length} events
+                        </span>
+                    </div>
+
+                    <div
+                        ref={logContainerRef}
+                        className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar font-mono text-sm"
+                    >
+                        {loading ? (
+                            <div className="h-full flex flex-col items-center justify-center text-gray-500 gap-4">
+                                <Spinner size="lg" />
+                                <p className="animate-pulse">Synchronizing logs...</p>
+                            </div>
+                        ) : logs.length > 0 ? (
+                            logs.map((log) => (
+                                <div
+                                    key={log.id}
+                                    className={`flex items-start gap-3 p-3 rounded-lg border border-transparent transition-all hover:bg-white/5 group animation-slide-in ${log.level === 'error' ? 'bg-red-500/5 hover:bg-red-500/10 border-red-500/10' : ''
+                                        }`}
+                                >
+                                    <div className="mt-0.5 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
+                                        {getLevelIcon(log.level)}
+                                    </div>
+
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-0.5">
+                                            <span className="text-[10px] text-gray-500 opacity-60">{log.timestamp}</span>
+                                            <span className={`text-[10px] px-1.5 rounded uppercase tracking-wider font-bold ${log.level === 'success' ? 'bg-cmd-green/20 text-cmd-green' :
+                                                    log.level === 'error' ? 'bg-cmd-red/20 text-cmd-red' :
+                                                        log.level === 'warning' ? 'bg-cmd-yellow/20 text-cmd-yellow' :
+                                                            'bg-cmd-blue/20 text-cmd-blue'
+                                                }`}>
+                                                {log.source || 'SYSTEM'}
+                                            </span>
+                                        </div>
+                                        <p className="text-gray-300 leading-relaxed break-words opacity-90 group-hover:opacity-100">
+                                            {log.message}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="h-full flex items-center justify-center">
+                                <EmptyState
+                                    title="No signals detected"
+                                    description="System operating normally. Waiting for events..."
+                                    icon={<InformationCircleIcon className="w-12 h-12 text-gray-700" />}
+                                />
+                            </div>
+                        )}
+                    </div>
                 </div>
             </main>
         </div>

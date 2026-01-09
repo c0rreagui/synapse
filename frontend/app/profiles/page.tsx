@@ -3,22 +3,15 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Sidebar from '../components/Sidebar';
+import { TikTokProfile } from '../types';
 import {
     ArrowLeftIcon, CheckCircleIcon, PlusIcon, TrashIcon, UserGroupIcon
 } from '@heroicons/react/24/outline';
 
-interface Profile {
-    id: string;
-    label: string;
-    avatar_url?: string;
-    username?: string;
-    icon?: string;
-}
-
 const API_BASE = 'http://localhost:8000/api/v1';
 
 export default function ProfilesPage() {
-    const [profiles, setProfiles] = useState<Profile[]>([]);
+    const [profiles, setProfiles] = useState<TikTokProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [showImportModal, setShowImportModal] = useState(false);
     const [importLabel, setImportLabel] = useState('');

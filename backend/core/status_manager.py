@@ -1,10 +1,10 @@
-
 import os
 import json
 import time
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 import psutil
+import asyncio
 
 # Constants
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -15,9 +15,23 @@ class StatusManager:
     def __init__(self):
         self.file_path = STATUS_FILE
         self._ensure_dir()
+        self.async_callback = None
+
+    def set_async_callback(self, callback):
+        self.async_callback = callback
 
     def _ensure_dir(self):
         os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
+
+    def _get_system_stats(self):
+        try:
+            return {
+                "cpu_percent": psutil.cpu_percent(interval=None),
+                "ram_percent": psutil.virtual_memory().percent,
+                "disk_usage": psutil.disk_usage(BASE_DIR).percent
+            }
+        except:
+            return {}
 
     def update_status(self, 
                       state: str, # 'idle', 'busy', 'error', 'paused'
@@ -46,9 +60,18 @@ class StatusManager:
         except Exception as e:
             print(f"Failed to write status: {e}")
 
-
-
-# ...
+        if self.async_callback:
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    data_to_send = {
+                        "state": state,
+                        "job": data["job"],
+                        "system": self._get_system_stats()
+                    }
+                    asyncio.run_coroutine_threadsafe(self.async_callback(data_to_send), loop)
+            except Exception as e:
+                print(f"WS Broadcast Error: {e}")
 
     def get_status(self) -> Dict[str, Any]:
         """Reads the current status and appends REAL system stats."""
@@ -68,14 +91,7 @@ class StatusManager:
                 status = {"state": "unknown", "job": {}}
 
         # Append Real Hardware Stats (On-the-fly)
-        try:
-            status["system"] = {
-                "cpu_percent": psutil.cpu_percent(interval=None),
-                "ram_percent": psutil.virtual_memory().percent,
-                "disk_usage": psutil.disk_usage(BASE_DIR).percent
-            }
-        except Exception as e:
-            status["system"] = {"error": str(e)}
+        status["system"] = self._get_system_stats()
             
         return status
 

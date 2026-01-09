@@ -9,6 +9,17 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Auto Content Empire API")
 
+@app.on_event("startup")
+async def startup_event():
+    from backend.core.status_manager import status_manager
+    from backend.core.logger import logger
+    from .api.websocket import notify_pipeline_update, notify_new_log
+    
+    # Registra o callback para enviar atualizações via WebSocket
+    status_manager.set_async_callback(notify_pipeline_update)
+    logger.set_async_callback(notify_new_log)
+    print("✅ SYSTEM: Real-time updates handler registered.")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],

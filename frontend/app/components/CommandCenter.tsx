@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import useWebSocket from '../hooks/useWebSocket';
+import { BackendStatus } from '../types';
 import {
     CommandLineIcon,
     CpuChipIcon,
@@ -36,6 +38,15 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
     const [status, setStatus] = useState<BackendStatus | null>(null);
     const [expanded, setExpanded] = useState(false);
 
+    // <--- INTEGRAÇÃO WEBSOCKET AQUI:
+    useWebSocket({
+        onPipelineUpdate: (data: unknown) => {
+            // Atualiza o estado instantaneamente quando o backend avisa
+            // console.log('⚡ WebSocket Update:', data);
+            setStatus(data as BackendStatus);
+        }
+    });
+
     useEffect(() => {
         const fetchStatus = async () => {
             try {
@@ -49,8 +60,9 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
         };
 
         fetchStatus();
-        const interval = setInterval(fetchStatus, 1000); // 1s polling for responsiveness
-        return () => clearInterval(interval);
+        // Polling removed in favor of WebSocket
+        // const interval = setInterval(fetchStatus, 1000); 
+        // return () => clearInterval(interval);
     }, []);
 
     // Fallback status when backend is offline
@@ -66,7 +78,7 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
 
     // Cyberpunk Colors
     const activeColor = isError ? '#f85149' : isBusy ? '#2ea043' : '#58a6ff';
-    const glowShadow = `0 0 10px ${activeColor}40`;
+    const glowShadow = `0 0 10px ${activeColor} 40`;
 
     // Calculate Quota (Max 10 days)
     const TIKTOK_LIMIT_DAYS = 10;
@@ -87,7 +99,7 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
         <div className="command-center fade-in" style={{
             marginBottom: '24px',
             backgroundColor: '#0d1117',
-            border: `1px solid ${activeColor}`,
+            border: `1px solid ${activeColor} `,
             borderRadius: '12px',
             boxShadow: glowShadow,
             overflow: 'hidden',
@@ -100,7 +112,7 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 borderBottom: expanded ? '1px solid #30363d' : 'none',
-                background: `linear-gradient(90deg, ${activeColor}10 0%, transparent 100%)`
+                background: `linear - gradient(90deg, ${activeColor}10 0 %, transparent 100 %)`
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
                     {/* Status Badge */}
@@ -108,7 +120,7 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
                         <div className="pulse-ring" style={{ position: 'relative', width: 12, height: 12 }}>
                             <div style={{
                                 width: 12, height: 12, borderRadius: '50%', backgroundColor: activeColor,
-                                boxShadow: `0 0 8px ${activeColor}`
+                                boxShadow: `0 0 8px ${activeColor} `
                             }} />
                         </div>
                         <div>
@@ -134,7 +146,7 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
                                     style={{
-                                        filter: `drop-shadow(0 0 2px ${activeColor})`,
+                                        filter: `drop - shadow(0 0 2px ${activeColor})`,
                                         opacity: isBusy ? 1 : 0.5,
                                         animation: isBusy ? 'dash 1s linear infinite' : 'pulse 2s ease-in-out infinite'
                                     }}
@@ -171,7 +183,7 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
                                     <ClockIcon style={{ width: 12 }} /> QUOTA ({diffDays}d)
                                 </div>
                                 <div style={{ width: '60px', height: '4px', background: '#30363d', borderRadius: '2px', marginTop: '6px' }}>
-                                    <div style={{ width: `${quotaPercent}%`, height: '100%', background: quotaPercent > 90 ? '#f85149' : '#a371f7' }} />
+                                    <div style={{ width: `${quotaPercent}% `, height: '100%', background: quotaPercent > 90 ? '#f85149' : '#a371f7' }} />
                                 </div>
                             </div>
                         </div>
@@ -179,15 +191,16 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
                 </div>
 
                 <style jsx>{`
-                    @keyframes dash {
-                        0% { stroke-dasharray: 40; stroke-dashoffset: 40; }
-                        100% { stroke-dasharray: 40; stroke-dashoffset: 0; }
+@keyframes dash {
+    0 % { stroke- dasharray: 40; stroke - dashoffset: 40;
+}
+100 % { stroke- dasharray: 40; stroke - dashoffset: 0; }
                     }
-                    @keyframes pulse {
-                        0%, 100% { opacity: 0.3; }
-                        50% { opacity: 0.8; }
-                    }
-                `}</style>
+@keyframes pulse {
+    0 %, 100 % { opacity: 0.3; }
+    50 % { opacity: 0.8; }
+}
+`}</style>
 
                 {/* Breadcrumbs / Pipeline Stepper */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -214,8 +227,8 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
                                 <div style={{
                                     display: 'flex', alignItems: 'center', gap: '6px',
                                     padding: '4px 8px', borderRadius: '4px',
-                                    backgroundColor: isActive ? `${activeColor}20` : 'transparent',
-                                    border: `1px solid ${isActive ? `${activeColor}50` : 'transparent'}`
+                                    backgroundColor: isActive ? `${activeColor} 20` : 'transparent',
+                                    border: `1px solid ${isActive ? `${activeColor}50` : 'transparent'} `
                                 }}>
                                     <step.icon style={{ width: 14, height: 14, color: iconColor }} />
                                     <span style={{ fontSize: '10px', fontWeight: 600, color: iconColor }}>{step.label}</span>
@@ -238,7 +251,7 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
                             </div>
                             <div style={{ height: '4px', background: '#30363d', borderRadius: '2px', overflow: 'hidden' }}>
                                 <div style={{
-                                    width: `${effectiveStatus.job.progress}%`,
+                                    width: `${effectiveStatus.job.progress}% `,
                                     height: '100%',
                                     background: activeColor,
                                     transition: 'width 0.5s ease'
