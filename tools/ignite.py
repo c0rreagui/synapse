@@ -50,6 +50,11 @@ def main():
         p_bot = subprocess.Popen("python backend/core/factory_watcher.py", cwd=ROOT_DIR, shell=True, env=env)
         processes.append(p_bot)
 
+        # 4. Queue Worker (Fila Sequencial)
+        print(">>> Lançando Queue Worker...")
+        p_queue = subprocess.Popen("python backend/core/queue_worker.py", cwd=ROOT_DIR, shell=True, env=env)
+        processes.append(p_queue)
+
         print("\n✅ TUDO RODANDO! Os logs aparecerão abaixo misturados.")
         print("❌ Pressione Ctrl+C para encerrar tudo.\n")
         

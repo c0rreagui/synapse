@@ -1,3 +1,0 @@
-Timestamp: 2026-01-05T10:46:01.643695
-File: @p1_221175f6.mp4
-Error: Upload failed: Page.wait_for_timeout: Target page, context or browser has been closed

@@ -1,6 +1,0 @@
-Timestamp: 2026-01-05T19:50:56.993193
-File: @p2_96d80796.mp4
-Error: Locator.click: Timeout 30000ms exceeded.
-Call log:
-  - waiting for locator(".tiktok-switch").locator("xpath=following::div[contains(@class, \"input\")]").first
-

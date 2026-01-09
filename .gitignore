@@ -47,3 +47,11 @@ frontend/screenshot8.png
 frontend/screenshot9.png
 frontend/screenshot10.png
 frontend/screenshot11.png
+backend/tests/test_mass_approval_monitor.py
+backend/tests/test_mass_approval_visual.py
+backend/tests/test_real_schedule.py
+backend/tests/screenshots/scheduled_profile_01_20260108_214929.png
+backend/tests/screenshots/scheduled_profile_02_20260108_214929.png
+backend/tests/screenshots/tiktok_agendados_final_20260108_213805.png
+backend/tests/screenshots/tiktok_studio_20260108_212722.png
+backend/tests/screenshots/tiktok_studio_20260108_213315.png

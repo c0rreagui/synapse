@@ -3,47 +3,63 @@
 @tailwind utilities;
 
 :root {
-  /* Background */
-  --cmd-bg: #0d1117;
-  --cmd-surface: #161b22;
-  --cmd-card: #1c2128;
-  --cmd-border: #30363d;
-  --cmd-border-hover: #484f58;
+  /* Background - Deep Cerebral Interior */
+  --cmd-bg: #05040a;
+  --cmd-surface: #0f0a15;
+  --cmd-card: #151020;
+  /* Deep Violet Card */
+  --cmd-border: #2a1b3d;
+  --cmd-border-hover: #4c1d95;
 
-  /* Semantic Colors */
-  --cmd-green: #3fb950;
-  --cmd-green-bg: rgba(63, 185, 80, 0.15);
-  --cmd-green-border: rgba(63, 185, 80, 0.3);
+  /* Semantic Colors - Neural Signals */
+  --cmd-green: #34d399;
+  /* Emerald Green (keep distinct for success, but cooler) */
+  --cmd-green-bg: rgba(52, 211, 153, 0.1);
+  --cmd-green-border: rgba(52, 211, 153, 0.2);
 
-  --cmd-red: #f85149;
-  --cmd-red-bg: rgba(248, 81, 73, 0.15);
-  --cmd-red-border: rgba(248, 81, 73, 0.3);
+  --cmd-red: #fb7185;
+  /* Rose Red */
+  --cmd-red-bg: rgba(251, 113, 133, 0.1);
+  --cmd-red-border: rgba(251, 113, 133, 0.3);
 
-  --cmd-yellow: #f0883e;
-  --cmd-yellow-bg: rgba(240, 136, 62, 0.15);
-  --cmd-yellow-border: rgba(240, 136, 62, 0.3);
+  --cmd-yellow: #f472b6;
+  /* Pinkish Warning */
+  --cmd-yellow-bg: rgba(244, 114, 182, 0.1);
+  --cmd-yellow-border: rgba(244, 114, 182, 0.3);
 
-  --cmd-blue: #58a6ff;
-  --cmd-blue-bg: rgba(88, 166, 255, 0.15);
-  --cmd-blue-border: rgba(88, 166, 255, 0.3);
+  --cmd-blue: #a78bfa;
+  /* Soft Violet (Used for info) */
+  --cmd-blue-bg: rgba(167, 139, 250, 0.1);
+  --cmd-blue-border: rgba(167, 139, 250, 0.3);
+
+  --cmd-purple: #c084fc;
+  /* Bright Violet */
+  --cmd-purple-bg: rgba(192, 132, 252, 0.15);
+
+  --cmd-pink: #e879f9;
+  /* Neural Flash Pink */
 
   /* Text */
-  --cmd-text: #c9d1d9;
-  --cmd-text-muted: #8b949e;
-  --cmd-text-faint: #6e7681;
+  --cmd-text: #e9d5ff;
+  /* Pale Purple Text */
+  --cmd-text-muted: #a78bfa;
+  --cmd-text-faint: #6b21a8;
 
   /* Gradients */
-  --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
-  --gradient-card: linear-gradient(180deg, #1c2128 0%, #161b22 100%);
-  --gradient-green: linear-gradient(135deg, #3fb950 0%, #2ea043 100%);
-  --gradient-blue: linear-gradient(135deg, #58a6ff 0%, #1f6feb 100%);
+  --gradient-glass: linear-gradient(135deg, rgba(15, 10, 21, 0.9) 0%, rgba(5, 4, 10, 0.95) 100%);
+  --gradient-card: linear-gradient(180deg, #151020 0%, #0f0a15 100%);
+  --gradient-brand: linear-gradient(135deg, #d946ef 0%, #8b5cf6 50%, #6366f1 100%);
+  /* Magenta -> Violet -> Indigo */
+  --gradient-green: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  --gradient-blue: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
 
-  /* Shadows */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
-  --shadow-glow-green: 0 0 20px rgba(63, 185, 80, 0.3);
-  --shadow-glow-blue: 0 0 20px rgba(88, 166, 255, 0.3);
+  /* Shadows - Neon Glows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.7);
+  --shadow-glow-purple: 0 0 25px rgba(139, 92, 246, 0.2);
+  --shadow-glow-pink: 0 0 25px rgba(217, 70, 239, 0.2);
+  --shadow-glow-green: 0 0 15px rgba(52, 211, 153, 0.2);
 
   /* Spacing */
   --space-xs: 4px;
@@ -53,15 +69,15 @@
   --space-xl: 32px;
 
   /* Border Radius */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
   --radius-full: 9999px;
 
   /* Transitions */
-  --transition-fast: 0.15s ease;
-  --transition-normal: 0.2s ease;
-  --transition-slow: 0.3s ease;
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 body {
@@ -205,25 +221,27 @@ body {
 
 /* Glass Card with Glow */
 .glass-card {
-  background: linear-gradient(135deg, rgba(28, 33, 40, 0.9) 0%, rgba(22, 27, 34, 0.95) 100%);
+  background: rgba(18, 20, 28, 0.7);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(48, 54, 61, 0.8);
+  border: 1px solid rgba(157, 0, 255, 0.1);
+  /* Subtle Purple tint */
   border-radius: 16px;
   box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.4),
-    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
-    0 1px 0 rgba(255, 255, 255, 0.05) inset;
+    0 4px 24px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.02) inset;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(88, 166, 255, 0.3);
+  border-color: rgba(0, 229, 255, 0.3);
+  /* Cyan hover */
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.5),
-    0 0 20px rgba(88, 166, 255, 0.1),
-    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+    0 8px 32px rgba(0, 0, 0, 0.8),
+    0 0 25px rgba(157, 0, 255, 0.1),
+    /* Purple glow */
+    0 0 0 1px rgba(0, 229, 255, 0.1) inset;
 }
 
 /* Stat Card with Gradient Glow */
@@ -243,7 +261,7 @@ body {
   left: 0;
   right: 0;
   height: 3px;
-  background: var(--stat-accent, linear-gradient(90deg, #3fb950, #58a6ff));
+  background: var(--stat-accent, var(--gradient-brand));
   opacity: 0.8;
 }
 
@@ -304,7 +322,7 @@ body {
   inset: 0;
   border-radius: 12px;
   padding: 1px;
-  background: linear-gradient(135deg, #58a6ff, #3fb950, #f0883e, #58a6ff);
+  background: linear-gradient(135deg, #9d00ff, #00e5ff, #00ff94, #9d00ff);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
@@ -353,10 +371,11 @@ body {
 
 /* Gradient Text */
 .gradient-text {
-  background: linear-gradient(135deg, #58a6ff 0%, #3fb950 50%, #f0883e 100%);
+  background: var(--gradient-brand);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  text-shadow: 0 0 30px rgba(217, 70, 239, 0.15);
 }
 
 /* Shimmer Effect */

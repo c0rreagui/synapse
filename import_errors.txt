@@ -1,0 +1,6 @@
+MODELO: backend.scripts.convert_cookies
+ERRO: cannot import name 'save_session' from 'core.session_manager' (C:\APPS - ANTIGRAVITY\Synapse\backend\core\session_manager.py)
+
+MODELO: backend.scripts.login_session
+ERRO: cannot import name 'save_session' from 'core.session_manager' (C:\APPS - ANTIGRAVITY\Synapse\backend\core\session_manager.py)
+

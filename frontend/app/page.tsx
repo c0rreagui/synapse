@@ -65,6 +65,13 @@ export default function Home() {
   const [completedVideos, setCompletedVideos] = useState<CompletedVideo[]>([]);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
 
+  // Mass approval state
+  const [selectedVideoIds, setSelectedVideoIds] = useState<Set<string>>(new Set());
+  const [showMassApprovalModal, setShowMassApprovalModal] = useState(false);
+  const [massPostType, setMassPostType] = useState<'immediate' | 'scheduled'>('scheduled');
+  const [massProfile, setMassProfile] = useState(''); // Global profile selector
+  const [individualConfigs, setIndividualConfigs] = useState<Record<string, { date: string, time: string, profile: string }>>({});
+
   // Keyboard shortcuts
   useKeyboardShortcuts([
     { key: 'k', ctrl: true, action: () => setShowCommandPalette(true), description: 'Abrir Command Palette' },
@@ -212,6 +219,77 @@ export default function Home() {
     }
   };
 
+  // Mass approval handlers
+  const handleVideoSelect = (videoId: string) => {
+    setSelectedVideoIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(videoId)) {
+        newSet.delete(videoId);
+      } else {
+        newSet.add(videoId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleOpenMassApproval = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const baseDateStr = tomorrow.toISOString().split('T')[0];
+
+    // Initialize configs for selected videos
+    const configs: Record<string, { date: string, time: string, profile: string }> = {};
+    selectedVideoIds.forEach(id => {
+      const video = pendingVideos.find(v => v.id === id);
+      configs[id] = {
+        date: baseDateStr,
+        time: '12:40',
+        profile: video?.metadata?.profile_id || video?.profile || ''
+      };
+    });
+    setIndividualConfigs(configs);
+    setShowMassApprovalModal(true);
+  };
+
+  const handleMassApprovalConfirm = async () => {
+    setSubmitting(true);
+    try {
+      const promises = Array.from(selectedVideoIds).map(async (id) => {
+        const config = individualConfigs[id];
+        const scheduleTime = massPostType === 'scheduled' ? `${config.date}T${config.time}:00` : null;
+        const targetProfileId = config.profile;
+
+        await fetch(`${API_BASE}/queue/approve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id,
+            action: massPostType,
+            schedule_time: scheduleTime,
+            target_profile_id: targetProfileId
+          })
+        });
+      });
+
+      await Promise.all(promises);
+      setShowMassApprovalModal(false);
+      setSelectedVideoIds(new Set());
+      fetchAllData();
+      showToast(`${selectedVideoIds.size} vídeos aprovados em massa!`, 'success');
+    } catch {
+      showToast('Erro na aprovação em massa', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const updateIndividualConfig = (videoId: string, field: 'date' | 'time' | 'profile', value: string) => {
+    setIndividualConfigs(prev => ({
+      ...prev,
+      [videoId]: { ...prev[videoId], [field]: value }
+    }));
+  };
+
   // Generate time options (5-min intervals)
   const timeOptions: string[] = [];
   for (let h = 0; h < 24; h++) {
@@ -221,7 +299,7 @@ export default function Home() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0d1117', color: '#c9d1d9', fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--cmd-bg)', color: 'var(--cmd-text)', fontFamily: 'Inter, system-ui, sans-serif' }}>
       <Sidebar />
 
       {/* Toast Notification */}
@@ -244,8 +322,8 @@ export default function Home() {
         {/* Header */}
         <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: backendOnline ? 'rgba(63,185,80,0.1)' : 'rgba(248,81,73,0.1)', border: `1px solid ${backendOnline ? 'rgba(63,185,80,0.3)' : 'rgba(248,81,73,0.3)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <CpuChipIcon style={{ width: '28px', height: '28px', color: backendOnline ? '#3fb950' : '#f85149' }} />
+            <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: backendOnline ? 'var(--cmd-green-bg)' : 'var(--cmd-red-bg)', border: `1px solid ${backendOnline ? 'var(--cmd-green-border)' : 'var(--cmd-red-border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <CpuChipIcon style={{ width: '28px', height: '28px', color: backendOnline ? 'var(--cmd-green)' : 'var(--cmd-red)' }} />
             </div>
             <div>
               <h2 style={{ fontSize: '28px', fontWeight: 'bold', color: '#fff', margin: 0 }}>Command Center</h2>
@@ -261,16 +339,16 @@ export default function Home() {
               style={{
                 display: 'flex', alignItems: 'center', gap: '8px',
                 padding: '8px 14px', borderRadius: '8px',
-                backgroundColor: 'transparent', border: '1px solid #30363d',
-                cursor: 'pointer', color: '#8b949e', fontSize: '13px'
+                backgroundColor: 'transparent', border: '1px solid var(--cmd-border)',
+                cursor: 'pointer', color: 'var(--cmd-text-muted)', fontSize: '13px'
               }}
             >
               <MagnifyingGlassIcon style={{ width: '16px', height: '16px' }} />
               <span>Buscar...</span>
               <span style={{ fontSize: '10px', padding: '2px 6px', backgroundColor: '#21262d', borderRadius: '4px' }}>Ctrl+K</span>
             </button>
-            <button onClick={fetchAllData} title="Atualizar dados (Ctrl+R)" aria-label="Atualizar dados" style={{ padding: '10px', borderRadius: '8px', backgroundColor: 'transparent', border: '1px solid #30363d', cursor: 'pointer' }}>
-              <ArrowPathIcon style={{ width: '20px', height: '20px', color: '#8b949e' }} />
+            <button onClick={fetchAllData} title="Atualizar dados (Ctrl+R)" aria-label="Atualizar dados" style={{ padding: '10px', borderRadius: '8px', backgroundColor: 'transparent', border: '1px solid var(--cmd-border)', cursor: 'pointer' }}>
+              <ArrowPathIcon style={{ width: '20px', height: '20px', color: 'var(--cmd-text-muted)' }} />
             </button>
             <ConnectionStatus isOnline={backendOnline} lastUpdate={lastUpdate} />
           </div>
@@ -284,10 +362,10 @@ export default function Home() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
             {[
-              { icon: ClockIcon, label: 'Na Fila', value: ingestionStatus.queued, accent: '#d29922' },
-              { icon: CpuChipIcon, label: 'Processando', value: ingestionStatus.processing, accent: '#58a6ff' },
-              { icon: CheckCircleIcon, label: 'Concluídos', value: ingestionStatus.completed, accent: '#3fb950' },
-              { icon: XCircleIcon, label: 'Falhas', value: ingestionStatus.failed, accent: '#f85149' },
+              { icon: ClockIcon, label: 'Na Fila', value: ingestionStatus.queued, accent: 'var(--cmd-yellow)' },
+              { icon: CpuChipIcon, label: 'Processando', value: ingestionStatus.processing, accent: 'var(--cmd-blue)' },
+              { icon: CheckCircleIcon, label: 'Concluídos', value: ingestionStatus.completed, accent: 'var(--cmd-green)' },
+              { icon: XCircleIcon, label: 'Falhas', value: ingestionStatus.failed, accent: 'var(--cmd-red)' },
             ].map((card, i) => (
               <div
                 key={i}
@@ -371,7 +449,7 @@ export default function Home() {
             </div>
 
             {/* Pending Approval Card */}
-            <div style={{ padding: '24px', borderRadius: '12px', backgroundColor: '#1c2128', border: '1px solid rgba(163,113,247,0.3)' }}>
+            <div style={{ padding: '24px', borderRadius: '12px', backgroundColor: 'var(--cmd-card)', border: '1px solid var(--cmd-purple-bg)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: 'rgba(163,113,247,0.15)', border: '1px solid rgba(163,113,247,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -379,8 +457,25 @@ export default function Home() {
                   </div>
                   <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#fff', margin: 0 }}>Aprovação Manual</h3>
                 </div>
-                {pendingCount > 0 && (
-                  <span style={{ fontSize: '11px', color: '#a371f7', fontFamily: 'monospace', padding: '4px 10px', backgroundColor: 'rgba(163,113,247,0.15)', borderRadius: '6px' }}>
+                {selectedVideoIds.size > 0 ? (
+                  <button
+                    onClick={handleOpenMassApproval}
+                    style={{
+                      padding: '8px 14px',
+                      background: 'var(--gradient-brand)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontWeight: 600,
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      boxShadow: 'var(--shadow-glow-purple)'
+                    }}
+                  >
+                    Aprovar ({selectedVideoIds.size})
+                  </button>
+                ) : pendingCount > 0 && (
+                  <span style={{ fontSize: '11px', color: 'var(--cmd-purple)', fontFamily: 'monospace', padding: '4px 10px', backgroundColor: 'var(--cmd-purple-bg)', borderRadius: '6px', border: '1px solid var(--cmd-purple)' }}>
                     {pendingCount} pendente{pendingCount !== 1 ? 's' : ''}
                   </span>
                 )}
@@ -393,20 +488,28 @@ export default function Home() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {pendingVideos.map((video) => (
-                    <div key={video.id} style={{ padding: '14px', borderRadius: '10px', backgroundColor: '#161b22', border: '1px solid #30363d' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                        <div style={{ flex: 1 }}>
-                          <p style={{ fontSize: '13px', color: '#fff', margin: 0, fontWeight: 500 }}>{video.metadata.original_filename || video.filename}</p>
-                          <p style={{ fontSize: '10px', color: '#8b949e', margin: '4px 0 0' }}>Perfil: {video.metadata.profile_id || video.profile}</p>
+                    <div key={video.id} style={{ padding: '14px', borderRadius: '10px', backgroundColor: '#161b22', border: '1px solid #30363d', display: 'flex', gap: '12px' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedVideoIds.has(video.id)}
+                        onChange={() => handleVideoSelect(video.id)}
+                        style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--cmd-purple)' }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                          <div style={{ flex: 1 }}>
+                            <p style={{ fontSize: '13px', color: '#fff', margin: 0, fontWeight: 500 }}>{video.metadata.original_filename || video.filename}</p>
+                            <p style={{ fontSize: '10px', color: '#8b949e', margin: '4px 0 0' }}>Perfil: {video.metadata.profile_id || video.profile}</p>
+                          </div>
                         </div>
-                      </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => handleApprove(video)} style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', background: 'linear-gradient(135deg, #238636, #1f6feb)', border: 'none', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                          <CheckCircleIcon style={{ width: '14px', height: '14px' }} /> Aprovar
-                        </button>
-                        <button onClick={() => handleReject(video.id)} title="Rejeitar vídeo" aria-label="Rejeitar vídeo" style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: 'rgba(248,81,73,0.15)', border: '1px solid rgba(248,81,73,0.4)', color: '#f85149', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
-                          <XMarkIcon style={{ width: '14px', height: '14px' }} />
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button onClick={() => handleApprove(video)} style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', background: 'var(--gradient-brand)', border: 'none', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', boxShadow: 'var(--shadow-glow-purple)' }}>
+                            <CheckCircleIcon style={{ width: '14px', height: '14px' }} /> Aprovar
+                          </button>
+                          <button onClick={() => handleReject(video.id)} title="Rejeitar vídeo" aria-label="Rejeitar vídeo" style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: 'rgba(248,81,73,0.15)', border: '1px solid rgba(248,81,73,0.4)', color: '#f85149', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                            <XMarkIcon style={{ width: '14px', height: '14px' }} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -561,8 +664,88 @@ export default function Home() {
 
             <div style={{ display: 'flex', gap: '12px' }}>
               <button onClick={() => { setShowApprovalModal(false); setSelectedVideo(null); }} disabled={submitting} style={{ flex: 1, padding: '14px', borderRadius: '10px', backgroundColor: '#30363d', border: 'none', color: '#c9d1d9', fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={handleConfirmApproval} disabled={submitting || (postType === 'scheduled' && !selectedDate)} style={{ flex: 1, padding: '14px', borderRadius: '10px', background: 'linear-gradient(135deg, #238636, #1f6feb)', border: 'none', color: '#fff', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+              <button onClick={handleConfirmApproval} disabled={submitting || (postType === 'scheduled' && !selectedDate)} style={{ flex: 1, padding: '14px', borderRadius: '10px', background: 'var(--gradient-brand)', border: 'none', color: '#fff', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', boxShadow: 'var(--shadow-glow-pink)' }}>
                 {submitting ? 'Processando...' : <><CheckCircleIcon style={{ width: '16px', height: '16px' }} /> Confirmar</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mass Approval Modal */}
+      {showMassApprovalModal && selectedVideoIds.size > 0 && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px', overflowY: 'auto' }}>
+          <div style={{ width: '100%', maxWidth: '700px', padding: '32px', borderRadius: '16px', backgroundColor: '#1c2128', border: '1px solid var(--cmd-purple)', boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 40px rgba(192,132,252,0.15)' }}>
+            <h2 style={{ fontSize: '22px', fontWeight: 'bold', color: '#fff', margin: '0 0 10px', background: 'var(--gradient-brand)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Aprovação em Massa</h2>
+            <p style={{ fontSize: '12px', color: '#8b949e', margin: '0 0 24px' }}>{selectedVideoIds.size} vídeos selecionados</p>
+
+            {/* Global Controls */}
+            <div style={{ padding: '20px', borderRadius: '12px', backgroundColor: 'rgba(192,132,252,0.05)', border: '1px solid var(--cmd-purple-bg)', marginBottom: '20px' }}>
+              <p style={{ fontSize: '13px', color: 'var(--cmd-purple)', fontWeight: 600, marginBottom: '12px' }}>⚙️ Configurações Globais</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', color: '#8b949e', marginBottom: '6px', display: 'block' }}>Tipo de Postagem</label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => setMassPostType('immediate')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: massPostType === 'immediate' ? '2px solid var(--cmd-green)' : '2px solid #30363d', backgroundColor: massPostType === 'immediate' ? 'var(--cmd-green-bg)' : 'transparent', color: massPostType === 'immediate' ? 'var(--cmd-green)' : '#8b949e', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}>Imediato</button>
+                    <button onClick={() => setMassPostType('scheduled')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: massPostType === 'scheduled' ? '2px solid var(--cmd-purple)' : '2px solid #30363d', backgroundColor: massPostType === 'scheduled' ? 'var(--cmd-purple-bg)' : 'transparent', color: massPostType === 'scheduled' ? 'var(--cmd-purple)' : '#8b949e', fontWeight: 600, fontSize: '11px', cursor: 'pointer' }}>Agendado</button>
+                  </div>
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', color: '#8b949e', marginBottom: '6px', display: 'block' }}>Perfil Padrão (Opcional)</label>
+                  <select value={massProfile} onChange={(e) => setMassProfile(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', backgroundColor: '#161b22', border: '1px solid #30363d', color: '#fff', fontSize: '12px' }}>
+                    <option value="">Manter Original</option>
+                    {profiles.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Individual Video List */}
+            <div style={{ maxHeight: '400px', overflowY: 'auto', marginBottom: '20px' }}>
+              <p style={{ fontSize: '12px', color: '#8b949e', fontFamily: 'monospace', marginBottom: '12px' }}>CONFIGURAÇÃO POR VÍDEO:</p>
+              {Array.from(selectedVideoIds).map((id) => {
+                const video = pendingVideos.find(v => v.id === id);
+                if (!video) return null;
+                const config = individualConfigs[id];
+                return (
+                  <div key={id} style={{ padding: '16px', borderRadius: '10px', backgroundColor: '#161b22', border: '1px solid #30363d', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <div>
+                        <p style={{ fontSize: '13px', color: '#fff', margin: 0, fontWeight: 500 }}>{video.metadata.original_filename || video.filename}</p>
+                        <p style={{ fontSize: '10px', color: '#8b949e', margin: '4px 0 0' }}>Original: {video.metadata.profile_id || video.profile}</p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: massPostType === 'scheduled' ? '1fr 1fr 1fr' : '1fr', gap: '10px' }}>
+                      <div>
+                        <label style={{ fontSize: '10px', color: '#8b949e', marginBottom: '4px', display: 'block' }}>Perfil</label>
+                        <select value={config?.profile || ''} onChange={(e) => updateIndividualConfig(id, 'profile', e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', backgroundColor: '#0d1117', border: '1px solid #30363d', color: '#fff', fontSize: '11px' }}>
+                          {profiles.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                        </select>
+                      </div>
+                      {massPostType === 'scheduled' && (
+                        <>
+                          <div>
+                            <label style={{ fontSize: '10px', color: '#8b949e', marginBottom: '4px', display: 'block' }}>Data</label>
+                            <input type="date" value={config?.date || ''} onChange={(e) => updateIndividualConfig(id, 'date', e.target.value)} min={new Date().toISOString().split('T')[0]} style={{ width: '100%', padding: '8px', borderRadius: '6px', backgroundColor: '#0d1117', border: '1px solid #30363d', color: '#fff', fontSize: '11px' }} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: '10px', color: '#8b949e', marginBottom: '4px', display: 'block' }}>Hora</label>
+                            <select value={config?.time || '12:40'} onChange={(e) => updateIndividualConfig(id, 'time', e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', backgroundColor: '#0d1117', border: '1px solid #30363d', color: '#fff', fontSize: '11px' }}>
+                              {timeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button onClick={() => { setShowMassApprovalModal(false); setSelectedVideoIds(new Set()); }} disabled={submitting} style={{ flex: 1, padding: '14px', borderRadius: '10px', backgroundColor: '#30363d', border: 'none', color: '#c9d1d9', fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={handleMassApprovalConfirm} disabled={submitting} style={{ flex: 1, padding: '14px', borderRadius: '10px', background: 'var(--gradient-brand)', border: 'none', color: '#fff', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', boxShadow: 'var(--shadow-glow-pink)' }}>
+                {submitting ? 'Processando...' : <><CheckCircleIcon style={{ width: '16px', height: '16px' }} /> Confirmar ({selectedVideoIds.size})</>}
               </button>
             </div>
           </div>

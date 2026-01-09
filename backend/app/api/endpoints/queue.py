@@ -36,6 +36,7 @@ class ApprovalRequest(BaseModel):
     id: str
     action: str  # "immediate" or "scheduled"
     schedule_time: Optional[str] = None
+    target_profile_id: Optional[str] = None  # Override profile for this video
 
 
 @router.get("/pending", response_model=List[PendingVideo])
@@ -116,6 +117,10 @@ async def approve_video(request: ApprovalRequest, background_tasks: BackgroundTa
         metadata['schedule_time'] = request.schedule_time
         metadata['status'] = 'approved'
         
+        # Override profile if provided
+        if request.target_profile_id:
+            metadata['profile_id'] = request.target_profile_id
+        
         # Move files
         shutil.move(pending_video, approved_video)
         
@@ -127,26 +132,9 @@ async def approve_video(request: ApprovalRequest, background_tasks: BackgroundTa
         if os.path.exists(pending_metadata):
             os.remove(pending_metadata)
         
-        # Trigger execution for immediate posts
-        if request.action == 'immediate':
-            # Import here to avoid circular dependency
-            import sys
-            import asyncio
-            sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
-            from core.manual_executor import execute_approved_video
-            
-            # Create sync wrapper for background task
-            def run_async_executor():
-                """Wrapper to run async function in background task"""
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    loop.run_until_complete(execute_approved_video(video_filename))
-                finally:
-                    loop.close()
-            
-            # Add to background tasks (non-blocking)
-            background_tasks.add_task(run_async_executor)
+        # Execution is now handled by the Queue Worker (core/queue_worker.py)
+        # which monitors the 'approved' directory and processes sequentially.
+        pass
         
         return {
             "success": True,
@@ -154,7 +142,8 @@ async def approve_video(request: ApprovalRequest, background_tasks: BackgroundTa
             "filename": video_filename,
             "action": request.action,
             "schedule_time": request.schedule_time,
-            "executing": request.action == 'immediate'
+            "executing": False,
+            "queued": True
         }
     
     except HTTPException:

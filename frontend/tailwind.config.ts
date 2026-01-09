@@ -10,18 +10,18 @@ export default {
         extend: {
             colors: {
                 cmd: {
-                    bg: "#0d1117",
-                    surface: "#161b22",
-                    card: "#1c2128",
-                    border: "#30363d",
-                    text: "#c9d1d9",
-                    muted: "#8b949e",
-                    accent: "#58a6ff",
-                    green: "#3fb950",
-                    red: "#f85149",
-                    yellow: "#d29922",
-                    purple: "#a371f7",
-                    cyan: "#39d353",
+                    bg: "var(--cmd-bg)",
+                    surface: "var(--cmd-surface)",
+                    card: "var(--cmd-card)",
+                    border: "var(--cmd-border)",
+                    text: "var(--cmd-text)",
+                    muted: "var(--cmd-text-muted)",
+                    accent: "var(--cmd-blue)", // Legacy mapping
+                    green: "var(--cmd-green)",
+                    red: "var(--cmd-red)",
+                    yellow: "var(--cmd-yellow)",
+                    purple: "var(--cmd-purple)", // New
+                    cyan: "var(--cmd-blue)",     // New
                 }
             },
             animation: {

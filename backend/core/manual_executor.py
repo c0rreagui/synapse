@@ -106,7 +106,7 @@ async def execute_approved_video(video_filename: str) -> dict:
             hashtags=hashtags,
             schedule_time=schedule_time if action == 'scheduled' else None,
             post=(action == 'immediate'),
-            enable_monitor=False  # Disabled for manual execution
+            enable_monitor=True  # ENABLED for Audit/Debugging
         )
         
         # Move to done/errors based on result

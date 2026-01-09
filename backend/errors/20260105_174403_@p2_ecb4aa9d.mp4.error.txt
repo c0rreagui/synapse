@@ -1,3 +1,0 @@
-Timestamp: 2026-01-05T17:44:03.393511
-File: @p2_ecb4aa9d.mp4
-Error: Success (Action Completed)
