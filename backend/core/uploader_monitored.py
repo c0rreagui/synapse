@@ -26,7 +26,8 @@ async def upload_video_monitored(
     hashtags: list = None,
     schedule_time: str = None, 
     post: bool = False,
-    enable_monitor: bool = False  # 👁️ Monitor desativado por padrão
+    enable_monitor: bool = False,  # 👁️ Monitor desativado por padrão
+    viral_music_enabled: bool = False
 ) -> dict:
     result = {"status": "error", "message": "", "screenshot_path": None}
     
@@ -300,8 +301,67 @@ async def upload_video_monitored(
         
         if not upload_success:
             logger.warning("⚠️ Tempo limite de espera do upload excedido ou não detectado. Tentando prosseguir...")
-            if monitor:
-                await monitor.capture_full_state(page, "aviso_upload_timeout", "Timeout esperando upload")
+
+        # ========== VIRAL AUDIO BOOST (MONITORED) ==========
+        if viral_music_enabled:
+            logger.info("🎵 Iniciando Viral Audio Boost...")
+            if monitor: await monitor.capture_full_state(page, "pre_viral_boost", "Iniciando Boost Viral")
+            
+            try:
+                # 1. Clicar em Editar
+                edit_btn = page.locator('button:has-text("Editar vídeo"), button:has-text("Edit video")').first
+                if await edit_btn.is_visible():
+                    await edit_btn.click()
+                    await page.wait_for_timeout(5000) # Espera editor carregar
+                    
+                    if monitor: await monitor.capture_full_state(page, "editor_aberto", "Editor de vídeo aberto")
+
+                    # 2. Clicar em Música/Sons
+                    music_tab = page.locator('div[role="tab"], button').filter(has_text=re.compile(r"Música|Music|Sound|Som", re.I)).first
+                    if await music_tab.is_visible():
+                        await music_tab.click()
+                        await page.wait_for_timeout(2000)
+                        
+                        # 3. Selecionar Top 1
+                        first_song = page.locator('.music-item, [class*="music-card"]').first
+                        if await first_song.is_visible():
+                            await first_song.hover()
+                            use_btn = first_song.locator('button')
+                            if await use_btn.count() > 0:
+                                await use_btn.first.click()
+                                logger.info("🎵 Música Viral aplicada!")
+                                await page.wait_for_timeout(1000)
+                                
+                                # 4. Ajustar Volume (Original 0%)
+                                volume_tab = page.locator('div, button').filter(has_text=re.compile(r"Volume", re.I)).last
+                                if await volume_tab.is_visible():
+                                    await volume_tab.click()
+                                    await page.wait_for_timeout(500)
+                                    sliders = page.locator('input[type="range"]')
+                                    if await sliders.count() >= 2:
+                                        await sliders.first.fill("0") 
+                                        logger.info("🔈 Volume original definido para 0.")
+                                        if monitor: await monitor.capture_full_state(page, "volume_ajustado", "Volume original mudo")
+                            
+                    # 5. Salvar
+                    save_edit = page.locator('button:has-text("Salvar edição"), button:has-text("Save edit"), button:has-text("Confirmar")').last
+                    if await save_edit.is_visible():
+                        await save_edit.click()
+                        await page.wait_for_timeout(5000)
+                        logger.info("✅ Edição salva.")
+                        if monitor: await monitor.capture_full_state(page, "editor_salvo", "Edição salva com sucesso")
+                    else:
+                         logger.warning("Botão Salvar não encontrado, voltando...")
+                         await page.keyboard.press("Escape")
+
+                else:
+                    logger.warning("Botão de Editar Vídeo não encontrado. Pulando Viral Boost.")
+                    if monitor: await monitor.capture_full_state(page, "erro_botao_editar", "Botão Editar não encontrado")
+
+            except Exception as e:
+                logger.error(f"❌ Falha no Viral Boost: {e}")
+                if monitor: await monitor.capture_full_state(page, "erro_viral_boost", str(e))
+                await page.keyboard.press("Escape")
 
         # ========== AGENDAMENTO (VISUAL HUMANO - CLIQUE) ==========
         if schedule_time:

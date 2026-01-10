@@ -39,3 +39,4 @@
 {"id": "166bfce2-6fcd-44e5-83b2-c15ba6bc4386", "timestamp": "19:00:45", "full_timestamp": "2026-01-09T19:00:45.137302", "level": "info", "message": "Log de teste (info)", "source": "frontend"}
 {"id": "8aa296f1-ff01-4a38-8315-f92e977441c7", "timestamp": "19:00:45", "full_timestamp": "2026-01-09T19:00:45.287747", "level": "info", "message": "Log de teste (info)", "source": "frontend"}
 {"id": "4c132a86-75e1-4d67-98eb-63bcb95e2d9c", "timestamp": "19:00:45", "full_timestamp": "2026-01-09T19:00:45.444451", "level": "info", "message": "Log de teste (info)", "source": "frontend"}
+{"id": "413fdfe0-0577-49ca-9258-e7513d3c47b4", "timestamp": "23:47:58", "full_timestamp": "2026-01-09T23:47:58.854220", "level": "success", "message": "Log de teste (success)", "source": "frontend"}

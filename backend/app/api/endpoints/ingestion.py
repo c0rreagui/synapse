@@ -30,7 +30,8 @@ async def upload_video(
     file: UploadFile = File(...),
     profile_id: str = Form(...),
     caption: Optional[str] = Form(None),
-    schedule_time: Optional[str] = Form(None)
+    schedule_time: Optional[str] = Form(None),
+    viral_music_enabled: bool = Form(False)
 ):
     """
     Upload a video file for automated processing.
@@ -39,6 +40,7 @@ async def upload_video(
     - **profile_id**: Target profile (p1, p2, etc.)
     - **caption**: Optional caption for the video
     - **schedule_time**: Optional ISO datetime string for scheduling
+    - **viral_music_enabled**: replace audio with trending music (default: False)
     
     The file will be saved to inputs/ with a profile tag prefix,
     triggering the factory_watcher to process it automatically.
@@ -80,6 +82,7 @@ async def upload_video(
         metadata = {
             "caption": final_caption,
             "schedule_time": schedule_time, # ISO Format from frontend
+            "viral_music_enabled": viral_music_enabled,
             "original_filename": file.filename,
             "profile_id": profile_id,
             "uploaded_at": str(uuid.uuid1()) # Timestamp

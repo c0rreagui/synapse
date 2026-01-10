@@ -37,10 +37,10 @@ def main():
 
     # 3. Disparar API
     url = "http://127.0.0.1:8000/api/v1/ingest/upload"
-    
     payload = {
         "profile_id": "p1",
-        "schedule_time": schedule_time_str
+        "schedule_time": schedule_time_str,
+        "viral_music_enabled": True
     }
     
     files = {

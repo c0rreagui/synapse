@@ -117,6 +117,23 @@ async def worker(queue: asyncio.Queue):
                 if os.path.exists(proc_path):
                     os.remove(proc_path)
                 shutil.move(original_path, proc_path)
+                
+                # Move Sidecar JSON if exists
+                original_json = original_path + ".json"
+                proc_json = proc_path + ".json"
+                sidecar_data = {}
+                
+                if os.path.exists(original_json):
+                     if os.path.exists(proc_json): os.remove(proc_json)
+                     shutil.move(original_json, proc_json)
+                     # Load Sidecar Data
+                     try:
+                         with open(proc_json, 'r', encoding='utf-8') as f:
+                             sidecar_data = json.load(f)
+                         logger.info(f"📄 Metadados laterais carregados: {sidecar_data}")
+                     except Exception as e:
+                         logger.error(f"⚠️ Erro ao ler JSON lateral: {e}")
+                
             except Exception as e:
                 logger.error(f"❌ Erro ao mover para processing: {e}")
                 queue.task_done()
@@ -126,11 +143,16 @@ async def worker(queue: asyncio.Queue):
             logger.info("🧠 Brain analisando conteúdo...")
             brain_data = await brain.generate_smart_caption(fname)
             
-            # TODO: Futuramente, ler JSON sidecar para override manual
+            # Merge com Sidecar (Override)
+            final_caption = sidecar_data.get("caption") or brain_data["caption"]
+            final_schedule = sidecar_data.get("schedule_time") # None se não houver
+            viral_boost = sidecar_data.get("viral_music_enabled", False)
+
             meta = {
-                "caption": brain_data["caption"],
+                "caption": final_caption,
                 "hashtags": brain_data["hashtags"],
-                "schedule_time": None
+                "schedule_time": final_schedule,
+                "viral_music_enabled": viral_boost
             }
             
             # Salva o JSON gerado pelo Brain na pasta processing para debug
@@ -147,7 +169,8 @@ async def worker(queue: asyncio.Queue):
                 caption=meta["caption"],
                 hashtags=meta["hashtags"],
                 schedule_time=meta.get("schedule_time"),
-                post=False # Rascunho padrão
+                post=False, # Rascunho padrão
+                viral_music_enabled=meta.get("viral_music_enabled", False)
             )
             
             # 5. Backup e Cleanup

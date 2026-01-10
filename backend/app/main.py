@@ -30,7 +30,7 @@ app.add_middleware(
 
 from fastapi.staticfiles import StaticFiles
 import os
-from .api.endpoints import content, ingestion, profiles, logs, queue, videos, status
+from .api.endpoints import content, ingestion, profiles, logs, queue, videos, status, scheduler
 from .api import debug_router
 from .api import websocket as ws_router
 
@@ -47,6 +47,7 @@ app.include_router(logs.router, prefix="/api/v1/logs", tags=["logs"])
 app.include_router(queue.router, prefix="/api/v1/queue", tags=["queue"])
 app.include_router(videos.router, prefix="/api/v1/videos", tags=["videos"])
 app.include_router(status.router, prefix="/api/v1/status", tags=["status"])
+app.include_router(scheduler.router, prefix="/api/v1/scheduler", tags=["scheduler"])
 app.include_router(debug_router.router, prefix="/api/v1", tags=["debug"])
 app.include_router(ws_router.router, tags=["websocket"])
 

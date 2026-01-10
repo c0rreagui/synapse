@@ -155,9 +155,18 @@ class TikTokMonitor:
             step_data["artifacts"]["screenshot_full"] = str(screenshot_file)
             
             # 📸 SCREENSHOT (viewport)
-            screenshot_viewport = self.screenshots_path / f"{step_id}_viewport.png"
             await page.screenshot(path=str(screenshot_viewport))
             step_data["artifacts"]["screenshot_viewport"] = str(screenshot_viewport)
+            
+            # 🖼️ LIVE VIEW UPDATE
+            try:
+                static_dir = self.base_path.parent.parent.parent / "backend" / "static"
+                if static_dir.exists():
+                    latest_path = static_dir / "monitor_live.jpg"
+                    import shutil
+                    shutil.copy(screenshot_viewport, latest_path)
+            except Exception as e:
+                logger.warning(f"Falha ao atualizar Live View: {e}")
             
             # ========== HTML & DOM ==========
             

@@ -24,7 +24,8 @@ async def upload_video(
     caption: str,
     hashtags: list = None,
     schedule_time: str = None, 
-    post: bool = False
+    post: bool = False,
+    viral_music_enabled: bool = False
 ) -> dict:
     result = {"status": "error", "message": "", "screenshot_path": None}
     
@@ -77,6 +78,66 @@ async def upload_video(
         # Espera upload concluir (pode demorar)
         logger.info("Aguardando upload concluir...")
         await page.wait_for_selector('text="Substituir", [data-e2e="upload-publish-btn"]:not([disabled])', timeout=180000)
+        
+        # ========== VIRAL AUDIO BOOST ==========
+        if viral_music_enabled:
+            logger.info("🎵 Iniciando Viral Audio Boost...")
+            try:
+                # 1. Clicar em Editar
+                edit_btn = page.locator('button:has-text("Editar vídeo"), button:has-text("Edit video")').first
+                if await edit_btn.is_visible():
+                    await edit_btn.click()
+                    await page.wait_for_timeout(5000) # Espera editor carregar
+                    
+                    # 2. Clicar em Música/Sons (Tentativa)
+                    # Nota: Seletores aproximados baseados na UI padrão
+                    music_tab = page.locator('div[role="tab"], button').filter(has_text=re.compile(r"Música|Music|Sound|Som", re.I)).first
+                    if await music_tab.is_visible():
+                        await music_tab.click()
+                        await page.wait_for_timeout(2000)
+                        
+                        # 3. Selecionar Top 1 Global/Recomendado
+                        # Geralmente a primeira lista é Trending
+                        first_song = page.locator('.music-item, [class*="music-card"]').first
+                        if await first_song.is_visible():
+                            await first_song.hover()
+                            use_btn = first_song.locator('button')
+                            if await use_btn.count() > 0:
+                                await use_btn.first.click()
+                                logger.info("🎵 Música Viral aplicada!")
+                                await page.wait_for_timeout(1000)
+                                
+                                # 4. Ajustar Volume (Original 0%)
+                                # Tenta achar sliders
+                                volume_tab = page.locator('div, button').filter(has_text=re.compile(r"Volume", re.I)).last
+                                if await volume_tab.is_visible():
+                                    await volume_tab.click()
+                                    await page.wait_for_timeout(500)
+                                    # Hack: Tenta arrastar sliders ou clicar no inicio
+                                    sliders = page.locator('input[type="range"]')
+                                    if await sliders.count() >= 2:
+                                        # Assumindo 0 = Original, 1 = Adicionado (ou vice-versa, difícil saber sem ver)
+                                        # Vamos tentar mutar o Original
+                                        await sliders.first.fill("0") 
+                                        logger.info("🔈 Volume original definido para 0.")
+                            
+                    # 5. Salvar
+                    save_edit = page.locator('button:has-text("Salvar edição"), button:has-text("Save edit"), button:has-text("Confirmar")').last
+                    if await save_edit.is_visible():
+                        await save_edit.click()
+                        await page.wait_for_timeout(5000) # Espera processar
+                        logger.info("✅ Edição salva.")
+                    else:
+                         logger.warning("Botão Salvar não encontrado, voltando...")
+                         await page.keyboard.press("Escape")
+
+                else:
+                    logger.warning("Botão de Editar Vídeo não encontrado. Pulando Viral Boost.")
+
+            except Exception as e:
+                logger.error(f"❌ Falha no Viral Boost: {e}")
+                # Tenta recuperar saindo do modal
+                await page.keyboard.press("Escape")
         
         # ========== AGENDAMENTO ROBUSTO ==========
         if schedule_time:

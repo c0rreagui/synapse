@@ -13,6 +13,10 @@ import {
     PlayCircleIcon,
     XCircleIcon
 } from '@heroicons/react/24/outline';
+import BotCard, { BotProps } from './BotCard';
+
+// MOCK DATA (Depois virá do BackendStatus)
+// MOCK DATA REMOVED - Using BackendStatus.bots
 
 interface BackendStatus {
     state: 'idle' | 'busy' | 'error' | 'paused' | 'unknown';
@@ -28,6 +32,7 @@ interface BackendStatus {
         ram_percent: number;
         disk_usage: number;
     };
+    bots?: BotProps[];
 }
 
 interface Props {
@@ -299,6 +304,13 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
                         {expanded ? 'HIDE_LOGS' : 'SHOW_LOGS'}
                     </button>
                 </div>
+            </div>
+
+            {/* BOTS GRID (Novo) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border-b border-cmd-border/50 bg-[#0d1117]/50">
+                {(effectiveStatus.bots || []).map(bot => (
+                    <BotCard key={bot.id} {...bot} />
+                ))}
             </div>
 
             {/* Expanded Logs (Terminal View) */}

@@ -200,6 +200,16 @@ export interface BackendStatus {
     timestamp?: number;
     job: JobStatus;
     system?: SystemStats;
+    bots?: BotStatus[];
+}
+
+export interface BotStatus {
+    id: string;
+    name: string;
+    role: 'UPLOADER' | 'FACTORY' | 'MONITOR' | 'SCHEDULER';
+    status: 'online' | 'offline' | 'error' | 'sleeping';
+    current_task?: string;
+    uptime?: string;
 }
 
 // --- PROFILE TYPES (Synced with backend/core/session_manager.py) ---
@@ -221,4 +231,12 @@ export type WebSocketMessageType = 'pipeline_update' | 'log_entry' | 'profile_ch
 export interface WebSocketPayload<T = unknown> {
     type: WebSocketMessageType;
     data: T;
+}
+
+export interface ScheduleEvent {
+    id: string;
+    profile_id: string;
+    video_path: string;
+    scheduled_time: string;
+    status: 'pending' | 'posted' | 'failed';
 }

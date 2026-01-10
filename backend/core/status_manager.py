@@ -16,6 +16,17 @@ class StatusManager:
         self.file_path = STATUS_FILE
         self._ensure_dir()
         self.async_callback = None
+        # In-memory storage for bots status (to avoid full file dependency for high freq updates)
+        self.bots_status = {
+            "uploader": {"id": "1", "name": "ATLAS-01", "role": "UPLOADER", "status": "online", "current_task": "Idle", "uptime": "0s"},
+            "factory": {"id": "2", "name": "FORGE-X", "role": "FACTORY", "status": "online", "current_task": "Watching inputs...", "uptime": "0s"},
+            "monitor": {"id": "3", "name": "WATCHER-V2", "role": "MONITOR", "status": "online", "current_task": "System Check", "uptime": "0s"}
+        }
+        self.start_times = {
+            "uploader": time.time(),
+            "factory": time.time(),
+            "monitor": time.time()
+        }
 
     def set_async_callback(self, callback):
         self.async_callback = callback
@@ -33,6 +44,22 @@ class StatusManager:
         except:
             return {}
 
+    def _update_uptimes(self):
+        now = time.time()
+        for key in self.bots_status:
+            diff = int(now - self.start_times.get(key, now))
+            # Format timedelta
+            hours, remainder = divmod(diff, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            self.bots_status[key]["uptime"] = f"{hours}h {minutes}m"
+
+    def update_bot_status(self, bot_key: str, status: str, task: str):
+        if bot_key in self.bots_status:
+            self.bots_status[bot_key]["status"] = status
+            self.bots_status[bot_key]["current_task"] = task
+            # Trigger full update broadcast logic if needed, or just persist
+            # For now, we will piggyback on the main update or next polling/broadcast
+
     def update_status(self, 
                       state: str, # 'idle', 'busy', 'error', 'paused'
                       current_task: Optional[str] = None, 
@@ -42,6 +69,8 @@ class StatusManager:
         """
         Updates the global system status.
         """
+        self._update_uptimes()
+
         data = {
             "state": state,
             "last_updated": datetime.now().isoformat(),
@@ -51,7 +80,8 @@ class StatusManager:
                 "progress": progress,
                 "step": step or "Waiting...",
                 "logs": logs or []
-            }
+            },
+            "bots": list(self.bots_status.values())
         }
         
         try:
@@ -67,7 +97,8 @@ class StatusManager:
                     data_to_send = {
                         "state": state,
                         "job": data["job"],
-                        "system": self._get_system_stats()
+                        "system": self._get_system_stats(),
+                        "bots": data["bots"]
                     }
                     asyncio.run_coroutine_threadsafe(self.async_callback(data_to_send), loop)
             except Exception as e:
@@ -78,20 +109,25 @@ class StatusManager:
         # Base status from file
         status = {}
         if not os.path.exists(self.file_path):
+            self._update_uptimes()
             status = {
                 "state": "idle",
                 "last_updated": datetime.now().isoformat(),
-                "job": {"name": None, "progress": 0, "step": "Ready", "logs": []}
+                "job": {"name": None, "progress": 0, "step": "Ready", "logs": []},
+                "bots": list(self.bots_status.values())
             }
         else:
             try:
                 with open(self.file_path, 'r', encoding='utf-8') as f:
                     status = json.load(f)
             except:
-                status = {"state": "unknown", "job": {}}
+                status = {"state": "unknown", "job": {}, "bots": []}
 
         # Append Real Hardware Stats (On-the-fly)
         status["system"] = self._get_system_stats()
+        # Merge latest memory bot stats if file is stale
+        self._update_uptimes()
+        status["bots"] = list(self.bots_status.values())
             
         return status
 
