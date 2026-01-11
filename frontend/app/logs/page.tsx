@@ -1,315 +1,204 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Sidebar from '../components/Sidebar';
-import Badge from '../components/Badge';
-import Spinner from '../components/Spinner';
-import EmptyState from '../components/EmptyState';
 import useWebSocket from '../hooks/useWebSocket';
-import {
-    ArrowPathIcon, TrashIcon,
-    CheckCircleIcon, ExclamationTriangleIcon, InformationCircleIcon, XCircleIcon,
-    ClockIcon, FunnelIcon
-} from '@heroicons/react/24/outline';
-
-interface LogEntry {
-    id: string;
-    timestamp: string;
-    level: 'info' | 'success' | 'warning' | 'error';
-    message: string;
-    source: string;
-}
+import LogTerminal, { LogEntry } from '../components/LogTerminal';
+import SystemMonitor from '../components/SystemMonitor';
+import { BotStatus } from '../types';
+import { StitchCard } from '../components/StitchCard';
+import clsx from 'clsx';
+import { ComputerDesktopIcon } from '@heroicons/react/24/outline';
 
 const API_BASE = 'http://localhost:8000/api/v1';
 
+// Componente simples para Status dos Bots
+const BotStatusCompact = ({ bots }: { bots?: BotStatus[] }) => {
+    return (
+        <StitchCard className="p-4 font-mono">
+            <h3 className="text-xs font-bold text-synapse-emerald mb-4 flex items-center gap-2 border-b border-white/5 pb-2 uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 bg-synapse-emerald rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                Active Nodes
+            </h3>
+            <div className="space-y-3">
+                {(bots || []).map(bot => (
+                    <div key={bot.id} className="flex items-center justify-between text-xs border-b border-white/5 pb-2 last:border-0 last:pb-0">
+                        <div className="flex flex-col">
+                            <span className="text-white font-bold">{bot.name}</span>
+                            <span className="text-[10px] text-gray-500">{bot.role}</span>
+                        </div>
+                        <div className="flex flex-col items-end">
+                            <span className={clsx("px-2 py-0.5 rounded text-[10px] uppercase font-bold",
+                                bot.status === 'online' ? 'bg-synapse-emerald/10 text-synapse-emerald border border-synapse-emerald/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                            )}>
+                                {bot.status}
+                            </span>
+                            <span className="text-[9px] text-gray-600 mt-0.5">{bot.uptime || '0s'}</span>
+                        </div>
+                    </div>
+                ))}
+                {(!bots || bots.length === 0) && (
+                    <div className="text-gray-600 text-xs italic text-center py-2">
+                        NO_NODES_DETECTED
+                    </div>
+                )}
+            </div>
+        </StitchCard>
+    );
+};
+
 export default function LogsPage() {
     const [logs, setLogs] = useState<LogEntry[]>([]);
-    const [stats, setStats] = useState({ info: 0, success: 0, warning: 0, error: 0, total: 0 });
-    const [filter, setFilter] = useState<string>('all');
-    const [autoScroll, setAutoScroll] = useState(true);
+    const [systemStats, setSystemStats] = useState({ cpu_percent: 0, ram_percent: 0, disk_usage: 0 });
+    const [bots, setBots] = useState<BotStatus[]>([]);
     const [loading, setLoading] = useState(true);
     const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
-    const logContainerRef = useRef<HTMLDivElement>(null);
 
-    // WebSocket for real-time log updates
+    // WebSocket for real-time log updates AND system stats
     useWebSocket({
         onLogEntry: (data) => {
-            // Ensure data is treated as LogEntry
             const newLog = (typeof data === 'string' ? JSON.parse(data) : data) as LogEntry;
-
-            // Filter client-side if needed, but usually we define that in the prompt or backend
             setLogs(prev => {
-                const updated = [newLog, ...prev].slice(0, 200); // Keep last 200 logs
+                const updated = [...prev, newLog].slice(-200); // Keep last 200 logs, appending to end for terminal feel
                 return updated;
             });
+            // Update time on client to avoid hydration mismatch
             setLastUpdateTime(new Date().toLocaleTimeString());
-
-            setStats(prev => ({
-                ...prev,
-                [newLog.level]: (prev[newLog.level as keyof typeof prev] || 0) + 1,
-                total: prev.total + 1
-            }));
         },
+        onPipelineUpdate: (status) => {
+            if (status.system) {
+                setSystemStats(status.system);
+            }
+            if (status.bots) {
+                setBots(status.bots);
+            }
+        }
     });
 
     const fetchLogs = useCallback(async () => {
         try {
-            const [logsRes, statsRes] = await Promise.all([
-                fetch(`${API_BASE}/logs/?limit=100${filter !== 'all' ? `&level=${filter}` : ''}`),
-                fetch(`${API_BASE}/logs/stats`)
+            const [logsRes, statusRes] = await Promise.all([
+                fetch(`${API_BASE}/logs/?limit=100`),
+                fetch(`${API_BASE}/status`)
             ]);
 
             if (logsRes.ok) {
                 const data = await logsRes.json();
-                setLogs(data.logs);
+                // API returns newest first, reverse for terminal (oldest top, newest bottom)
+                setLogs([...data.logs].reverse());
                 setLastUpdateTime(new Date().toLocaleTimeString());
             }
 
-            if (statsRes.ok) {
-                setStats(await statsRes.json());
+            if (statusRes.ok) {
+                const statusData = await statusRes.json();
+                if (statusData.system) setSystemStats(statusData.system);
+                if (statusData.bots) setBots(statusData.bots);
             }
+
         } catch (err) {
-            console.error("Failed to fetch logs:", err);
+            console.error("Failed to fetch initial data:", err);
         }
         setLoading(false);
-    }, [filter]);
-
-    const clearLogs = async () => {
-        if (!confirm('Tem certeza que deseja limpar todos os logs?')) return;
-        try {
-            await fetch(`${API_BASE}/logs/clear`, { method: 'DELETE' });
-            setLogs([]);
-            setStats({ info: 0, success: 0, warning: 0, error: 0, total: 0 });
-        } catch {
-            console.error("Failed to clear logs");
-        }
-    };
-
-    const addTestLog = async (level: string) => {
-        try {
-            await fetch(`${API_BASE}/logs/add?level=${level}&message=Log de teste (${level})&source=frontend`, { method: 'POST' });
-            // No need to fetchLogs here, WebSocket should handle it
-        } catch { }
-    };
+    }, []);
 
     // Initial load
     useEffect(() => {
         fetchLogs();
     }, [fetchLogs]);
 
-    // Auto-scroll logic
-    useEffect(() => {
-        if (autoScroll && logContainerRef.current) {
-            // Scroll to top because list is reversed (newest first)
-            logContainerRef.current.scrollTop = 0;
-        }
-    }, [logs, autoScroll]);
-
-    const getLevelIcon = (level: string) => {
-        switch (level) {
-            case 'success': return <CheckCircleIcon className="w-4 h-4 text-cmd-green" />;
-            case 'warning': return <ExclamationTriangleIcon className="w-4 h-4 text-cmd-yellow" />;
-            case 'error': return <XCircleIcon className="w-4 h-4 text-cmd-red" />;
-            default: return <InformationCircleIcon className="w-4 h-4 text-cmd-blue" />;
-        }
-    };
-
-    const getLevelClass = (level: string) => {
-        switch (level) {
-            case 'success': return 'text-cmd-green bg-cmd-green/10 border-cmd-green/20';
-            case 'warning': return 'text-cmd-yellow bg-cmd-yellow/10 border-cmd-yellow/20';
-            case 'error': return 'text-cmd-red bg-cmd-red/10 border-cmd-red/20';
-            default: return 'text-cmd-blue bg-cmd-blue/10 border-cmd-blue/20';
-        }
-    };
 
     return (
-        <div className="flex min-h-screen bg-cmd-bg text-gray-300 font-sans selection:bg-cmd-purple selection:text-white">
+        <div className="flex min-h-screen bg-synapse-bg text-synapse-text font-sans overflow-hidden selection:bg-synapse-primary selection:text-white">
             <Sidebar />
 
-            <main className="flex-1 p-8 overflow-y-auto max-h-screen custom-scrollbar">
+            <main className="flex-1 p-6 flex flex-col h-screen overflow-hidden relative bg-grid-pattern">
+
                 {/* Header */}
-                <header className="flex items-center justify-between mb-8 fade-in">
+                <header className="flex justify-between items-center mb-6 z-10 border-b border-white/10 pb-4 bg-black/40 backdrop-blur-md sticky top-0">
                     <div>
-                        <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400 tracking-tight">System Logs</h2>
-                        <p className="text-xs text-cmd-text-muted flex items-center gap-2 font-mono mt-1">
-                            <ClockIcon className="w-3 h-3" /> Eventos em tempo real via WebSocket
+                        <h1 className="text-2xl font-bold text-white tracking-wide flex items-center gap-3">
+                            <ComputerDesktopIcon className="w-8 h-8 text-synapse-emerald" />
+                            SYSTEM_DIAGNOSTICS
+                        </h1>
+                        <p className="text-xs text-synapse-emerald/70 mt-1 uppercase tracking-[0.2em] font-mono">
+                            // Realtime_Monitoring_Protocol_v2.0
                         </p>
                     </div>
-                    <div className="flex gap-2">
-                        {/* Test Buttons - Hidden on very small screens */}
-                        <div className="hidden lg:flex gap-2 mr-4">
-                            {['info', 'success', 'warning', 'error'].map(level => (
-                                <button
-                                    key={level}
-                                    onClick={() => addTestLog(level)}
-                                    className={`px-3 py-1.5 rounded-lg border text-xs font-bold uppercase tracking-wider transition-all hover:scale-105 active:scale-95 ${getLevelClass(level)}`}
-                                >
-                                    + {level}
-                                </button>
-                            ))}
+                    <div className="flex items-center gap-4">
+                        <div className="text-right">
+                            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">System Time</p>
+                            <p className="text-sm text-white font-mono font-bold bg-black/30 px-2 py-1 rounded border border-white/5">{lastUpdateTime || '--:--:--'}</p>
                         </div>
-
-                        <button
-                            onClick={clearLogs}
-                            title="Limpar todos os logs"
-                            className="p-2.5 rounded-lg border border-cmd-border bg-cmd-card text-gray-400 hover:text-cmd-red hover:border-cmd-red/30 transition-all"
-                        >
-                            <TrashIcon className="w-5 h-5" />
-                        </button>
-                        <button
-                            onClick={fetchLogs}
-                            title="Forçar atualização"
-                            className="p-2.5 rounded-lg border border-cmd-border bg-cmd-card text-gray-400 hover:text-white hover:bg-white/5 transition-all"
-                        >
-                            <ArrowPathIcon className="w-5 h-5" />
-                        </button>
+                        <div className={clsx("w-3 h-3 rounded-full shadow-[0_0_10px_currentColor]", loading ? 'bg-synapse-amber animate-bounce text-synapse-amber' : 'bg-synapse-emerald animate-pulse text-synapse-emerald')} />
                     </div>
                 </header>
 
-                {/* Filters & Controls */}
-                <div className="flex flex-wrap items-center gap-4 mb-6 fade-in stagger-1">
-                    <div className="flex items-center gap-2 p-1 rounded-lg bg-cmd-card border border-cmd-border">
-                        <div className="px-3 py-1.5 text-xs font-bold text-gray-500 uppercase flex items-center gap-2">
-                            <FunnelIcon className="w-3 h-3" /> Filtro
-                        </div>
-                        {['all', 'info', 'success', 'warning', 'error'].map((level) => (
-                            <button
-                                key={level}
-                                onClick={() => setFilter(level)}
-                                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${filter === level
-                                    ? 'bg-white/10 text-white shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
-                                    }`}
-                            >
-                                {level === 'all' ? 'Todos' : level.charAt(0).toUpperCase() + level.slice(1)}
-                            </button>
-                        ))}
-                    </div>
+                {/* Main Grid Content */}
+                <div className="flex-1 min-h-0 z-10 grid grid-cols-1 lg:grid-cols-4 gap-6">
 
-                    <div className="ml-auto flex items-center gap-3 bg-cmd-card px-4 py-2 rounded-lg border border-cmd-border hover:border-cmd-purple/30 transition-colors">
-                        <span className="text-xs font-mono text-gray-400">AUTO-SCROLL</span>
-                        <button
-                            onClick={() => setAutoScroll(!autoScroll)}
-                            className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${autoScroll ? 'bg-cmd-green' : 'bg-gray-700'}`}
-                        >
-                            <div className={`w-3 h-3 bg-white rounded-full absolute top-1 transition-transform duration-300 ${autoScroll ? 'translate-x-6' : 'translate-x-1'}`} />
-                        </button>
-                    </div>
-                </div>
-
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 fade-in stagger-2">
-                    {[
-                        { label: 'Info', count: stats.info, color: 'text-cmd-blue', border: 'border-cmd-blue/20' },
-                        { label: 'Success', count: stats.success, color: 'text-cmd-green', border: 'border-cmd-green/20' },
-                        { label: 'Warning', count: stats.warning, color: 'text-cmd-yellow', border: 'border-cmd-yellow/20' },
-                        { label: 'Error', count: stats.error, color: 'text-cmd-red', border: 'border-cmd-red/20' },
-                    ].map((stat) => (
-                        <div key={stat.label} className={`bg-cmd-card border border-cmd-border rounded-xl p-4 flex flex-col items-center justify-center hover:border-opacity-50 transition-all group ${stat.border}`}>
-                            <span className={`text-2xl font-bold font-mono ${stat.color} group-hover:scale-110 transition-transform`}>
-                                {stat.count}
-                            </span>
-                            <span className="text-xs text-gray-500 uppercase tracking-widest mt-1">{stat.label}</span>
-                        </div>
-                    ))}
-                </div>
-
-                {/* Live Monitor + Log Stream Layout */}
-                <div className="flex flex-col xl:flex-row gap-6 fade-in stagger-3 flex-1 overflow-hidden" style={{ maxHeight: 'calc(100vh - 350px)', minHeight: '400px' }}>
-
-                    {/* LIVE MONITOR PANEL */}
-                    <div className="xl:w-1/3 bg-cmd-card border border-cmd-border rounded-xl flex flex-col overflow-hidden">
-                        <div className="p-4 border-b border-cmd-border bg-black/20 flex justify-between items-center">
-                            <h3 className="text-sm font-bold text-gray-300 flex items-center gap-2">
-                                <span className="relative flex h-2 w-2">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                                </span>
-                                Live Visual Feedback
-                            </h3>
-                            <span className="text-[10px] bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-0.5 rounded font-mono">
-                                REAL-TIME
-                            </span>
-                        </div>
-                        <div className="p-4 flex-1 flex items-center justify-center bg-black relative group">
-                            {/* Image with cache busting */}
-                            <img
-                                src={`http://localhost:8000/static/monitor_live.jpg?t=${logs.length}`}
-                                alt="Live Monitor"
-                                className="w-full h-full object-contain rounded border border-gray-800"
-                                onError={(e) => {
-                                    (e.target as HTMLImageElement).src = 'https://placehold.co/600x400/111/444?text=Waiting+Signal...';
-                                }}
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-                                <p className="text-xs font-mono text-white">
-                                    Last Update: {lastUpdateTime}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* LOG STREAM */}
-                    <div className="flex-1 glass-card overflow-hidden flex flex-col">
-                        <div className="p-4 border-b border-white/5 bg-black/20 flex justify-between items-center">
-                            <h3 className="text-sm font-bold text-gray-300 flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-cmd-purple animate-pulse"></span>
-                                Terminal Stream
-                            </h3>
-                            <span className="text-[10px] font-mono text-gray-600 border border-gray-700 px-2 py-0.5 rounded">
-                                {logs.length} events
-                            </span>
-                        </div>
-
-                        <div
-                            ref={logContainerRef}
-                            className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar font-mono text-sm"
-                        >
-                            {loading ? (
-                                <div className="h-full flex flex-col items-center justify-center text-gray-500 gap-4">
-                                    <Spinner size="lg" />
-                                    <p className="animate-pulse">Synchronizing logs...</p>
-                                </div>
-                            ) : logs.length > 0 ? (
-                                logs.map((log) => (
-                                    <div
-                                        key={log.id}
-                                        className={`flex items-start gap-3 p-3 rounded-lg border border-transparent transition-all hover:bg-white/5 group animation-slide-in ${log.level === 'error' ? 'bg-red-500/5 hover:bg-red-500/10 border-red-500/10' : ''
-                                            }`}
-                                    >
-                                        <div className="mt-0.5 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
-                                            {getLevelIcon(log.level)}
-                                        </div>
-
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-0.5">
-                                                <span className="text-[10px] text-gray-500 opacity-60">{log.timestamp}</span>
-                                                <span className={`text-[10px] px-1.5 rounded uppercase tracking-wider font-bold ${log.level === 'success' ? 'bg-cmd-green/20 text-cmd-green' :
-                                                    log.level === 'error' ? 'bg-cmd-red/20 text-cmd-red' :
-                                                        log.level === 'warning' ? 'bg-cmd-yellow/20 text-cmd-yellow' :
-                                                            'bg-cmd-blue/20 text-cmd-blue'
-                                                    }`}>
-                                                    {log.source || 'SYSTEM'}
-                                                </span>
-                                            </div>
-                                            <p className="text-gray-300 leading-relaxed break-words opacity-90 group-hover:opacity-100">
-                                                {log.message}
-                                            </p>
-                                        </div>
+                    {/* LEFT COLUMN: Metrics & Visuals */}
+                    <div className="lg:col-span-1 flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar">
+                        {/* Live Visual Feedback */}
+                        <StitchCard className="p-1 !border-synapse-emerald/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+                            <div className="relative aspect-video bg-[#0f0a15] rounded-lg overflow-hidden group border border-white/5 flex flex-col items-center justify-center">
+                                {/* Componente de "Aguardando Sinal" */}
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-0">
+                                    <div className="w-full h-full absolute inset-0 opacity-20 bg-[linear-gradient(0deg,transparent_24%,rgba(32,194,14,0.3)_25%,rgba(32,194,14,0.3)_26%,transparent_27%,transparent_74%,rgba(32,194,14,0.3)_75%,rgba(32,194,14,0.3)_76%,transparent_77%,transparent),linear-gradient(90deg,transparent_24%,rgba(32,194,14,0.3)_25%,rgba(32,194,14,0.3)_26%,transparent_27%,transparent_74%,rgba(32,194,14,0.3)_75%,rgba(32,194,14,0.3)_76%,transparent_77%,transparent)] bg-[length:30px_30px]" />
+                                    <div className="w-16 h-16 mb-4 rounded-full border-2 border-synapse-emerald/30 flex items-center justify-center animate-[spin_3s_linear_infinite]">
+                                        <div className="w-12 h-12 rounded-full border-t-2 border-synapse-emerald shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
                                     </div>
-                                ))
-                            ) : (
-                                <div className="h-full flex items-center justify-center">
-                                    <EmptyState
-                                        title="No signals detected"
-                                        description="System operating normally. Waiting for events..."
-                                        icon={<InformationCircleIcon className="w-12 h-12 text-gray-700" />}
-                                    />
+                                    <h3 className="text-synapse-emerald font-mono font-bold tracking-[0.2em] text-sm animate-pulse">
+                                        WAITING_FOR_SIGNAL
+                                    </h3>
+                                    <p className="text-[10px] text-synapse-emerald/50 mt-1 font-mono">
+                                        LISTENING_ON_PORT_8000
+                                    </p>
                                 </div>
-                            )}
+
+                                {/* A imagem real (se existir) fica por cima se carregar com sucesso */}
+                                <img
+                                    src={`http://localhost:8000/static/monitor_live.jpg?t=${logs.length}`}
+                                    alt="Live Feed"
+                                    className="absolute inset-0 w-full h-full object-contain z-10 opacity-0 transition-opacity duration-500"
+                                    onLoad={(e) => (e.target as HTMLImageElement).classList.remove('opacity-0')}
+                                    onError={(e) => (e.target as HTMLImageElement).classList.add('hidden')}
+                                />
+                                {/* Scanline overlay */}
+                                <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(16,185,129,0.05)_50%)] bg-[length:100%_4px] pointer-events-none" />
+                                <div className="absolute top-2 left-2 px-2 py-0.5 bg-red-500/90 text-white text-[9px] font-bold uppercase tracking-wider rounded animate-pulse shadow-lg">
+                                    Live Feed
+                                </div>
+                            </div>
+                        </StitchCard>
+
+                        {/* System Monitor (Wrapped components should ideally be updated too, but wrapper helps) */}
+                        <div className="rounded-xl overflow-hidden border border-white/10 bg-black/20">
+                            <SystemMonitor system={systemStats} />
                         </div>
+
+                        {/* Bot Status */}
+                        <BotStatusCompact bots={bots} />
                     </div>
+
+                    {/* RIGHT COLUMN: Terminal */}
+                    <div className="lg:col-span-3 flex flex-col min-h-0 relative group">
+                        {/* Terminal Container */}
+                        <StitchCard className="flex-1 h-full !p-0 overflow-hidden flex flex-col !bg-[#0c0c0c] !border-white/10 relative">
+                            {/* Scanline Animation for Terminal */}
+                            <div className="absolute top-0 left-0 w-full h-1 bg-synapse-emerald/20 animate-scanline z-20 pointer-events-none opacity-30"></div>
+
+                            {/* Toolbar */}
+                            <div className="h-8 bg-white/5 border-b border-white/5 flex items-center px-4 gap-2">
+                                <div className="w-2.5 h-2.5 rounded-full bg-red-500/50"></div>
+                                <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/50"></div>
+                                <div className="w-2.5 h-2.5 rounded-full bg-green-500/50"></div>
+                                <div className="ml-auto text-[10px] text-gray-600 font-mono">bash --synapse-core</div>
+                            </div>
+
+                            <LogTerminal logs={logs} className="flex-1 h-full p-4 font-mono text-sm" />
+                        </StitchCard>
+                    </div>
+
                 </div>
             </main>
         </div>

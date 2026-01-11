@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import useWebSocket from '../hooks/useWebSocket';
-import { BackendStatus } from '../types';
+import { BackendStatus, LogEntry } from '../types';
+import { toast } from 'sonner';
 import {
     CommandLineIcon,
     CpuChipIcon,
@@ -14,6 +15,8 @@ import {
     XCircleIcon
 } from '@heroicons/react/24/outline';
 import BotCard, { BotProps } from './BotCard';
+import { StitchCard } from './StitchCard';
+import { NeonButton } from './NeonButton';
 
 // MOCK DATA (Depois virá do BackendStatus)
 // MOCK DATA REMOVED - Using BackendStatus.bots
@@ -47,8 +50,14 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
     useWebSocket({
         onPipelineUpdate: (data: unknown) => {
             // Atualiza o estado instantaneamente quando o backend avisa
-            // console.log('⚡ WebSocket Update:', data);
             setStatus(data as BackendStatus);
+        },
+        onLogEntry: (data: LogEntry) => {
+            if (data.level === 'error') {
+                toast.error(data.message);
+            } else if (data.level === 'success') {
+                toast.success(data.message);
+            }
         }
     });
 
@@ -81,15 +90,10 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
     const isBusy = effectiveStatus.state === 'busy';
     const isError = effectiveStatus.state === 'error' || effectiveStatus.state === 'unknown';
 
-    // Cyberpunk Colors
-    const activeColor = isError ? '#f85149' : isBusy ? '#2ea043' : '#58a6ff';
-    const glowShadow = `0 0 10px ${activeColor} 40`;
-
     // Calculate Quota (Max 10 days)
     const TIKTOK_LIMIT_DAYS = 10;
     const now = new Date();
 
-    // Find furthest scheduled date
     const furthestDate = scheduledVideos.reduce((max, v) => {
         if (!v.schedule_time) return max;
         const d = new Date(v.schedule_time);
@@ -101,242 +105,151 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
     const quotaPercent = Math.min((diffDays / TIKTOK_LIMIT_DAYS) * 100, 100);
 
     return (
-        <div className="command-center fade-in" style={{
-            marginBottom: '24px',
-            backgroundColor: '#0d1117',
-            border: `1px solid ${activeColor} `,
-            borderRadius: '12px',
-            boxShadow: glowShadow,
-            overflow: 'hidden',
-            transition: 'all 0.3s ease'
-        }}>
+        <StitchCard className={`mb-6 p-0 border transition-all duration-300 bg-[#0d1117] ${isBusy ? 'shadow-[0_0_30px_rgba(16,185,129,0.15)] scanline-active' : ''}`}>
+
             {/* Header Bar */}
-            <div style={{
-                padding: '12px 20px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                borderBottom: expanded ? '1px solid #30363d' : 'none',
-                background: `linear - gradient(90deg, ${activeColor}10 0 %, transparent 100 %)`
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+            <div className="px-5 py-3 flex flex-col md:flex-row md:items-center justify-between border-b border-white/5 bg-gradient-to-r from-white/5 to-transparent gap-4">
+                <div className="flex items-center gap-6">
                     {/* Status Badge */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div className="pulse-ring" style={{ position: 'relative', width: 12, height: 12 }}>
-                            <div style={{
-                                width: 12, height: 12, borderRadius: '50%', backgroundColor: activeColor,
-                                boxShadow: `0 0 8px ${activeColor} `
-                            }} />
+                    <div className="flex items-center gap-3">
+                        <div className="relative w-3 h-3">
+                            <div className={`absolute inset-0 rounded-full animate-ping opacity-75 ${isError ? 'bg-red-500' : isBusy ? 'bg-synapse-emerald' : 'bg-synapse-cyan'}`}></div>
+                            <div className={`relative w-3 h-3 rounded-full ${isError ? 'bg-red-500' : isBusy ? 'bg-synapse-emerald' : 'bg-synapse-cyan'}`}></div>
                         </div>
                         <div>
-                            <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#fff', letterSpacing: '0.5px' }}>
-                                CMD_CENTER <span style={{ opacity: 0.5 }}>{'//'}</span> {effectiveStatus.state.toUpperCase()}
+                            <h3 className="m-0 text-sm font-semibold text-white tracking-widest flex items-center gap-2">
+                                CMD_CENTER <span className="text-gray-600">{'//'}</span> <span className={isError ? 'text-red-500' : isBusy ? 'text-synapse-emerald' : 'text-synapse-cyan'}>{effectiveStatus.state.toUpperCase()}</span>
                             </h3>
-                            <p style={{ margin: 0, fontSize: '11px', color: activeColor, fontFamily: 'monospace' }}>
+                            <p className={`m-0 text-[10px] font-mono mt-0.5 ${isError ? 'text-red-400' : 'text-gray-400'}`}>
                                 {effectiveStatus.job.step || 'SYSTEM READY'}
                             </p>
                         </div>
                     </div>
 
                     {/* NETWORK PULSE */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '12px', paddingLeft: '12px', borderLeft: '1px solid #30363d' }}>
-                        <div style={{ width: '40px', height: '24px', position: 'relative', overflow: 'hidden' }}>
-                            {/* Simulated EKG / Network Activity */}
-                            <svg viewBox="0 0 40 24" style={{ width: '100%', height: '100%' }}>
-                                <path
-                                    d="M0 12 L5 12 L10 4 L15 20 L20 12 L25 12 L30 8 L35 16 L40 12"
-                                    fill="none"
-                                    stroke={activeColor}
-                                    strokeWidth="1.5"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    style={{
-                                        filter: `drop - shadow(0 0 2px ${activeColor})`,
-                                        opacity: isBusy ? 1 : 0.5,
-                                        animation: isBusy ? 'dash 1s linear infinite' : 'pulse 2s ease-in-out infinite'
-                                    }}
-                                />
-                            </svg>
+                    <div className="hidden md:flex items-center gap-2 ml-3 pl-3 border-l border-white/10 h-8">
+                        {/* Simple CSS-based Signal Viz for performance instead of SVG */}
+                        <div className="flex gap-0.5 items-end h-4">
+                            <div className={`w-1 bg-current transition-all duration-300 ${isBusy ? 'h-full animate-pulse text-synapse-emerald' : 'h-2 text-gray-700'}`}></div>
+                            <div className={`w-1 bg-current transition-all duration-300 ${isBusy ? 'h-3 animate-pulse delay-75 text-synapse-emerald' : 'h-1 text-gray-700'}`}></div>
+                            <div className={`w-1 bg-current transition-all duration-300 ${isBusy ? 'h-full animate-pulse delay-150 text-synapse-emerald' : 'h-2 text-gray-700'}`}></div>
+                            <div className={`w-1 bg-current transition-all duration-300 ${isBusy ? 'h-2 animate-pulse delay-100 text-synapse-emerald' : 'h-1 text-gray-700'}`}></div>
                         </div>
-                        <div style={{ fontSize: '9px', fontFamily: 'monospace', color: '#8b949e', lineHeight: 1 }}>
+                        <div className="text-[9px] font-mono text-gray-500 leading-3">
                             <div>NET</div>
-                            <div style={{ color: activeColor }}>{isBusy ? 'ACTIVE' : 'IDLE'}</div>
+                            <div className={isBusy ? 'text-synapse-emerald' : 'text-gray-700'}>{isBusy ? 'TX/RX' : 'IDLE'}</div>
                         </div>
                     </div>
 
-                    {/* Hardware Widgets (CPU/RAM) */}
+                    {/* Hardware Widgets */}
                     {effectiveStatus.system && (
-                        <div style={{ display: 'flex', gap: '16px', borderLeft: '1px solid #30363d', paddingLeft: '16px' }}>
-                            <div title="Uso de CPU">
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#8b949e', marginBottom: '2px' }}>
-                                    <CpuChipIcon style={{ width: 12 }} /> CPU
+                        <div className="hidden lg:flex gap-4 border-l border-white/10 pl-4">
+                            <div title="System Load">
+                                <div className="flex items-center gap-1 text-[10px] text-gray-500 mb-0.5">
+                                    <CpuChipIcon className="w-3 h-3" /> CPU
                                 </div>
-                                <div style={{ fontSize: '12px', fontWeight: 'bold', color: effectiveStatus.system.cpu_percent > 80 ? '#f85149' : '#c9d1d9' }}>
+                                <div className={`text-xs font-bold ${effectiveStatus.system.cpu_percent > 80 ? 'text-red-500' : 'text-gray-300'}`}>
                                     {effectiveStatus.system.cpu_percent.toFixed(1)}%
                                 </div>
                             </div>
-                            <div title="Uso de RAM">
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#8b949e', marginBottom: '2px' }}>
-                                    <CpuChipIcon style={{ width: 12 }} /> RAM
+
+                            <div title="RAM Usage">
+                                <div className="flex items-center gap-1 text-[10px] text-gray-500 mb-0.5">
+                                    <CpuChipIcon className="w-3 h-3" /> RAM
                                 </div>
-                                <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#c9d1d9' }}>
+                                <div className={`text-xs font-bold text-gray-300`}>
                                     {effectiveStatus.system.ram_percent.toFixed(1)}%
                                 </div>
                             </div>
-                            <div title="Janela de Agendamento TikTok (10 days)">
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#8b949e', marginBottom: '2px' }}>
-                                    <ClockIcon style={{ width: 12 }} /> QUOTA ({diffDays}d)
+
+                            <div title="TikTok Schedule Window">
+                                <div className="flex items-center gap-1 text-[10px] text-gray-500 mb-0.5">
+                                    <ClockIcon className="w-3 h-3" /> QUOTA
                                 </div>
-                                <div style={{ width: '60px', height: '4px', background: '#30363d', borderRadius: '2px', marginTop: '6px' }}>
-                                    <div style={{ width: `${quotaPercent}% `, height: '100%', background: quotaPercent > 90 ? '#f85149' : '#a371f7' }} />
+                                <div className="w-16 h-1 mt-1 bg-gray-800 rounded-full overflow-hidden">
+                                    <div
+                                        className={`h-full ${quotaPercent > 90 ? 'bg-red-500' : 'bg-synapse-primary'}`}
+                                        style={{ width: `${quotaPercent}%` }}
+                                    ></div>
                                 </div>
                             </div>
                         </div>
                     )}
                 </div>
 
-                <style jsx>{`
-@keyframes dash {
-    0 % { stroke- dasharray: 40; stroke - dashoffset: 40;
-}
-100 % { stroke- dasharray: 40; stroke - dashoffset: 0; }
-                    }
-@keyframes pulse {
-    0 %, 100 % { opacity: 0.3; }
-    50 % { opacity: 0.8; }
-}
-`}</style>
-
-                {/* Breadcrumbs / Pipeline Stepper */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    {[
-                        { id: 'ingesting', label: 'INGEST', icon: CloudArrowUpIcon },
-                        { id: 'transcribing', label: 'CAPTION', icon: ChatBubbleBottomCenterTextIcon },
-                        { id: 'rendering', label: 'RENDER', icon: FilmIcon },
-                        { id: 'uploading', label: 'PUBLISH', icon: PaperAirplaneIcon }
-                    ].map((step, i, arr) => {
-                        // Simple mapping logic: active step logic
-                        // Ideally backend returns 'step' enum. For now we match string includes or mock.
-                        // If status.state is idle, all inactive? Or all active if completed? 
-                        // Let's assume status.job.step contains the keyword.
-
-                        const isActive = effectiveStatus.job.step?.toLowerCase().includes(step.id);
-                        // const isCompleted = false; // Need better tracking for completion history in this view
-
-                        // Cyberpunk styling
-                        // const stepColor = isActive ? activeColor : '#30363d';
-                        const iconColor = isActive ? '#fff' : '#484f58';
-
-                        return (
-                            <div key={step.id} style={{ display: 'flex', alignItems: 'center' }}>
-                                <div style={{
-                                    display: 'flex', alignItems: 'center', gap: '6px',
-                                    padding: '4px 8px', borderRadius: '4px',
-                                    backgroundColor: isActive ? `${activeColor} 20` : 'transparent',
-                                    border: `1px solid ${isActive ? `${activeColor}50` : 'transparent'} `
-                                }}>
-                                    <step.icon style={{ width: 14, height: 14, color: iconColor }} />
-                                    <span style={{ fontSize: '10px', fontWeight: 600, color: iconColor }}>{step.label}</span>
-                                </div>
-                                {i < arr.length - 1 && (
-                                    <div style={{ width: '12px', height: '1px', backgroundColor: '#30363d', margin: '0 4px' }} />
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-
-                {/* Right Side: Progress + Controls */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-                    {isBusy && (
-                        <div style={{ width: '200px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                <span style={{ fontSize: '10px', color: '#8b949e' }}>PROGRESS</span>
-                                <span style={{ fontSize: '10px', color: activeColor }}>{effectiveStatus.job.progress}%</span>
-                            </div>
-                            <div style={{ height: '4px', background: '#30363d', borderRadius: '2px', overflow: 'hidden' }}>
-                                <div style={{
-                                    width: `${effectiveStatus.job.progress}% `,
-                                    height: '100%',
-                                    background: activeColor,
-                                    transition: 'width 0.5s ease'
-                                }} />
-                            </div>
-                        </div>
-                    )}
-
+                {/* Right Side Controls */}
+                <div className="flex items-center gap-4">
                     {/* Worker Controls */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderLeft: '1px solid #30363d', paddingLeft: '16px' }}>
-                        <button
-                            title="Pause Queue"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b949e', transition: 'color 0.2s' }}
-                            onMouseEnter={e => e.currentTarget.style.color = '#e3b341'}
-                            onMouseLeave={e => e.currentTarget.style.color = '#8b949e'}
-                        >
-                            <PauseCircleIcon style={{ width: 18 }} />
-                        </button>
-                        <button
-                            title="Resume Queue"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8b949e', transition: 'color 0.2s' }}
-                            onMouseEnter={e => e.currentTarget.style.color = '#3fb950'}
-                            onMouseLeave={e => e.currentTarget.style.color = '#8b949e'}
-                        >
-                            <PlayCircleIcon style={{ width: 18 }} />
-                        </button>
-                        <button
-                            title="EMERGENCY STOP"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f85149', opacity: 0.7, transition: 'opacity 0.2s' }}
-                            onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                            onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}
-                        >
-                            <XCircleIcon style={{ width: 18 }} />
-                        </button>
+                    <div className="flex items-center gap-2">
+                        <NeonButton variant="ghost" className="p-1.5 h-8 w-8 rounded-full" title="Pause"><PauseCircleIcon className="w-5 h-5" /></NeonButton>
+                        <NeonButton variant="ghost" className="p-1.5 h-8 w-8 rounded-full text-synapse-emerald" title="Resume"><PlayCircleIcon className="w-5 h-5" /></NeonButton>
+                        <NeonButton variant="danger" className="p-1.5 h-8 w-8 rounded-full" title="STOP"><XCircleIcon className="w-5 h-5" /></NeonButton>
                     </div>
+
+                    <div className="h-6 w-px bg-white/10 hidden md:block"></div>
 
                     <button
                         onClick={() => setExpanded(!expanded)}
-                        style={{
-                            background: 'none', border: 'none', color: '#8b949e', cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px'
-                        }}
+                        className="text-gray-500 hover:text-white transition-colors flex items-center gap-2 text-xs font-mono group"
                     >
-                        <CommandLineIcon style={{ width: 16 }} />
-                        {expanded ? 'HIDE_LOGS' : 'SHOW_LOGS'}
+                        <CommandLineIcon className="w-4 h-4 group-hover:text-synapse-primary" />
+                        {expanded ? 'HIDE_LOGS' : '>_ TERMINAL'}
                     </button>
                 </div>
             </div>
 
-            {/* BOTS GRID (Novo) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border-b border-cmd-border/50 bg-[#0d1117]/50">
+            {/* Breadcrumbs / Pipeline Stepper */}
+            <div className="px-5 py-2 border-b border-white/5 flex overflow-x-auto gap-4 scrollbar-hide">
+                {[
+                    { id: 'ingesting', label: 'INGEST', icon: CloudArrowUpIcon },
+                    { id: 'transcribing', label: 'CAPTION', icon: ChatBubbleBottomCenterTextIcon },
+                    { id: 'rendering', label: 'RENDER', icon: FilmIcon },
+                    { id: 'uploading', label: 'PUBLISH', icon: PaperAirplaneIcon }
+                ].map((step, i, arr) => {
+                    const isActive = effectiveStatus.job.step?.toLowerCase().includes(step.id);
+                    const isCompleted = false; // logic placeholder
+                    const iconColor = isActive ? 'text-white' : 'text-gray-600';
+                    const activeBg = isActive ? 'bg-synapse-primary/20 border-synapse-primary/40' : 'border-transparent';
+
+                    return (
+                        <div key={step.id} className="flex items-center shrink-0">
+                            <div className={`flex items-center gap-2 px-2 py-1 rounded border ${activeBg} transition-all`}>
+                                <step.icon className={`w-3.5 h-3.5 ${iconColor}`} />
+                                <span className={`text-[10px] font-bold ${isActive ? 'text-white' : 'text-gray-600'}`}>{step.label}</span>
+                            </div>
+                            {i < arr.length - 1 && (
+                                <div className="w-3 h-px bg-white/10 mx-2" />
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* BOTS GRID */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border-b border-white/5 bg-black/20">
                 {(effectiveStatus.bots || []).map(bot => (
                     <BotCard key={bot.id} {...bot} />
                 ))}
             </div>
 
-            {/* Expanded Logs (Terminal View) */}
+            {/* Expanded Logs */}
             {expanded && (
-                <div style={{
-                    padding: '16px',
-                    backgroundColor: '#010409',
-                    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                    fontSize: '12px',
-                    color: '#8b949e',
-                    borderTop: '1px solid #30363d',
-                    maxHeight: '200px',
-                    overflowY: 'auto'
-                }}>
+                <div className="p-4 bg-[#05040a] font-mono text-xs text-synapse-text border-t border-synapse-border max-h-[200px] overflow-y-auto custom-scrollbar">
                     {effectiveStatus.job.logs.length > 0 ? (
                         effectiveStatus.job.logs.map((log, i) => (
-                            <div key={i} style={{ marginBottom: '4px', display: 'flex', gap: '8px' }}>
-                                <span style={{ color: '#30363d' }}>{'>'}</span>
-                                <span style={{ color: i === 0 ? '#fff' : 'inherit' }}>{log}</span>
+                            <div key={i} className="mb-1.5 flex gap-2">
+                                <span className="text-synapse-primary/50 text-[10px] opacity-50 select-none leading-5">
+                                    {new Date(effectiveStatus.last_updated || Date.now()).toLocaleTimeString()}
+                                </span>
+                                <span className="text-synapse-secondary select-none">➜</span>
+                                <span className={`${i === 0 ? 'text-white font-bold' : 'opacity-80'}`}>{log}</span>
                             </div>
                         ))
                     ) : (
-                        <div style={{ opacity: 0.5 }}>Waiting for system output...</div>
+                        <div className="opacity-30 italic">Waiting for system output...</div>
                     )}
                 </div>
             )}
-        </div>
+        </StitchCard>
     );
 }

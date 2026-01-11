@@ -155,6 +155,7 @@ class TikTokMonitor:
             step_data["artifacts"]["screenshot_full"] = str(screenshot_file)
             
             # 📸 SCREENSHOT (viewport)
+            screenshot_viewport = self.screenshots_path / f"{step_id}_viewport.png"
             await page.screenshot(path=str(screenshot_viewport))
             step_data["artifacts"]["screenshot_viewport"] = str(screenshot_viewport)
             

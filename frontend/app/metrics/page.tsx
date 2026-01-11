@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import Sidebar from '../components/Sidebar';
 import { ArrowPathIcon, ArrowTrendingUpIcon, ArrowTrendingDownIcon } from '@heroicons/react/24/outline';
+import { StitchCard } from '../components/StitchCard';
+import { NeonButton } from '../components/NeonButton';
+import clsx from 'clsx';
 
 interface IngestionStatus { queued: number; processing: number; completed: number; failed: number; }
 
@@ -35,16 +38,21 @@ export default function MetricsPage() {
     const successRate = total > 0 ? ((status.completed / total) * 100).toFixed(1) : '0';
     const failureRate = total > 0 ? ((status.failed / total) * 100).toFixed(1) : '0';
 
-    // Simple bar chart renderer
-    const renderBar = (value: number, maxValue: number, color: string, label: string) => {
+    // Simple bar chart renderer (using Tailwind)
+    const renderBar = (value: number, maxValue: number, colorClass: string, label: string) => {
         const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
         return (
-            <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '40px', height: '120px', backgroundColor: '#161b22', borderRadius: '4px', display: 'flex', alignItems: 'flex-end', overflow: 'hidden' }}>
-                    <div style={{ width: '100%', height: `${height}%`, backgroundColor: color, borderRadius: '4px 4px 0 0', transition: 'height 0.3s ease' }} />
+            <div key={label} className="flex flex-col items-center gap-2 group">
+                <div className="w-12 h-32 bg-black/40 rounded-t-lg flex items-end overflow-hidden relative border-b border-white/5">
+                    <div
+                        className={clsx("w-full transition-all duration-500 ease-out flex items-start justify-center pt-2 relative opacity-80 group-hover:opacity-100", colorClass)}
+                        style={{ height: `${height}%` }}
+                    >
+                        {height > 10 && <span className="text-[10px] text-white/90 font-bold">{value}</span>}
+                    </div>
                 </div>
-                <span style={{ fontSize: '20px', fontWeight: 'bold', color }}>{value}</span>
-                <span style={{ fontSize: '10px', color: '#8b949e', textTransform: 'uppercase' }}>{label}</span>
+                {height <= 10 && <span className={clsx("text-lg font-bold transition-colors", colorClass.replace('bg-', 'text-'))}>{value}</span>}
+                <span className="text-[10px] text-gray-500 uppercase font-mono tracking-wider">{label}</span>
             </div>
         );
     };
@@ -55,112 +63,132 @@ export default function MetricsPage() {
         const max = Math.max(...data, 1);
         const points = data.map((v, i) => `${(i / (data.length - 1)) * 100},${100 - (v / max) * 80}`).join(' ');
         return (
-            <svg viewBox="0 0 100 100" style={{ width: '100%', height: '40px' }} preserveAspectRatio="none">
-                <polyline fill="none" stroke={color} strokeWidth="2" points={points} />
-            </svg>
+            <div className="h-10 w-full opacity-60">
+                <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                    <polyline fill="none" stroke={color} strokeWidth="2" points={points} vectorEffect="non-scaling-stroke" />
+                    {data.map((v, i) => (
+                        <circle
+                            key={i}
+                            cx={(i / (data.length - 1)) * 100}
+                            cy={100 - (v / max) * 80}
+                            r="1.5"
+                            fill={color}
+                            className="opacity-0 hover:opacity-100 transition-opacity"
+                        />
+                    ))}
+                </svg>
+            </div>
         );
     };
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0d1117', color: '#c9d1d9', fontFamily: 'Inter, system-ui, sans-serif' }}>
+        <div className="flex min-h-screen bg-synapse-bg text-synapse-text font-sans selection:bg-synapse-primary selection:text-white">
             <Sidebar />
 
-            <main style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
+            <main className="flex-1 p-8 overflow-y-auto bg-grid-pattern">
                 {/* Header */}
-                <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
+                <header className="flex items-center justify-between mb-8">
                     <div>
-                        <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff', margin: 0 }}>Métricas do Sistema</h2>
-                        <p style={{ fontSize: '12px', color: '#8b949e', margin: '4px 0 0' }}>Última atualização: {lastUpdate}</p>
+                        <h2 className="text-2xl font-bold text-white m-0">Métricas do Sistema</h2>
+                        <p className="text-sm text-gray-500 m-0 mt-1 font-mono">Última atualização: {lastUpdate}</p>
                     </div>
-                    <button onClick={fetchData} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', backgroundColor: '#238636', border: 'none', color: '#fff', cursor: 'pointer' }}>
-                        <ArrowPathIcon style={{ width: '16px', height: '16px' }} />
+                    <NeonButton onClick={fetchData} className="flex items-center gap-2">
+                        <ArrowPathIcon className="w-4 h-4" />
                         Atualizar
-                    </button>
+                    </NeonButton>
                 </header>
 
                 {/* KPI Cards */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
-                    <div style={{ padding: '24px', borderRadius: '12px', backgroundColor: '#1c2128', border: '1px solid #30363d' }}>
-                        <p style={{ fontSize: '12px', color: '#8b949e', margin: '0 0 8px' }}>TOTAL PROCESSADO</p>
-                        <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#fff', margin: 0 }}>{total}</p>
-                        <div style={{ marginTop: '12px' }}>{renderSparkline(history.map(h => h.completed + h.failed), '#58a6ff')}</div>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <StitchCard className="p-6">
+                        <p className="text-xs text-synapse-cyan m-0 mb-2 uppercase font-bold tracking-wider">Total Processado</p>
+                        <p className="text-4xl font-bold text-white m-0 mb-3">{total}</p>
+                        <div className="mt-auto pt-2 border-t border-white/5">{renderSparkline(history.map(h => h.completed + h.failed), '#06b6d4')}</div>
+                    </StitchCard>
 
-                    <div style={{ padding: '24px', borderRadius: '12px', backgroundColor: '#1c2128', border: '1px solid #30363d' }}>
-                        <p style={{ fontSize: '12px', color: '#8b949e', margin: '0 0 8px' }}>TAXA DE SUCESSO</p>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#3fb950', margin: 0 }}>{successRate}%</p>
-                            <ArrowTrendingUpIcon style={{ width: '24px', height: '24px', color: '#3fb950' }} />
+                    <StitchCard className="p-6">
+                        <p className="text-xs text-synapse-emerald m-0 mb-2 uppercase font-bold tracking-wider">Taxa de Sucesso</p>
+                        <div className="flex items-center gap-2 mb-3">
+                            <p className="text-4xl font-bold text-synapse-emerald m-0">{successRate}%</p>
+                            <ArrowTrendingUpIcon className="w-6 h-6 text-synapse-emerald" />
                         </div>
-                        <div style={{ marginTop: '12px' }}>{renderSparkline(history.map(h => h.completed), '#3fb950')}</div>
-                    </div>
+                        <div className="mt-auto pt-2 border-t border-white/5">{renderSparkline(history.map(h => h.completed), '#10b981')}</div>
+                    </StitchCard>
 
-                    <div style={{ padding: '24px', borderRadius: '12px', backgroundColor: '#1c2128', border: '1px solid #30363d' }}>
-                        <p style={{ fontSize: '12px', color: '#8b949e', margin: '0 0 8px' }}>TAXA DE FALHA</p>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#f85149', margin: 0 }}>{failureRate}%</p>
-                            {parseFloat(failureRate) > 10 && <ArrowTrendingDownIcon style={{ width: '24px', height: '24px', color: '#f85149' }} />}
+                    <StitchCard className="p-6">
+                        <p className="text-xs text-red-500 m-0 mb-2 uppercase font-bold tracking-wider">Taxa de Falha</p>
+                        <div className="flex items-center gap-2 mb-3">
+                            <p className="text-4xl font-bold text-red-500 m-0">{failureRate}%</p>
+                            {parseFloat(failureRate) > 10 && <ArrowTrendingDownIcon className="w-6 h-6 text-red-500" />}
                         </div>
-                        <div style={{ marginTop: '12px' }}>{renderSparkline(history.map(h => h.failed), '#f85149')}</div>
-                    </div>
+                        <div className="mt-auto pt-2 border-t border-white/5">{renderSparkline(history.map(h => h.failed), '#ef4444')}</div>
+                    </StitchCard>
 
-                    <div style={{ padding: '24px', borderRadius: '12px', backgroundColor: '#1c2128', border: '1px solid #30363d' }}>
-                        <p style={{ fontSize: '12px', color: '#8b949e', margin: '0 0 8px' }}>EM PROCESSAMENTO</p>
-                        <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#58a6ff', margin: 0 }}>{status.processing}</p>
-                        <div style={{ marginTop: '12px' }}>{renderSparkline(history.map(h => h.processing), '#58a6ff')}</div>
-                    </div>
+                    <StitchCard className="p-6">
+                        <p className="text-xs text-synapse-purple m-0 mb-2 uppercase font-bold tracking-wider">Em Processamento</p>
+                        <p className="text-4xl font-bold text-synapse-purple m-0 mb-3">{status.processing}</p>
+                        <div className="mt-auto pt-2 border-t border-white/5">{renderSparkline(history.map(h => h.processing), '#8b5cf6')}</div>
+                    </StitchCard>
                 </div>
 
                 {/* Charts Row */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Bar Chart */}
-                    <div style={{ padding: '24px', borderRadius: '12px', backgroundColor: '#1c2128', border: '1px solid #30363d' }}>
-                        <h3 style={{ fontSize: '16px', color: '#fff', margin: '0 0 24px' }}>Distribuição do Pipeline</h3>
-                        <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'flex-end' }}>
-                            {renderBar(status.queued, Math.max(status.queued, status.processing, status.completed, status.failed, 1), '#d29922', 'Fila')}
-                            {renderBar(status.processing, Math.max(status.queued, status.processing, status.completed, status.failed, 1), '#58a6ff', 'Proc.')}
-                            {renderBar(status.completed, Math.max(status.queued, status.processing, status.completed, status.failed, 1), '#3fb950', 'OK')}
-                            {renderBar(status.failed, Math.max(status.queued, status.processing, status.completed, status.failed, 1), '#f85149', 'Erro')}
+                    <StitchCard className="p-6">
+                        <h3 className="text-base font-bold text-white m-0 mb-6 flex items-center gap-2">
+                            <span className="w-1 h-4 bg-synapse-primary rounded-full"></span>
+                            Distribuição do Pipeline
+                        </h3>
+                        <div className="flex justify-around items-end h-64 px-4 bg-black/20 rounded-xl border border-white/5 pt-8 pb-2">
+                            {renderBar(status.queued, Math.max(status.queued, status.processing, status.completed, status.failed, 1), 'bg-synapse-amber', 'Fila')}
+                            {renderBar(status.processing, Math.max(status.queued, status.processing, status.completed, status.failed, 1), 'bg-synapse-cyan', 'Proc.')}
+                            {renderBar(status.completed, Math.max(status.queued, status.processing, status.completed, status.failed, 1), 'bg-synapse-emerald', 'OK')}
+                            {renderBar(status.failed, Math.max(status.queued, status.processing, status.completed, status.failed, 1), 'bg-red-500', 'Erro')}
                         </div>
-                    </div>
+                    </StitchCard>
 
                     {/* Donut Chart Approximation */}
-                    <div style={{ padding: '24px', borderRadius: '12px', backgroundColor: '#1c2128', border: '1px solid #30363d' }}>
-                        <h3 style={{ fontSize: '16px', color: '#fff', margin: '0 0 24px' }}>Status Geral</h3>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '32px' }}>
-                            <div style={{ position: 'relative', width: '120px', height: '120px' }}>
-                                <svg viewBox="0 0 36 36" style={{ width: '120px', height: '120px', transform: 'rotate(-90deg)' }}>
+                    <StitchCard className="p-6">
+                        <h3 className="text-base font-bold text-white m-0 mb-6 flex items-center gap-2">
+                            <span className="w-1 h-4 bg-synapse-emerald rounded-full"></span>
+                            Status Geral
+                        </h3>
+                        <div className="flex items-center justify-center gap-8 h-64 bg-black/20 rounded-xl border border-white/5">
+                            <div className="relative w-32 h-32">
+                                <svg viewBox="0 0 36 36" className="w-32 h-32 rotate-[-90deg]">
                                     <circle cx="18" cy="18" r="15.9" fill="none" stroke="#161b22" strokeWidth="3" />
                                     <circle
-                                        cx="18" cy="18" r="15.9" fill="none" stroke="#3fb950" strokeWidth="3"
+                                        cx="18" cy="18" r="15.9" fill="none" stroke="#34d399" strokeWidth="3"
                                         strokeDasharray={`${parseFloat(successRate)} 100`}
                                         strokeLinecap="round"
+                                        className="transition-all duration-1000 ease-out"
                                     />
                                 </svg>
-                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#3fb950' }}>{successRate}%</span>
+                                <div className="absolute inset-0 flex items-center justify-center flex-col">
+                                    <span className="text-2xl font-bold text-synapse-emerald">{successRate}%</span>
+                                    <span className="text-[10px] text-gray-500 uppercase">Sucesso</span>
                                 </div>
                             </div>
-                            <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                    <div style={{ width: '12px', height: '12px', borderRadius: '2px', backgroundColor: '#3fb950' }} />
-                                    <span style={{ fontSize: '12px', color: '#c9d1d9' }}>Concluídos: {status.completed}</span>
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-3 h-3 rounded-full bg-synapse-emerald shadow-[0_0_10px_rgba(16,185,129,0.4)]" />
+                                    <span className="text-sm text-gray-300">Concluídos: <span className="text-white font-bold">{status.completed}</span></span>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                    <div style={{ width: '12px', height: '12px', borderRadius: '2px', backgroundColor: '#f85149' }} />
-                                    <span style={{ fontSize: '12px', color: '#c9d1d9' }}>Falhas: {status.failed}</span>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.4)]" />
+                                    <span className="text-sm text-gray-300">Falhas: <span className="text-white font-bold">{status.failed}</span></span>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                    <div style={{ width: '12px', height: '12px', borderRadius: '2px', backgroundColor: '#58a6ff' }} />
-                                    <span style={{ fontSize: '12px', color: '#c9d1d9' }}>Processando: {status.processing}</span>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-3 h-3 rounded-full bg-synapse-cyan shadow-[0_0_10px_rgba(6,182,212,0.4)]" />
+                                    <span className="text-sm text-gray-300">Processando: <span className="text-white font-bold">{status.processing}</span></span>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <div style={{ width: '12px', height: '12px', borderRadius: '2px', backgroundColor: '#d29922' }} />
-                                    <span style={{ fontSize: '12px', color: '#c9d1d9' }}>Na fila: {status.queued}</span>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-3 h-3 rounded-full bg-synapse-amber shadow-[0_0_10px_rgba(245,158,11,0.4)]" />
+                                    <span className="text-sm text-gray-300">Na fila: <span className="text-white font-bold">{status.queued}</span></span>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </StitchCard>
                 </div>
             </main>
         </div>

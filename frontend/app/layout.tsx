@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { WebSocketProvider } from "./context/WebSocketContext";
+import { Toaster } from 'sonner';
 
 export const metadata: Metadata = {
   title: "Synapse | Automação de Conteúdo",
@@ -32,6 +33,7 @@ export default function RootLayout({
       >
         <WebSocketProvider>
           {children}
+          <Toaster position="top-right" theme="dark" richColors />
         </WebSocketProvider>
       </body>
     </html>

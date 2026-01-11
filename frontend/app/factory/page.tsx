@@ -7,6 +7,9 @@ import {
     ArrowLeftIcon, FolderIcon, ArrowPathIcon,
     CheckCircleIcon, ClockIcon, ExclamationTriangleIcon, PlayIcon, CubeTransparentIcon
 } from '@heroicons/react/24/outline';
+import { StitchCard } from '../components/StitchCard';
+import { NeonButton } from '../components/NeonButton';
+import clsx from 'clsx';
 
 interface IngestionStatus { queued: number; processing: number; completed: number; failed: number; }
 
@@ -41,110 +44,109 @@ export default function FactoryPage() {
     }, []);
 
     const folders = [
-        { name: 'inputs/', description: 'Arquivos aguardando processamento', count: status.queued, color: '#d29922', icon: ClockIcon },
-        { name: 'processing/', description: 'Em processamento pelo Brain', count: status.processing, color: '#58a6ff', icon: CubeTransparentIcon },
-        { name: 'done/', description: 'Processamento concluído', count: status.completed, color: '#3fb950', icon: CheckCircleIcon },
-        { name: 'errors/', description: 'Falhas no processamento', count: status.failed, color: '#f85149', icon: ExclamationTriangleIcon },
+        { name: 'inputs/', description: 'Arquivos aguardando processamento', count: status.queued, color: 'text-synapse-amber', bg: 'bg-synapse-amber/15', icon: ClockIcon },
+        { name: 'processing/', description: 'Em processamento pelo Brain', count: status.processing, color: 'text-synapse-cyan', bg: 'bg-synapse-cyan/15', icon: CubeTransparentIcon },
+        { name: 'done/', description: 'Processamento concluído', count: status.completed, color: 'text-synapse-emerald', bg: 'bg-synapse-emerald/15', icon: CheckCircleIcon },
+        { name: 'errors/', description: 'Falhas no processamento', count: status.failed, color: 'text-red-500', bg: 'bg-red-500/15', icon: ExclamationTriangleIcon },
     ];
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0d1117', color: '#c9d1d9', fontFamily: 'Inter, system-ui, sans-serif' }}>
+        <div className="flex min-h-screen bg-synapse-bg text-synapse-text font-sans selection:bg-synapse-primary selection:text-white">
             <Sidebar />
 
             {/* MAIN */}
-            <main style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
-                <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <main className="flex-1 p-8 overflow-y-auto bg-grid-pattern">
+                <header className="flex items-center justify-between mb-8">
+                    <div className="flex items-center gap-4">
                         <Link href="/">
-                            <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: '#1c2128', border: '1px solid #30363d', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                                <ArrowLeftIcon style={{ width: '20px', height: '20px', color: '#8b949e' }} />
+                            <div className="w-10 h-10 rounded-lg bg-[#1c2128] border border-white/10 flex items-center justify-center cursor-pointer hover:border-synapse-primary/50 transition-colors group">
+                                <ArrowLeftIcon className="w-5 h-5 text-gray-400 group-hover:text-synapse-primary" />
                             </div>
                         </Link>
                         <div>
-                            <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff', margin: 0 }}>Factory Watcher</h2>
-                            <p style={{ fontSize: '12px', color: '#8b949e', margin: 0 }}>Monitoramento de pastas do pipeline</p>
+                            <h2 className="text-2xl font-bold text-white m-0">Factory Watcher</h2>
+                            <p className="text-sm text-gray-500 m-0">Monitoramento de pastas do pipeline</p>
                         </div>
                     </div>
-                    <button
+                    <NeonButton
                         onClick={triggerScan}
                         disabled={scanning}
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px',
-                            borderRadius: '8px', backgroundColor: '#238636', border: 'none',
-                            color: '#fff', fontSize: '14px', cursor: 'pointer', opacity: scanning ? 0.7 : 1
-                        }}
+                        className={clsx("flex items-center gap-2", scanning && "opacity-70 cursor-wait")}
                     >
-                        <ArrowPathIcon style={{ width: '16px', height: '16px', animation: scanning ? 'spin 1s linear infinite' : 'none' }} />
+                        <ArrowPathIcon className={clsx("w-4 h-4", scanning && "animate-spin")} />
                         {scanning ? 'Escaneando...' : 'Escanear Pastas'}
-                    </button>
+                    </NeonButton>
                 </header>
 
                 {/* Folder Status Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', marginBottom: '32px' }}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                     {folders.map((folder, i) => (
-                        <div key={i} style={{ padding: '24px', borderRadius: '12px', backgroundColor: '#1c2128', border: '1px solid #30363d' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: `${folder.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <FolderIcon style={{ width: '24px', height: '24px', color: folder.color }} />
+                        <StitchCard key={i} className="p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-12 h-12 rounded-xl ${folder.bg} flex items-center justify-center`}>
+                                        <folder.icon className={`w-6 h-6 ${folder.color}`} />
                                     </div>
                                     <div>
-                                        <h3 style={{ fontSize: '16px', color: '#fff', margin: 0, fontFamily: 'monospace' }}>{folder.name}</h3>
-                                        <p style={{ fontSize: '12px', color: '#8b949e', margin: '4px 0 0' }}>{folder.description}</p>
+                                        <h3 className="text-base font-bold text-white m-0 font-mono">{folder.name}</h3>
+                                        <p className="text-xs text-gray-500 m-0 mt-1">{folder.description}</p>
                                     </div>
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                                <span style={{ fontSize: '48px', fontWeight: 'bold', color: folder.color }}>{folder.count}</span>
-                                <span style={{ fontSize: '16px', color: '#8b949e' }}>arquivos</span>
+                            <div className="flex items-baseline gap-2">
+                                <span className={`text-4xl font-bold ${folder.color}`}>{folder.count}</span>
+                                <span className="text-sm text-gray-500">arquivos</span>
                             </div>
-                        </div>
+                        </StitchCard>
                     ))}
                 </div>
 
                 {/* Pipeline Flow */}
-                <div style={{ padding: '24px', borderRadius: '12px', backgroundColor: '#1c2128', border: '1px solid #30363d' }}>
-                    <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#fff', margin: '0 0 24px' }}>Pipeline de Processamento</h3>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        {['inputs/', 'processing/', 'done/'].map((step, i) => (
-                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{
-                                        width: '64px', height: '64px', borderRadius: '50%',
-                                        backgroundColor: i === 0 ? 'rgba(210,153,34,0.15)' : i === 1 ? 'rgba(88,166,255,0.15)' : 'rgba(63,185,80,0.15)',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 8px'
-                                    }}>
-                                        {i === 0 ? <ClockIcon style={{ width: '28px', height: '28px', color: '#d29922' }} /> :
-                                            i === 1 ? <CubeTransparentIcon style={{ width: '28px', height: '28px', color: '#58a6ff' }} /> :
-                                                <CheckCircleIcon style={{ width: '28px', height: '28px', color: '#3fb950' }} />}
+                <StitchCard className="p-8">
+                    <h3 className="text-lg font-bold text-white mb-8 border-b border-white/10 pb-4">Pipeline de Processamento</h3>
+                    <div className="flex items-center justify-between relative px-8">
+                        {/* Connecting Line */}
+                        <div className="absolute top-[34px] left-[10%] right-[10%] h-0.5 bg-gradient-to-r from-synapse-amber via-synapse-cyan to-synapse-emerald opacity-20 z-0"></div>
+
+                        {['inputs/', 'processing/', 'done/'].map((step, i) => {
+                            const colors = [
+                                { bg: 'bg-synapse-amber/10', text: 'text-synapse-amber', border: 'border-synapse-amber/30' },
+                                { bg: 'bg-synapse-cyan/10', text: 'text-synapse-cyan', border: 'border-synapse-cyan/30' },
+                                { bg: 'bg-synapse-emerald/10', text: 'text-synapse-emerald', border: 'border-synapse-emerald/30' }
+                            ][i];
+
+                            return (
+                                <div key={i} className="relative z-10 flex flex-col items-center">
+                                    <div className={clsx(
+                                        "w-16 h-16 rounded-full flex items-center justify-center mb-4 border transition-all duration-500",
+                                        colors.bg, colors.border
+                                    )}>
+                                        {i === 0 ? <ClockIcon className={`w-7 h-7 ${colors.text}`} /> :
+                                            i === 1 ? <CubeTransparentIcon className={`w-7 h-7 ${colors.text}`} /> :
+                                                <CheckCircleIcon className={`w-7 h-7 ${colors.text}`} />}
                                     </div>
-                                    <p style={{ fontSize: '12px', color: '#fff', margin: 0, fontFamily: 'monospace' }}>{step}</p>
-                                    <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff', margin: '4px 0 0' }}>
+                                    <p className="text-xs text-gray-400 font-mono mb-1">{step}</p>
+                                    <p className="text-2xl font-bold text-white">
                                         {i === 0 ? status.queued : i === 1 ? status.processing : status.completed}
                                     </p>
+
+                                    {i < 2 && (
+                                        <div className="absolute -right-[calc(50%-2rem)] top-6 text-gray-600">
+                                            <PlayIcon className="w-4 h-4" />
+                                        </div>
+                                    )}
                                 </div>
-                                {i < 2 && (
-                                    <div style={{ width: '80px', height: '2px', backgroundColor: '#30363d', position: 'relative' }}>
-                                        <PlayIcon style={{ width: '16px', height: '16px', color: '#8b949e', position: 'absolute', top: '-7px', left: '50%', transform: 'translateX(-50%)' }} />
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
-                </div>
+                </StitchCard>
 
                 {lastScan && (
-                    <p style={{ fontSize: '12px', color: '#8b949e', marginTop: '16px', textAlign: 'center' }}>
+                    <p className="text-xs text-gray-500 mt-4 text-center font-mono">
                         Último scan: {lastScan}
                     </p>
                 )}
             </main>
-
-            <style jsx global>{`
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        * { box-sizing: border-box; }
-        body { margin: 0; }
-      `}</style>
         </div>
     );
 }

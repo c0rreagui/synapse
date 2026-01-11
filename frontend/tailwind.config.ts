@@ -22,6 +22,24 @@ export default {
                     yellow: "var(--cmd-yellow)",
                     purple: "var(--cmd-purple)", // New
                     cyan: "var(--cmd-blue)",     // New
+                },
+                // Stitch Mode Palette
+                synapse: {
+                    bg: "#05040a",      // Deep Void
+                    surface: "#0f0a15", // Neural Layer
+                    panel: "rgba(13, 17, 23, 0.7)", // Glass Module
+                    primary: {
+                        DEFAULT: "#8b5cf6", // Violet Neon
+                        dark: "#7c3aed",
+                        light: "#a78bfa",
+                        glow: "rgba(139, 92, 246, 0.5)"
+                    },
+                    secondary: "#d946ef", // Magenta/Pink
+                    cyan: "#06b6d4",      // Cyber Blue
+                    emerald: "#10b981",   // System Online
+                    amber: "#f59e0b",     // Warning
+                    text: "#e9d5ff",      // Light Violet Text
+                    border: "rgba(139, 92, 246, 0.2)",
                 }
             },
             animation: {

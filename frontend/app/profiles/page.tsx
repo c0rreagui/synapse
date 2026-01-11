@@ -5,8 +5,11 @@ import Link from 'next/link';
 import Sidebar from '../components/Sidebar';
 import { TikTokProfile } from '../types';
 import {
-    ArrowLeftIcon, CheckCircleIcon, PlusIcon, TrashIcon, UserGroupIcon
+    ArrowLeftIcon, CheckCircleIcon, PlusIcon, TrashIcon, UserGroupIcon, ArrowPathIcon
 } from '@heroicons/react/24/outline';
+import { StitchCard } from '../components/StitchCard';
+import { NeonButton } from '../components/NeonButton';
+import clsx from 'clsx';
 
 const API_BASE = 'http://localhost:8000/api/v1';
 
@@ -72,85 +75,85 @@ export default function ProfilesPage() {
     };
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0d1117', color: '#c9d1d9', fontFamily: 'Inter, system-ui, sans-serif' }}>
+        <div className="flex min-h-screen bg-synapse-bg text-synapse-text font-sans selection:bg-synapse-primary selection:text-white">
             <Sidebar />
 
             {/* MAIN */}
-            <main style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
-                <header style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
+            <main className="flex-1 p-8 overflow-y-auto bg-grid-pattern">
+                <header className="flex items-center gap-4 mb-8">
                     <Link href="/">
-                        <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: '#1c2128', border: '1px solid #30363d', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                            <ArrowLeftIcon style={{ width: '20px', height: '20px', color: '#8b949e' }} />
+                        <div className="w-10 h-10 rounded-lg bg-[#1c2128] border border-white/10 flex items-center justify-center cursor-pointer hover:border-synapse-primary/50 transition-colors group">
+                            <ArrowLeftIcon className="w-5 h-5 text-gray-400 group-hover:text-synapse-primary" />
                         </div>
                     </Link>
                     <div>
-                        <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff', margin: 0 }}>Perfis TikTok</h2>
-                        <p style={{ fontSize: '12px', color: '#8b949e', margin: 0 }}>Gerenciar sessões de upload</p>
+                        <h2 className="text-2xl font-bold text-white m-0">Perfis TikTok</h2>
+                        <p className="text-sm text-gray-500 m-0">Gerenciar sessões de upload</p>
                     </div>
                 </header>
 
                 {error && (
-                    <div style={{ padding: '16px', marginBottom: '24px', borderRadius: '8px', backgroundColor: 'rgba(248,81,73,0.1)', border: '1px solid #f85149', color: '#f85149' }}>
+                    <StitchCard className="p-4 mb-6 !bg-red-500/10 !border-red-500/30 text-red-400">
                         {error}
-                    </div>
+                    </StitchCard>
                 )}
 
                 {/* Profiles Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {loading ? (
-                        <p style={{ color: '#8b949e' }}>Carregando perfis...</p>
+                        <p className="text-gray-500 col-span-full text-center py-12">Carregando perfis...</p>
                     ) : profiles.length > 0 ? (
                         profiles.map((profile, i) => (
-                            <div key={i} style={{ padding: '24px', borderRadius: '12px', backgroundColor: '#1c2128', border: '1px solid #30363d', position: 'relative' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <StitchCard key={i} className="p-6 relative group">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-3">
                                         {/* Avatar Logic */}
                                         {profile.avatar_url ? (
                                             <img
                                                 src={profile.avatar_url}
                                                 alt={profile.label}
-                                                style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', backgroundColor: '#30363d' }}
+                                                className="w-12 h-12 rounded-full object-cover bg-[#30363d] ring-2 ring-transparent group-hover:ring-synapse-primary/50 transition-all"
                                             />
                                         ) : (
-                                            <span style={{ fontSize: '32px' }}>{getProfileIcon(profile.id, profile.icon)}</span>
+                                            <span className="text-4xl">{getProfileIcon(profile.id, profile.icon)}</span>
                                         )}
 
                                         <div>
-                                            <h3 style={{ fontSize: '16px', color: '#fff', margin: 0 }}>{profile.label}</h3>
+                                            <h3 className="text-base font-bold text-white m-0">{profile.label}</h3>
                                             {profile.username && (
-                                                <p style={{ fontSize: '12px', color: '#8b949e', margin: '2px 0 0' }}>@{profile.username}</p>
+                                                <p className="text-xs text-gray-400 m-0 mt-0.5">@{profile.username}</p>
                                             )}
-                                            <p style={{ fontSize: '10px', color: '#484f58', fontFamily: 'monospace', margin: '4px 0 0' }}>{profile.id}</p>
+                                            <p className="text-[10px] text-gray-600 font-mono m-0 mt-1">{profile.id}</p>
                                         </div>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px', borderRadius: '4px', backgroundColor: 'rgba(63,185,80,0.15)' }}>
-                                        <CheckCircleIcon style={{ width: '14px', height: '14px', color: '#3fb950' }} />
-                                        <span style={{ fontSize: '10px', color: '#3fb950', fontWeight: 600 }}>ATIVO</span>
+                                    <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-synapse-emerald/15 border border-synapse-emerald/20">
+                                        <CheckCircleIcon className="w-3.5 h-3.5 text-synapse-emerald" />
+                                        <span className="text-[10px] text-synapse-emerald font-bold">ATIVO</span>
                                     </div>
                                 </div>
 
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                                    <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: '#161b22' }}>
-                                        <p style={{ fontSize: '10px', color: '#8b949e', margin: 0 }}>SESSÃO</p>
-                                        <p style={{ fontSize: '14px', color: '#fff', margin: '4px 0 0' }}>Válida</p>
+                                <div className="grid grid-cols-2 gap-3 mb-4">
+                                    <div className="p-3 rounded-lg bg-black/30 border border-white/5">
+                                        <p className="text-[10px] text-gray-500 m-0 uppercase font-mono">SESSÃO</p>
+                                        <p className="text-sm text-white font-medium m-0 mt-1">Válida</p>
                                     </div>
-                                    <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: '#161b22' }}>
-                                        <p style={{ fontSize: '10px', color: '#8b949e', margin: 0 }}>UPLOADS</p>
-                                        <p style={{ fontSize: '14px', color: '#fff', margin: '4px 0 0' }}>—</p>
+                                    <div className="p-3 rounded-lg bg-black/30 border border-white/5">
+                                        <p className="text-[10px] text-gray-500 m-0 uppercase font-mono">UPLOADS</p>
+                                        <p className="text-sm text-white font-medium m-0 mt-1">—</p>
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <button style={{ flex: 1, padding: '10px', borderRadius: '8px', backgroundColor: '#238636', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer' }}>
+                                <div className="flex gap-2">
+                                    <NeonButton variant="primary" className="flex-1 text-xs">
                                         Usar Perfil
-                                    </button>
+                                    </NeonButton>
 
                                     {/* Validate Button */}
                                     <button
                                         onClick={async () => {
                                             const btn = document.getElementById(`validate-${i}`);
-                                            if (btn) btn.innerText = "⏳";
+                                            if (btn) btn.classList.add('animate-spin');
                                             try {
                                                 const res = await fetch(`${API_BASE}/profiles/validate/${profile.id}`, { method: 'POST' });
                                                 if (res.ok) fetchProfiles();
@@ -158,76 +161,78 @@ export default function ProfilesPage() {
                                             } catch {
                                                 alert('Erro de conexão.');
                                             }
-                                            if (btn) btn.innerHTML = `🔄`;
+                                            if (btn) btn.classList.remove('animate-spin');
                                         }}
-                                        id={`validate-${i}`}
+                                        className="p-2.5 rounded-lg bg-[#1c2128] border border-white/10 text-gray-400 hover:text-white hover:border-synapse-primary/50 transition-all"
                                         title="Atualizar dados do TikTok"
-                                        style={{ padding: '10px', borderRadius: '8px', backgroundColor: '#1c2128', border: '1px solid #30363d', color: '#8b949e', cursor: 'pointer' }}
                                     >
-                                        🔄
+                                        <ArrowPathIcon id={`validate-${i}`} className="w-4 h-4" />
                                     </button>
 
-                                    <button title="Excluir perfil" aria-label="Excluir perfil" style={{ padding: '10px', borderRadius: '8px', backgroundColor: '#1c2128', border: '1px solid #30363d', color: '#8b949e', cursor: 'pointer' }}>
-                                        <TrashIcon style={{ width: '16px', height: '16px' }} />
+                                    <button
+                                        title="Excluir perfil"
+                                        className="p-2.5 rounded-lg bg-[#1c2128] border border-white/10 text-gray-400 hover:text-red-400 hover:border-red-500/50 transition-all"
+                                    >
+                                        <TrashIcon className="w-4 h-4" />
                                     </button>
                                 </div>
-                            </div>
+                            </StitchCard>
                         ))
                     ) : (
-                        <div style={{ padding: '48px', textAlign: 'center', borderRadius: '12px', backgroundColor: '#1c2128', border: '1px solid #30363d' }}>
-                            <UserGroupIcon style={{ width: '48px', height: '48px', color: '#8b949e', margin: '0 auto 16px' }} />
-                            <p style={{ color: '#8b949e', margin: 0 }}>Nenhum perfil encontrado</p>
-                            <p style={{ fontSize: '12px', color: '#8b949e', margin: '8px 0 0' }}>Adicione sessões TikTok em backend/data/sessions/</p>
-                        </div>
+                        <StitchCard className="p-12 text-center col-span-full flex flex-col items-center justify-center">
+                            <UserGroupIcon className="w-12 h-12 text-gray-600 mb-4" />
+                            <p className="text-gray-400 m-0">Nenhum perfil encontrado</p>
+                            <p className="text-xs text-gray-600 mt-2">Adicione sessões TikTok em backend/data/sessions/</p>
+                        </StitchCard>
                     )}
 
                     {/* Add Profile Card */}
                     <div
                         onClick={() => setShowImportModal(true)}
-                        style={{ padding: '24px', borderRadius: '12px', backgroundColor: '#1c2128', border: '2px dashed #30363d', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '200px', cursor: 'pointer', transition: 'all 0.2s' }}
+                        className="p-6 rounded-xl bg-white/5 border-2 border-dashed border-white/10 flex flex-col items-center justify-center min-h-[200px] cursor-pointer hover:border-synapse-primary/50 hover:bg-white/10 transition-all group"
                     >
-                        <PlusIcon style={{ width: '32px', height: '32px', color: '#8b949e', marginBottom: '12px' }} />
-                        <p style={{ color: '#8b949e', margin: 0 }}>Importar Novo Perfil</p>
+                        <PlusIcon className="w-8 h-8 text-gray-500 group-hover:text-synapse-primary mb-3 transition-colors" />
+                        <p className="text-gray-500 group-hover:text-gray-300 transition-colors m-0">Importar Novo Perfil</p>
                     </div>
                 </div>
 
                 {/* Import Modal */}
                 {
                     showImportModal && (
-                        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                            <div style={{ width: '500px', backgroundColor: '#161b22', borderRadius: '12px', border: '1px solid #30363d', padding: '24px' }}>
-                                <h3 style={{ margin: '0 0 16px', color: '#fff' }}>Importar Cookies</h3>
+                        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] fade-in p-4">
+                            <StitchCard className="w-full max-w-lg bg-[#161b22] border-synapse-border p-6 shadow-2xl relative">
+                                <h3 className="text-xl font-bold text-white mb-4">Importar Cookies</h3>
 
-                                <div style={{ marginBottom: '16px' }}>
-                                    <label style={{ display: 'block', color: '#8b949e', fontSize: '12px', marginBottom: '8px' }}>Nome do Perfil</label>
+                                <div className="mb-4">
+                                    <label className="block text-xs text-gray-400 mb-2 uppercase font-bold">Nome do Perfil</label>
                                     <input
                                         type="text"
                                         value={importLabel}
                                         onChange={(e) => setImportLabel(e.target.value)}
                                         placeholder="Ex: Canal de Cortes"
-                                        style={{ width: '100%', padding: '12px', borderRadius: '6px', backgroundColor: '#0d1117', border: '1px solid #30363d', color: '#fff' }}
+                                        className="w-full px-4 py-3 rounded-lg bg-black/50 border border-white/10 text-white focus:border-synapse-primary focus:ring-1 focus:ring-synapse-primary outline-none transition-all"
                                     />
                                 </div>
 
-                                <div style={{ marginBottom: '24px' }}>
-                                    <label style={{ display: 'block', color: '#8b949e', fontSize: '12px', marginBottom: '8px' }}>JSON de Cookies (EditThisCookie)</label>
+                                <div className="mb-6">
+                                    <label className="block text-xs text-gray-400 mb-2 uppercase font-bold">JSON de Cookies (EditThisCookie)</label>
                                     <textarea
                                         value={importCookies}
                                         onChange={(e) => setImportCookies(e.target.value)}
                                         placeholder='[{"domain": ".tiktok.com", ...}]'
-                                        style={{ width: '100%', height: '150px', padding: '12px', borderRadius: '6px', backgroundColor: '#0d1117', border: '1px solid #30363d', color: '#fff', fontFamily: 'monospace', fontSize: '12px' }}
+                                        className="w-full h-40 px-4 py-3 rounded-lg bg-black/50 border border-white/10 text-white font-mono text-xs focus:border-synapse-primary focus:ring-1 focus:ring-synapse-primary outline-none transition-all custom-scrollbar resize-none"
                                     />
                                 </div>
 
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                                    <button onClick={() => setShowImportModal(false)} style={{ padding: '8px 16px', borderRadius: '6px', backgroundColor: 'transparent', border: '1px solid #30363d', color: '#c9d1d9', cursor: 'pointer' }}>
+                                <div className="flex justify-end gap-3">
+                                    <NeonButton variant="ghost" onClick={() => setShowImportModal(false)}>
                                         Cancelar
-                                    </button>
-                                    <button onClick={handleImport} style={{ padding: '8px 16px', borderRadius: '6px', backgroundColor: '#238636', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                                    </NeonButton>
+                                    <NeonButton onClick={handleImport}>
                                         Importar
-                                    </button>
+                                    </NeonButton>
                                 </div>
-                            </div>
+                            </StitchCard>
                         </div>
                     )
                 }
@@ -235,4 +240,3 @@ export default function ProfilesPage() {
         </div >
     );
 }
-

@@ -37,6 +37,7 @@ class ApprovalRequest(BaseModel):
     action: str  # "immediate" or "scheduled"
     schedule_time: Optional[str] = None
     target_profile_id: Optional[str] = None  # Override profile for this video
+    viral_music_enabled: bool = False  # Feature: Add viral music (muted)
 
 
 @router.get("/pending", response_model=List[PendingVideo])
@@ -116,6 +117,7 @@ async def approve_video(request: ApprovalRequest, background_tasks: BackgroundTa
         metadata['action'] = request.action
         metadata['schedule_time'] = request.schedule_time
         metadata['status'] = 'approved'
+        metadata['viral_music_enabled'] = request.viral_music_enabled
         
         # Override profile if provided
         if request.target_profile_id:

@@ -240,3 +240,11 @@ export interface ScheduleEvent {
     scheduled_time: string;
     status: 'pending' | 'posted' | 'failed';
 }
+
+export interface LogEntry {
+    id: string;
+    timestamp: string;
+    level: 'info' | 'success' | 'warning' | 'error';
+    message: string;
+    source: string;
+}

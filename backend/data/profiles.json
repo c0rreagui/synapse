@@ -1,18 +1,18 @@
 {
     "tiktok_profile_01": {
-        "label": "Todo dia um corte aleat\u00f3rio",
+        "label": "vibe.corteseclips",
         "icon": "\u2702\ufe0f",
         "type": "cuts",
         "active": true,
-        "avatar_url": "https://p16-sign-va.tiktokcdn.com/tos-maliva-avt-0068/2fb7c5b686d2aab51afeadc5d84eea97~tplv-tiktokx-cropcenter:720:720.jpeg?dr=14579&refresh_token=79b7513b&x-expires=1768107600&x-signature=k2Un8YnKjAehs88PasjLAQsxbAg%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
-        "username": "tododiaumcorte.aleatorio"
+        "avatar_url": "https://p16-sign-sg.tiktokcdn.com/tos-alisg-avt-0068/6452b7f05306b843d2f80a7718f432a1~tplv-tiktokx-cropcenter:720:720.jpeg?dr=14579&refresh_token=829e3c71&x-expires=1768269600&x-signature=F7i6k7Pklrl9fEI3WYoc%2FjwmdKo%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
+        "username": "vibe.corteseclips"
     },
     "tiktok_profile_02": {
-        "label": "Criando Ibope",
+        "label": "Opini\u00e3o Viral",
         "icon": "\ud83d\udd25",
         "type": "main",
         "active": true,
-        "avatar_url": "https://p16-sign-va.tiktokcdn.com/tos-maliva-avt-0068/c0b102e4406bc5bc92c6b3415af77f01~tplv-tiktokx-cropcenter:720:720.jpeg?dr=14579&refresh_token=e0c2359f&x-expires=1768107600&x-signature=AEI3u4W4J69AbNOpP5meyjezU%2F8%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
-        "username": "criandoibope"
+        "avatar_url": "https://p16-sign-sg.tiktokcdn.com/tos-alisg-avt-0068/5fedaf5daf2472ed8ad0b79c066a1f8e~tplv-tiktokx-cropcenter:720:720.jpeg?dr=14579&refresh_token=a777546e&x-expires=1768269600&x-signature=vkewA2FxPtIv6SsRknz1Ai156Wk%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
+        "username": "opiniaoviral"
     }
 }

@@ -107,19 +107,31 @@ async def upload_video(
                                 logger.info("🎵 Música Viral aplicada!")
                                 await page.wait_for_timeout(1000)
                                 
-                                # 4. Ajustar Volume (Original 0%)
-                                # Tenta achar sliders
-                                volume_tab = page.locator('div, button').filter(has_text=re.compile(r"Volume", re.I)).last
-                                if await volume_tab.is_visible():
-                                    await volume_tab.click()
-                                    await page.wait_for_timeout(500)
-                                    # Hack: Tenta arrastar sliders ou clicar no inicio
-                                    sliders = page.locator('input[type="range"]')
-                                    if await sliders.count() >= 2:
-                                        # Assumindo 0 = Original, 1 = Adicionado (ou vice-versa, difícil saber sem ver)
-                                        # Vamos tentar mutar o Original
-                                        await sliders.first.fill("0") 
-                                        logger.info("🔈 Volume original definido para 0.")
+                                    # 4. Ajustar Volume (CRÍTICO: Original 100%, Adicionado 0%)
+                                    volume_tab = page.locator('div, button').filter(has_text=re.compile(r"Volume", re.I)).last
+                                    if await volume_tab.is_visible():
+                                        await volume_tab.click()
+                                        await page.wait_for_timeout(500)
+                                        
+                                        # Tenta identificar sliders
+                                        sliders = page.locator('input[type="range"]')
+                                        count = await sliders.count()
+                                        
+                                        if count >= 2:
+                                            # Geralmente: [0] = Original Sound, [1] = Added Sound
+                                            # Vamos garantir: Original -> 100, Added -> 0
+                                            
+                                            # Set Original Sound to 100%
+                                            await sliders.nth(0).fill("100")
+                                            
+                                            # Set Added Sound to 0% (CRITICAL)
+                                            await sliders.nth(1).fill("0")
+                                            
+                                            logger.info("🔈 Volumes ajustados: Original=100%, Viral=0%")
+                                        elif count == 1:
+                                            # Se só tem um, assume que é o adicionado (se o original não for editável)
+                                            await sliders.first.fill("0")
+                                            logger.warning("⚠️ Apenas 1 slider encontrado. Definido para 0 (Assumindo ser música adicionada).")
                             
                     # 5. Salvar
                     save_edit = page.locator('button:has-text("Salvar edição"), button:has-text("Save edit"), button:has-text("Confirmar")').last

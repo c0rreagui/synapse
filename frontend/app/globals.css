@@ -590,3 +590,114 @@ body {
   background: #3fb950;
   box-shadow: 0 0 8px rgba(63, 185, 80, 0.6);
 }
+
+@keyframes scanline {
+  0% {
+    top: 0%;
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 1;
+  }
+
+  90% {
+    opacity: 1;
+  }
+
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+.animate-scanline {
+  animation: scanline 4s linear infinite;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+}
+
+.box-shadow-green {
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STITCH MODE - DESIGN SYSTEM SPECIFIC
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Grid Background */
+.bg-grid-pattern {
+  background-image:
+    linear-gradient(to right, rgba(139, 92, 246, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(139, 92, 246, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Base Stitch Card (matches design-system.md) */
+.stitch-card {
+  background: var(--bg-panel, rgba(13, 17, 23, 0.7));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  border-radius: 12px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stitch-card:hover {
+  border-color: rgba(139, 92, 246, 0.4);
+  box-shadow: 0 0 30px rgba(139, 92, 246, 0.15);
+}
+
+/* Neon Text Effects */
+.text-glow {
+  text-shadow: 0 0 10px rgba(139, 92, 246, 0.6);
+}
+
+.text-glow-pink {
+  text-shadow: 0 0 10px rgba(217, 70, 239, 0.6);
+}
+
+.text-glow-green {
+  text-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
+}
+
+/* Synapse Badge */
+.synapse-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  background: rgba(139, 92, 246, 0.1);
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.synapse-badge.success {
+  background: rgba(16, 185, 129, 0.1);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.synapse-badge.error {
+  background: rgba(244, 63, 94, 0.1);
+  color: #fb7185;
+  border-color: rgba(244, 63, 94, 0.2);
+}
+
+/* Cyber Input */
+.synapse-input {
+  background: #030208;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  color: #e9d5ff;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.synapse-input:focus {
+  border-color: #d946ef;
+  box-shadow: 0 0 0 2px rgba(217, 70, 239, 0.2);
+  outline: none;
+}
