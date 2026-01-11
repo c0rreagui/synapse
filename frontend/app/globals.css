@@ -79,10 +79,12 @@
 }
 
 body {
-  background-color: var(--cmd-bg);
+  background: radial-gradient(circle at 50% -20%, #1a1025 0%, #05040a 100%);
+  background-attachment: fixed;
   color: #c9d1d9;
   font-family: 'Inter', system-ui, sans-serif;
   overflow-x: hidden;
+  min-height: 100vh;
 }
 
 @layer utilities {
