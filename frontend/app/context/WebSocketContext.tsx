@@ -53,7 +53,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         }
 
         isConnectingRef.current = true;
-        const ws = new WebSocket('ws://127.0.0.1:8000/ws/updates');
+        const ws = new WebSocket('ws://localhost:8000/ws/updates');
 
         ws.onopen = () => {
             setIsConnected(true);

@@ -35,7 +35,9 @@ def main():
         env["PYTHONLEGACYWINDOWSSTDIO"] = "utf-8"
         
         # Agora usamos cwd absoluto para o backend
-        p_api = subprocess.Popen("uvicorn app.main:app --reload --port 8000", cwd=BACKEND_DIR, shell=True, env=env)
+        # Using sys.executable to bypass Device Guard restrictions on direct .exe calls
+        cmd = f'"{sys.executable}" -m uvicorn app.main:app --reload --port 8000'
+        p_api = subprocess.Popen(cmd, cwd=BACKEND_DIR, shell=True, env=env)
         processes.append(p_api)
         time.sleep(2) # Dá um tempinho pra API respirar
 

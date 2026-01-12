@@ -1,7 +1,7 @@
 
 from fastapi import APIRouter
 from fastapi import APIRouter
-from backend.core.status_manager import status_manager
+from core.status_manager import status_manager
 
 router = APIRouter()
 

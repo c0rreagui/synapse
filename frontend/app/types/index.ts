@@ -239,6 +239,9 @@ export interface ScheduleEvent {
     video_path: string;
     scheduled_time: string;
     status: 'pending' | 'posted' | 'failed';
+    viral_music_enabled?: boolean;
+    music_volume?: number;
+    trend_category?: string;
 }
 
 export interface LogEntry {

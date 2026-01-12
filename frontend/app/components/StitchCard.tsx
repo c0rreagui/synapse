@@ -12,7 +12,7 @@ export const StitchCard = ({ children, className, hoverEffect = true }: StitchCa
         <div
             className={clsx(
                 "stitch-card relative overflow-hidden",
-                hoverEffect && "hover:border-synapse-primary hover:shadow-[0_0_30px_rgba(139,92,246,0.15)]",
+                hoverEffect && "hover:border-synapse-primary hover:shadow-[0_0_30px_rgba(139,92,246,0.15)] card-lift",
                 className
             )}
         >

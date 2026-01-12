@@ -40,3 +40,7 @@
 {"id": "8aa296f1-ff01-4a38-8315-f92e977441c7", "timestamp": "19:00:45", "full_timestamp": "2026-01-09T19:00:45.287747", "level": "info", "message": "Log de teste (info)", "source": "frontend"}
 {"id": "4c132a86-75e1-4d67-98eb-63bcb95e2d9c", "timestamp": "19:00:45", "full_timestamp": "2026-01-09T19:00:45.444451", "level": "info", "message": "Log de teste (info)", "source": "frontend"}
 {"id": "413fdfe0-0577-49ca-9258-e7513d3c47b4", "timestamp": "23:47:58", "full_timestamp": "2026-01-09T23:47:58.854220", "level": "success", "message": "Log de teste (success)", "source": "frontend"}
+{"id": "17ec60c6-3d01-4926-82e2-e22abd80c90e", "timestamp": "23:58:20", "full_timestamp": "2026-01-11T23:58:22.806407", "level": "info", "message": "Test_WebSocket_Log", "source": "browser_test"}
+{"id": "8b44c60d-3e95-4293-88ec-76e141c576f0", "timestamp": "23:59:03", "full_timestamp": "2026-01-11T23:59:03.273354", "level": "info", "message": "Test_WebSocket_Log_2", "source": "browser_test"}
+{"id": "f031a4a3-93c4-4394-9629-4c4916fd7a35", "timestamp": "23:59:20", "full_timestamp": "2026-01-11T23:59:20.926472", "level": "info", "message": "Test_WebSocket_Log_1768175960917", "source": "browser_test"}
+{"id": "33aac47e-281b-4fa7-9fe8-55532d3a3e0f", "timestamp": "00:12:38", "full_timestamp": "2026-01-12T00:12:38.832823", "level": "success", "message": "RealTime_Log_Test_Success", "source": "browser_test"}

@@ -212,4 +212,29 @@ def update_profile_info(profile_id: str, info: Dict[str, Any]) -> bool:
         print(f"Error updating profile: {e}")
         return False
 
+def update_profile_metadata(profile_id: str, updates: Dict[str, Any]) -> bool:
+    """
+    Generic update for profile metadata in profiles.json.
+    Used to store Oracle insights, best times, etc.
+    """
+    if not os.path.exists(PROFILES_FILE):
+        return False
+        
+    try:
+        with open(PROFILES_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            
+        if profile_id not in data:
+            data[profile_id] = {} # Create if valid session exists but no metadata? Or strict?
+
+        # Merge updates
+        data[profile_id].update(updates)
+        
+        with open(PROFILES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=4)
+        return True
+    except Exception as e:
+        print(f"Error updating profile metadata: {e}")
+        return False
+
 

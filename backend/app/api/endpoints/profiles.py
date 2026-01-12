@@ -19,7 +19,7 @@ async def get_profiles():
     """
     # Usando o Session Manager como fonte única da verdade
     # Usando o Session Manager como fonte única da verdade
-    from backend.core.session_manager import list_available_sessions
+    from core.session_manager import list_available_sessions
     return list_available_sessions()
 
 # Alias root para list
@@ -39,7 +39,7 @@ async def import_profile_endpoint(request: ImportProfileRequest):
     Importa um novo perfil a partir de um JSON de cookies.
     """
     from fastapi import HTTPException
-    from backend.core.session_manager import import_session
+    from core.session_manager import import_session
     
     try:
         profile_id = import_session(request.label, request.cookies)

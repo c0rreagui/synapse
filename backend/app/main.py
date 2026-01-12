@@ -11,8 +11,8 @@ app = FastAPI(title="Auto Content Empire API")
 
 @app.on_event("startup")
 async def startup_event():
-    from backend.core.status_manager import status_manager
-    from backend.core.logger import logger
+    from core.status_manager import status_manager
+    from core.logger import logger
     from .api.websocket import notify_pipeline_update, notify_new_log
     
     # Registra o callback para enviar atualizações via WebSocket
@@ -20,17 +20,44 @@ async def startup_event():
     logger.set_async_callback(notify_new_log)
     print("✅ SYSTEM: Real-time updates handler registered.")
 
+    # Start Background Workers
+    try:
+        from core.factory_watcher import start_watcher
+        from core.queue_worker import worker_loop
+        
+        # Start Factory Watcher (Watchdog)
+        app.state.watcher_observer = await start_watcher()
+        
+        # Start Queue Worker (Async Loop)
+        asyncio.create_task(worker_loop())
+        print("✅ SYSTEM: Background workers (Factory + Queue) started.")
+    except Exception as e:
+        print(f"❌ ERROR starting workers: {e}")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    if hasattr(app.state, "watcher_observer") and app.state.watcher_observer:
+        print("🛑 Stopping Factory Watcher...")
+        app.state.watcher_observer.stop()
+        # observer.join() might block async loop, usually safe to just stop in async context or run in executor
+        # app.state.watcher_observer.join() 
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://[::1]:3000",
+        "http://localhost:8000",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
 from fastapi.staticfiles import StaticFiles
 import os
-from .api.endpoints import content, ingestion, profiles, logs, queue, videos, status, scheduler
+from .api.endpoints import content, ingestion, profiles, logs, queue, videos, status, scheduler, oracle, analytics
 from .api import debug_router
 from .api import websocket as ws_router
 
@@ -48,6 +75,8 @@ app.include_router(queue.router, prefix="/api/v1/queue", tags=["queue"])
 app.include_router(videos.router, prefix="/api/v1/videos", tags=["videos"])
 app.include_router(status.router, prefix="/api/v1/status", tags=["status"])
 app.include_router(scheduler.router, prefix="/api/v1/scheduler", tags=["scheduler"])
+app.include_router(oracle.router, prefix="/api/v1/oracle", tags=["oracle"])
+app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
 app.include_router(debug_router.router, prefix="/api/v1", tags=["debug"])
 app.include_router(ws_router.router, tags=["websocket"])
 

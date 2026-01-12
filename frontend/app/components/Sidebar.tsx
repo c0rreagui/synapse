@@ -11,9 +11,10 @@ import clsx from 'clsx';
 const navItems = [
     { href: '/', icon: Squares2X2Icon, label: 'Central de Comando' },
     { href: '/profiles', icon: UserGroupIcon, label: 'Perfis TikTok' },
+    { href: '/oracle', icon: CubeTransparentIcon, label: 'Oracle Intelligence' },
     { href: '/factory', icon: CubeTransparentIcon, label: 'Factory Watcher' },
     { href: '/scheduler', icon: CalendarIcon, label: 'Agendamento' },
-    { href: '/metrics', icon: ChartBarIcon, label: 'Métricas' },
+    { href: '/analytics', icon: ChartBarIcon, label: 'Deep Analytics' },
     { href: '/logs', icon: DocumentTextIcon, label: 'Logs' },
 ];
 

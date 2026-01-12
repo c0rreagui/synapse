@@ -6,7 +6,7 @@ import os
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from backend.core.profile_validator import validate_profile
+from core.profile_validator import validate_profile
 
 async def main():
     if len(sys.argv) < 2:

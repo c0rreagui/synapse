@@ -5,7 +5,20 @@
         "type": "cuts",
         "active": true,
         "avatar_url": "https://p16-sign-sg.tiktokcdn.com/tos-alisg-avt-0068/6452b7f05306b843d2f80a7718f432a1~tplv-tiktokx-cropcenter:720:720.jpeg?dr=14579&refresh_token=829e3c71&x-expires=1768269600&x-signature=F7i6k7Pklrl9fEI3WYoc%2FjwmdKo%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
-        "username": "vibe.corteseclips"
+        "username": "vibe.corteseclips",
+        "oracle_best_times": [
+            {
+                "day": "Sexta-feira",
+                "hour": 18,
+                "reason": "In\u00edcio de semana, momento de relaxamento e lazer"
+            },
+            {
+                "day": "Domingo",
+                "hour": 20,
+                "reason": "Prepara\u00e7\u00e3o para a semana, busca por conte\u00fado inspirador"
+            }
+        ],
+        "oracle_last_run": "now"
     },
     "tiktok_profile_02": {
         "label": "Opini\u00e3o Viral",

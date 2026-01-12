@@ -1,56 +1,44 @@
+'use client';
+
 import { useState, useEffect } from 'react';
-import useWebSocket from '../hooks/useWebSocket';
-import { BackendStatus, LogEntry } from '../types';
 import { toast } from 'sonner';
+import { useMood } from '../context/MoodContext';
+import useWebSocket from '../hooks/useWebSocket';
+import { BackendStatus, LogEntry, ScheduleEvent } from '../types';
+import { StitchCard } from './StitchCard';
+import { NeonButton } from './NeonButton';
+import BotCard from './BotCard';
 import {
-    CommandLineIcon,
     CpuChipIcon,
     ClockIcon,
+    PauseCircleIcon,
+    PlayCircleIcon,
+    XCircleIcon,
+    CommandLineIcon,
     CloudArrowUpIcon,
     ChatBubbleBottomCenterTextIcon,
     FilmIcon,
-    PaperAirplaneIcon,
-    PauseCircleIcon,
-    PlayCircleIcon,
-    XCircleIcon
+    PaperAirplaneIcon
 } from '@heroicons/react/24/outline';
-import BotCard, { BotProps } from './BotCard';
-import { StitchCard } from './StitchCard';
-import { NeonButton } from './NeonButton';
-
-// MOCK DATA (Depois virá do BackendStatus)
-// MOCK DATA REMOVED - Using BackendStatus.bots
-
-interface BackendStatus {
-    state: 'idle' | 'busy' | 'error' | 'paused' | 'unknown';
-    last_updated: string;
-    job: {
-        name: string | null;
-        progress: number;
-        step: string;
-        logs: string[];
-    };
-    system?: {
-        cpu_percent: number;
-        ram_percent: number;
-        disk_usage: number;
-    };
-    bots?: BotProps[];
-}
 
 interface Props {
-    scheduledVideos?: { schedule_time?: string }[];
+    scheduledVideos?: ScheduleEvent[];
 }
 
 export default function CommandCenter({ scheduledVideos = [] }: Props) {
     const [status, setStatus] = useState<BackendStatus | null>(null);
     const [expanded, setExpanded] = useState(false);
+    const { setMood } = useMood();
 
-    // <--- INTEGRAÇÃO WEBSOCKET AQUI:
     useWebSocket({
         onPipelineUpdate: (data: unknown) => {
-            // Atualiza o estado instantaneamente quando o backend avisa
-            setStatus(data as BackendStatus);
+            const newStatus = data as BackendStatus;
+            setStatus(newStatus);
+
+            if (newStatus.state === 'error') setMood('ERROR');
+            else if (newStatus.state === 'busy') setMood('PROCESSING');
+            else if (newStatus.job.step === 'completed') setMood('SUCCESS');
+            else setMood('IDLE');
         },
         onLogEntry: (data: LogEntry) => {
             if (data.level === 'error') {
@@ -74,12 +62,8 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
         };
 
         fetchStatus();
-        // Polling removed in favor of WebSocket
-        // const interval = setInterval(fetchStatus, 1000); 
-        // return () => clearInterval(interval);
     }, []);
 
-    // Fallback status when backend is offline
     const effectiveStatus = status || {
         state: 'unknown' as const,
         last_updated: '',
@@ -90,13 +74,12 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
     const isBusy = effectiveStatus.state === 'busy';
     const isError = effectiveStatus.state === 'error' || effectiveStatus.state === 'unknown';
 
-    // Calculate Quota (Max 10 days)
     const TIKTOK_LIMIT_DAYS = 10;
     const now = new Date();
 
-    const furthestDate = scheduledVideos.reduce((max, v) => {
-        if (!v.schedule_time) return max;
-        const d = new Date(v.schedule_time);
+    const furthestDate = scheduledVideos.reduce((max: Date, v: ScheduleEvent) => {
+        if (!v.scheduled_time) return max;
+        const d = new Date(v.scheduled_time);
         return d > max ? d : max;
     }, now);
 

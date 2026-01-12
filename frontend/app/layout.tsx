@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { WebSocketProvider } from "./context/WebSocketContext";
+import { MoodProvider } from "./context/MoodContext";
+import AmbientBackground from "./components/AmbientBackground";
 import { Toaster } from 'sonner';
 
 export const metadata: Metadata = {
@@ -31,10 +33,13 @@ export default function RootLayout({
         className="font-display bg-[#050507] text-slate-300 overflow-hidden antialiased selection:bg-primary/30 selection:text-white"
         suppressHydrationWarning={true}
       >
-        <WebSocketProvider>
-          {children}
-          <Toaster position="top-right" theme="dark" richColors />
-        </WebSocketProvider>
+        <MoodProvider>
+          <AmbientBackground />
+          <WebSocketProvider>
+            {children}
+            <Toaster position="top-right" theme="dark" richColors />
+          </WebSocketProvider>
+        </MoodProvider>
       </body>
     </html>
   );

@@ -8,6 +8,7 @@ import Sidebar from '../components/Sidebar';
 import { StitchCard } from '../components/StitchCard';
 import { NeonButton } from '../components/NeonButton';
 import SchedulingModal, { SchedulingData } from '../components/SchedulingModal';
+import BatchUploadModal from '../components/BatchUploadModal';
 import clsx from 'clsx';
 
 export default function SchedulerPage() {
@@ -18,6 +19,7 @@ export default function SchedulerPage() {
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
     const [modalDate, setModalDate] = useState(new Date());
 
     // Load Events & Profiles
@@ -48,29 +50,45 @@ export default function SchedulerPage() {
     const handleScheduleSubmit = async (data: SchedulingData) => {
         try {
             // Iterate over selected profiles and create an event for each
-            const promises = data.profile_ids.map(profileId => {
-                const newEvent = {
+            const promises = data.profile_ids.map(async (profileId) => {
+                const payload = {
                     profile_id: profileId,
                     video_path: "C:\\Videos\\viral_trend.mp4", // Mock for visualization
                     scheduled_time: data.scheduled_time,
-                    viral_music_enabled: data.viral_music_enabled
+                    viral_music_enabled: data.viral_music_enabled,
+                    music_volume: data.music_volume, // Updated from intensity
+                    trend_category: data.trend_category
                 };
 
-                return fetch('http://localhost:8000/api/v1/scheduler/create', {
+                const res = await fetch('http://localhost:8000/api/v1/scheduler/create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(newEvent)
+                    body: JSON.stringify(payload)
                 });
+
+                if (res.status === 409) {
+                    // Propagate 409 to modal
+                    const err = await res.json();
+                    throw { status: 409, response: err.detail };
+                }
+
+                if (!res.ok) throw new Error("Falha ao agendar");
+                return res.json();
             });
 
             await Promise.all(promises);
 
             // Refresh events
             fetchData();
-            // alert(`Agendado com sucesso para ${data.profile_ids.length} perfil(s)!`); // Removed alert for smoother E2E
-        } catch (e) {
+            // Using Notification
+            // toast.success(`Agendado com sucesso para ${data.profile_ids.length} perfil(s)!`);
+        } catch (e: any) {
+            // If it's a conflict, rethrow so modal handles it
+            if (e.status === 409) throw e;
+
             console.error("Erro ao agendar:", e);
-            alert("Erro ao agendar");
+            alert(e.message || "Erro ao agendar");
+            throw e; // Ensure modal knows it failed
         }
     };
 
@@ -106,6 +124,13 @@ export default function SchedulerPage() {
                             <ChevronRightIcon className="w-5 h-5" />
                         </button>
                     </div>
+
+                    <button
+                        onClick={() => setIsBatchModalOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 hover:bg-white/10 rounded-xl text-sm font-medium transition-colors"
+                    >
+                        <span>📦 Bulk Upload</span>
+                    </button>
                 </header>
 
                 {/* Config Panel */}
@@ -216,6 +241,16 @@ export default function SchedulerPage() {
                     onSubmit={handleScheduleSubmit}
                     initialDate={modalDate}
                     initialViralBoost={viralBoost}
+                    profiles={profiles}
+                />
+
+                <BatchUploadModal
+                    isOpen={isBatchModalOpen}
+                    onClose={() => setIsBatchModalOpen(false)}
+                    onSuccess={() => {
+                        fetchData();
+                        setIsBatchModalOpen(false);
+                    }}
                     profiles={profiles}
                 />
             </main>

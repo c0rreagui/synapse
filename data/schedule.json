@@ -6,5 +6,16 @@
     "scheduled_time": "2026-01-09T22:58:33.535449",
     "created_at": "2026-01-09T22:58:33.538974",
     "status": "pending"
+  },
+  {
+    "id": "2f3743fa-fc77-4d29-b3dc-4b7563d33fc2",
+    "profile_id": "test_smart_logic_profile",
+    "video_path": "video1.mp4",
+    "scheduled_time": "2026-01-12T14:00:00",
+    "viral_music_enabled": false,
+    "music_volume": 0.0,
+    "trend_category": "General",
+    "status": "pending",
+    "created_at": "2026-01-12T07:41:31.028661"
   }
 ]

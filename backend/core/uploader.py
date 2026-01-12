@@ -25,7 +25,8 @@ async def upload_video(
     hashtags: list = None,
     schedule_time: str = None, 
     post: bool = False,
-    viral_music_enabled: bool = False
+    viral_music_enabled: bool = False,
+    music_volume: float = 0.0 # Default to Silent
 ) -> dict:
     result = {"status": "error", "message": "", "screenshot_path": None}
     
@@ -119,19 +120,22 @@ async def upload_video(
                                         
                                         if count >= 2:
                                             # Geralmente: [0] = Original Sound, [1] = Added Sound
-                                            # Vamos garantir: Original -> 100, Added -> 0
+                                            # Vamos garantir: Original -> 100, Added -> User Value
                                             
                                             # Set Original Sound to 100%
                                             await sliders.nth(0).fill("100")
                                             
-                                            # Set Added Sound to 0% (CRITICAL)
-                                            await sliders.nth(1).fill("0")
+                                            # Set Added Sound to User Value (music_volume)
+                                            # Assuming input accepts 0-100 string
+                                            vol_str = str(int(music_volume))
+                                            await sliders.nth(1).fill(vol_str)
                                             
-                                            logger.info("🔈 Volumes ajustados: Original=100%, Viral=0%")
+                                            logger.info(f"🔈 Volumes ajustados: Original=100%, Viral={vol_str}%")
                                         elif count == 1:
                                             # Se só tem um, assume que é o adicionado (se o original não for editável)
-                                            await sliders.first.fill("0")
-                                            logger.warning("⚠️ Apenas 1 slider encontrado. Definido para 0 (Assumindo ser música adicionada).")
+                                            vol_str = str(int(music_volume))
+                                            await sliders.first.fill(vol_str)
+                                            logger.warning(f"⚠️ Apenas 1 slider encontrado. Definido para {vol_str}%.")
                             
                     # 5. Salvar
                     save_edit = page.locator('button:has-text("Salvar edição"), button:has-text("Save edit"), button:has-text("Confirmar")').last

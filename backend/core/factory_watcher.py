@@ -12,6 +12,8 @@ from typing import Set
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.uploader_monitored import upload_video_monitored
 from core import brain
+from core.status_manager import status_manager
+from core.oracle.visual_cortex import visual_cortex
 
 # Configuração de Logger
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
@@ -103,14 +105,15 @@ async def worker(queue: asyncio.Queue):
             logger.info(f"🎬 Iniciando processamento: {fname}")
             
             # 1. Estabilização
+            status_manager.update_bot_status("factory", "busy", f"Stabilizing {fname}...")
             if not await wait_for_file_stabilization(original_path):
                 logger.error(f"❌ Arquivo instável, incompleto ou inacessível: {fname}")
-                # Remove do processed set para permitir retentativa futura se recriado
-                # (Seria ideal ter acesso ao handler, mas ok por agora)
                 queue.task_done()
+                status_manager.update_bot_status("factory", "idle", "Waiting for stable file...")
                 continue
                 
             # 2. Mover para Processing
+            status_manager.update_bot_status("factory", "busy", f"Moving {fname} to Processing")
             proc_path = os.path.join(PROCESSING_DIR, fname)
             try:
                 # Se já existir em processing, remove (limpeza de falha anterior)
@@ -134,14 +137,26 @@ async def worker(queue: asyncio.Queue):
                      except Exception as e:
                          logger.error(f"⚠️ Erro ao ler JSON lateral: {e}")
                 
+                # Trigger pipeline update (counts changed)
+                status_manager.update_status("busy", current_task=f"Ingesting {fname}", progress=10)
+
             except Exception as e:
                 logger.error(f"❌ Erro ao mover para processing: {e}")
                 queue.task_done()
                 continue
                 
-            # 3. Brain: Gerar Metadados
+            # 3. Brain: Gerar Metadados & Visual Cortex
             logger.info("🧠 Brain analisando conteúdo...")
             brain_data = await brain.generate_smart_caption(fname)
+
+            # 👁️ ORACLE VISUAL CORTEX TRIGGER
+            logger.info("👁️ Oracle Visual Analysis iniciado...")
+            try:
+                oracle_analysis = await visual_cortex.analyze_video_content(proc_path)
+                logger.info(f"👁️ Oracle Results: {oracle_analysis.get('visual_analysis', 'No data')[:50]}...")
+            except Exception as oe:
+                logger.error(f"⚠️ Oracle Visual Cortex falhou (não bloqueante): {oe}")
+                oracle_analysis = {"error": str(oe)}
             
             # Merge com Sidecar (Override)
             final_caption = sidecar_data.get("caption") or brain_data["caption"]
@@ -152,7 +167,9 @@ async def worker(queue: asyncio.Queue):
                 "caption": final_caption,
                 "hashtags": brain_data["hashtags"],
                 "schedule_time": final_schedule,
-                "viral_music_enabled": viral_boost
+                "schedule_time": final_schedule,
+                "viral_music_enabled": viral_boost,
+                "oracle_analysis": oracle_analysis
             }
             
             # Salva o JSON gerado pelo Brain na pasta processing para debug
@@ -200,54 +217,50 @@ async def worker(queue: asyncio.Queue):
             queue.task_done()
             logger.info("💤 Worker aguardando próxima tarefa...")
 
-async def main():
-    print("👁️ SYNAPSE QUEUE MANAGER + BRAIN ATIVO")
-    print("=" * 40)
-    print(f"📂 Monitorando: {INPUTS_DIR}")
-    print(f"🧠 Brain ativado para geração de legendas")
+
+async def start_watcher():
+    """Starts the watcher and worker in the background (for FastAPI integration)"""
+    logger.info("👁️ STARTING FACTORY WATCHER (Background Mode)")
     
     loop = asyncio.get_running_loop()
     queue = asyncio.Queue()
     
-    # Inicia Watcher
+    # Init Watcher
     handler = QueueHandler(queue, loop)
     observer = Observer()
     observer.schedule(handler, INPUTS_DIR)
     observer.start()
     
-    # Scan Inicial
-    print("🔍 Escaneando arquivos existentes...")
+    # Scan Initial
     count = 0
     for f in os.listdir(INPUTS_DIR):
         if f.endswith(".mp4"):
-             # Ignora testes
-            if f.startswith('@') or 'test' in f.lower():
-                continue
+            if f.startswith('@') or 'test' in f.lower(): continue
             path = os.path.join(INPUTS_DIR, f)
             handler.trigger(path)
             count += 1
-            
-    print(f"📥 {count} arquivos na fila inicial.")
     
-    # Inicia Worker
-    # Worker roda indefinidamente até ser cancelado
-    workers = [asyncio.create_task(worker(queue))]
+    logger.info(f"📥 Factory initialized with {count} files pending.")
     
-    try:
-        # Aguarda workers (que nunca terminam sozinhos)
-        await asyncio.gather(*workers)
-    except KeyboardInterrupt:
-        logger.info("🛑 Parando sistema...")
-        observer.stop()
-        for w in workers: w.cancel()
+    # Start Worker Task
+    asyncio.create_task(worker(queue))
     
-    observer.join()
+    return observer
 
 if __name__ == "__main__":
     try:
-        # Policy fix para Windows (evita RuntimeError em loop closure)
         if sys.platform == 'win32':
             asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-        asyncio.run(main())
+        
+        # Standalone run wrapper
+        async def standalone_main():
+            observer = await start_watcher()
+            try:
+                while True: await asyncio.sleep(1)
+            except KeyboardInterrupt:
+                observer.stop()
+                observer.join()
+
+        asyncio.run(standalone_main())
     except KeyboardInterrupt:
         pass

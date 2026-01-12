@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  # 🧠 Cérebro (API)
+  backend:
+    build: ./backend
+    container_name: synapse-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app # Live Reload do código
+      - ./brain:/app/brain # Memória persistente
+      - ./inputs:/app/inputs # Entrada de arquivos
+      - ./processing:/app/processing
+      - ./done:/app/done
+      - ./errors:/app/errors
+    environment:
+      - ENVIRONMENT=development
+
+  # 👁️ Interface (UI)
+  frontend:
+    build: ./frontend
+    container_name: synapse-frontend-v2
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app # Live Reload do código
+      - /app/node_modules # Evita conflito com node_modules do Windows
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+
+

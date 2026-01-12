@@ -22,6 +22,25 @@ export const NeonButton = forwardRef<HTMLButtonElement, NeonButtonProps>(
         const glowStyles = glow ? "hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]" : "";
         const dangerGlow = (glow && variant === 'danger') ? "hover:shadow-[0_0_20px_rgba(239,68,68,0.4)]" : "";
 
+        const createRipple = (event: React.MouseEvent<HTMLButtonElement>) => {
+            const button = event.currentTarget;
+            const circle = document.createElement("span");
+            const diameter = Math.max(button.clientWidth, button.clientHeight);
+            const radius = diameter / 2;
+
+            circle.style.width = circle.style.height = `${diameter}px`;
+            circle.style.left = `${event.clientX - button.getBoundingClientRect().left - radius}px`;
+            circle.style.top = `${event.clientY - button.getBoundingClientRect().top - radius}px`;
+            circle.classList.add("ripple");
+
+            const existingRipple = button.getElementsByClassName("ripple")[0];
+            if (existingRipple) {
+                existingRipple.remove();
+            }
+
+            button.appendChild(circle);
+        };
+
         return (
             <button
                 ref={ref}
@@ -29,10 +48,14 @@ export const NeonButton = forwardRef<HTMLButtonElement, NeonButtonProps>(
                     baseStyles,
                     variants[variant],
                     variant !== 'danger' ? glowStyles : dangerGlow,
-                    "px-4 py-2 text-sm", // Default size
+                    "px-4 py-2 text-sm ripple-container",
                     className
                 )}
                 disabled={isLoading || props.disabled}
+                onClick={(e) => {
+                    if (!isLoading && !props.disabled) createRipple(e);
+                    props.onClick?.(e);
+                }}
                 {...props}
             >
                 {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

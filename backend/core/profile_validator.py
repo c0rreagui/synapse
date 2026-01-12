@@ -1,8 +1,7 @@
 import asyncio
 import logging
 from typing import Dict, Optional
-from backend.core.browser import launch_browser, close_browser
-from backend.core.session_manager import get_session_path, update_profile_info
+from core.session_manager import get_session_path, update_profile_info
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +17,9 @@ async def validate_profile(profile_id: str) -> Dict:
     p = None
     browser = None
     
-    try:
         # Launch headless browser with stealth
+        from core.browser import launch_browser, close_browser
+        
         p, browser, context, page = await launch_browser(
             headless=True, 
             storage_state=session_path

@@ -8,7 +8,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
-from backend.core.logger import logger
+from core.logger import logger
 
 router = APIRouter()
 
