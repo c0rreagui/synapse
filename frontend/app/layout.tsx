@@ -35,6 +35,7 @@ export default function RootLayout({
       >
         <MoodProvider>
           <AmbientBackground />
+          {/* HMR Trigger */}
           <WebSocketProvider>
             {children}
             <Toaster position="top-right" theme="dark" richColors />

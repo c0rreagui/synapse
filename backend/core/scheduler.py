@@ -94,44 +94,13 @@ class Scheduler:
         return (start_time + timedelta(days=7)).isoformat()
 
 
-    def is_slot_available(self, profile_id: str, check_time: datetime, buffer_minutes: int = 15) -> bool:
-        """Checks if a time slot is free for a given profile within a buffer."""
+    def update_event(self, event_id: str, scheduled_time: str) -> bool:
         events = self.load_schedule()
-        
-        check_start = check_time - timedelta(minutes=buffer_minutes)
-        check_end = check_time + timedelta(minutes=buffer_minutes)
-        
         for event in events:
-            if event['profile_id'] != profile_id:
-                continue
-                
-            try:
-                event_time = datetime.fromisoformat(event['scheduled_time'])
-                # Naive comparison assuming both are same timezone logic
-                if check_start < event_time < check_end:
-                    return False
-            except ValueError:
-                continue # Skip invalid dates
-                
-        return True
-
-    def find_next_available_slot(self, profile_id: str, start_time: datetime) -> str:
-        """Finds the next available slot starting from start_time."""
-        current_check = start_time
-        
-        # Safety limit to prevent infinite loops (e.g. max 1 week lookahead)
-        max_attempts = 672 # 7 days * 24 hours * 4 slots/hour
-        attempts = 0
-        
-        while attempts < max_attempts:
-            if self.is_slot_available(profile_id, current_check):
-                return current_check.isoformat()
-            
-            # Move forward by 15 minutes
-            current_check += timedelta(minutes=15)
-            attempts += 1
-            
-        # Fallback if really full (unlikely)
-        return (start_time + timedelta(days=7)).isoformat()
+            if event['id'] == event_id:
+                event['scheduled_time'] = scheduled_time
+                self.save_schedule(events)
+                return True
+        return False
 
 scheduler_service = Scheduler()

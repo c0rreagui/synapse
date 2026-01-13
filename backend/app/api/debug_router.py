@@ -61,3 +61,24 @@ async def check_ip_stealth():
         if p and browser:
             await close_browser(p, browser)
             logger.info("Browser closed.")
+@router.get("/paths")
+async def debug_paths():
+    """Returns server-side path information."""
+    import core.session_manager as sm
+    
+    sessions_dir = sm.SESSIONS_DIR
+    exists = os.path.exists(sessions_dir)
+    files = []
+    if exists:
+        try:
+            files = os.listdir(sessions_dir)
+        except Exception as e:
+            files = [str(e)]
+            
+    return {
+        "cwd": os.getcwd(),
+        "sessions_dir": sessions_dir,
+        "dir_exists": exists,
+        "files_in_dir": files,
+        "list_available_sessions_output": sm.list_available_sessions()
+    }

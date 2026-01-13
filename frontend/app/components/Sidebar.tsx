@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
     Squares2X2Icon, UserGroupIcon, CubeTransparentIcon,
-    DocumentTextIcon, ChartBarIcon, CalendarIcon
+    DocumentTextIcon, ChartBarIcon, CalendarIcon, EyeIcon
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 
@@ -12,6 +12,7 @@ const navItems = [
     { href: '/', icon: Squares2X2Icon, label: 'Central de Comando' },
     { href: '/profiles', icon: UserGroupIcon, label: 'Perfis TikTok' },
     { href: '/oracle', icon: CubeTransparentIcon, label: 'Oracle Intelligence' },
+    { href: '/seo', icon: EyeIcon, label: 'SEO & Discovery' },
     { href: '/factory', icon: CubeTransparentIcon, label: 'Factory Watcher' },
     { href: '/scheduler', icon: CalendarIcon, label: 'Agendamento' },
     { href: '/analytics', icon: ChartBarIcon, label: 'Deep Analytics' },

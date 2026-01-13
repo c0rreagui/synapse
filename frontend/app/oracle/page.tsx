@@ -9,7 +9,7 @@ import { InsightCard } from '../components/oracle/InsightCard';
 import { SentimentCard } from '../components/oracle/SentimentCard';
 import LogTerminal from '../components/LogTerminal';
 import { analyzeProfile, OracleAnalysis } from '../../services/oracleService';
-import { useMood } from '../../context/MoodContext';
+import { useMood } from '../context/MoodContext';
 
 // Tradução dos logs de carregamento
 const TERMINAL_LINES = [

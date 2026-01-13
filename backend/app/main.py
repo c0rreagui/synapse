@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Auto Content Empire API")
+# Force Reload Trigger (Final Config)
 
 @app.on_event("startup")
 async def startup_event():
@@ -18,7 +19,7 @@ async def startup_event():
     # Registra o callback para enviar atualizações via WebSocket
     status_manager.set_async_callback(notify_pipeline_update)
     logger.set_async_callback(notify_new_log)
-    print("✅ SYSTEM: Real-time updates handler registered.")
+    print("SYSTEM: Real-time updates handler registered.")
 
     # Start Background Workers
     try:
@@ -30,14 +31,14 @@ async def startup_event():
         
         # Start Queue Worker (Async Loop)
         asyncio.create_task(worker_loop())
-        print("✅ SYSTEM: Background workers (Factory + Queue) started.")
+        print("SYSTEM: Background workers (Factory + Queue) started.")
     except Exception as e:
-        print(f"❌ ERROR starting workers: {e}")
+        print(f"ERROR starting workers: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     if hasattr(app.state, "watcher_observer") and app.state.watcher_observer:
-        print("🛑 Stopping Factory Watcher...")
+        print("Stopping Factory Watcher...")
         app.state.watcher_observer.stop()
         # observer.join() might block async loop, usually safe to just stop in async context or run in executor
         # app.state.watcher_observer.join() 
@@ -49,6 +50,7 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://[::1]:3000",
         "http://localhost:8000",
+        "http://localhost:3001",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS", "PUT", "DELETE"],

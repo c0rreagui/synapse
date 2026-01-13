@@ -1,23 +1,17 @@
+
 import sys
 import os
+import asyncio
+import json
 
-# Add root to path
-sys.path.append(os.getcwd())
+# Add backend to path
+sys.path.append(os.path.join(os.getcwd(), 'backend'))
 
+from core.session_manager import list_available_sessions
+
+print("--- TESTING LIST_AVAILABLE_SESSIONS ---")
 try:
-    from backend.core.session_manager import list_available_sessions, SESSIONS_DIR, BASE_DIR
-    print(f"BASE_DIR: {BASE_DIR}")
-    print(f"SESSIONS_DIR: {SESSIONS_DIR}")
-    print(f"Exists? {os.path.exists(SESSIONS_DIR)}")
-    if os.path.exists(SESSIONS_DIR):
-        print(f"Contents: {os.listdir(SESSIONS_DIR)}")
-    
-    profiles = list_available_sessions()
-    print(f"Profiles Found: {len(profiles)}")
-    for p in profiles:
-        print(p)
-
+    sessions = list_available_sessions()
+    print(json.dumps(sessions, indent=2))
 except Exception as e:
-    print(f"Error: {e}")
-    import traceback
-    traceback.print_exc()
+    print(f"ERROR: {e}")

@@ -170,3 +170,64 @@ async def generate_reply(request: ReplyRequest):
     """
     from core.oracle.community_manager import community_manager
     return {"reply": community_manager.generate_reply(request.comment, request.tone, request.context)}
+
+# --- SEO & DISCOVERY (TURBO) ---
+from core.oracle.seo_engine import seo_engine
+from core import session_manager
+
+@router.post("/seo/audit/{profile_id}")
+async def audit_profile(profile_id: str):
+    metadata = session_manager.get_profile_metadata(profile_id)
+    if not metadata:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    
+    result = seo_engine.audit_profile(metadata)
+    
+    # Auto-save last audit
+    session_manager.update_profile_metadata(profile_id, {"last_seo_audit": result})
+    return result
+
+class SpyRequest(BaseModel):
+    competitor_handle: str
+
+@router.post("/seo/spy")
+async def spy_competitor(request: SpyRequest):
+    return seo_engine.competitor_spy(request.competitor_handle)
+
+class FixBioRequest(BaseModel):
+    current_bio: str
+    niche: str
+
+@router.post("/seo/fix-bio")
+async def fix_bio(request: FixBioRequest):
+    options = seo_engine.auto_fix_bio(request.current_bio, request.niche)
+    return {"options": options}
+
+class HashtagRequest(BaseModel):
+    niche: str
+    topic: str
+
+@router.post("/seo/hashtags")
+async def create_hashtags(request: HashtagRequest):
+    prompt = f"""
+    Gerar 3 grupos de hashtags para TikTok.
+    Nicho: {request.niche}
+    Topico: {request.topic}
+    
+    Output JSON:
+    {{
+        "broad": ["#tag1", ...], // Alto volume
+        "niche": ["#tag2", ...], // Especificas
+        "trending": ["#tag3", ...] // Oportunidades
+    }}
+    """
+    try:
+        # seo_engine instance has .client
+        res = seo_engine.client.generate_content(prompt)
+        text = res.text.replace("```json", "").replace("```", "").strip()
+        import json
+        return json.loads(text)
+    except Exception as e:
+        return {"error": str(e)}
+
+

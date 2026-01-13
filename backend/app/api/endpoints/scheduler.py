@@ -63,6 +63,16 @@ async def delete_schedule(event_id: str):
         raise HTTPException(status_code=404, detail="Event not found")
     return {"status": "deleted"}
 
+class UpdateEventRequest(BaseModel):
+    scheduled_time: str
+
+@router.patch("/{event_id}")
+async def update_event(event_id: str, request: UpdateEventRequest):
+    success = scheduler_service.update_event(event_id, request.scheduled_time)
+    if not success:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return {"status": "updated"}
+
 @router.get("/suggestion/{profile_id}")
 async def get_schedule_suggestion(profile_id: str):
     """

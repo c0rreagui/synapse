@@ -17,6 +17,7 @@ async def validate_profile(profile_id: str) -> Dict:
     p = None
     browser = None
     
+    try:
         # Launch headless browser with stealth
         from core.browser import launch_browser, close_browser
         

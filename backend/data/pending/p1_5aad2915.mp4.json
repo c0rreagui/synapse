@@ -1,0 +1,21 @@
+{
+  "caption": "😱 Você sabia disso? #curiosidades",
+  "schedule_time": null,
+  "viral_music_enabled": true,
+  "original_filename": "test_viral_clip.mp4",
+  "profile_id": "p1",
+  "uploaded_at": "b099f380-f013-11f0-a643-001a7dda7113",
+  "oracle_status": "completed",
+  "oracle_analysis": {
+    "suggested_caption": "😱 Você sabia disso? #curiosidades",
+    "hashtags": [
+      "#viral",
+      "#fy",
+      "#tiktok",
+      "#growth",
+      "#mockData"
+    ],
+    "viral_score": 88,
+    "viral_reason": "High engagement potential detected by (Mock) AI."
+  }
+}

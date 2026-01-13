@@ -4,8 +4,9 @@
         "icon": "\u2702\ufe0f",
         "type": "cuts",
         "active": true,
-        "avatar_url": "https://p16-sign-sg.tiktokcdn.com/tos-alisg-avt-0068/6452b7f05306b843d2f80a7718f432a1~tplv-tiktokx-cropcenter:720:720.jpeg?dr=14579&refresh_token=829e3c71&x-expires=1768269600&x-signature=F7i6k7Pklrl9fEI3WYoc%2FjwmdKo%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
+        "avatar_url": "https://p16-sign-sg.tiktokcdn.com/tos-alisg-avt-0068/6452b7f05306b843d2f80a7718f432a1~tplv-tiktokx-cropcenter:720:720.jpeg?dr=14579&refresh_token=9ed5977f&x-expires=1768431600&x-signature=MhoAqoJamIp%2BcKvX%2B%2BtUslnD6g4%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
         "username": "vibe.corteseclips",
+        "bio": "Cortes virais di\u00e1rios \u2702\ufe0f | Humor e Vibe | Siga para n\u00e3o perder!",
         "oracle_best_times": [
             {
                 "day": "Sexta-feira",
@@ -18,14 +19,83 @@
                 "reason": "Prepara\u00e7\u00e3o para a semana, busca por conte\u00fado inspirador"
             }
         ],
-        "oracle_last_run": "now"
+        "oracle_last_run": "now",
+        "last_seo_audit": {
+            "total_score": 65,
+            "vision_score": 70,
+            "details": [
+                {
+                    "type": "success",
+                    "msg": "Tamanho da bio OK."
+                },
+                {
+                    "type": "warning",
+                    "msg": "An\u00e1lise Visual indispon\u00edvel (Erro: Vision Failed on both Gemini and Groq (Error code:). Relat\u00f3rio gerado via Texto."
+                },
+                {
+                    "type": "vision",
+                    "data": {
+                        "score": 70,
+                        "impression": "Perfil com foco em conte\u00fado viral e humor",
+                        "pros": [
+                            "Nome de usu\u00e1rio criativo",
+                            "Bio curta e objetiva",
+                            "Uso de emoji para chamar aten\u00e7\u00e3o"
+                        ],
+                        "cons": [
+                            "Avatar n\u00e3o carregou",
+                            "Bio pode ser um pouco gen\u00e9rica"
+                        ],
+                        "verdict": "Promissor"
+                    }
+                }
+            ],
+            "profile_overiew": {
+                "username": "vibe.corteseclips",
+                "bio": "Cortes virais di\u00e1rios \u2702\ufe0f | Humor e Vibe | Siga para n\u00e3o perder!"
+            }
+        }
     },
     "tiktok_profile_02": {
         "label": "Opini\u00e3o Viral",
         "icon": "\ud83d\udd25",
         "type": "main",
         "active": true,
-        "avatar_url": "https://p16-sign-sg.tiktokcdn.com/tos-alisg-avt-0068/5fedaf5daf2472ed8ad0b79c066a1f8e~tplv-tiktokx-cropcenter:720:720.jpeg?dr=14579&refresh_token=a777546e&x-expires=1768269600&x-signature=vkewA2FxPtIv6SsRknz1Ai156Wk%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
-        "username": "opiniaoviral"
+        "avatar_url": "https://p77-sign-sg.tiktokcdn.com/tos-alisg-avt-0068/5fedaf5daf2472ed8ad0b79c066a1f8e~tplv-tiktokx-cropcenter:720:720.jpeg?dr=14579&refresh_token=177e2c31&x-expires=1768431600&x-signature=%2FDd9foCvUmYoKqcfSHehNCgPlW0%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
+        "username": "opiniaoviral",
+        "last_seo_audit": {
+            "total_score": 30,
+            "vision_score": 60,
+            "details": [
+                {
+                    "type": "warning",
+                    "msg": "Biografia vazia. Oportunidade perdida."
+                },
+                {
+                    "type": "warning",
+                    "msg": "An\u00e1lise Visual indispon\u00edvel (Erro: Error code: 400 - {'error': {'message': 'The model). Relat\u00f3rio gerado via Texto."
+                },
+                {
+                    "type": "vision",
+                    "data": {
+                        "score": 60,
+                        "impression": "O nome de usu\u00e1rio 'opiniaoviral' sugere uma presen\u00e7a online focada em compartilhamento de opini\u00f5es e tend\u00eancias, possivelmente buscando viralizar conte\u00fados.",
+                        "pros": [
+                            "Nome de usu\u00e1rio sugestivo e de f\u00e1cil lembran\u00e7a",
+                            "Bio pode ser curta, mas pode ser otimizada para melhor desempenho"
+                        ],
+                        "cons": [
+                            "Avatar n\u00e3o carregado, o que pode afetar a primeira impress\u00e3o",
+                            "Bio pode ser mais descritiva para atrair e manter a aten\u00e7\u00e3o do p\u00fablico"
+                        ],
+                        "verdict": "Perf\u00edl com potencial, necessita ajustes visuais e de bio para melhorar a experi\u00eancia do usu\u00e1rio"
+                    }
+                }
+            ],
+            "profile_overiew": {
+                "username": "opiniaoviral",
+                "bio": ""
+            }
+        }
     }
 }

@@ -5,7 +5,7 @@ Saves files to inputs/ folder with profile tags for factory_watcher processing
 import os
 import uuid
 from typing import Optional
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -27,6 +27,7 @@ class IngestResponse(BaseModel):
 
 @router.post("/upload", response_model=IngestResponse)
 async def upload_video(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     profile_id: str = Form(...),
     caption: Optional[str] = Form(None),
@@ -35,15 +36,7 @@ async def upload_video(
 ):
     """
     Upload a video file for automated processing.
-    
-    - **file**: Video file (mp4 recommended)
-    - **profile_id**: Target profile (p1, p2, etc.)
-    - **caption**: Optional caption for the video
-    - **schedule_time**: Optional ISO datetime string for scheduling
-    - **viral_music_enabled**: replace audio with trending music (default: False)
-    
-    The file will be saved to inputs/ with a profile tag prefix,
-    triggering the factory_watcher to process it automatically.
+    Now enriched with ORACLE content analysis in background.
     """
     
     # Validate profile_id format
@@ -73,30 +66,31 @@ async def upload_video(
         
         # Determine caption text
         final_caption = caption
-        if not final_caption:
-            final_caption = f"{os.path.splitext(file.filename)[0]} - Synapse Auto"
             
         # Create Metadata JSON (Scheduling + Caption)
-        # This replaces the old simple .txt caption file
         import json
         metadata = {
-            "caption": final_caption,
-            "schedule_time": schedule_time, # ISO Format from frontend
+            "caption": final_caption, # May be None, Oracle will fill it
+            "schedule_time": schedule_time,
             "viral_music_enabled": viral_music_enabled,
             "original_filename": file.filename,
             "profile_id": profile_id,
-            "uploaded_at": str(uuid.uuid1()) # Timestamp
+            "uploaded_at": str(uuid.uuid1()),
+            "oracle_status": "pending"
         }
         
-        metadata_filename = f"{tagged_filename}.json" # e.g. p1_xxx.mp4.json
+        metadata_filename = f"{tagged_filename}.json"
         metadata_path = os.path.join(PENDING_DIR, metadata_filename)
         
         with open(metadata_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2, ensure_ascii=False)
+            
+        # 🟢 TRIGGER ORACLE IN BACKGROUND
+        background_tasks.add_task(process_oracle_enrichment, metadata_path, file.filename, profile_id)
         
         return IngestResponse(
             success=True,
-            message=f"Video queued for processing on profile {profile_id}. Scheduled: {schedule_time}",
+            message=f"Video queued. Oracle Analysis started in background.",
             file_id=file_id,
             filename=tagged_filename,
             profile=profile_id
@@ -107,6 +101,41 @@ async def upload_video(
             status_code=500,
             detail=f"Failed to save file: {str(e)}"
         )
+
+# Background Task for Oracle
+def process_oracle_enrichment(metadata_path: str, original_filename: str, profile_id: str):
+    try:
+        from core.oracle.seo_engine import seo_engine
+        import json
+        
+        print(f"🔮 Oracle: Analyzing content for {original_filename}...")
+        
+        # 1. Generate Content Metadata
+        # TODO: Get actual profile niche from Profile Metadata (omitted for speed, defaulting to 'General')
+        analysis = seo_engine.generate_content_metadata(original_filename, niche="General")
+        
+        # 2. Update JSON
+        if os.path.exists(metadata_path):
+            with open(metadata_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            # Update fields if clean (user didn't provide caption)
+            if not data.get("caption"):
+                data["caption"] = analysis.get("suggested_caption")
+            
+            data["oracle_analysis"] = analysis
+            data["oracle_status"] = "completed"
+            
+            # 3. Smart Scheduling Suggestion (Mock for now, real implementation needs Scheduler Service)
+            # data["suggested_time"] = ... 
+            
+            with open(metadata_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+                
+            print(f"✅ Oracle: Enrichment complete for {original_filename}")
+            
+    except Exception as e:
+        print(f"❌ Oracle Background Error: {e}")
 
 
 @router.get("/status")

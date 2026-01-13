@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { ClockIcon, CalendarIcon, CheckIcon, XMarkIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { ClockIcon, CalendarIcon, CheckIcon, XMarkIcon, ArrowPathIcon, SparklesIcon, FireIcon } from '@heroicons/react/24/outline';
 import GlassCard from '../components/GlassCard';
 import Toast from '../components/Toast';
 import Badge from '../components/Badge';
@@ -19,6 +19,13 @@ interface PendingVideo {
         caption?: string;
         original_filename?: string;
         profile_id?: string;
+        oracle_status?: 'pending' | 'completed' | 'failed';
+        oracle_analysis?: {
+            suggested_caption: string;
+            hashtags: string[];
+            viral_score: number;
+            viral_reason: string;
+        };
     };
 }
 
@@ -200,6 +207,46 @@ export default function QueuePage() {
                                         <p className="text-sm text-gray-300 mt-2 line-clamp-2">
                                             {video.metadata.caption}
                                         </p>
+                                    )}
+
+                                    {/* 🔮 ORACLE INSIGHTS BLOCK */}
+                                    {video.metadata.oracle_status === 'pending' && (
+                                        <div className="mt-3 flex items-center gap-2 text-xs text-synapse-cyan animate-pulse">
+                                            <SparklesIcon className="w-4 h-4" />
+                                            <span>Oracle AI analisando viralidade...</span>
+                                        </div>
+                                    )}
+
+                                    {video.metadata.oracle_analysis && (
+                                        <div className="mt-3 p-3 rounded-lg bg-synapse-cyan/5 border border-synapse-cyan/20">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <SparklesIcon className="w-4 h-4 text-synapse-cyan" />
+                                                <span className="text-xs font-bold text-synapse-cyan uppercase tracking-wider">Oracle Insight</span>
+                                                <div className="ml-auto flex items-center gap-1 text-xs text-orange-400 font-bold border border-orange-400/30 px-2 py-0.5 rounded-full">
+                                                    <FireIcon className="w-3 h-3" />
+                                                    {video.metadata.oracle_analysis.viral_score}/100
+                                                </div>
+                                            </div>
+
+                                            {/* AI Caption */}
+                                            <div className="text-sm text-white italic mb-2">
+                                                "{video.metadata.oracle_analysis.suggested_caption}"
+                                            </div>
+
+                                            {/* Tags */}
+                                            <div className="flex flex-wrap gap-1">
+                                                {video.metadata.oracle_analysis.hashtags.slice(0, 5).map(tag => (
+                                                    <span key={tag} className="text-[10px] text-gray-400 bg-white/5 px-1.5 py-0.5 rounded">
+                                                        {tag}
+                                                    </span>
+                                                ))}
+                                                {video.metadata.oracle_analysis.hashtags.length > 5 && (
+                                                    <span className="text-[10px] text-gray-500 px-1.5 py-0.5">
+                                                        +{video.metadata.oracle_analysis.hashtags.length - 5}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                                 <div className="flex gap-3 ml-6">
