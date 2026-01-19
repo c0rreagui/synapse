@@ -1,0 +1,48 @@
+# Dependencies (will be installed inside container)
+.venv
+backend/venv
+frontend/node_modules
+node_modules
+
+# Build outputs
+frontend/.next
+frontend/out
+__pycache__
+*.pyc
+*.pyo
+
+# Git and IDE
+.git
+.gitignore
+.github
+.vscode
+*.md
+
+# Docker files (prevent recursive copy)
+Dockerfile
+docker-compose.yml
+
+# Media and temp files
+*.mp4
+*.avi
+*.mov
+*.log
+*.png
+*.jpg
+*.jpeg
+inputs/*
+processing/*
+done/*
+errors/*
+media/*
+
+# Playwright cache (installed fresh in container)
+ms-playwright
+
+# Test artifacts
+frontend/test-results
+frontend/playwright-report
+backend/tests/screenshots
+
+# Brain/data (mounted as volume)
+brain
