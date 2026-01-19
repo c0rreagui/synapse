@@ -34,11 +34,6 @@ class OracleClient:
             self.model = genai.GenerativeModel('gemini-2.0-flash')
             print("🔮 OracleClient: Connected to Gemini (Flash 2.0)")
 
-        # 3. Fallback to Mock if NO keys
-        if not self.groq_client and not self.model:
-            self.provider = "mock"
-            print("⚠️ OracleClient: No API Keys found. Enabled MOCK MODE for demo.")
-
     def _enforce_rate_limit(self):
         elapsed = time.time() - self.last_request_time
         if elapsed < self.min_interval:
@@ -48,6 +43,7 @@ class OracleClient:
     def generate_content(self, prompt_input):
         """
         Unified wrapper: Routes Vision -> Gemini, Text -> Groq (if avail).
+        Raises Exception if no providers are active.
         """
         self._enforce_rate_limit()
 
@@ -59,34 +55,6 @@ class OracleClient:
                     is_vision = True
                     break
         
-        # Mock Mode
-        if self.provider == "mock":
-            class MockResponse:
-                def __init__(self, text): self.text = text
-            
-            # Simple keyword matching to guess intent
-            p_str = str(prompt_input).lower()
-            
-            if "viral" in p_str and "caption" in p_str:
-                import json
-                return MockResponse(json.dumps({
-                    "suggested_caption": "😱 Você sabia disso? #curiosidades",
-                    "hashtags": ["#viral", "#fy", "#tiktok", "#growth", "#mockData"],
-                    "viral_score": 88,
-                    "viral_reason": "High engagement potential detected by (Mock) AI."
-                }))
-            elif "score" in p_str and "avatar" in p_str:
-                 import json
-                 return MockResponse(json.dumps({
-                    "score": 75,
-                    "impression": "Perfil Profissional (Mock)",
-                    "pros": ["Boa iluminação", "Sorriso confiante"],
-                    "cons": ["Fundo muito poluído"],
-                    "verdict": "Profissional"
-                }))
-            else:
-                 return MockResponse("This is a mock response from Oracle. Please configure API Keys.")
-
         # 1. Vision Request -> Try Gemini First (Stable)
         if is_vision and self.model:
             try:
@@ -103,10 +71,10 @@ class OracleClient:
                 if is_vision: raise Exception(f"Vision Failed on both Gemini and Groq ({gx})")
                 raise gx
         else:
-            if not self.model: raise Exception("Oracle Offline (No Providers)")
+            if not self.model: 
+                raise Exception("Oracle Offline (No API Keys Configured). Please set GROQ_API_KEY or GEMINI_API_KEY.")
             # If we are here, Groq failed or not avail, retry Gemini (if not tried yet logic?)
             # Simplified: If Gemini failed earlier, we might loop? 
-            # Risk: infinite loop if self.model calls generate_content again? 
             # No, self.model.generate_content call native lib.
             return self.model.generate_content(prompt_input)
 

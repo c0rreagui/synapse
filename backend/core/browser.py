@@ -1,7 +1,13 @@
 import os
 import logging
+import sys
+import asyncio
 from typing import Optional, Tuple, Dict, Any
 from playwright.async_api import async_playwright, Browser, BrowserContext, Page, Playwright
+
+# CRITICAL: Windows event loop fix - must be set before any async operations
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 logger = logging.getLogger(__name__)
 

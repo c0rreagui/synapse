@@ -58,6 +58,7 @@ export default function Home() {
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('12:00');
   const [viralMusicEnabled, setViralMusicEnabled] = useState(false);
+  const [privacyLevel, setPrivacyLevel] = useState('public_to_everyone'); // public_to_everyone, mutual_follow_friends, self_only
 
   // System State
   const [backendOnline, setBackendOnline] = useState(false);
@@ -84,14 +85,17 @@ export default function Home() {
       if (profilesRes.ok) {
         const profs = await profilesRes.json();
         setProfiles(profs);
-        if (!selectedProfile && profs.length > 0) setSelectedProfile(profs[0].id);
+        // Fix: Use functional update to avoid dependency on selectedProfile
+        if (profs.length > 0) {
+          setSelectedProfile(prev => prev || profs[0].id);
+        }
       }
     } catch {
       setBackendOnline(false);
     } finally {
       setIsLoading(false);
     }
-  }, [selectedProfile]);
+  }, []); // Fix: Removed selectedProfile dependency
 
   // Polling como fallback e para dados não-socket
   useEffect(() => {
@@ -158,7 +162,8 @@ export default function Home() {
           id: selectedVideo.id,
           action: postType,
           schedule_time: scheduleTime,
-          viral_music_enabled: viralMusicEnabled
+          viral_music_enabled: viralMusicEnabled,
+          privacy_level: privacyLevel
         })
       });
 
@@ -542,6 +547,27 @@ export default function Home() {
                 <div className={`w-6 h-6 rounded border flex items-center justify-center transition-colors ${viralMusicEnabled ? 'bg-synapse-purple border-synapse-purple' : 'border-gray-600'}`}>
                   {viralMusicEnabled && <CheckCircleIcon className="w-4 h-4 text-white" />}
                 </div>
+              </div>
+            </div>
+
+            {/* Privacy Selector */}
+            <div className="mb-6">
+              <label className="text-xs text-gray-500 font-bold mb-2 block uppercase tracking-wider">Privacidade</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'public_to_everyone', label: 'Todos', icon: '🌍' },
+                  { id: 'mutual_follow_friends', label: 'Amigos', icon: '👥' },
+                  { id: 'self_only', label: 'Somente Eu', icon: '🔒' }
+                ].map(opt => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setPrivacyLevel(opt.id)}
+                    className={`p-2 rounded-lg border text-xs font-bold flex flex-col items-center gap-1 transition-all ${privacyLevel === opt.id ? 'bg-synapse-primary/20 border-synapse-primary text-synapse-primary' : 'bg-black/40 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                  >
+                    <span className="text-lg">{opt.icon}</span>
+                    {opt.label}
+                  </button>
+                ))}
               </div>
             </div>
 

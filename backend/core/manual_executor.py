@@ -63,9 +63,13 @@ async def execute_approved_video(video_filename: str) -> dict:
     profile_id = metadata.get('profile_id', 'p1')
     
     # Convert short profile ID to full session name
-    if profile_id.startswith('p'):
+    # Convert short profile ID to full session name
+    if profile_id.startswith('p') and not profile_id.startswith('ptiktok'):
         profile_number = profile_id[1:]
         session_name = f"tiktok_profile_{profile_number.zfill(2)}"
+    elif profile_id.startswith('ptiktok'):
+         # Fix for edge case where "ptiktok_profile_01" was used
+         session_name = profile_id[1:]
     else:
         session_name = profile_id
     
@@ -94,7 +98,15 @@ async def execute_approved_video(video_filename: str) -> dict:
     
     # ... (Schedule logic)
     
-    status_manager.update_status("busy", video_filename, 40, "Iniciando Upload Automático", logs=["Abrindo navegador...", f"Perfil: {session_name}"])
+    
+    # Get privacy level (default to public if not set)
+    privacy_level = metadata.get('privacy_level', 'public_to_everyone')
+    
+    # Get action
+    action = metadata.get('action', 'scheduled')
+    schedule_time = metadata.get('schedule_time')
+
+    status_manager.update_status("busy", video_filename, 40, "Iniciando Upload Automático", logs=["Abrindo navegador...", f"Perfil: {session_name}", f"Privacidade: {privacy_level}"])
 
     # Execute upload
     try:
@@ -105,7 +117,9 @@ async def execute_approved_video(video_filename: str) -> dict:
             hashtags=hashtags,
             schedule_time=schedule_time if action == 'scheduled' else None,
             post=(action == 'immediate'),
-            enable_monitor=True
+            enable_monitor=True,
+            viral_music_enabled=metadata.get('viral_music_enabled', False),
+            privacy_level=privacy_level
         )
         
         # ... logic continues ...
@@ -130,8 +144,11 @@ async def process_all_approved():
     logger.info("📦 Processando todos os vídeos aprovados...")
     
     if not os.path.exists(APPROVED_DIR):
-        logger.info("ℹ️ Nenhum vídeo aprovado encontrado")
+        logger.info(f"ℹ️ Nenhum vídeo aprovado encontrado. Dir not exists: {APPROVED_DIR}")
         return
+    
+    logger.info(f"📂 Debug Path: {APPROVED_DIR}")
+    logger.info(f"📂 Debug List: {os.listdir(APPROVED_DIR)}")
     
     results = []
     for filename in os.listdir(APPROVED_DIR):
