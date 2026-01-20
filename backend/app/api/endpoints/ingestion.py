@@ -159,3 +159,47 @@ async def get_ingestion_status():
         "completed": count_files(done_dir),
         "failed": count_files(errors_dir)
     }
+
+@router.get("/files")
+async def list_files(status: Optional[str] = None):
+    """
+    Get detailed list of files in each stage.
+    """
+    import time
+    from datetime import datetime
+    
+    processing_dir = os.path.join(BASE_DIR, "processing")
+    done_dir = os.path.join(BASE_DIR, "done")
+    errors_dir = os.path.join(BASE_DIR, "errors")
+    
+    paths = {
+        "queued": PENDING_DIR,
+        "processing": processing_dir,
+        "completed": done_dir,
+        "failed": errors_dir
+    }
+    
+    results = {}
+    
+    target_keys = [status] if status and status in paths else paths.keys()
+    
+    for key in target_keys:
+        directory = paths[key]
+        files = []
+        if os.path.exists(directory):
+            for f in os.listdir(directory):
+                if f.lower().endswith(('.mp4', '.mov', '.avi', '.webm')):
+                    fp = os.path.join(directory, f)
+                    try:
+                        stat = os.stat(fp)
+                        files.append({
+                            "name": f,
+                            "size": stat.st_size,
+                            "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                            "path": fp
+                        })
+                    except:
+                        pass
+        results[key] = files
+        
+    return results

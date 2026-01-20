@@ -15,7 +15,7 @@ export default function AmbientBackground() {
     if (!mounted) return null;
 
     // Configuration for each mood state
-    const variants = {
+    const variants: Record<string, import('framer-motion').TargetAndTransition> = {
         IDLE: {
             background: 'radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.15) 0%, rgba(0, 0, 0, 0) 50%)',
             scale: [1, 1.1, 1],

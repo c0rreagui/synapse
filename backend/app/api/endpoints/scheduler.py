@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from core.scheduler import scheduler_service
 from typing import List
+from .. import websocket
 
 router = APIRouter()
 
@@ -50,6 +51,7 @@ async def create_event(request: ScheduleRequest):
             request.music_volume,
             request.trend_category
         )
+        await websocket.notify_schedule_update(scheduler_service.load_schedule())
         return event
     except HTTPException:
         raise
@@ -61,6 +63,7 @@ async def delete_schedule(event_id: str):
     success = scheduler_service.delete_event(event_id)
     if not success:
         raise HTTPException(status_code=404, detail="Event not found")
+    await websocket.notify_schedule_update(scheduler_service.load_schedule())
     return {"status": "deleted"}
 
 class UpdateEventRequest(BaseModel):
@@ -71,6 +74,7 @@ async def update_event(event_id: str, request: UpdateEventRequest):
     success = scheduler_service.update_event(event_id, request.scheduled_time)
     if not success:
         raise HTTPException(status_code=404, detail="Event not found")
+    await websocket.notify_schedule_update(scheduler_service.load_schedule())
     return {"status": "updated"}
 
 @router.get("/suggestion/{profile_id}")
@@ -114,18 +118,13 @@ async def batch_schedule(request: BatchScheduleRequest):
     current_cursor = start_dt
     
     for video_path in request.files:
-        # If multiple profiles, we process them in parallel for this 'time block'
-        # But we need to check availability for EACH profile individually.
-        
-        # NOTE: For simplicity in Batch, if user Selected 5 profiles,
-        # we try to schedule all 5 at 'current_cursor'. 
-        # If Profile A is busy at 'current_cursor', we find next slot for A.
-        # If Profile B is free at 'current_cursor', we schedule B there.
-        # This creates a "best effort" parallel schedule.
+        # We attempt to schedule this video for ALL selected profiles at roughly the same time (current_cursor)
+        # However, we must respect each profile's individual availability.
         
         for profile_id in request.profile_ids:
             
             # 🧠 Smart Logic: Find next available slot starting from current_cursor
+            # Note: This might push the schedule forward for a busy profile, but others might stay at current_cursor.
             safe_time_iso = scheduler_service.find_next_available_slot(profile_id, current_cursor)
             
             # Create event
@@ -137,10 +136,11 @@ async def batch_schedule(request: BatchScheduleRequest):
             )
             events.append(event)
             
-            # We base the next video's time on the ACTUAL scheduled time + Interval
-            # This maintains the rhythm/cadence even after dodging a bullet.
-            current_time = safe_dt + timedelta(minutes=request.interval_minutes)
+        # We simply add the interval to the base cursor.
+        current_cursor = current_cursor + timedelta(minutes=request.interval_minutes)
             
+    await websocket.notify_schedule_update(scheduler_service.load_schedule())
+
     return {
         "message": f"Successfully scheduled {len(events)} events.",
         "events": events

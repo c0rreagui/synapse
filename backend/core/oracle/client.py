@@ -138,4 +138,12 @@ class OracleClient:
         except Exception as e:
             return {"error": str(e)}
 
+    def is_online(self) -> bool:
+        """Check if any provider is configured."""
+        return self.model is not None or self.groq_client is not None
+
+    def get_engine_name(self) -> str:
+        """Return active provider name."""
+        return self.provider
+
 oracle_client = OracleClient()

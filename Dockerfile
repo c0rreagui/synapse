@@ -32,6 +32,13 @@ WORKDIR /app
 COPY backend /app/backend
 COPY frontend /app/frontend
 
+# ===== Build Frontend (Production) =====
+WORKDIR /app/frontend
+ARG NEXT_PUBLIC_API_URL=http://localhost:8000
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+RUN npm run build
+WORKDIR /app
+
 # ===== Supervisor Config =====
 RUN mkdir -p /var/log/supervisor
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf

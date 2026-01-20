@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useWebSocketContext } from '../context/WebSocketContext';
-import { BackendStatus, TikTokProfile } from '../types';
+import { BackendStatus, TikTokProfile, ScheduleEvent, PendingVideo } from '../types';
 
 interface LogEntry {
     id: string;
@@ -15,6 +15,8 @@ interface UseWebSocketOptions {
     onPipelineUpdate?: (data: BackendStatus) => void;
     onLogEntry?: (data: LogEntry) => void;
     onProfileChange?: (data: TikTokProfile) => void;
+    onScheduleUpdate?: (data: ScheduleEvent[]) => void;
+    onQueueUpdate?: (data: PendingVideo[]) => void;
 }
 
 /**
@@ -37,7 +39,7 @@ export default function useWebSocket(options: UseWebSocketOptions = {}) {
 
         // Cleanup: unsubscribe when component unmounts
         return unsubscribe;
-    }, [mounted, subscribe, options.onPipelineUpdate, options.onLogEntry, options.onProfileChange]);
+    }, [mounted, subscribe, options.onPipelineUpdate, options.onLogEntry, options.onProfileChange, options.onScheduleUpdate, options.onQueueUpdate]);
 
     return { isConnected };
 }

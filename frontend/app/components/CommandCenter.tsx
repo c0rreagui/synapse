@@ -233,6 +233,39 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
                     )}
                 </div>
             )}
+            {/* SCHEDULED EVENTS */}
+            {scheduledVideos.length > 0 && (
+                <div className="p-4 border-t border-white/5 bg-black/40">
+                    <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <ClockIcon className="w-3 h-3 text-synapse-purple" /> Upcoming Transmissions
+                    </h4>
+                    <div className="space-y-2">
+                        {scheduledVideos.slice(0, 5).map(evt => (
+                            <div key={evt.id} className="flex items-center justify-between text-xs p-2 rounded bg-white/5 border border-white/5 hover:border-synapse-purple/30 transition-colors group">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-synapse-purple shadow-[0_0_5px_rgba(192,132,252,0.8)]"></div>
+                                    <span className="text-gray-300 font-medium truncate max-w-[200px] group-hover:text-white transition-colors">
+                                        {evt.video_path.split(/[\\/]/).pop()}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="px-1.5 py-0.5 rounded bg-synapse-purple/10 text-synapse-purple border border-synapse-purple/20 font-mono text-[10px]">
+                                        {evt.profile_id}
+                                    </span>
+                                    <div className="font-mono text-gray-400 text-[10px]">
+                                        {new Date(evt.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                        {scheduledVideos.length > 5 && (
+                            <div className="text-[10px] text-center text-gray-600 pt-1 italic">
+                                +{scheduledVideos.length - 5} queued in signal buffer
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </StitchCard>
     );
 }

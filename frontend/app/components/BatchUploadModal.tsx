@@ -15,6 +15,7 @@ interface BatchUploadModalProps {
     onClose: () => void;
     onSuccess: () => void;
     profiles: TikTokProfile[];
+    initialFiles?: File[]; // NEW: Accept files dropped on parent
 }
 
 interface VideoFile extends File {
@@ -26,10 +27,31 @@ export default function BatchUploadModal({
     isOpen,
     onClose,
     onSuccess,
-    profiles
+    profiles,
+    initialFiles = []
 }: BatchUploadModalProps) {
     // Files State
     const [files, setFiles] = useState<VideoFile[]>([]);
+    const processingRef = useRef(false);
+
+    // Load initial files
+    useEffect(() => {
+        if (isOpen && initialFiles.length > 0 && !processingRef.current) {
+            processingRef.current = true;
+            processFiles(initialFiles).then(newFiles => {
+                setFiles(prev => [...prev, ...newFiles]);
+                processingRef.current = false;
+            });
+        }
+    }, [isOpen, initialFiles]);
+
+    // Helper to process files
+    const processFiles = async (incFiles: File[]) => {
+        return Promise.all(incFiles.map(async (file) => {
+            const preview = await generateThumbnail(file);
+            return Object.assign(file, { preview });
+        }));
+    };
 
     // Config State
     const [selectedProfiles, setSelectedProfiles] = useState<string[]>([]);
@@ -41,10 +63,7 @@ export default function BatchUploadModal({
 
     // Dropzone Logic
     const onDrop = async (acceptedFiles: File[]) => {
-        const newFiles = await Promise.all(acceptedFiles.map(async (file) => {
-            const preview = await generateThumbnail(file);
-            return Object.assign(file, { preview });
-        }));
+        const newFiles = await processFiles(acceptedFiles);
         setFiles(prev => [...prev, ...newFiles]);
     };
 

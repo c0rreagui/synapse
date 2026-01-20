@@ -4,6 +4,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSam
 import { ptBR } from 'date-fns/locale';
 import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon, MusicalNoteIcon } from '@heroicons/react/24/outline';
 import { ScheduleEvent, TikTokProfile } from '../types';
+import useWebSocket from '../hooks/useWebSocket';
 import Sidebar from '../components/Sidebar';
 import { StitchCard } from '../components/StitchCard';
 import { NeonButton } from '../components/NeonButton';
@@ -40,6 +41,10 @@ export default function SchedulerPage() {
             toast.error("Erro ao carregar dados do servidor");
         }
     };
+
+    useWebSocket({
+        onScheduleUpdate: (data) => setEvents(data)
+    });
 
     useEffect(() => {
         fetchData();
@@ -102,7 +107,7 @@ export default function SchedulerPage() {
             const promises = data.profile_ids.map(async (profileId) => {
                 const payload = {
                     profile_id: profileId,
-                    video_path: "C:\\Videos\\viral_trend.mp4", // Mock for visualization
+                    video_path: data.video_path, // REAL PATH
                     scheduled_time: data.scheduled_time,
                     viral_music_enabled: data.viral_music_enabled,
                     music_volume: data.music_volume, // Updated from intensity

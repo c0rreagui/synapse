@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Sidebar from '../components/Sidebar';
 import { TikTokProfile } from '../types';
+import useWebSocket from '../hooks/useWebSocket';
 import {
     ArrowLeftIcon, CheckCircleIcon, PlusIcon, TrashIcon, UserGroupIcon, ArrowPathIcon
 } from '@heroicons/react/24/outline';
@@ -34,6 +35,18 @@ export default function ProfilesPage() {
         }
         setLoading(false);
     }
+
+    useWebSocket({
+        onProfileChange: (updatedProfile) => {
+            setProfiles(prev => {
+                const idx = prev.findIndex(p => p.id === updatedProfile.id);
+                if (idx === -1) return [...prev, updatedProfile];
+                const newArr = [...prev];
+                newArr[idx] = updatedProfile;
+                return newArr;
+            });
+        }
+    });
 
     useEffect(() => {
         fetchProfiles();

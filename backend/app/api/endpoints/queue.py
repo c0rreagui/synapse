@@ -11,6 +11,8 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 
+from .. import websocket
+
 router = APIRouter()
 
 # Base paths
@@ -138,8 +140,13 @@ async def approve_video(request: ApprovalRequest, background_tasks: BackgroundTa
         
         # Execution is now handled by the Queue Worker (core/queue_worker.py)
         # which monitors the 'approved' directory and processes sequentially.
+        # which monitors the 'approved' directory and processes sequentially.
         pass
         
+        # Notify clients
+        current_queue = await get_pending_videos()
+        await websocket.notify_queue_update([v.dict() for v in current_queue])
+
         return {
             "success": True,
             "message": f"Video approved for {request.action} processing",
@@ -174,6 +181,10 @@ async def reject_video(video_id: str):
         if not deleted:
             raise HTTPException(status_code=404, detail=f"Video {video_id} not found")
         
+        # Notify clients
+        current_queue = await get_pending_videos()
+        await websocket.notify_queue_update([v.dict() for v in current_queue])
+
         return {
             "success": True,
             "message": f"Video {video_id} rejected and removed"

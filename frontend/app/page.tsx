@@ -1,11 +1,11 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import CommandCenter from './components/CommandCenter';
 import ConnectionStatus from './components/ConnectionStatus';
 import CommandPalette from './components/CommandPalette';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
-import { TikTokProfile } from './types';
+import { TikTokProfile, ScheduleEvent } from './types';
 import { toast } from 'sonner';
 import axios from 'axios';
 import {
@@ -13,9 +13,12 @@ import {
   ClockIcon, XCircleIcon, XMarkIcon,
   MagnifyingGlassIcon, ArrowPathIcon, CloudArrowUpIcon
 } from '@heroicons/react/24/outline';
+import useWebSocket from './hooks/useWebSocket';
+import MetricsModal from './components/MetricsModal';
 import { StitchCard } from './components/StitchCard';
 import { NeonButton } from './components/NeonButton';
 import clsx from 'clsx';
+import BatchUploadModal from './components/BatchUploadModal';
 
 const API_BASE = 'http://localhost:8000/api/v1';
 
@@ -37,6 +40,12 @@ export default function Home() {
   const [ingestionStatus, setIngestionStatus] = useState<IngestionStatus>({ queued: 0, processing: 0, completed: 0, failed: 0 });
   const [pendingVideos, setPendingVideos] = useState<PendingVideo[]>([]);
   const [profiles, setProfiles] = useState<TikTokProfile[]>([]);
+  const [scheduledEvents, setScheduledEvents] = useState<ScheduleEvent[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Metrics Modal State
+  const [isMetricsModalOpen, setIsMetricsModalOpen] = useState(false);
+  const [metricsModalTab, setMetricsModalTab] = useState('processing');
 
   // UI State
   const [selectedProfile, setSelectedProfile] = useState<string>('');
@@ -45,11 +54,22 @@ export default function Home() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Batch State
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [batchFiles, setBatchFiles] = useState<File[]>([]);
+
   // Selection State
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
   // Validation & Confirmation State
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; title: string; onConfirm: () => void; type: 'delete' | 'success' }>({ isOpen: false, title: '', onConfirm: () => { }, type: 'delete' });
+
+  // Real-time Schedule Updates
+  useWebSocket({
+    onScheduleUpdate: (events) => {
+      setScheduledEvents(events);
+    }
+  });
 
   // Modal State
   const [showApprovalModal, setShowApprovalModal] = useState(false);
@@ -74,14 +94,16 @@ export default function Home() {
       // Se backend offline, não tenta o resto para evitar spam de erros
       if (!healthRes.ok) return;
 
-      const [statusRes, queueRes, profilesRes] = await Promise.all([
+      const [statusRes, queueRes, profilesRes, scheduleRes] = await Promise.all([
         fetch(`${API_BASE}/ingest/status`),
         fetch(`${API_BASE}/queue/pending`),
-        fetch(`${API_BASE}/profiles/list`)
+        fetch(`${API_BASE}/profiles/list`),
+        fetch(`${API_BASE}/scheduler/list`)
       ]);
 
       if (statusRes.ok) setIngestionStatus(await statusRes.json());
       if (queueRes.ok) setPendingVideos(await queueRes.json());
+      if (scheduleRes.ok) setScheduledEvents(await scheduleRes.json());
       if (profilesRes.ok) {
         const profs = await profilesRes.json();
         setProfiles(profs);
@@ -105,7 +127,7 @@ export default function Home() {
   }, [fetchAllData]);
 
   const commands = [
-    { id: 'upload', title: 'Upload Video', key: 'u', description: 'Abrir seletor de arquivo', action: () => document.getElementById('file-input')?.click() },
+    { id: 'upload', title: 'Upload Video', key: 'u', description: 'Abrir seletor de arquivo', action: () => fileInputRef.current?.click() },
     { id: 'refresh', title: 'Atualizar Dados', key: 'r', description: 'Recarregar dashboard', action: fetchAllData },
   ];
 
@@ -299,7 +321,7 @@ export default function Home() {
 
         {/* COMMAND CENTER VISUALS */}
         <div className="mb-8">
-          <CommandCenter scheduledVideos={[]} />
+          <CommandCenter scheduledVideos={scheduledEvents} />
         </div>
 
         {/* METRICS GRID */}
@@ -310,12 +332,19 @@ export default function Home() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { icon: ClockIcon, label: 'Na Fila', value: ingestionStatus.queued, color: 'text-synapse-amber', bg: 'bg-synapse-amber/10', border: 'border-synapse-amber/30' },
-              { icon: CpuChipIcon, label: 'Processando', value: ingestionStatus.processing, color: 'text-synapse-cyan', bg: 'bg-synapse-cyan/10', border: 'border-synapse-cyan/30' },
-              { icon: CheckCircleIcon, label: 'Concluídos', value: ingestionStatus.completed, color: 'text-synapse-emerald', bg: 'bg-synapse-emerald/10', border: 'border-synapse-emerald/30' },
-              { icon: XCircleIcon, label: 'Falhas', value: ingestionStatus.failed, color: 'text-red-500', bg: 'bg-red-500/10', border: 'border-red-500/30' },
+              { key: 'queued', icon: ClockIcon, label: 'Fila / Sched', value: ingestionStatus.queued + scheduledEvents.length, color: 'text-synapse-amber', bg: 'bg-synapse-amber/10', border: 'border-synapse-amber/30' },
+              { key: 'processing', icon: CpuChipIcon, label: 'Processando', value: ingestionStatus.processing, color: 'text-synapse-cyan', bg: 'bg-synapse-cyan/10', border: 'border-synapse-cyan/30' },
+              { key: 'completed', icon: CheckCircleIcon, label: 'Concluídos', value: ingestionStatus.completed, color: 'text-synapse-emerald', bg: 'bg-synapse-emerald/10', border: 'border-synapse-emerald/30' },
+              { key: 'failed', icon: XCircleIcon, label: 'Falhas', value: ingestionStatus.failed, color: 'text-red-500', bg: 'bg-red-500/10', border: 'border-red-500/30' },
             ].map((card, i) => (
-              <StitchCard key={i} className="p-6 flex flex-col justify-between h-32 relative group">
+              <StitchCard
+                key={i}
+                className="p-6 flex flex-col justify-between h-32 relative group cursor-pointer hover:border-white/20 active:scale-[0.98] transition-all"
+                onClick={() => {
+                  setMetricsModalTab(card.key);
+                  setIsMetricsModalOpen(true);
+                }}
+              >
                 <div className="flex justify-between items-start relative z-10">
                   <div className={`p-2 rounded-lg ${card.bg} border ${card.border} transition-colors`}>
                     <card.icon className={`w-5 h-5 ${card.color}`} />
@@ -359,261 +388,267 @@ export default function Home() {
                 className={`h-64 flex flex-col items-center justify-center transition-all duration-300 border-2 border-dashed rounded-xl relative overflow-hidden ${isDragging ? 'border-synapse-emerald bg-synapse-emerald/5 scale-[0.99] shadow-[inset_0_0_30px_rgba(16,185,129,0.1)]' : 'border-white/10 hover:border-synapse-primary/30 hover:bg-white/5'}`}
                 onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
                 onDragLeave={() => setIsDragging(false)}
-                onDrop={e => { e.preventDefault(); setIsDragging(false); if (e.dataTransfer.files[0]) handleUpload(e.dataTransfer.files[0]) }}
+                onDrop={e => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  if (e.dataTransfer.files.length > 1) {
+                    // Bulk Mode
+                    setBatchFiles(Array.from(e.dataTransfer.files));
+                    setShowBatchModal(true);
+                  } else if (e.dataTransfer.files[0]) {
+                    // Single Mode
+                    handleUpload(e.dataTransfer.files[0])
+                  }
+                  onClick = {() => fileInputRef.current?.click()}
               >
-                <input id="file-input" type="file" className="hidden" onChange={e => e.target.files?.[0] && handleUpload(e.target.files[0])} accept=".mp4,.mov,.avi" />
+              <input ref={fileInputRef} id="file-input" type="file" className="hidden" onChange={e => e.target.files?.[0] && handleUpload(e.target.files[0])} accept=".mp4,.mov,.avi" />
 
-                <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 transition-all duration-500 shadow-xl z-10 ${isDragging ? 'bg-synapse-emerald/20 text-synapse-emerald scale-110' : 'bg-[#1c2128] text-gray-500 group-hover:text-white'}`}>
-                  {uploadStatus === 'uploading' ? (
-                    <CloudArrowUpIcon className="w-10 h-10 animate-bounce" />
-                  ) : (
-                    <PlayCircleIcon className="w-10 h-10" />
-                  )}
-                </div>
-
-                <div className="text-lg font-medium text-gray-300 z-10 text-center">
-                  {uploadStatus === 'uploading' ? (
-                    <span className="flex flex-col items-center gap-2">
-                      <span className="animate-pulse text-synapse-primary font-mono">Enviando... {uploadProgress}%</span>
-                      <span className="w-48 h-1.5 bg-gray-700 rounded-full overflow-hidden mt-2">
-                        <span className="block h-full bg-synapse-primary transition-all duration-300" style={{ width: `${uploadProgress}%` }}></span>
-                      </span>
-                    </span>
-                  ) : (
-                    <>
-                      <span className="group-hover:text-white transition-colors">Arraste seu vídeo aqui</span>
-                      <p className="text-sm text-gray-500 mt-2">ou clique para selecionar do computador</p>
-                    </>
-                  )}
-                </div>
-              </div>
-            </StitchCard>
-
-            {/* PENDING LIST */}
-            <StitchCard className="p-6 relative backdrop-blur-sm">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <ClockIcon className="w-5 h-5 text-synapse-primary" /> Fila de Aprovação
-                </h3>
-                {pendingVideos.length > 0 && (
-                  <span className="animate-pulse text-xs px-2 py-0.5 rounded-full bg-synapse-primary/20 text-synapse-primary border border-synapse-primary/30 font-bold">
-                    ATIVO
-                  </span>
-                )}
-
-                {pendingVideos.length > 0 && (
-                  <div className="flex items-center gap-2 ml-auto">
-                    <label className="flex items-center gap-2 text-xs text-gray-400 hover:text-white cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={pendingVideos.length > 0 && selectedItems.size === pendingVideos.length}
-                        onChange={toggleSelectAll}
-                        className="w-4 h-4 rounded border-gray-600 bg-black/50 text-synapse-primary focus:ring-synapse-primary focus:ring-offset-0"
-                      />
-                      Selecionar Tudo
-                    </label>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                {pendingVideos.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-gray-500 border-2 border-dashed border-white/10 rounded-lg">
-                    <CheckCircleIcon className="w-10 h-10 mb-2 opacity-20" />
-                    <p>Nenhum vídeo aguardando aprovação.</p>
-                  </div>
+              <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 transition-all duration-500 shadow-xl z-10 ${isDragging ? 'bg-synapse-emerald/20 text-synapse-emerald scale-110' : 'bg-[#1c2128] text-gray-500 group-hover:text-white'}`}>
+                {uploadStatus === 'uploading' ? (
+                  <CloudArrowUpIcon className="w-10 h-10 animate-bounce" />
                 ) : (
-                  pendingVideos.map(v => (
-                    <div key={v.id} className={clsx("p-4 border rounded-lg flex items-center gap-4 transition-all group",
-                      selectedItems.has(v.id) ? 'bg-synapse-primary/10 border-synapse-primary/50' : 'bg-black/40 border-white/5 hover:border-synapse-primary/30'
-                    )}>
-                      <input
-                        type="checkbox"
-                        checked={selectedItems.has(v.id)}
-                        onChange={() => toggleSelection(v.id)}
-                        className="w-5 h-5 rounded border-gray-600 bg-black/50 text-synapse-primary focus:ring-synapse-primary focus:ring-offset-0 cursor-pointer"
-                      />
-                      <div className="w-12 h-12 rounded-lg bg-gray-900 flex items-center justify-center text-xl shrink-0 border border-gray-800 group-hover:border-synapse-primary/30 transition-colors">🎬</div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate group-hover:text-synapse-primary transition-colors">{v.metadata.original_filename}</p>
-                        <p className="text-xs text-gray-500 font-mono mt-0.5 flex items-center gap-2">
-                          <span className="bg-white/10 px-1 rounded text-[10px]">{v.metadata.profile_id}</span>
-                          {formatDate(v.uploaded_at)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
-                        <NeonButton variant="ghost" className="text-xs h-8 text-synapse-emerald hover:text-white hover:bg-synapse-emerald border-synapse-emerald/30" onClick={() => handleApprove(v)}>APROVAR</NeonButton>
-                        <button onClick={() => handleReject(v.id)} className="p-1.5 rounded-md bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all"><XMarkIcon className="w-4 h-4" /></button>
-                      </div>
-                    </div>
-                  ))
+                  <PlayCircleIcon className="w-10 h-10" />
                 )}
               </div>
 
-              {/* BULK ACTION BAR */}
-              {selectedItems.size > 0 && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-[#1c2128] border border-white/20 rounded-xl shadow-2xl p-2 flex items-center gap-2 animate-in slide-in-from-bottom-5 fade-in duration-300 z-20">
-                  <span className="px-3 text-xs font-bold text-gray-400 border-r border-gray-700">{selectedItems.size} selecionados</span>
-                  <NeonButton variant="ghost" className="text-xs h-8 text-synapse-emerald hover:bg-synapse-emerald hover:text-black" onClick={handleBulkApprove}>Aprovar</NeonButton>
-                  <NeonButton variant="danger" className="text-xs h-8" onClick={handleBulkReject}>Excluir</NeonButton>
-                </div>
-              )}
-            </StitchCard>
+              <div className="text-lg font-medium text-gray-300 z-10 text-center">
+                {uploadStatus === 'uploading' ? (
+                  <span className="flex flex-col items-center gap-2">
+                    <span className="animate-pulse text-synapse-primary font-mono">Enviando... {uploadProgress}%</span>
+                    <span className="w-48 h-1.5 bg-gray-700 rounded-full overflow-hidden mt-2">
+                      <span className="block h-full bg-synapse-primary transition-all duration-300" style={{ width: `${uploadProgress}%` }}></span>
+                    </span>
+                  </span>
+                ) : (
+                  <>
+                    <span className="group-hover:text-white transition-colors">Arraste seu vídeo aqui</span>
+                    <p className="text-sm text-gray-500 mt-2">ou clique para selecionar do computador</p>
+                  </>
+                )}
+              </div>
           </div>
+        </StitchCard>
 
-          {/* RIGHT COLUMN: PROFILES & STATS */}
-          <div className="flex flex-col gap-6">
-            <StitchCard className="p-6">
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 border-b border-white/5 pb-2">Perfis Conectados</h3>
-              <div className="space-y-2">
-                {profiles.map(p => (
-                  <div
-                    key={p.id}
-                    onClick={() => setSelectedProfile(p.id)}
-                    className={`flex items-center gap-3 p-3 rounded-xl transition-all border cursor-pointer group ${selectedProfile === p.id ? 'bg-white/10 border-synapse-primary/50 shadow-lg' : 'bg-transparent border-transparent hover:bg-white/5 hover:border-white/10'}`}
-                  >
-                    <div className={`relative ${selectedProfile === p.id ? 'scale-105' : ''} transition-transform`}>
-                      {p.avatar_url ? (
-                        <img src={p.avatar_url} alt={p.label} className="w-10 h-10 rounded-full object-cover ring-2 ring-transparent group-hover:ring-white/20" />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-lg shadow-inner">{p.icon || '👤'}</div>
-                      )}
-                      {selectedProfile === p.id && <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-synapse-emerald rounded-full border-2 border-[#151020] animate-pulse"></div>}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-bold leading-tight ${selectedProfile === p.id ? 'text-white' : 'text-gray-400 group-hover:text-gray-200'}`}>{p.label}</p>
-                      <p className="text-xs text-xs text-gray-600 font-mono leading-tight mt-1 truncate">{p.username ? `@${p.username}` : 'Sem user'}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </StitchCard>
-
-            <div className="p-4 rounded-xl border border-white/10 bg-gradient-to-b from-white/5 to-transparent">
-              <h4 className="text-xs text-gray-500 font-bold mb-2 uppercase">Status do Sistema</h4>
-              <div className="flex items-center gap-2 text-xs text-gray-400 font-mono">
-                <div className={`w-2 h-2 rounded-full ${backendOnline ? 'bg-synapse-emerald animate-pulse' : 'bg-red-500'}`}></div>
-                {backendOnline ? 'ONLINE' : 'OFFLINE'}
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* APPROVAL MODAL */}
-      {showApprovalModal && selectedVideo && (
-        <div className="fixed inset-0 bg-[#05040a]/80 backdrop-blur-md z-[100] flex items-center justify-center fade-in p-4">
-          <StitchCard className="w-full max-w-md bg-[#161b22] border-synapse-primary/30 p-6 shadow-2xl relative overflow-hidden">
-            {/* Top Border Gradient */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-synapse-primary to-synapse-secondary"></div>
-            <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-              <span>🚀 Aprovar Publicação</span>
-            </h2>
-
-            <div className="p-4 bg-black/30 rounded-lg mb-6 flex items-center gap-3 border border-white/5">
-              <div className="text-2xl">📄</div>
-              <div className="overflow-hidden">
-                <p className="text-sm text-white font-medium truncate">{selectedVideo.metadata.original_filename}</p>
-                <p className="text-xs text-gray-500">{selectedVideo.profile}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <button onClick={() => setPostType('immediate')} className={`p-4 rounded-xl border transition-all relative overflow-hidden group ${postType === 'immediate' ? 'border-synapse-emerald bg-synapse-emerald/5' : 'border-gray-700 bg-gray-800/50 hover:border-gray-500'}`}>
-                {postType === 'immediate' && <div className="absolute top-2 right-2 text-synapse-emerald"><CheckCircleIcon className="w-5 h-5" /></div>}
-                <div className={`font-bold mb-1 ${postType === 'immediate' ? 'text-synapse-emerald' : 'text-gray-300'}`}>Imediato</div>
-                <div className="text-xs text-gray-500">Publicar agora</div>
-              </button>
-
-              <button onClick={() => setPostType('scheduled')} className={`p-4 rounded-xl border transition-all relative overflow-hidden group ${postType === 'scheduled' ? 'border-synapse-primary bg-synapse-primary/5' : 'border-gray-700 bg-gray-800/50 hover:border-gray-500'}`}>
-                {postType === 'scheduled' && <div className="absolute top-2 right-2 text-synapse-primary"><CheckCircleIcon className="w-5 h-5" /></div>}
-                <div className={`font-bold mb-1 ${postType === 'scheduled' ? 'text-synapse-primary' : 'text-gray-300'}`}>Agendar</div>
-                <div className="text-xs text-gray-500">Escolher data/hora</div>
-              </button>
-            </div>
-
-            {/* Viral Music Toggle */}
-            <div className={`p-4 rounded-xl border mb-6 transition-all cursor-pointer select-none ${viralMusicEnabled ? 'bg-synapse-purple/10 border-synapse-purple' : 'bg-black/40 border-gray-700 hover:border-gray-500'}`} onClick={() => setViralMusicEnabled(!viralMusicEnabled)}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${viralMusicEnabled ? 'bg-synapse-purple text-white shadow-[0_0_15px_rgba(192,132,252,0.5)]' : 'bg-gray-800 text-gray-400'}`}>
-                    🎵
-                  </div>
-                  <div>
-                    <h4 className={`text-sm font-bold ${viralMusicEnabled ? 'text-white' : 'text-gray-400'}`}>Viral Boost</h4>
-                    <p className="text-xs text-gray-500">Adicionar música em alta (Mudo)</p>
-                  </div>
-                </div>
-                <div className={`w-6 h-6 rounded border flex items-center justify-center transition-colors ${viralMusicEnabled ? 'bg-synapse-purple border-synapse-purple' : 'border-gray-600'}`}>
-                  {viralMusicEnabled && <CheckCircleIcon className="w-4 h-4 text-white" />}
-                </div>
-              </div>
-            </div>
-
-            {/* Privacy Selector */}
-            <div className="mb-6">
-              <label className="text-xs text-gray-500 font-bold mb-2 block uppercase tracking-wider">Privacidade</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { id: 'public_to_everyone', label: 'Todos', icon: '🌍' },
-                  { id: 'mutual_follow_friends', label: 'Amigos', icon: '👥' },
-                  { id: 'self_only', label: 'Somente Eu', icon: '🔒' }
-                ].map(opt => (
-                  <button
-                    key={opt.id}
-                    onClick={() => setPrivacyLevel(opt.id)}
-                    className={`p-2 rounded-lg border text-xs font-bold flex flex-col items-center gap-1 transition-all ${privacyLevel === opt.id ? 'bg-synapse-primary/20 border-synapse-primary text-synapse-primary' : 'bg-black/40 border-gray-700 text-gray-400 hover:border-gray-500'}`}
-                  >
-                    <span className="text-lg">{opt.icon}</span>
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {postType === 'scheduled' && (
-              <div className="space-y-3 mb-6 animate-pulse-slow bg-white/5 p-4 rounded-xl border border-white/10">
-                <div>
-                  <label className="text-xs text-gray-500 font-bold mb-1 block">DATA</label>
-                  <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="w-full bg-black/50 border border-gray-600 rounded-lg p-2.5 text-white outline-none focus:border-synapse-primary transition-colors" />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 font-bold mb-1 block">HORÁRIO</label>
-                  <input type="time" value={selectedTime} onChange={e => setSelectedTime(e.target.value)} className="w-full bg-black/50 border border-gray-600 rounded-lg p-2.5 text-white outline-none focus:border-synapse-primary transition-colors" />
-                </div>
-              </div>
+        {/* PENDING LIST */}
+        <StitchCard className="p-6 relative backdrop-blur-sm">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <ClockIcon className="w-5 h-5 text-synapse-primary" /> Fila de Aprovação
+            </h3>
+            {pendingVideos.length > 0 && (
+              <span className="animate-pulse text-xs px-2 py-0.5 rounded-full bg-synapse-primary/20 text-synapse-primary border border-synapse-primary/30 font-bold">
+                ATIVO
+              </span>
             )}
 
-            <div className="flex gap-3 mt-8">
-              <NeonButton variant="ghost" onClick={() => setShowApprovalModal(false)} className="flex-1">Cancelar</NeonButton>
-              <NeonButton onClick={handleConfirmApproval} className="flex-1 shadow-lg shadow-purple-500/20">
-                {postType === 'immediate' ? 'Publicar Agora' : 'Confirmar Agendamento'}
-              </NeonButton>
-            </div>
-          </StitchCard>
-        </div>
-      )}
+            {pendingVideos.length > 0 && (
+              <div className="flex items-center gap-2 ml-auto">
+                <label className="flex items-center gap-2 text-xs text-gray-400 hover:text-white cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={pendingVideos.length > 0 && selectedItems.size === pendingVideos.length}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-gray-600 bg-black/50 text-synapse-primary focus:ring-synapse-primary focus:ring-offset-0"
+                  />
+                  Selecionar Tudo
+                </label>
+              </div>
+            )}
+          </div>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+            {pendingVideos.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500 border-2 border-dashed border-white/10 rounded-lg">
+                <CheckCircleIcon className="w-10 h-10 mb-2 opacity-20" />
+                <p>Nenhum vídeo aguardando aprovação.</p>
+              </div>
+            ) : (
+              pendingVideos.map(v => (
+                <div key={v.id} className={clsx("p-4 border rounded-lg flex items-center gap-4 transition-all group",
+                  selectedItems.has(v.id) ? 'bg-synapse-primary/10 border-synapse-primary/50' : 'bg-black/40 border-white/5 hover:border-synapse-primary/30'
+                )}>
+                  <input
+                    type="checkbox"
+                    checked={selectedItems.has(v.id)}
+                    onChange={() => toggleSelection(v.id)}
+                    className="w-5 h-5 rounded border-gray-600 bg-black/50 text-synapse-primary focus:ring-synapse-primary focus:ring-offset-0 cursor-pointer"
+                  />
+                  <div className="w-12 h-12 rounded-lg bg-gray-900 flex items-center justify-center text-xl shrink-0 border border-gray-800 group-hover:border-synapse-primary/30 transition-colors">🎬</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate group-hover:text-synapse-primary transition-colors">{v.metadata.original_filename}</p>
+                    <p className="text-xs text-gray-500 font-mono mt-0.5 flex items-center gap-2">
+                      <span className="bg-white/10 px-1 rounded text-[10px]">{v.metadata.profile_id}</span>
+                      {formatDate(v.uploaded_at)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
+                    <NeonButton variant="ghost" className="text-xs h-8 text-synapse-emerald hover:text-white hover:bg-synapse-emerald border-synapse-emerald/30" onClick={() => handleApprove(v)}>APROVAR</NeonButton>
+                    <button onClick={() => handleReject(v.id)} className="p-1.5 rounded-md bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all"><XMarkIcon className="w-4 h-4" /></button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
 
-      {/* CONFIRM MODAL */}
-      {confirmModal.isOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 fade-in">
-          <StitchCard className="w-[400px] bg-[#161b22] border-synapse-border p-6 shadow-2xl scale-in">
-            <h3 className="text-lg font-bold text-white mb-4">{confirmModal.title}</h3>
-            <div className="flex justify-end gap-3">
-              <NeonButton variant="ghost" onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}>
-                Cancelar
-              </NeonButton>
-              <NeonButton
-                variant={confirmModal.type === 'delete' ? 'danger' : 'primary'}
-                onClick={confirmModal.onConfirm}
-              >
-                {confirmModal.type === 'delete' ? 'Confirmar Exclusão' : 'Confirmar'}
-              </NeonButton>
+          {/* BULK ACTION BAR */}
+          {selectedItems.size > 0 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-[#1c2128] border border-white/20 rounded-xl shadow-2xl p-2 flex items-center gap-2 animate-in slide-in-from-bottom-5 fade-in duration-300 z-20">
+              <span className="px-3 text-xs font-bold text-gray-400 border-r border-gray-700">{selectedItems.size} selecionados</span>
+              <NeonButton variant="ghost" className="text-xs h-8 text-synapse-emerald hover:bg-synapse-emerald hover:text-black" onClick={handleBulkApprove}>Aprovar</NeonButton>
+              <NeonButton variant="danger" className="text-xs h-8" onClick={handleBulkReject}>Excluir</NeonButton>
             </div>
-          </StitchCard>
-        </div>
-      )}
-
+          )}
+        </StitchCard>
     </div>
+
+          {/* RIGHT COLUMN: PROFILES & STATS */ }
+                ))
+}
+          </div >
+        </StitchCard >
+
+  <div className="p-4 rounded-xl border border-white/10 bg-gradient-to-b from-white/5 to-transparent">
+    <h4 className="text-xs text-gray-500 font-bold mb-2 uppercase">Status do Sistema</h4>
+    <div className="flex items-center gap-2 text-xs text-gray-400 font-mono">
+      <div className={`w-2 h-2 rounded-full ${backendOnline ? 'bg-synapse-emerald animate-pulse' : 'bg-red-500'}`}></div>
+      {backendOnline ? 'ONLINE' : 'OFFLINE'}
+    </div>
+  </div>
+    </div >
+        </div >
+      </main >
+
+  {/* APPROVAL MODAL */ }
+{
+  showApprovalModal && selectedVideo && (
+    <div className="fixed inset-0 bg-[#05040a]/80 backdrop-blur-md z-[100] flex items-center justify-center fade-in p-4">
+      <StitchCard className="w-full max-w-md bg-[#161b22] border-synapse-primary/30 p-6 shadow-2xl relative overflow-hidden">
+        {/* Top Border Gradient */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-synapse-primary to-synapse-secondary"></div>
+        <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+          <span>🚀 Aprovar Publicação</span>
+        </h2>
+
+        <div className="p-4 bg-black/30 rounded-lg mb-6 flex items-center gap-3 border border-white/5">
+          <div className="text-2xl">📄</div>
+          <div className="overflow-hidden">
+            <p className="text-sm text-white font-medium truncate">{selectedVideo.metadata.original_filename}</p>
+            <p className="text-xs text-gray-500">{selectedVideo.profile}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <button onClick={() => setPostType('immediate')} className={`p-4 rounded-xl border transition-all relative overflow-hidden group ${postType === 'immediate' ? 'border-synapse-emerald bg-synapse-emerald/5' : 'border-gray-700 bg-gray-800/50 hover:border-gray-500'}`}>
+            {postType === 'immediate' && <div className="absolute top-2 right-2 text-synapse-emerald"><CheckCircleIcon className="w-5 h-5" /></div>}
+            <div className={`font-bold mb-1 ${postType === 'immediate' ? 'text-synapse-emerald' : 'text-gray-300'}`}>Imediato</div>
+            <div className="text-xs text-gray-500">Publicar agora</div>
+          </button>
+
+          <button onClick={() => setPostType('scheduled')} className={`p-4 rounded-xl border transition-all relative overflow-hidden group ${postType === 'scheduled' ? 'border-synapse-primary bg-synapse-primary/5' : 'border-gray-700 bg-gray-800/50 hover:border-gray-500'}`}>
+            {postType === 'scheduled' && <div className="absolute top-2 right-2 text-synapse-primary"><CheckCircleIcon className="w-5 h-5" /></div>}
+            <div className={`font-bold mb-1 ${postType === 'scheduled' ? 'text-synapse-primary' : 'text-gray-300'}`}>Agendar</div>
+            <div className="text-xs text-gray-500">Escolher data/hora</div>
+          </button>
+        </div>
+
+        {/* Viral Music Toggle */}
+        <div className={`p-4 rounded-xl border mb-6 transition-all cursor-pointer select-none ${viralMusicEnabled ? 'bg-synapse-purple/10 border-synapse-purple' : 'bg-black/40 border-gray-700 hover:border-gray-500'}`} onClick={() => setViralMusicEnabled(!viralMusicEnabled)}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${viralMusicEnabled ? 'bg-synapse-purple text-white shadow-[0_0_15px_rgba(192,132,252,0.5)]' : 'bg-gray-800 text-gray-400'}`}>
+                🎵
+              </div>
+              <div>
+                <h4 className={`text-sm font-bold ${viralMusicEnabled ? 'text-white' : 'text-gray-400'}`}>Viral Boost</h4>
+                <p className="text-xs text-gray-500">Adicionar música em alta (Mudo)</p>
+              </div>
+            </div>
+            <div className={`w-6 h-6 rounded border flex items-center justify-center transition-colors ${viralMusicEnabled ? 'bg-synapse-purple border-synapse-purple' : 'border-gray-600'}`}>
+              {viralMusicEnabled && <CheckCircleIcon className="w-4 h-4 text-white" />}
+            </div>
+          </div>
+        </div>
+
+        {/* Privacy Selector */}
+        <div className="mb-6">
+          <label className="text-xs text-gray-500 font-bold mb-2 block uppercase tracking-wider">Privacidade</label>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { id: 'public_to_everyone', label: 'Todos', icon: '🌍' },
+              { id: 'mutual_follow_friends', label: 'Amigos', icon: '👥' },
+              { id: 'self_only', label: 'Somente Eu', icon: '🔒' }
+            ].map(opt => (
+              <button
+                key={opt.id}
+                onClick={() => setPrivacyLevel(opt.id)}
+                className={`p-2 rounded-lg border text-xs font-bold flex flex-col items-center gap-1 transition-all ${privacyLevel === opt.id ? 'bg-synapse-primary/20 border-synapse-primary text-synapse-primary' : 'bg-black/40 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+              >
+                <span className="text-lg">{opt.icon}</span>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {postType === 'scheduled' && (
+          <div className="space-y-3 mb-6 animate-pulse-slow bg-white/5 p-4 rounded-xl border border-white/10">
+            <div>
+              <label className="text-xs text-gray-500 font-bold mb-1 block">DATA</label>
+              <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="w-full bg-black/50 border border-gray-600 rounded-lg p-2.5 text-white outline-none focus:border-synapse-primary transition-colors" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 font-bold mb-1 block">HORÁRIO</label>
+              <input type="time" value={selectedTime} onChange={e => setSelectedTime(e.target.value)} className="w-full bg-black/50 border border-gray-600 rounded-lg p-2.5 text-white outline-none focus:border-synapse-primary transition-colors" />
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-3 mt-8">
+          <NeonButton variant="ghost" onClick={() => setShowApprovalModal(false)} className="flex-1">Cancelar</NeonButton>
+          <NeonButton onClick={handleConfirmApproval} className="flex-1 shadow-lg shadow-purple-500/20">
+            {postType === 'immediate' ? 'Publicar Agora' : 'Confirmar Agendamento'}
+          </NeonButton>
+        </div>
+      </StitchCard>
+    </div>
+  )
+}
+
+{/* CONFIRM MODAL */ }
+{
+  confirmModal.isOpen && (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 fade-in">
+      <StitchCard className="w-[400px] bg-[#161b22] border-synapse-border p-6 shadow-2xl scale-in">
+        <h3 className="text-lg font-bold text-white mb-4">{confirmModal.title}</h3>
+        <div className="flex justify-end gap-3">
+          <NeonButton variant="ghost" onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}>
+            Cancelar
+          </NeonButton>
+          <NeonButton
+            variant={confirmModal.type === 'delete' ? 'danger' : 'primary'}
+            onClick={confirmModal.onConfirm}
+          >
+            {confirmModal.type === 'delete' ? 'Confirmar Exclusão' : 'Confirmar'}
+          </NeonButton>
+        </div>
+      </StitchCard>
+    </div>
+  )
+}
+
+{/* BATCH UPLOAD MODAL */ }
+      <MetricsModal
+        isOpen={isMetricsModalOpen}
+        onClose={() => setIsMetricsModalOpen(false)}
+        initialTab={metricsModalTab}
+      />
+      <BatchUploadModal
+        isOpen={showBatchModal}
+        onClose={() => { setShowBatchModal(false); setBatchFiles([]); }}
+        onSuccess={() => { toast.success("Campanha agendada com sucesso!"); fetchAllData(); }}
+        profiles={profiles}
+        initialFiles={batchFiles}
+      />
+
+    </div >
   );
 }

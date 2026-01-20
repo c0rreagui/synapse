@@ -1,6 +1,6 @@
 'use client';
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
-import { BackendStatus, TikTokProfile } from '../types';
+import { BackendStatus, TikTokProfile, ScheduleEvent, PendingVideo } from '../types';
 
 interface LogEntry {
     id: string;
@@ -24,6 +24,8 @@ interface WebSocketHandler {
     onPipelineUpdate?: (data: BackendStatus) => void;
     onLogEntry?: (data: LogEntry) => void;
     onProfileChange?: (data: TikTokProfile) => void;
+    onScheduleUpdate?: (data: ScheduleEvent[]) => void;
+    onQueueUpdate?: (data: PendingVideo[]) => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextValue | null>(null);
@@ -75,6 +77,12 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                             break;
                         case 'profile_change':
                             handler.onProfileChange?.(message.data as TikTokProfile);
+                            break;
+                        case 'schedule_update':
+                            handler.onScheduleUpdate?.(message.data as ScheduleEvent[]);
+                            break;
+                        case 'queue_update':
+                            handler.onQueueUpdate?.(message.data as PendingVideo[]);
                             break;
                         case 'ping':
                             ws.send('pong');

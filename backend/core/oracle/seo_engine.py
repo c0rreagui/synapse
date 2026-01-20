@@ -35,93 +35,166 @@ class SEOEngine:
 
         if avatar_url:
             try:
-                # Download Image (Fake User-Agent to avoid blocks, No Verify for Dev)
-                headers = {'User-Agent': 'Mozilla/5.0'} 
+                # Download Image (Mimic Browser to avoid 403)
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    'Referer': 'https://www.tiktok.com/'
+                }
                 response = requests.get(avatar_url, headers=headers, timeout=10, verify=False)
-                if response.status_code == 200:
-                    img = Image.open(BytesIO(response.content))
-                    
-                    # Convert to RGB/JPEG for compatibility
-                    if img.mode in ("RGBA", "P"):
-                        img = img.convert("RGB")
-                    
-                    # Oracle Prompt
-                    prompt = [
-                        "Voce e um especialista em Branding de Redes Sociais. Analise esta foto de perfil.",
-                        img,
-                        """
-                        Responda SOMENTE um JSON neste formato:
-                        {
-                            "score": 0-100,
-                            "impression": "string curta descrevendo a vibe",
-                            "pros": ["ponto forte 1", "ponto forte 2"],
-                            "cons": ["ponto fraco 1"],
-                            "verdict": "Profissional" | "Amador" | "Confuso"
-                        }
-                        """
-                    ]
-                    
-                    try:
-                        ai_res = self.client.generate_content(prompt)
-                        # Extract JSON
-                        txt = ai_res.text
-                        if "```json" in txt:
-                            txt = txt.split("```json")[1].split("```")[0]
-                        elif "```" in txt:
-                             txt = txt.split("```")[1].split("```")[0]
-                             
-                        vision_data = json.loads(txt)
-                        vision_score = vision_data.get("score", 50)
-                        vision_feedback = vision_data.get("impression", "Analise concluida")
-                        
-                        details.append({
-                            "type": "vision", 
-                            "data": vision_data
-                        })
-                        score += (vision_score * 0.5) # Weight Vision 50%
-                        
-                    except Exception as e:
-                        print(f"Vision AI Error: {e}")
-                        # FALLBACK: Try Text-Only Analysis if Vision fails
-                        try:
-                            fallback_prompt = f"""
-                            Sou um especialista de Branding. Não consigo ver o avatar, mas analise este perfil pelo nome e bio:
-                            Username: {metadata.get('username')}
-                            Bio: {bio}
+                
+                # If download fails (403/404), throw to trigger fallback
+                if response.status_code != 200:
+                    raise Exception(f"Download HTTP {response.status_code}")
+
+                img = Image.open(BytesIO(response.content))
+                
+                # Convert to RGB/JPEG for compatibility
+                if img.mode in ("RGBA", "P"):
+                    img = img.convert("RGB")
+                
+                # Oracle Prompt
+                prompt = [
+                    "Voce e um especialista em Branding de Redes Sociais. Analise esta foto de perfil.",
+                    img,
+                    """
+                    Responda SOMENTE um JSON neste formato:
+                    {
+                        "score": 0-100,
+                        "impression": "string curta descrevendo a vibe",
+                        "pros": ["ponto forte 1", "ponto forte 2"],
+                        "cons": ["ponto fraco 1"],
+                        "verdict": "Profissional" | "Amador" | "Confuso"
+                    }
+                    """
+                ]
+                
+                try:
+                    ai_res = self.client.generate_content(prompt)
+                    # Extract JSON
+                    txt = ai_res.text
+                    if "```json" in txt:
+                        txt = txt.split("```json")[1].split("```")[0]
+                    elif "```" in txt:
+                            txt = txt.split("```")[1].split("```")[0]
                             
-                            Responda JSON:
-                            {{
-                                "score": 50,
-                                "impression": "Analise baseada apenas em texto (Avatar falhou). Bio sugere...",
-                                "pros": ["Texto descritivo"],
-                                "cons": ["Avatar não carregou"],
-                                "verdict": "Incompleto"
-                            }}
-                            """
-                            fb_res = self.client.generate_content(fallback_prompt)
-                            fb_txt = fb_res.text.replace("```json", "").replace("```", "").strip()
-                            vision_data = json.loads(fb_txt)
-                            vision_score = vision_data.get("score", 50) # Update local var
-                            
-                            details.append({
-                                "type": "warning",
-                                "msg": f"Análise Visual indisponível (Erro: {str(e)[:50]}). Relatório gerado via Texto.",
-                            })
-                            details.append({
-                                "type": "vision",
-                                "data": vision_data
-                            })
-                            score += (vision_score * 0.5) # Weight Vision 50%
-                        except:
-                            details.append({"type": "error", "msg": f"Falha total IA: {str(e)}"})
-                            score += 50
-                else:
-                    details.append({"type": "error", "msg": f"Erro download ({response.status_code})"})
+                    vision_data = json.loads(txt)
+                    vision_score = vision_data.get("score", 50)
+                    vision_feedback = vision_data.get("impression", "Analise concluida")
+                    
+                    details.append({
+                        "type": "vision", 
+                        "data": vision_data
+                    })
+                    score += (vision_score * 0.5) # Weight Vision 50%
+                    
+                except Exception as e:
+                    raise e # Trigger outer fallback
+
             except Exception as e:
-                print(f"Download Error: {e}")
-                details.append({"type": "error", "msg": f"Avatar inacessivel: {str(e)}"})
+                print(f"Vision Analysis unavailable: {e}")
+                # FALLBACK: Text-Only Analysis
+                try:
+                    fallback_prompt = f"""
+                    Sou um especialista de Branding. Não consigo ver o avatar (Erro Download), mas analise este perfil pelo nome e bio:
+                    Username: {metadata.get('username')}
+                    Bio: {bio}
+                    
+                    Responda JSON:
+                    {{
+                        "score": 50,
+                        "impression": "Análise baseada apenas em Texto (Avatar indisponível). Bio sugere...",
+                        "pros": ["Texto descritivo"],
+                        "cons": ["Avatar não carregou"],
+                        "verdict": "Incompleto"
+                    }}
+                    """
+                    fb_res = self.client.generate_content(fallback_prompt)
+                    fb_txt = fb_res.text.replace("```json", "").replace("```", "").strip()
+                    vision_data = json.loads(fb_txt)
+                    vision_score = vision_data.get("score", 50) # Update local var
+                    
+                    details.append({
+                        "type": "warning",
+                        "msg": f"Análise Visual indisponível. Relatório gerado via Texto (Fallback).",
+                    })
+                    details.append({
+                        "type": "vision",
+                        "data": vision_data
+                    })
+                    score += (vision_score * 0.5) # Weight Vision 50%
+                except:
+                    details.append({"type": "error", "msg": "Falha total na Análise de Branding."})
+                    score += 50
         else:
             score += 0 
+
+        # 3. Content Visual Analysis (Latest Video Cover)
+        recent_videos = metadata.get("recent_videos", [])
+        if recent_videos and len(recent_videos) > 0:
+            latest_video = recent_videos[0]
+            cover_url = latest_video.get("cover") or latest_video.get("dynamic_cover")
+            
+            if cover_url:
+                try:
+                    # Download Cover
+                    headers = {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                        'Referer': 'https://www.tiktok.com/'
+                    }
+                    response = requests.get(cover_url, headers=headers, timeout=10, verify=False)
+                    
+                    if response.status_code == 200:
+                        cover_img = Image.open(BytesIO(response.content))
+                        if cover_img.mode in ("RGBA", "P"):
+                            cover_img = cover_img.convert("RGB")
+                            
+                        # Vision Prompt
+                        prompt = [
+                            "Analise esta capa (thumbnail) do video mais recente deste perfil.",
+                            cover_img,
+                            """
+                            Responda SOMENTE JSON:
+                            {
+                                "score": 0-100,
+                                "hook_strength": "Fraco" | "Medio" | "Forte",
+                                "visual_appeal": "comentario sobre cores/texto",
+                                "improvement_tip": "dica para melhorar a capa"
+                            }
+                            """
+                        ]
+                        
+                        ai_res = self.client.generate_content(prompt)
+                        txt = ai_res.text.replace("```json", "").replace("```", "").strip()
+                        cover_data = json.loads(txt)
+                        
+                        details.append({
+                            "type": "video_vision",
+                            "data": cover_data,
+                            "msg": "Análise Visual da Última Capa"
+                        })
+                        score += (cover_data.get("score", 50) * 0.2) # Bonus points
+                        
+                except Exception as e:
+                    print(f"Content Vision Failed: {e}")
+                    details.append({"type": "warning", "msg": f"Erro na análise visual do conteúdo: {str(e)}"})
+
+        # 4. Full Page Vibe Analysis (New)
+        screenshot_path = metadata.get("screenshot_path")
+        if screenshot_path:
+            try:
+                import os
+                if os.path.exists(screenshot_path):
+                    vibe_data = self.analyze_full_page_vibe(screenshot_path)
+                    
+                    details.append({
+                        "type": "full_page_vibe",
+                        "data": vibe_data,
+                        "msg": "Análise Visual Completa (Vibe Check)"
+                    })
+                    score += (vibe_data.get("score", 50) * 0.3) # Weight 30%
+            except Exception as e:
+                 print(f"Full Page Vision Failed: {e}")
+                 details.append({"type": "warning", "msg": f"Erro no Vibe Check: {e}"})
 
         # Finalize
         total_score = min(100, int(score))
@@ -134,6 +207,37 @@ class SEOEngine:
                 "bio": bio
             }
         }
+    
+    def analyze_full_page_vibe(self, screenshot_path: str) -> dict:
+        """
+        Analyzes the full page screenshot for branding cohesion.
+        Called by Oracle before/during audit.
+        """
+        try:
+            img = Image.open(screenshot_path)
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            
+            prompt = [
+                "Analise este screenshot da página inteira do perfil TikTok.",
+                img,
+                """
+                Responda SOMENTE JSON:
+                {
+                    "score": 0-100,
+                    "layout_quality": "Clean" | "Crowded" | "Professional",
+                    "branding_consistency": "comentario sobre a consistencia visual (cores, thumbnails)",
+                    "vibe_check": "Qual a 'energia' do perfil? (Ex: Caótico, Minimalista, Corporate, Gamer)",
+                    "improvement_action": "O que mudar no layout/identidade visual?"
+                }
+                """
+            ]
+            
+            ai_res = self.client.generate_content(prompt)
+            txt = ai_res.text.replace("```json", "").replace("```", "").strip()
+            return json.loads(txt)
+        except Exception as e:
+             return {"error": str(e)}
 
     def competitor_spy(self, target_username: str) -> dict:
         """
@@ -168,29 +272,27 @@ class SEOEngine:
                 "top_hashtags": ["#marketingdigital", "#vendas", "#empreendedorismo"]
             }
         
-        # Oracle Analysis (Turbo Mode)
+        # Oracle Analysis (Turbo Mode - BRUTAL)
         prompt = f"""
-        Atue como o maior estrategista de TikTok do mundo. Analise este perfil concorrente com profundidade EXTRAMA.
-        Dados:
+        Atue como um Consultor de Growth Hacking EXTREMAMENTE CRÍTICO e DATA-DRIVEN.
+        Analise este perfil concorrente sem piedade.
+        
+        Dados do Alvo:
         {json.dumps(mock_scraped_data, indent=2)}
         
-        Responda em JSON compatível com o schema abaixo. Seja MUITO detalhista, sarcástico e estratégico.
+        Sua missão é DESTRUIR a estratégia deles e encontrar brechas para eu dominar.
+        NÃO dê conselhos genéricos ("melhore a bio"). Dê táticas de guerrilha.
         
-        Schema de Resposta:
+        Responda em JSON compatível com o schema:
         {{
-            "niche_detected": "Identifique o nicho principal da conta (Ex: Gaming, Marketing, Lifestyle, Finanças).",
-            "weakness_exposed": "Parágrafo detalhado expondo as falhas de branding, roteiro ou funil deste concorrente. Seja brutal.",
+            "niche_detected": "Nicho exato (ex: Low-Ticket Info Product)",
+            "weakness_exposed": "Ache o ponto fraco. (Ex: 'Eles tem views mas não vendem nada pq o CTA é fraco', 'O conteúdo é repetitivo e o público está cansado'). Seja ácido.",
             "content_hooks_to_steal": [
-                "Hook 1 (Ex: 'Pare de fazer X...')",
-                "Hook 2",
-                "Hook 3",
-                "Hook 4",
-                "Hook 5",
-                "Hook 6",
-                "Hook 7"
+                "Hook específico derivado dos posts deles que funcionaram",
+                "Hook 2"
             ],
-            "growth_strategy_detected": "Análise detalhada (passo-a-passo) do funil de vendas e mix de conteúdo (Topo/Meio/Fundo) que eles usam.",
-            "better_bio_suggestion": "Uma versão da bio deles que converteria 2x mais."
+            "growth_strategy_detected": "Engenharia reversa do funil deles. O que eles estão fazendo nos bastidores?",
+            "better_bio_suggestion": "Reescreva a bio deles para humilhar a atual em termos de conversão."
         }}
         """
         

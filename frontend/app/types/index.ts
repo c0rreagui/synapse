@@ -226,7 +226,7 @@ export interface TikTokProfile {
 
 // --- WEBSOCKET TYPES ---
 
-export type WebSocketMessageType = 'pipeline_update' | 'log_entry' | 'profile_change' | 'ping' | 'connected' | 'error';
+export type WebSocketMessageType = 'pipeline_update' | 'log_entry' | 'profile_change' | 'ping' | 'connected' | 'error' | 'schedule_update' | 'queue_update';
 
 export interface WebSocketPayload<T = unknown> {
     type: WebSocketMessageType;
@@ -250,4 +250,24 @@ export interface LogEntry {
     level: 'info' | 'success' | 'warning' | 'error';
     message: string;
     source: string;
+}
+
+export interface PendingVideo {
+    id: string;
+    filename: string;
+    profile: string;
+    uploaded_at: string;
+    status: string;
+    metadata: {
+        caption?: string;
+        original_filename?: string;
+        profile_id?: string;
+        oracle_status?: 'pending' | 'completed' | 'failed';
+        oracle_analysis?: {
+            suggested_caption: string;
+            hashtags: string[];
+            viral_score: number;
+            viral_reason: string;
+        };
+    };
 }

@@ -11,11 +11,10 @@ import clsx from 'clsx';
 const navItems = [
     { href: '/', icon: Squares2X2Icon, label: 'Central de Comando' },
     { href: '/profiles', icon: UserGroupIcon, label: 'Perfis TikTok' },
-    { href: '/oracle', icon: CubeTransparentIcon, label: 'Oracle Intelligence' },
-    { href: '/seo', icon: EyeIcon, label: 'SEO & Discovery' },
+    { href: '/oracle', icon: CubeTransparentIcon, label: 'Oracle' },
+    // SEO & Discovery merged into Oracle
     { href: '/factory', icon: CubeTransparentIcon, label: 'Factory Watcher' },
     { href: '/scheduler', icon: CalendarIcon, label: 'Agendamento' },
-    { href: '/analytics', icon: ChartBarIcon, label: 'Deep Analytics' },
     { href: '/logs', icon: DocumentTextIcon, label: 'Logs' },
 ];
 

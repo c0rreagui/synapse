@@ -8,26 +8,10 @@ import Badge from '../components/Badge';
 import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
+import useWebSocket from '../hooks/useWebSocket';
+import { PendingVideo } from '../types';
 
-interface PendingVideo {
-    id: string;
-    filename: string;
-    profile: string;
-    uploaded_at: string;
-    status: string;
-    metadata: {
-        caption?: string;
-        original_filename?: string;
-        profile_id?: string;
-        oracle_status?: 'pending' | 'completed' | 'failed';
-        oracle_analysis?: {
-            suggested_caption: string;
-            hashtags: string[];
-            viral_score: number;
-            viral_reason: string;
-        };
-    };
-}
+// Interface moved to types/index.ts
 
 export default function QueuePage() {
     const [pendingVideos, setPendingVideos] = useState<PendingVideo[]>([]);
@@ -44,6 +28,13 @@ export default function QueuePage() {
     const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
         setToast({ message, type });
     };
+
+    useWebSocket({
+        onQueueUpdate: (data) => {
+            setPendingVideos(data);
+            // Optional: Show toast "Queue Updated"? No, too noisy.
+        }
+    });
 
     useEffect(() => {
         fetchPendingVideos();

@@ -80,3 +80,13 @@ async def notify_new_log(log_entry: dict):
 async def notify_profile_change(profile: dict):
     """Notifica mudança em perfil"""
     await broadcast("profile_change", profile)
+
+
+async def notify_schedule_update(schedule: list):
+    """Notifica atualização na agenda"""
+    await broadcast("schedule_update", schedule)
+
+
+async def notify_queue_update(queue: list):
+    """Notifica atualização na fila"""
+    await broadcast("queue_update", queue)

@@ -1,7 +1,79 @@
 from fastapi import APIRouter, HTTPException
 from core.oracle import oracle_client
+from core.oracle import oracle  # Unified Oracle
 
 router = APIRouter()
+
+# ========== UNIFIED ORACLE ENDPOINTS ==========
+
+@router.get("/status")
+async def oracle_status():
+    """Get Oracle status with all faculties."""
+    return oracle.ping()
+
+@router.post("/full-scan/{username}")
+async def full_scan(username: str):
+    """
+    Complete profile analysis using all Oracle faculties.
+    (Sense + Mind)
+    """
+    result = await oracle.full_scan(username)
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+
+    # 🧠 AUTO-LEARN: Save 'best_times' for Scheduler
+    try:
+        from core import session_manager
+        # Attempt to find profile_id by username
+        sessions = session_manager.list_available_sessions()
+        profile_id = None
+        target_user = username.lower().replace('@', '')
+        
+        for s in sessions:
+            if s.get("username", "").lower() == target_user:
+                profile_id = s.get("id")
+                break
+        
+        # Heuristic fallback
+        if not profile_id and session_manager.session_exists(username):
+            profile_id = username
+
+        # Extract best times from strategic_analysis (Mind Faculty output)
+        if profile_id and "strategic_analysis" in result:
+            strategy = result["strategic_analysis"]
+            if "best_times" in strategy:
+                session_manager.update_profile_metadata(profile_id, {
+                    "oracle_best_times": strategy["best_times"],
+                    "oracle_last_run": "now" 
+                })
+                print(f"✅ Oracle Insight: Saved {len(strategy['best_times'])} optimal times for {profile_id}")
+
+        # 📸 AUTO-LEARN: Save 'recent_videos' for Visual Audit
+        if profile_id and "raw_data" in result and "videos" in result["raw_data"]:
+             videos = result["raw_data"]["videos"][:3] # Keep top 3
+             if videos:
+                session_manager.update_profile_metadata(profile_id, {
+                    "recent_videos": videos
+                })
+                print(f"✅ Oracle Insight: Saved {len(videos)} recent videos for {profile_id}")
+
+    except Exception as e:
+        print(f"⚠️ Failed to auto-save oracle insights: {e}")
+
+    return result
+
+@router.post("/spy/{target_username}")
+async def spy_competitor_unified(target_username: str):
+    """
+    Deep competitive analysis using unified Oracle.
+    """
+    result = await oracle.spy_competitor(target_username)
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    return result
+
+# ========== LEGACY ENDPOINTS (for backward compatibility) ==========
+
 
 @router.get("/ping")
 async def ping_oracle():
@@ -181,6 +253,19 @@ async def audit_profile(profile_id: str):
     if not metadata:
         raise HTTPException(status_code=404, detail="Profile not found")
     
+    # 📸 Visual Audit: Capture Full Page Screenshot
+    username = metadata.get("username") or metadata.get("unique_id")
+    if username:
+        try:
+            print(f"📸 Starting Visual Audit Scan for @{username}...")
+            screenshot_path = await oracle.sense.capture_profile_screenshot(username)
+            if screenshot_path:
+                metadata["screenshot_path"] = screenshot_path
+                # Persist screenshot path for future reference
+                session_manager.update_profile_metadata(profile_id, {"screenshot_path": screenshot_path})
+        except Exception as e:
+            print(f"⚠️ Visual Audit Scan Failed: {e}")
+
     result = seo_engine.audit_profile(metadata)
     
     # Auto-save last audit

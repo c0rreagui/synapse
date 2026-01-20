@@ -7,6 +7,7 @@ import { NeonButton } from './NeonButton';
 import { XMarkIcon, CalendarDaysIcon, ClockIcon, UserGroupIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import { format, addDays, setHours, setMinutes, parseISO, getDay } from 'date-fns';
+import { toast } from 'sonner';
 
 interface SchedulingModalProps {
     isOpen: boolean;
@@ -21,6 +22,7 @@ export interface SchedulingData {
     scheduled_time: string; // ISO string
     profile_ids: string[];
     description?: string;
+    video_path: string; // Add this
     viral_music_enabled: boolean;
     music_volume?: number;
     trend_category?: string;
@@ -41,6 +43,38 @@ export default function SchedulingModal({
     const [musicVolume, setMusicVolume] = useState<number>(0); // Default 0 (Silent)
     const [trendCategory, setTrendCategory] = useState('General');
     const [isAutoScheduling, setIsAutoScheduling] = useState(false);
+
+    // Upload State
+    const [videoPath, setVideoPath] = useState<string>("");
+    const [isUploading, setIsUploading] = useState(false);
+
+    const handleFileUpload = async (file: File) => {
+        if (!selectedProfiles[0]) return;
+        setIsUploading(true);
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('profile_id', selectedProfiles[0]);
+
+        try {
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const res = await fetch(`${API_URL}/api/v1/ingest/upload`, {
+                method: 'POST',
+                body: formData
+            });
+            if (res.ok) {
+                const data = await res.json();
+                // Construct absolute path for Scheduler (matches Backend Volume mapping)
+                // "data/pending/filename" gets resolved by Backend relative to CWD usually
+                setVideoPath(`d:\\APPS - ANTIGRAVITY\\Synapse\\data\\pending\\${data.filename}`);
+            } else {
+                console.error("Upload failed");
+            }
+        } catch (e) {
+            console.error("Upload error", e);
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
     // Hyper-Caption State
     const [description, setDescription] = useState('');
@@ -92,6 +126,7 @@ export default function SchedulingModal({
 
                 // Sort by nearest future slot
                 let bestSlot: Date | null = null;
+                let reason = "";
 
                 for (const slot of data.best_times) {
                     const targetDayIndex = dayMap[slot.day];
@@ -113,19 +148,27 @@ export default function SchedulingModal({
 
                     if (!bestSlot || nextDate < bestSlot) {
                         bestSlot = nextDate;
+                        reason = slot.reason || "Horário de pico";
                     }
                 }
 
                 if (bestSlot) {
                     setSelectedDate(format(bestSlot, 'yyyy-MM-dd'));
                     setSelectedTime(format(bestSlot, 'HH:mm'));
+
+                    // Enhanced Feedback
+                    toast.success("Horário Otimizado! 🚀", {
+                        description: `Sugerido: ${format(bestSlot, "eeee 'às' HH:mm")} (${reason}). Baseado na análise de engajamento.`
+                    });
                 }
             } else {
-                // Fallback or Toast?
-                console.log("No suggestions available");
+                toast.warning("Sem dados de inteligência.", {
+                    description: "Execute uma Análise Completa no Oracle para habilitar o Auto-Schedule."
+                });
             }
         } catch (e) {
             console.error("Auto-schedule failed", e);
+            toast.error("Erro ao consultar Oráculo. Tente novamente.");
         } finally {
             setIsAutoScheduling(false);
         }
@@ -158,6 +201,7 @@ export default function SchedulingModal({
                 scheduled_time: dateTime.toISOString(),
                 profile_ids: selectedProfiles,
                 description: description,
+                video_path: videoPath, // Pass the uploaded path
                 viral_music_enabled: viralBoost,
                 music_volume: viralBoost ? musicVolume : undefined,
                 trend_category: viralBoost ? trendCategory : undefined
@@ -292,6 +336,58 @@ export default function SchedulingModal({
                                                 />
                                             </div>
                                         </div>
+                                    </div>
+
+                                    {/* Video Upload Section */}
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-mono text-gray-500 uppercase tracking-wider block">Vídeo</label>
+
+                                        {!videoPath ? (
+                                            <div
+                                                onClick={() => !isUploading && document.getElementById('scheduler-upload')?.click()}
+                                                className={`border-2 border-dashed border-white/10 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer transition-all ${isUploading ? 'opacity-50 cursor-wait' : 'hover:bg-white/5 hover:border-synapse-purple/50'}`}
+                                            >
+                                                <input
+                                                    id="scheduler-upload"
+                                                    type="file"
+                                                    accept=".mp4,.mov,.avi"
+                                                    className="hidden"
+                                                    disabled={isUploading || selectedProfiles.length === 0}
+                                                    onChange={(e) => {
+                                                        if (e.target.files?.[0]) handleFileUpload(e.target.files[0]);
+                                                    }}
+                                                />
+
+                                                {selectedProfiles.length === 0 ? (
+                                                    <p className="text-xs text-gray-500">Selecione um perfil primeiro</p>
+                                                ) : isUploading ? (
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <div className="w-5 h-5 border-2 border-synapse-purple border-t-transparent rounded-full animate-spin" />
+                                                        <span className="text-xs text-synapse-purple">Enviando para o cofre...</span>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center mb-2">
+                                                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                                                        </div>
+                                                        <p className="text-xs text-gray-300 font-bold">Clique para enviar vídeo</p>
+                                                        <p className="text-[10px] text-gray-500">MP4, MOV (Max 500MB)</p>
+                                                    </>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center justify-between p-3 bg-synapse-emerald/10 border border-synapse-emerald/30 rounded-xl">
+                                                <div className="flex items-center gap-3 overflow-hidden">
+                                                    <div className="w-8 h-8 rounded bg-synapse-emerald/20 flex items-center justify-center text-synapse-emerald">
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                                    </div>
+                                                    <span className="text-xs text-synapse-emerald font-mono truncate">{videoPath.split('/').pop()}</span>
+                                                </div>
+                                                <button onClick={() => setVideoPath("")} type="button" className="text-gray-500 hover:text-white transition-colors">
+                                                    <XMarkIcon className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Profiles Selection */}

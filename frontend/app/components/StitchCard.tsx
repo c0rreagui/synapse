@@ -5,11 +5,13 @@ interface StitchCardProps {
     children: ReactNode;
     className?: string;
     hoverEffect?: boolean;
+    onClick?: () => void;
 }
 
-export const StitchCard = ({ children, className, hoverEffect = true }: StitchCardProps) => {
+export const StitchCard = ({ children, className, hoverEffect = true, onClick }: StitchCardProps) => {
     return (
         <div
+            onClick={onClick}
             className={clsx(
                 "stitch-card relative overflow-hidden",
                 hoverEffect && "hover:border-synapse-primary hover:shadow-[0_0_30px_rgba(139,92,246,0.15)] card-lift",

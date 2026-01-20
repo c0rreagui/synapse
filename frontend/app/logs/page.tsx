@@ -141,28 +141,18 @@ export default function LogsPage() {
                         {/* Live Visual Feedback */}
                         <StitchCard className="p-1 !border-synapse-emerald/30 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
                             <div className="relative aspect-video bg-[#0f0a15] rounded-lg overflow-hidden group border border-white/5 flex flex-col items-center justify-center">
-                                {/* Componente de "Aguardando Sinal" */}
+                                {/* Placeholder Clean State */}
                                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-0">
-                                    <div className="w-full h-full absolute inset-0 opacity-20 bg-[linear-gradient(0deg,transparent_24%,rgba(32,194,14,0.3)_25%,rgba(32,194,14,0.3)_26%,transparent_27%,transparent_74%,rgba(32,194,14,0.3)_75%,rgba(32,194,14,0.3)_76%,transparent_77%,transparent),linear-gradient(90deg,transparent_24%,rgba(32,194,14,0.3)_25%,rgba(32,194,14,0.3)_26%,transparent_27%,transparent_74%,rgba(32,194,14,0.3)_75%,rgba(32,194,14,0.3)_76%,transparent_77%,transparent)] bg-[length:30px_30px]" />
-                                    <div className="w-16 h-16 mb-4 rounded-full border-2 border-synapse-emerald/30 flex items-center justify-center animate-[spin_3s_linear_infinite]">
+                                    <div className="w-16 h-16 mb-4 rounded-full border-2 border-synapse-emerald/30 flex items-center justify-center animate-[pulse_3s_linear_infinite]">
                                         <div className="w-12 h-12 rounded-full border-t-2 border-synapse-emerald shadow-[0_0_15px_rgba(16,185,129,0.5)]" />
                                     </div>
                                     <h3 className="text-synapse-emerald font-mono font-bold tracking-[0.2em] text-sm animate-pulse">
-                                        WAITING_FOR_SIGNAL
+                                        SYSTEM_ONLINE
                                     </h3>
                                     <p className="text-[10px] text-synapse-emerald/50 mt-1 font-mono">
-                                        LISTENING_ON_PORT_8000
+                                        MONITORING_ACTIVE
                                     </p>
                                 </div>
-
-                                {/* A imagem real (se existir) fica por cima se carregar com sucesso */}
-                                <img
-                                    src={`http://localhost:8000/static/monitor_live.jpg?t=${logs.length}`}
-                                    alt="Live Feed"
-                                    className="absolute inset-0 w-full h-full object-contain z-10 opacity-0 transition-opacity duration-500"
-                                    onLoad={(e) => (e.target as HTMLImageElement).classList.remove('opacity-0')}
-                                    onError={(e) => (e.target as HTMLImageElement).classList.add('hidden')}
-                                />
                                 {/* Scanline overlay */}
                                 <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(16,185,129,0.05)_50%)] bg-[length:100%_4px] pointer-events-none" />
                                 <div className="absolute top-2 left-2 px-2 py-0.5 bg-red-500/90 text-white text-[9px] font-bold uppercase tracking-wider rounded animate-pulse shadow-lg">
