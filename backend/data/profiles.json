@@ -4,98 +4,494 @@
         "icon": "\u2702\ufe0f",
         "type": "cuts",
         "active": true,
-        "avatar_url": "https://p16-sign-sg.tiktokcdn.com/tos-alisg-avt-0068/6452b7f05306b843d2f80a7718f432a1~tplv-tiktokx-cropcenter:720:720.jpeg?dr=14579&refresh_token=0ab81127&x-expires=1768579200&x-signature=GWFKO2DzKmK1%2FmxRr0ypJoGg2wU%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
+        "avatar_url": "https://p77-sign-sg.tiktokcdn.com/tos-alisg-avt-0068/6452b7f05306b843d2f80a7718f432a1~tplv-tiktokx-cropcenter:720:720.jpeg?dr=14579&refresh_token=6b05dc07&x-expires=1769043600&x-signature=mlMxkNjRdgFpf40uZTarYJCNd00%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
         "username": "vibe.corteseclips",
         "bio": "Cortes virais di\u00e1rios \u2702\ufe0f | Humor e Vibe | Siga para n\u00e3o perder!",
         "oracle_best_times": [
             {
-                "day": "Sexta-feira",
-                "hour": 18,
-                "reason": "In\u00edcio de semana, momento de relaxamento e lazer"
+                "day": "S\u00e1bado",
+                "hour": 20,
+                "reason": "Pico de engajamento durante a noite de finais de semana"
             },
             {
                 "day": "Domingo",
-                "hour": 20,
-                "reason": "Prepara\u00e7\u00e3o para a semana, busca por conte\u00fado inspirador"
+                "hour": 15,
+                "reason": "Engajamento moderado durante a tarde de domingo"
             }
         ],
         "oracle_last_run": "now",
         "last_seo_audit": {
-            "total_score": 65,
-            "vision_score": 70,
+            "total_score": 87,
+            "vision_score": 85,
+            "sections": {
+                "bio": {
+                    "score": 70,
+                    "label": "Bio & Identidade",
+                    "icon": "\ud83d\udcdd",
+                    "items": [
+                        {
+                            "status": "ok",
+                            "text": "Tamanho da bio OK (63 chars)"
+                        }
+                    ],
+                    "cta_suggestions": [
+                        "Siga para n\u00e3o perder os melhores cortes do dia!",
+                        "Compartilhe com seus amigos para espalhar o humor",
+                        "Inscreva-se para ter acesso a conte\u00fado exclusivo"
+                    ]
+                },
+                "avatar": {
+                    "score": 85,
+                    "label": "Visual Branding",
+                    "icon": "\ud83c\udfa8",
+                    "items": [
+                        {
+                            "status": "info",
+                            "text": "Um logotipo vibrante e moderno que combina elementos de tecnologia e energia."
+                        },
+                        {
+                            "status": "badge",
+                            "text": "N\u00edvel: Profissional"
+                        },
+                        {
+                            "status": "info",
+                            "text": "Cores: Azul, Roxo, Rosa"
+                        },
+                        {
+                            "status": "info",
+                            "text": "Mood: Energ\u00e9tico"
+                        },
+                        {
+                            "status": "ok",
+                            "text": "Qualidade: Alta"
+                        },
+                        {
+                            "status": "info",
+                            "text": "Ilumina\u00e7\u00e3o: Perfeito"
+                        },
+                        {
+                            "status": "ok",
+                            "text": "Uso criativo de gradientes de cor para dar dinamismo ao logotipo"
+                        },
+                        {
+                            "status": "ok",
+                            "text": "Composi\u00e7\u00e3o equilibrada e centralizada"
+                        },
+                        {
+                            "status": "ok",
+                            "text": "Escolha de cores vibrantes que transmitem energia e modernidade"
+                        },
+                        {
+                            "status": "warning",
+                            "text": "Pode ser considerado um pouco gen\u00e9rico ou semelhante a outros logotipos de tecnologia"
+                        },
+                        {
+                            "status": "warning",
+                            "text": "A falta de um significado claro ou hist\u00f3ria por tr\u00e1s do s\u00edmbolo pode dificultar a conex\u00e3o emocional com o p\u00fablico"
+                        },
+                        {
+                            "status": "badge",
+                            "text": "Potencial Viral: M\u00e9dio"
+                        }
+                    ],
+                    "raw_data": {
+                        "score": 85,
+                        "impression": "Um logotipo vibrante e moderno que combina elementos de tecnologia e energia.",
+                        "professionalism": "Profissional",
+                        "color_analysis": {
+                            "dominant_colors": [
+                                "Azul",
+                                "Roxo",
+                                "Rosa"
+                            ],
+                            "harmony": "Harm\u00f4nico",
+                            "mood": "Energ\u00e9tico"
+                        },
+                        "composition": {
+                            "face_visible": false,
+                            "centered": true,
+                            "quality": "Alta",
+                            "lighting": "Perfeito"
+                        },
+                        "pros": [
+                            "Uso criativo de gradientes de cor para dar dinamismo ao logotipo",
+                            "Composi\u00e7\u00e3o equilibrada e centralizada",
+                            "Escolha de cores vibrantes que transmitem energia e modernidade"
+                        ],
+                        "cons": [
+                            "Pode ser considerado um pouco gen\u00e9rico ou semelhante a outros logotipos de tecnologia",
+                            "A falta de um significado claro ou hist\u00f3ria por tr\u00e1s do s\u00edmbolo pode dificultar a conex\u00e3o emocional com o p\u00fablico"
+                        ],
+                        "immediate_actions": [
+                            {
+                                "priority": 1,
+                                "action": "Desenvolver uma hist\u00f3ria ou significado claro por tr\u00e1s do logotipo para aumentar a conex\u00e3o emocional com o p\u00fablico",
+                                "impact": "Alto"
+                            },
+                            {
+                                "priority": 2,
+                                "action": "Realizar testes de reconhecimento e entendimento do logotipo com o p\u00fablico-alvo para ajustar a estrat\u00e9gia de branding",
+                                "impact": "M\u00e9dio"
+                            }
+                        ],
+                        "verdict": "Profissional",
+                        "viral_potential": "M\u00e9dio",
+                        "competitor_comparison": "Acima da m\u00e9dia"
+                    }
+                },
+                "content": {
+                    "score": 50,
+                    "label": "Capas de V\u00eddeo",
+                    "icon": "\ud83c\udfac",
+                    "items": []
+                },
+                "vibe": {
+                    "score": 50,
+                    "label": "Vibe Check",
+                    "icon": "\u2728",
+                    "items": [],
+                    "raw_data": {
+                        "error": "Expecting value: line 1 column 1 (char 0)"
+                    }
+                }
+            },
+            "recommendations": [
+                "Criar cortes de v\u00eddeos virais com humor absurdo",
+                "Utilizar efeitos sonoros e visuais para real\u00e7ar o humor",
+                "Colaborar com outros criadores de conte\u00fado de humor",
+                "[P1] Desenvolver uma hist\u00f3ria ou significado claro por tr\u00e1s do logotipo para aumentar a conex\u00e3o emocional com o p\u00fablico (Impacto: Alto)",
+                "[P2] Realizar testes de reconhecimento e entendimento do logotipo com o p\u00fablico-alvo para ajustar a estrat\u00e9gia de branding (Impacto: M\u00e9dio)"
+            ],
+            "niche": {
+                "niche": "Humor",
+                "niche_confidence": "Alta",
+                "audience": "Jovens e adultos que buscam conte\u00fado divertido e entretenimento leve",
+                "content_style": "Entretenimento",
+                "personalized_recommendations": [
+                    "Criar cortes de v\u00eddeos virais com humor absurdo",
+                    "Utilizar efeitos sonoros e visuais para real\u00e7ar o humor",
+                    "Colaborar com outros criadores de conte\u00fado de humor"
+                ],
+                "personalized_ctas": [
+                    "Siga para n\u00e3o perder os melhores cortes do dia!",
+                    "Compartilhe com seus amigos para espalhar o humor",
+                    "Inscreva-se para ter acesso a conte\u00fado exclusivo"
+                ],
+                "competitor_tip": "Estude os padr\u00f5es de humor e as tend\u00eancias atuais para criar conte\u00fado relevante e viral",
+                "trending_format": "V\u00eddeos curtos e r\u00e1pidos com cortes r\u00e1pidos e efeitos sonoros"
+            },
             "details": [
+                {
+                    "type": "niche",
+                    "data": {
+                        "niche": "Humor",
+                        "niche_confidence": "Alta",
+                        "audience": "Jovens e adultos que buscam conte\u00fado divertido e entretenimento leve",
+                        "content_style": "Entretenimento",
+                        "personalized_recommendations": [
+                            "Criar cortes de v\u00eddeos virais com humor absurdo",
+                            "Utilizar efeitos sonoros e visuais para real\u00e7ar o humor",
+                            "Colaborar com outros criadores de conte\u00fado de humor"
+                        ],
+                        "personalized_ctas": [
+                            "Siga para n\u00e3o perder os melhores cortes do dia!",
+                            "Compartilhe com seus amigos para espalhar o humor",
+                            "Inscreva-se para ter acesso a conte\u00fado exclusivo"
+                        ],
+                        "competitor_tip": "Estude os padr\u00f5es de humor e as tend\u00eancias atuais para criar conte\u00fado relevante e viral",
+                        "trending_format": "V\u00eddeos curtos e r\u00e1pidos com cortes r\u00e1pidos e efeitos sonoros"
+                    }
+                },
                 {
                     "type": "success",
                     "msg": "Tamanho da bio OK."
                 },
                 {
-                    "type": "warning",
-                    "msg": "An\u00e1lise Visual indispon\u00edvel (Erro: Vision Failed on both Gemini and Groq (Error code:). Relat\u00f3rio gerado via Texto."
-                },
-                {
                     "type": "vision",
                     "data": {
-                        "score": 70,
-                        "impression": "Perfil com identidade clara de entretenimento",
+                        "score": 85,
+                        "impression": "Um logotipo vibrante e moderno que combina elementos de tecnologia e energia.",
+                        "professionalism": "Profissional",
+                        "color_analysis": {
+                            "dominant_colors": [
+                                "Azul",
+                                "Roxo",
+                                "Rosa"
+                            ],
+                            "harmony": "Harm\u00f4nico",
+                            "mood": "Energ\u00e9tico"
+                        },
+                        "composition": {
+                            "face_visible": false,
+                            "centered": true,
+                            "quality": "Alta",
+                            "lighting": "Perfeito"
+                        },
                         "pros": [
-                            "Nome de usu\u00e1rio sugestivo",
-                            "Bio concisa e atraente",
-                            "Uso de emoji para chamar aten\u00e7\u00e3o"
+                            "Uso criativo de gradientes de cor para dar dinamismo ao logotipo",
+                            "Composi\u00e7\u00e3o equilibrada e centralizada",
+                            "Escolha de cores vibrantes que transmitem energia e modernidade"
                         ],
                         "cons": [
-                            "Avatar n\u00e3o carregado, o que pode afetar a primeira impress\u00e3o",
-                            "Bio pode ser um pouco gen\u00e9rica"
+                            "Pode ser considerado um pouco gen\u00e9rico ou semelhante a outros logotipos de tecnologia",
+                            "A falta de um significado claro ou hist\u00f3ria por tr\u00e1s do s\u00edmbolo pode dificultar a conex\u00e3o emocional com o p\u00fablico"
                         ],
-                        "verdict": "Potencial de crescimento com ajustes visuais"
+                        "immediate_actions": [
+                            {
+                                "priority": 1,
+                                "action": "Desenvolver uma hist\u00f3ria ou significado claro por tr\u00e1s do logotipo para aumentar a conex\u00e3o emocional com o p\u00fablico",
+                                "impact": "Alto"
+                            },
+                            {
+                                "priority": 2,
+                                "action": "Realizar testes de reconhecimento e entendimento do logotipo com o p\u00fablico-alvo para ajustar a estrat\u00e9gia de branding",
+                                "impact": "M\u00e9dio"
+                            }
+                        ],
+                        "verdict": "Profissional",
+                        "viral_potential": "M\u00e9dio",
+                        "competitor_comparison": "Acima da m\u00e9dia"
                     }
+                },
+                {
+                    "type": "full_page_vibe",
+                    "data": {
+                        "error": "Expecting value: line 1 column 1 (char 0)"
+                    },
+                    "msg": "\u2705 Vibe Check: An\u00e1lise da P\u00e1gina Completa"
                 }
             ],
             "profile_overiew": {
                 "username": "vibe.corteseclips",
                 "bio": "Cortes virais di\u00e1rios \u2702\ufe0f | Humor e Vibe | Siga para n\u00e3o perder!"
             }
-        }
+        },
+        "screenshot_path": "/app/data/screenshots/vibe.corteseclips_audit.png"
     },
     "tiktok_profile_02": {
         "label": "Opini\u00e3o Viral",
         "icon": "\ud83d\udd25",
         "type": "main",
         "active": true,
-        "avatar_url": "https://p77-sign-sg.tiktokcdn.com/tos-alisg-avt-0068/5fedaf5daf2472ed8ad0b79c066a1f8e~tplv-tiktokx-cropcenter:720:720.jpeg?dr=14579&refresh_token=177e2c31&x-expires=1768431600&x-signature=%2FDd9foCvUmYoKqcfSHehNCgPlW0%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
+        "avatar_url": "https://p77-sign-sg.tiktokcdn.com/tos-alisg-avt-0068/5fedaf5daf2472ed8ad0b79c066a1f8e~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=b55b9c4d&x-expires=1769043600&x-signature=cZBVTcFIhv9HhhvnzklwqFFRQyw%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
         "username": "opiniaoviral",
         "last_seo_audit": {
-            "total_score": 30,
-            "vision_score": 60,
+            "total_score": 57,
+            "vision_score": 85,
+            "sections": {
+                "bio": {
+                    "score": 40,
+                    "label": "Bio & Identidade",
+                    "icon": "\ud83d\udcdd",
+                    "items": [
+                        {
+                            "status": "warning",
+                            "text": "Biografia vazia. Oportunidade perdida."
+                        },
+                        {
+                            "status": "warning",
+                            "text": "Bio muito curta"
+                        },
+                        {
+                            "status": "tip",
+                            "text": "Adicionar CTA para converter visitantes"
+                        }
+                    ],
+                    "cta_suggestions": [
+                        "\ud83d\udc47 Link na bio",
+                        "\ud83d\udce9 DM para parcerias",
+                        "\ud83d\udd17 Meu curso/produto no link",
+                        "\u2728 Siga para mais dicas de [nicho]",
+                        "\ud83c\udfac Novo v\u00eddeo todo dia!",
+                        "\ud83d\udcbc Contato comercial: [email]"
+                    ]
+                },
+                "avatar": {
+                    "score": 85,
+                    "label": "Visual Branding",
+                    "icon": "\ud83c\udfa8",
+                    "items": [
+                        {
+                            "status": "info",
+                            "text": "Uma logo moderna e din\u00e2mica com um design arrojado"
+                        },
+                        {
+                            "status": "badge",
+                            "text": "N\u00edvel: Profissional"
+                        },
+                        {
+                            "status": "info",
+                            "text": "Cores: preto, vermelho, branco"
+                        },
+                        {
+                            "status": "info",
+                            "text": "Mood: Energ\u00e9tico"
+                        },
+                        {
+                            "status": "ok",
+                            "text": "Qualidade: Alta"
+                        },
+                        {
+                            "status": "info",
+                            "text": "Ilumina\u00e7\u00e3o: Perfeito"
+                        },
+                        {
+                            "status": "ok",
+                            "text": "O uso de cores contrastantes cria um impacto visual forte"
+                        },
+                        {
+                            "status": "ok",
+                            "text": "A composi\u00e7\u00e3o \u00e9 equilibrada e centralizada"
+                        },
+                        {
+                            "status": "ok",
+                            "text": "O design \u00e9 moderno e arrojado"
+                        },
+                        {
+                            "status": "warning",
+                            "text": "A falta de um elemento identificador claro (como um texto ou \u00edcone adicional) pode dificultar o reconhecimento imediato da marca"
+                        },
+                        {
+                            "status": "warning",
+                            "text": "O uso de efeitos de movimento pode ser considerado exagerado por alguns p\u00fablicos"
+                        },
+                        {
+                            "status": "badge",
+                            "text": "Potencial Viral: M\u00e9dio"
+                        }
+                    ],
+                    "raw_data": {
+                        "score": 85,
+                        "impression": "Uma logo moderna e din\u00e2mica com um design arrojado",
+                        "professionalism": "Profissional",
+                        "color_analysis": {
+                            "dominant_colors": [
+                                "preto",
+                                "vermelho",
+                                "branco"
+                            ],
+                            "harmony": "Harm\u00f4nico",
+                            "mood": "Energ\u00e9tico"
+                        },
+                        "composition": {
+                            "face_visible": false,
+                            "centered": true,
+                            "quality": "Alta",
+                            "lighting": "Perfeito"
+                        },
+                        "pros": [
+                            "O uso de cores contrastantes cria um impacto visual forte",
+                            "A composi\u00e7\u00e3o \u00e9 equilibrada e centralizada",
+                            "O design \u00e9 moderno e arrojado"
+                        ],
+                        "cons": [
+                            "A falta de um elemento identificador claro (como um texto ou \u00edcone adicional) pode dificultar o reconhecimento imediato da marca",
+                            "O uso de efeitos de movimento pode ser considerado exagerado por alguns p\u00fablicos"
+                        ],
+                        "immediate_actions": [
+                            {
+                                "priority": 1,
+                                "action": "Adicionar um elemento identificador claro para aumentar o reconhecimento da marca",
+                                "impact": "Alto"
+                            },
+                            {
+                                "priority": 2,
+                                "action": "Testar diferentes varia\u00e7\u00f5es de cores para garantir a melhor legibilidade em diferentes fundos",
+                                "impact": "M\u00e9dio"
+                            }
+                        ],
+                        "verdict": "Profissional",
+                        "viral_potential": "M\u00e9dio",
+                        "competitor_comparison": "Acima da m\u00e9dia"
+                    }
+                },
+                "content": {
+                    "score": 50,
+                    "label": "Capas de V\u00eddeo",
+                    "icon": "\ud83c\udfac",
+                    "items": []
+                },
+                "vibe": {
+                    "score": 50,
+                    "label": "Vibe Check",
+                    "icon": "\u2728",
+                    "items": [],
+                    "raw_data": {
+                        "error": "Expecting value: line 1 column 1 (char 0)"
+                    }
+                }
+            },
+            "recommendations": [
+                "[P1] Adicionar um elemento identificador claro para aumentar o reconhecimento da marca (Impacto: Alto)",
+                "[P2] Testar diferentes varia\u00e7\u00f5es de cores para garantir a melhor legibilidade em diferentes fundos (Impacto: M\u00e9dio)",
+                "Expandir bio com mais informa\u00e7\u00f5es",
+                "Adicionar CTA na bio. Sugest\u00f5es: \ud83d\udc47 Link na bio, \ud83d\udce9 DM para parcerias, \ud83d\udd17 Meu curso/produto no link"
+            ],
             "details": [
                 {
                     "type": "warning",
                     "msg": "Biografia vazia. Oportunidade perdida."
                 },
                 {
-                    "type": "warning",
-                    "msg": "An\u00e1lise Visual indispon\u00edvel (Erro: Error code: 400 - {'error': {'message': 'The model). Relat\u00f3rio gerado via Texto."
-                },
-                {
                     "type": "vision",
                     "data": {
-                        "score": 60,
-                        "impression": "O nome de usu\u00e1rio 'opiniaoviral' sugere uma presen\u00e7a online focada em compartilhamento de opini\u00f5es e tend\u00eancias, possivelmente buscando viralizar conte\u00fados.",
+                        "score": 85,
+                        "impression": "Uma logo moderna e din\u00e2mica com um design arrojado",
+                        "professionalism": "Profissional",
+                        "color_analysis": {
+                            "dominant_colors": [
+                                "preto",
+                                "vermelho",
+                                "branco"
+                            ],
+                            "harmony": "Harm\u00f4nico",
+                            "mood": "Energ\u00e9tico"
+                        },
+                        "composition": {
+                            "face_visible": false,
+                            "centered": true,
+                            "quality": "Alta",
+                            "lighting": "Perfeito"
+                        },
                         "pros": [
-                            "Nome de usu\u00e1rio sugestivo e de f\u00e1cil lembran\u00e7a",
-                            "Bio pode ser curta, mas pode ser otimizada para melhor desempenho"
+                            "O uso de cores contrastantes cria um impacto visual forte",
+                            "A composi\u00e7\u00e3o \u00e9 equilibrada e centralizada",
+                            "O design \u00e9 moderno e arrojado"
                         ],
                         "cons": [
-                            "Avatar n\u00e3o carregado, o que pode afetar a primeira impress\u00e3o",
-                            "Bio pode ser mais descritiva para atrair e manter a aten\u00e7\u00e3o do p\u00fablico"
+                            "A falta de um elemento identificador claro (como um texto ou \u00edcone adicional) pode dificultar o reconhecimento imediato da marca",
+                            "O uso de efeitos de movimento pode ser considerado exagerado por alguns p\u00fablicos"
                         ],
-                        "verdict": "Perf\u00edl com potencial, necessita ajustes visuais e de bio para melhorar a experi\u00eancia do usu\u00e1rio"
+                        "immediate_actions": [
+                            {
+                                "priority": 1,
+                                "action": "Adicionar um elemento identificador claro para aumentar o reconhecimento da marca",
+                                "impact": "Alto"
+                            },
+                            {
+                                "priority": 2,
+                                "action": "Testar diferentes varia\u00e7\u00f5es de cores para garantir a melhor legibilidade em diferentes fundos",
+                                "impact": "M\u00e9dio"
+                            }
+                        ],
+                        "verdict": "Profissional",
+                        "viral_potential": "M\u00e9dio",
+                        "competitor_comparison": "Acima da m\u00e9dia"
                     }
+                },
+                {
+                    "type": "full_page_vibe",
+                    "data": {
+                        "error": "Expecting value: line 1 column 1 (char 0)"
+                    },
+                    "msg": "\u2705 Vibe Check: An\u00e1lise da P\u00e1gina Completa"
                 }
             ],
             "profile_overiew": {
                 "username": "opiniaoviral",
                 "bio": ""
             }
-        }
+        },
+        "screenshot_path": "/app/data/screenshots/opiniaoviral_audit.png"
     }
 }

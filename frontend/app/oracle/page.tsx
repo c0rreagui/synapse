@@ -318,24 +318,240 @@ export default function OraclePage() {
 
                                 {/* Results */}
                                 {analysis && !loading && (
-                                    <div className="space-y-6">
-                                        {/* Score Card */}
-                                        <div className="flex justify-center">
-                                            <div className="bg-[#0a0a0f]/60 backdrop-blur border border-white/5 rounded-2xl p-8 flex flex-col items-center max-w-2xl w-full text-center">
-                                                <ViralScoreGauge score={analysis.analysis.virality_score} />
-                                                <h2 className="text-3xl font-bold mt-4 text-white">@{analysis.profile}</h2>
-                                                <p className="text-gray-400 text-sm mt-2">{analysis.analysis.summary}</p>
+                                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                                        {/* Profile Header with Score */}
+                                        <StitchCard className="p-6 bg-gradient-to-r from-[#00f3ff]/5 to-[#8b5cf6]/5">
+                                            <div className="flex flex-col md:flex-row items-center gap-6">
+                                                <div className="flex-shrink-0">
+                                                    <ViralScoreGauge score={analysis.analysis.virality_score} />
+                                                </div>
+                                                <div className="flex-1 text-center md:text-left">
+                                                    <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
+                                                        <h2 className="text-3xl font-black text-white">@{analysis.profile}</h2>
+                                                        {analysis.analysis.profile_type && (
+                                                            <span className={clsx(
+                                                                "px-3 py-1 rounded-full text-xs font-bold",
+                                                                analysis.analysis.profile_type === "Original Creator" ? "bg-green-500/20 text-green-400" :
+                                                                    analysis.analysis.profile_type?.includes("Clips") ? "bg-purple-500/20 text-purple-400" :
+                                                                        "bg-blue-500/20 text-blue-400"
+                                                            )}>
+                                                                {analysis.analysis.profile_type}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-gray-400">{analysis.analysis.summary}</p>
+                                                    <div className="flex flex-wrap items-center gap-4 mt-3">
+                                                        {analysis.analysis.voice_authenticity && (
+                                                            <span className="text-xs text-gray-500">
+                                                                🎙️ Voz: <span className="text-white">{analysis.analysis.voice_authenticity}</span>
+                                                            </span>
+                                                        )}
+                                                        {analysis.analysis.engagement_quality && (
+                                                            <span className="text-xs text-gray-500">
+                                                                💬 Engajamento: <span className={clsx(
+                                                                    analysis.analysis.engagement_quality === "High" ? "text-green-400" :
+                                                                        analysis.analysis.engagement_quality === "Medium" ? "text-yellow-400" : "text-red-400"
+                                                                )}>{analysis.analysis.engagement_quality}</span>
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
+                                        </StitchCard>
+
+                                        {/* Performance Metrics Grid */}
+                                        {analysis.analysis.performance_metrics && (
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                <StitchCard className="p-4 text-center">
+                                                    <span className="text-2xl">📊</span>
+                                                    <p className="text-xl font-bold text-white mt-2">{analysis.analysis.performance_metrics.avg_views_estimate}</p>
+                                                    <p className="text-xs text-gray-500">VIEWS MÉDIOS</p>
+                                                </StitchCard>
+                                                <StitchCard className="p-4 text-center">
+                                                    <span className="text-2xl">🎬</span>
+                                                    <p className="text-xl font-bold text-white mt-2">{analysis.analysis.performance_metrics.verified_video_count}</p>
+                                                    <p className="text-xs text-gray-500">VÍDEOS ANALISADOS</p>
+                                                </StitchCard>
+                                                <StitchCard className="p-4 text-center">
+                                                    <span className="text-2xl">💬</span>
+                                                    <p className="text-xl font-bold text-white mt-2">{analysis.analysis.performance_metrics.comments_analyzed_count}</p>
+                                                    <p className="text-xs text-gray-500">COMENTÁRIOS</p>
+                                                </StitchCard>
+                                                <StitchCard className="p-4 text-center">
+                                                    <span className="text-2xl">⚡</span>
+                                                    <p className="text-sm font-bold text-white mt-2 line-clamp-2">{analysis.analysis.performance_metrics.engagement_rate_analysis}</p>
+                                                    <p className="text-xs text-gray-500">ANÁLISE</p>
+                                                </StitchCard>
+                                            </div>
+                                        )}
+
+                                        {/* Audience Persona + Content Pillars */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            {/* Audience Persona */}
+                                            {analysis.analysis.audience_persona && (
+                                                <StitchCard className="p-5">
+                                                    <h4 className="font-bold text-[#00f3ff] mb-4 flex items-center gap-2">
+                                                        <span>👥</span> Persona da Audiência
+                                                    </h4>
+                                                    <div className="space-y-3">
+                                                        <div>
+                                                            <p className="text-xs text-gray-500 uppercase">DEMOGRAFIA</p>
+                                                            <p className="text-sm text-white">{analysis.analysis.audience_persona.demographics}</p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs text-gray-500 uppercase">PSICOGRAFIA</p>
+                                                            <p className="text-sm text-gray-300">{analysis.analysis.audience_persona.psychographics}</p>
+                                                        </div>
+                                                        {analysis.analysis.audience_persona.pain_points && (
+                                                            <div>
+                                                                <p className="text-xs text-gray-500 uppercase mb-2">DORES DO PÚBLICO</p>
+                                                                <ul className="space-y-1">
+                                                                    {analysis.analysis.audience_persona.pain_points.map((pain: string, i: number) => (
+                                                                        <li key={i} className="flex items-start gap-2 text-sm">
+                                                                            <span className="text-red-400">•</span>
+                                                                            <span className="text-gray-300">{pain}</span>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </StitchCard>
+                                            )}
+
+                                            {/* Content Pillars + Gaps */}
+                                            <StitchCard className="p-5">
+                                                <h4 className="font-bold text-[#8b5cf6] mb-4 flex items-center gap-2">
+                                                    <span>📚</span> Pilares de Conteúdo
+                                                </h4>
+                                                {analysis.analysis.content_pillars && (
+                                                    <div className="flex flex-wrap gap-2 mb-4">
+                                                        {analysis.analysis.content_pillars.map((pillar: string, i: number) => (
+                                                            <span key={i} className="px-3 py-1 bg-[#8b5cf6]/20 text-[#8b5cf6] text-sm rounded-full">{pillar}</span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                <h4 className="font-bold text-yellow-400 mb-3 flex items-center gap-2">
+                                                    <span>🎯</span> Gaps (Oportunidades)
+                                                </h4>
+                                                {analysis.analysis.content_gaps && (
+                                                    <ul className="space-y-2">
+                                                        {analysis.analysis.content_gaps.map((gap: string, i: number) => (
+                                                            <li key={i} className="flex items-start gap-2 text-sm">
+                                                                <span className="text-yellow-400">→</span>
+                                                                <span className="text-gray-300">{gap}</span>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                )}
+                                            </StitchCard>
                                         </div>
 
-                                        {/* Insights Cards */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {/* Sentiment + Viral Hooks Row */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            {/* Enhanced Sentiment */}
                                             {analysis.analysis.sentiment_pulse && (
-                                                <SentimentCard data={analysis.analysis.sentiment_pulse} delay={0.1} />
+                                                <StitchCard className="p-5">
+                                                    <div className="flex items-center justify-between mb-4">
+                                                        <h4 className="font-bold text-pink-400 flex items-center gap-2">
+                                                            <span>💗</span> Pulso do Sentimento
+                                                        </h4>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-2xl font-black text-pink-400">{analysis.analysis.sentiment_pulse.score}%</span>
+                                                            <span className={clsx(
+                                                                "px-2 py-1 rounded text-xs font-bold",
+                                                                analysis.analysis.sentiment_pulse.dominant_emotion?.includes("Love") ? "bg-pink-500/20 text-pink-400" :
+                                                                    analysis.analysis.sentiment_pulse.dominant_emotion?.includes("Curiosity") ? "bg-blue-500/20 text-blue-400" :
+                                                                        "bg-red-500/20 text-red-400"
+                                                            )}>
+                                                                {analysis.analysis.sentiment_pulse.dominant_emotion}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    {analysis.analysis.sentiment_pulse.top_questions?.length > 0 && (
+                                                        <div className="mb-3">
+                                                            <p className="text-xs text-gray-500 uppercase mb-2">TOP DÚVIDAS DA AUDIÊNCIA</p>
+                                                            {analysis.analysis.sentiment_pulse.top_questions.map((q: string, i: number) => (
+                                                                <p key={i} className="text-sm text-gray-300 mb-1">❓ {q}</p>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    {analysis.analysis.sentiment_pulse.debate_topic && (
+                                                        <div className="p-3 bg-orange-500/10 rounded-lg">
+                                                            <p className="text-xs text-orange-400 font-bold">🔥 TRENDING DEBATE</p>
+                                                            <p className="text-sm text-gray-300">{analysis.analysis.sentiment_pulse.debate_topic}</p>
+                                                        </div>
+                                                    )}
+                                                </StitchCard>
                                             )}
-                                            <InsightCard title="Ganchos Virais" items={analysis.analysis.viral_hooks.map(h => h.description)} icon="⚡" delay={0.2} />
-                                            <InsightCard title="Content Gaps" items={analysis.analysis.content_gaps} icon="🎯" delay={0.3} />
+
+                                            {/* Enhanced Viral Hooks */}
+                                            <StitchCard className="p-5 bg-gradient-to-r from-yellow-900/10 to-transparent">
+                                                <h4 className="font-bold text-yellow-400 mb-4 flex items-center gap-2">
+                                                    <span>⚡</span> Ganchos Virais Detectados
+                                                </h4>
+                                                <div className="space-y-3">
+                                                    {analysis.analysis.viral_hooks?.map((hook: { type: string; description: string }, i: number) => (
+                                                        <div key={i} className="flex items-start gap-3">
+                                                            <span className={clsx(
+                                                                "px-2 py-0.5 rounded text-xs font-bold flex-shrink-0",
+                                                                hook.type === "Visual" ? "bg-blue-500/20 text-blue-400" :
+                                                                    hook.type === "Psychological" ? "bg-purple-500/20 text-purple-400" :
+                                                                        "bg-green-500/20 text-green-400"
+                                                            )}>
+                                                                {hook.type}
+                                                            </span>
+                                                            <p className="text-sm text-gray-300">{hook.description}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </StitchCard>
                                         </div>
+
+                                        {/* Suggested Next Video */}
+                                        {analysis.analysis.suggested_next_video && (
+                                            <StitchCard className="p-6 bg-gradient-to-r from-green-900/20 to-transparent border-l-4 border-l-green-500">
+                                                <h4 className="font-bold text-green-400 mb-4 flex items-center gap-2 text-lg">
+                                                    <span>🎬</span> Próximo Vídeo Sugerido pela IA
+                                                </h4>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                    <div>
+                                                        <p className="text-xs text-gray-500 uppercase mb-2">TÍTULO</p>
+                                                        <p className="text-lg font-bold text-white mb-4">{analysis.analysis.suggested_next_video.title}</p>
+                                                        <p className="text-xs text-gray-500 uppercase mb-2">CONCEITO</p>
+                                                        <p className="text-sm text-gray-300">{analysis.analysis.suggested_next_video.concept}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-gray-500 uppercase mb-2">HOOK (PRIMEIROS 3s)</p>
+                                                        <div className="p-3 bg-black/30 rounded-lg mb-4 cursor-pointer hover:bg-black/50 transition-all"
+                                                            onClick={() => { navigator.clipboard.writeText(analysis.analysis.suggested_next_video.hook_script); toast.success("Hook copiado!"); }}
+                                                        >
+                                                            <p className="text-white font-mono text-sm">"{analysis.analysis.suggested_next_video.hook_script}"</p>
+                                                        </div>
+                                                        <p className="text-xs text-gray-500 uppercase mb-2">POR QUÊ VAI FUNCIONAR</p>
+                                                        <p className="text-sm text-gray-300">{analysis.analysis.suggested_next_video.reasoning}</p>
+                                                    </div>
+                                                </div>
+                                            </StitchCard>
+                                        )}
+
+                                        {/* Best Times */}
+                                        {analysis.analysis.best_times?.length > 0 && (
+                                            <StitchCard className="p-5">
+                                                <h4 className="font-bold text-[#00f3ff] mb-4 flex items-center gap-2">
+                                                    <span>🕐</span> Melhores Horários para Postar
+                                                </h4>
+                                                <div className="flex flex-wrap gap-3">
+                                                    {analysis.analysis.best_times.map((time: { day: string; hour: number; reason: string }, i: number) => (
+                                                        <div key={i} className="p-3 bg-[#00f3ff]/10 rounded-lg text-center min-w-[120px]">
+                                                            <p className="text-sm font-bold text-[#00f3ff]">{time.day}</p>
+                                                            <p className="text-xl font-black text-white">{time.hour}:00</p>
+                                                            <p className="text-xs text-gray-400">{time.reason}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </StitchCard>
+                                        )}
 
                                         {/* Log */}
                                         <div className="max-w-4xl mx-auto pt-4 border-t border-white/5">
@@ -477,35 +693,185 @@ export default function OraclePage() {
                                 </div>
 
                                 {auditResult && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <StitchCard className="p-6">
-                                            <h3 className="text-xl font-bold mb-4">Vision Score</h3>
-                                            <div className="text-5xl font-bold text-[#00f3ff]">{auditResult.total_score}</div>
-                                        </StitchCard>
-                                        <StitchCard className="p-6">
-                                            <h3 className="text-xl font-bold mb-4">Relatório</h3>
-                                            <ul className="space-y-2">
-                                                {auditResult.details?.slice(0, 5).map((item: any, idx: number) => (
-                                                    <li key={idx} className="text-sm text-gray-400">{item.msg || item.data?.impression}</li>
+                                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                                        {/* Main Score */}
+                                        <div className="flex justify-center">
+                                            <StitchCard className="p-8 text-center bg-gradient-to-br from-[#13111a] to-[#0a0815] max-w-sm w-full">
+                                                <div className="text-7xl font-black bg-gradient-to-r from-[#00f3ff] to-[#8b5cf6] bg-clip-text text-transparent">
+                                                    {auditResult.total_score}
+                                                </div>
+                                                <p className="text-gray-400 mt-2 text-sm uppercase tracking-wider">Score Geral</p>
+                                                <div className="mt-4 h-2 bg-gray-800 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-gradient-to-r from-[#00f3ff] to-[#8b5cf6] transition-all duration-1000"
+                                                        style={{ width: `${auditResult.total_score}%` }}
+                                                    />
+                                                </div>
+                                            </StitchCard>
+                                        </div>
+
+                                        {/* Niche Detection Badge */}
+                                        {auditResult.niche && auditResult.niche.niche && (
+                                            <StitchCard className="p-5 bg-gradient-to-r from-[#00f3ff]/5 to-[#8b5cf6]/5 border-l-4 border-l-[#00f3ff]">
+                                                <div className="flex flex-wrap items-center gap-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-2xl">🎯</span>
+                                                        <div>
+                                                            <p className="text-xs text-gray-500 uppercase">Nicho Detectado</p>
+                                                            <p className="text-lg font-bold text-[#00f3ff]">{auditResult.niche.niche}</p>
+                                                        </div>
+                                                    </div>
+                                                    {auditResult.niche.audience && (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xl">👥</span>
+                                                            <div>
+                                                                <p className="text-xs text-gray-500 uppercase">Público</p>
+                                                                <p className="text-sm text-gray-300">{auditResult.niche.audience}</p>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {auditResult.niche.content_style && (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xl">🎬</span>
+                                                            <div>
+                                                                <p className="text-xs text-gray-500 uppercase">Estilo</p>
+                                                                <p className="text-sm text-gray-300">{auditResult.niche.content_style}</p>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {auditResult.niche.trending_format && (
+                                                    <div className="mt-3 p-2 rounded-lg bg-[#8b5cf6]/10 text-sm">
+                                                        <span className="text-[#8b5cf6] font-bold">🔥 Formato em Alta:</span>
+                                                        <span className="text-gray-300 ml-2">{auditResult.niche.trending_format}</span>
+                                                    </div>
+                                                )}
+                                            </StitchCard>
+                                        )}
+
+                                        {/* Section Cards Grid */}
+                                        {auditResult.sections && (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                                {Object.entries(auditResult.sections).map(([key, section]: [string, any]) => (
+                                                    <StitchCard key={key} className="p-5 hover:border-[#00f3ff]/30 transition-all">
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <span className="text-2xl">{section.icon}</span>
+                                                            <span className={clsx(
+                                                                "text-2xl font-bold",
+                                                                section.score >= 70 ? "text-green-400" :
+                                                                    section.score >= 50 ? "text-yellow-400" : "text-red-400"
+                                                            )}>
+                                                                {section.score}
+                                                            </span>
+                                                        </div>
+                                                        <h4 className="text-sm font-bold text-white mb-2">{section.label}</h4>
+                                                        <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden mb-3">
+                                                            <div
+                                                                className={clsx(
+                                                                    "h-full transition-all duration-700",
+                                                                    section.score >= 70 ? "bg-green-500" :
+                                                                        section.score >= 50 ? "bg-yellow-500" : "bg-red-500"
+                                                                )}
+                                                                style={{ width: `${section.score}%` }}
+                                                            />
+                                                        </div>
+                                                        <ul className="space-y-1.5 max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700">
+                                                            {section.items.slice(0, 4).map((item: any, idx: number) => (
+                                                                <li key={idx} className="flex items-start gap-2 text-xs">
+                                                                    <span className={clsx(
+                                                                        "mt-0.5 flex-shrink-0",
+                                                                        item.status === "ok" ? "text-green-400" :
+                                                                            item.status === "warning" ? "text-yellow-400" :
+                                                                                item.status === "tip" ? "text-[#00f3ff]" : "text-gray-400"
+                                                                    )}>
+                                                                        {item.status === "ok" ? "✓" :
+                                                                            item.status === "warning" ? "!" :
+                                                                                item.status === "tip" ? "💡" : "•"}
+                                                                    </span>
+                                                                    <span className="text-gray-300">{item.text}</span>
+                                                                </li>
+                                                            ))}
+                                                            {section.items.length === 0 && (
+                                                                <li className="text-xs text-gray-600 italic">Sem dados</li>
+                                                            )}
+                                                        </ul>
+                                                    </StitchCard>
                                                 ))}
-                                            </ul>
-                                        </StitchCard>
-                                        <StitchCard className="col-span-full p-6 bg-gradient-to-r from-synapse-purple/10 to-transparent">
+                                            </div>
+                                        )}
+
+                                        {/* AI Recommendations */}
+                                        {auditResult.recommendations && auditResult.recommendations.length > 0 && (
+                                            <StitchCard className="p-6 bg-gradient-to-r from-[#8b5cf6]/10 to-transparent border-l-4 border-l-[#8b5cf6]">
+                                                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                                                    <SparklesIcon className="w-5 h-5 text-[#8b5cf6]" />
+                                                    Recomendações da IA
+                                                </h3>
+                                                <ul className="space-y-2">
+                                                    {auditResult.recommendations.map((rec: string, idx: number) => (
+                                                        <li key={idx} className="flex items-start gap-3 text-sm">
+                                                            <span className="w-6 h-6 rounded-full bg-[#8b5cf6]/20 text-[#8b5cf6] flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                                                {idx + 1}
+                                                            </span>
+                                                            <span className="text-gray-300">{rec}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </StitchCard>
+                                        )}
+
+                                        {/* Bio Optimizer - Enhanced */}
+                                        <StitchCard className="p-6 bg-gradient-to-r from-synapse-purple/10 to-transparent">
                                             <div className="flex justify-between items-center mb-4">
                                                 <h3 className="text-xl font-bold">Bio Optimizer</h3>
                                                 <NeonButton onClick={fixBio} disabled={loading}>✨ Auto-Fix Bio</NeonButton>
                                             </div>
-                                            {bioOptions.length > 0 && (
-                                                <div className="grid grid-cols-3 gap-4 mt-4">
+
+                                            {/* Current Bio Display */}
+                                            {auditResult.profile_overiew?.bio && (
+                                                <div className="mb-4 p-4 rounded-xl bg-black/30 border border-white/10">
+                                                    <p className="text-xs text-gray-500 font-bold mb-2">BIO ATUAL</p>
+                                                    <p className="text-sm text-gray-300">{auditResult.profile_overiew.bio || "Sem bio definida"}</p>
+                                                </div>
+                                            )}
+
+                                            {/* CTA Suggestions from audit */}
+                                            {auditResult.sections?.bio?.cta_suggestions && (
+                                                <div className="mb-4">
+                                                    <p className="text-xs text-gray-500 font-bold mb-3">💡 SUGESTÕES DE CTA</p>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {auditResult.sections.bio.cta_suggestions.map((cta: string, i: number) => (
+                                                            <button
+                                                                key={i}
+                                                                onClick={() => { navigator.clipboard.writeText(cta); toast.success("CTA copiado!"); }}
+                                                                className="px-3 py-1.5 text-xs rounded-full bg-[#8b5cf6]/20 text-[#8b5cf6] border border-[#8b5cf6]/30 hover:bg-[#8b5cf6]/30 transition-all cursor-pointer"
+                                                            >
+                                                                {cta}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* AI Generated Bio Options */}
+                                            {bioOptions.length > 0 ? (
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                                                     {bioOptions.map((opt, i) => (
-                                                        <div key={i} className="p-4 rounded-xl bg-black/40 border border-white/10 cursor-pointer hover:border-[#00f3ff]/50"
-                                                            onClick={() => { navigator.clipboard.writeText(opt); toast.success("Copiado!"); }}
+                                                        <div key={i} className="p-4 rounded-xl bg-black/40 border border-white/10 cursor-pointer hover:border-[#00f3ff]/50 group transition-all"
+                                                            onClick={() => { navigator.clipboard.writeText(opt); toast.success("Bio copiada!"); }}
                                                         >
-                                                            <span className="text-xs text-[#00f3ff]">OPÇÃO {i + 1}</span>
-                                                            <p className="text-sm mt-1">{opt}</p>
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <span className="text-xs text-[#00f3ff] font-bold">OPÇÃO {i + 1}</span>
+                                                                <ClipboardIcon className="w-4 h-4 text-gray-600 group-hover:text-[#00f3ff] transition-colors" />
+                                                            </div>
+                                                            <p className="text-sm text-gray-300">{opt}</p>
                                                         </div>
                                                     ))}
                                                 </div>
+                                            ) : (
+                                                <p className="text-xs text-gray-500 text-center py-4 border border-dashed border-white/10 rounded-lg">
+                                                    Clique em "Auto-Fix Bio" para gerar sugestões otimizadas pela IA
+                                                </p>
                                             )}
                                         </StitchCard>
                                     </div>
@@ -540,25 +906,191 @@ export default function OraclePage() {
                                 </div>
 
                                 {spyResult && (
-                                    <StitchCard className="p-8 border-l-4 border-l-red-500 bg-red-900/5">
-                                        <h3 className="text-2xl font-bold text-white mb-4">
-                                            Dossiê: {spyResult.scraped_data?.username || competitorHandle}
-                                        </h3>
-                                        <div className="grid gap-4">
-                                            <div className="bg-black/30 p-4 rounded-lg">
-                                                <h4 className="font-bold text-gray-300 mb-2">🎯 Ponto Fraco</h4>
-                                                <p className="text-white">{spyResult.analysis?.weakness_exposed}</p>
+                                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                                        {/* Target Profile Header */}
+                                        <StitchCard className="p-6 bg-gradient-to-r from-red-900/20 to-transparent border-l-4 border-l-red-500">
+                                            <div className="flex items-center justify-between flex-wrap gap-4">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center text-3xl">🎯</div>
+                                                    <div>
+                                                        <p className="text-xs text-red-400 uppercase font-bold">DOSSIÊ CONFIDENCIAL</p>
+                                                        <h3 className="text-2xl font-black text-white">@{spyResult.scraped_data?.username}</h3>
+                                                        <p className="text-sm text-gray-400">{spyResult.analysis?.niche}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-6">
+                                                    <div className="text-center">
+                                                        <p className="text-3xl font-black text-red-400">{spyResult.analysis?.competitor_score || 50}</p>
+                                                        <p className="text-xs text-gray-500">THREAT SCORE</p>
+                                                    </div>
+                                                    <div className={clsx(
+                                                        "px-4 py-2 rounded-full text-sm font-bold",
+                                                        spyResult.analysis?.threat_level === "Crítico" ? "bg-red-500/20 text-red-400" :
+                                                            spyResult.analysis?.threat_level === "Alto" ? "bg-orange-500/20 text-orange-400" :
+                                                                spyResult.analysis?.threat_level === "Médio" ? "bg-yellow-500/20 text-yellow-400" :
+                                                                    "bg-green-500/20 text-green-400"
+                                                    )}>
+                                                        {spyResult.analysis?.threat_level || "Médio"}
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div className="bg-black/30 p-4 rounded-lg">
-                                                <h4 className="font-bold text-gray-300 mb-2">Hooks para Roubar</h4>
-                                                <ul className="list-disc list-inside text-sm text-gray-400">
-                                                    {spyResult.analysis?.content_hooks_to_steal?.map((hook: string, i: number) => (
-                                                        <li key={i}>{hook}</li>
+                                        </StitchCard>
+
+                                        {/* Metrics Grid */}
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            {[
+                                                { label: "Seguidores", value: spyResult.scraped_data?.followers?.toLocaleString(), icon: "👥" },
+                                                { label: "Likes Totais", value: spyResult.scraped_data?.likes?.toLocaleString(), icon: "❤️" },
+                                                { label: "Vídeos", value: spyResult.scraped_data?.videos, icon: "🎬" },
+                                                { label: "Engajamento", value: `${spyResult.scraped_data?.engagement_rate}%`, icon: "📊" },
+                                            ].map((metric, i) => (
+                                                <StitchCard key={i} className="p-4 text-center">
+                                                    <span className="text-2xl">{metric.icon}</span>
+                                                    <p className="text-xl font-bold text-white mt-2">{metric.value}</p>
+                                                    <p className="text-xs text-gray-500 uppercase">{metric.label}</p>
+                                                </StitchCard>
+                                            ))}
+                                        </div>
+
+                                        {/* Strategy & Weaknesses Grid */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            {/* Strengths */}
+                                            <StitchCard className="p-5">
+                                                <h4 className="font-bold text-green-400 mb-3 flex items-center gap-2">
+                                                    <span>💪</span> Pontos Fortes
+                                                </h4>
+                                                <ul className="space-y-2">
+                                                    {spyResult.analysis?.strengths?.map((s: string, i: number) => (
+                                                        <li key={i} className="flex items-start gap-2 text-sm">
+                                                            <span className="text-green-400 mt-0.5">✓</span>
+                                                            <span className="text-gray-300">{s}</span>
+                                                        </li>
                                                     ))}
                                                 </ul>
-                                            </div>
+                                            </StitchCard>
+
+                                            {/* Weaknesses */}
+                                            <StitchCard className="p-5 bg-red-900/5">
+                                                <h4 className="font-bold text-red-400 mb-3 flex items-center gap-2">
+                                                    <span>🎯</span> Fraquezas Exploráveis
+                                                </h4>
+                                                <ul className="space-y-2">
+                                                    {spyResult.analysis?.weaknesses?.map((w: string, i: number) => (
+                                                        <li key={i} className="flex items-start gap-2 text-sm">
+                                                            <span className="text-red-400 mt-0.5">!</span>
+                                                            <span className="text-gray-300">{w}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </StitchCard>
                                         </div>
-                                    </StitchCard>
+
+                                        {/* Content Strategy */}
+                                        {spyResult.analysis?.content_strategy && (
+                                            <StitchCard className="p-5">
+                                                <h4 className="font-bold text-[#00f3ff] mb-4 flex items-center gap-2">
+                                                    <span>📈</span> Estratégia de Conteúdo
+                                                </h4>
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                                    <div>
+                                                        <p className="text-gray-500 text-xs uppercase">Frequência</p>
+                                                        <p className="text-white font-bold">{spyResult.analysis.content_strategy.posting_frequency}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-gray-500 text-xs uppercase">Formato</p>
+                                                        <p className="text-white font-bold">{spyResult.analysis.content_strategy.format_preference}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-gray-500 text-xs uppercase">Estilo de Hook</p>
+                                                        <p className="text-white font-bold">{spyResult.analysis.content_strategy.hook_style}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-gray-500 text-xs uppercase">Uso de CTA</p>
+                                                        <p className="text-white font-bold">{spyResult.analysis.content_strategy.cta_usage}</p>
+                                                    </div>
+                                                </div>
+                                                {spyResult.analysis.content_strategy.content_pillars && (
+                                                    <div className="mt-4 flex flex-wrap gap-2">
+                                                        {spyResult.analysis.content_strategy.content_pillars.map((pillar: string, i: number) => (
+                                                            <span key={i} className="px-3 py-1 bg-[#00f3ff]/10 text-[#00f3ff] text-xs rounded-full">{pillar}</span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </StitchCard>
+                                        )}
+
+                                        {/* Hooks to Steal */}
+                                        <StitchCard className="p-5 bg-gradient-to-r from-[#8b5cf6]/10 to-transparent">
+                                            <h4 className="font-bold text-[#8b5cf6] mb-4 flex items-center gap-2">
+                                                <span>🪝</span> Hooks para Roubar
+                                            </h4>
+                                            <div className="space-y-3">
+                                                {spyResult.analysis?.content_hooks_to_steal?.map((hook: string, i: number) => (
+                                                    <div key={i} className="p-3 bg-black/30 rounded-lg flex items-start gap-3 cursor-pointer hover:bg-black/50 transition-all group"
+                                                        onClick={() => { navigator.clipboard.writeText(hook); toast.success("Hook copiado!"); }}
+                                                    >
+                                                        <span className="w-6 h-6 rounded-full bg-[#8b5cf6]/20 text-[#8b5cf6] flex items-center justify-center text-xs font-bold flex-shrink-0">{i + 1}</span>
+                                                        <p className="text-sm text-gray-300 flex-1">{hook}</p>
+                                                        <ClipboardIcon className="w-4 h-4 text-gray-600 group-hover:text-[#8b5cf6] transition-colors" />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </StitchCard>
+
+                                        {/* Battle Plan */}
+                                        {spyResult.analysis?.battle_plan && (
+                                            <StitchCard className="p-5 bg-gradient-to-r from-yellow-900/10 to-transparent border-l-4 border-l-yellow-500">
+                                                <h4 className="font-bold text-yellow-400 mb-4 flex items-center gap-2">
+                                                    <span>⚔️</span> Plano de Batalha
+                                                </h4>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <p className="text-xs text-gray-500 uppercase mb-2">Ações Imediatas</p>
+                                                        <ul className="space-y-2">
+                                                            {spyResult.analysis.battle_plan.immediate_actions?.map((action: string, i: number) => (
+                                                                <li key={i} className="flex items-start gap-2 text-sm">
+                                                                    <span className="text-yellow-400">→</span>
+                                                                    <span className="text-gray-300">{action}</span>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-gray-500 uppercase mb-2">Ideias de Conteúdo</p>
+                                                        <ul className="space-y-2">
+                                                            {spyResult.analysis.battle_plan.content_ideas?.map((idea: string, i: number) => (
+                                                                <li key={i} className="flex items-start gap-2 text-sm">
+                                                                    <span className="text-yellow-400">💡</span>
+                                                                    <span className="text-gray-300">{idea}</span>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                                {spyResult.analysis.battle_plan.differentiation_strategy && (
+                                                    <div className="mt-4 p-3 bg-yellow-500/10 rounded-lg">
+                                                        <p className="text-xs text-yellow-400 font-bold mb-1">ESTRATÉGIA DE DIFERENCIAÇÃO</p>
+                                                        <p className="text-sm text-gray-300">{spyResult.analysis.battle_plan.differentiation_strategy}</p>
+                                                    </div>
+                                                )}
+                                            </StitchCard>
+                                        )}
+
+                                        {/* Killer Bio */}
+                                        {spyResult.analysis?.killer_bio && (
+                                            <StitchCard className="p-5">
+                                                <h4 className="font-bold text-white mb-3 flex items-center gap-2">
+                                                    <span>✍️</span> Bio Otimizada (Sugestão)
+                                                </h4>
+                                                <div className="p-4 bg-black/30 rounded-lg cursor-pointer hover:bg-black/50 transition-all group"
+                                                    onClick={() => { navigator.clipboard.writeText(spyResult.analysis.killer_bio); toast.success("Bio copiada!"); }}
+                                                >
+                                                    <p className="text-gray-300">{spyResult.analysis.killer_bio}</p>
+                                                    <p className="text-xs text-gray-500 mt-2 group-hover:text-[#00f3ff]">Clique para copiar</p>
+                                                </div>
+                                            </StitchCard>
+                                        )}
+                                    </div>
                                 )}
                             </motion.div>
                         )}

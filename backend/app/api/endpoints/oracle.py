@@ -99,36 +99,24 @@ async def collect_data(username: str):
 async def analyze_profile(username: str):
     """
     Full Flow: Scrape TikTok -> Analyze with Gemini -> Return Strategy
+    migrated to use Unified Oracle Sense + Mind
     """
-    from core.oracle.collector import oracle_collector
-    from core.oracle.analyst import oracle_analyst
-
-    # 1. Collect Data
-    raw_data = await oracle_collector.collect_tiktok_profile(username)
-    if "error" in raw_data:
-        raise HTTPException(status_code=500, detail=f"Collector Failed: {raw_data['error']}")
+    # Use Unified Oracle which has the Session fix
+    result = await oracle.full_scan(username)
     
-    # 1.5 Sentiment Pulse: Extract Comments from Latest Video
-    try:
-        if raw_data.get("videos") and len(raw_data["videos"]) > 0:
-            latest_video_link = raw_data["videos"][0].get("link")
-            if latest_video_link:
-                comments = await oracle_collector.extract_comments(latest_video_link)
-                raw_data["comments"] = comments
-                # Add count to performance metrics placeholder if needed
-    except Exception as e:
-        print(f"⚠️ Sentiment Pulse Warning: Could not extract comments: {e}")
-
-    # 2. Analyze Data
-    analysis = await oracle_analyst.analyze_profile(raw_data)
-    if "error" in analysis:
-        raise HTTPException(status_code=500, detail=f"Analyst Failed: {analysis['error']}")
-
-    # 3. Automation: Save 'best_times' for Scheduler
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+        
+    # BACKWARD COMPATIBILITY: Map unified result to legacy format expected by frontend
+    # Unified returns: { "username": ..., "raw_data": ..., "strategic_analysis": ... }
+    # Legacy expected: { "profile": ..., "analysis": ..., "timestamp": ... }
+    
+    analysis_data = result.get("strategic_analysis", {})
+    raw_data = result.get("raw_data", {})
+    
+    # Auto-save insights logic (preserved from legacy)
     try:
         from core import session_manager
-        # Attempt to find profile_id by username
-        # This is a heuristic since we receive 'username' from UI
         sessions = session_manager.list_available_sessions()
         profile_id = None
         target_user = username.lower().replace('@', '')
@@ -138,20 +126,23 @@ async def analyze_profile(username: str):
                 profile_id = s.get("id")
                 break
         
-        # If not found by username, maybe the username IS the profile_id? 
-        # (Legacy support if frontend sends ID)
         if not profile_id and session_manager.session_exists(username):
             profile_id = username
 
-        if profile_id and "analysis" in analysis and "best_times" in analysis["analysis"]:
+        if profile_id and "best_times" in analysis_data:
             session_manager.update_profile_metadata(profile_id, {
-                "oracle_best_times": analysis["analysis"]["best_times"],
-                "oracle_last_run": analysis.get("timestamp", "now") # timestamp not in output yet but useful
+                "oracle_best_times": analysis_data["best_times"],
+                "oracle_last_run": "now"
             })
     except Exception as e:
         print(f"Failed to auto-save oracle insights: {e}")
 
-    return analysis
+    return {
+        "profile": username,
+        "analysis": analysis_data,
+        "raw_data": raw_data, # Include raw data for visual audit if needed
+        "timestamp": "now"
+    }
 
 @router.post("/analyze_video")
 async def analyze_video_url(video_url: str):

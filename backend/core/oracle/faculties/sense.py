@@ -21,23 +21,71 @@ class SenseFaculty:
     async def collect_profile(self, username: str) -> Dict[str, Any]:
         """
         Scrapes a TikTok profile for public stats and latest videos.
+        Enhanced with authenticated session to bypass bot detection.
         """
+        import os
+        
         logger.info(f"🕵️ Oracle.Sense: Targeting @{username}...")
 
+        # Find an authenticated session file
+        session_path = None
+        
+        # Docker path (primary) and local fallback
+        possible_data_dirs = [
+            "/app/data/sessions",  # Docker container path
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "data", "sessions")  # Local dev
+        ]
+        
+        for data_dir in possible_data_dirs:
+            if not os.path.exists(data_dir):
+                continue
+            # Try profile_01, then profile_02
+            for profile_num in ["01", "02"]:
+                potential_path = os.path.join(data_dir, f"tiktok_profile_{profile_num}.json")
+                if os.path.exists(potential_path):
+                    session_path = potential_path
+                    logger.info(f"✅ Using authenticated session: {potential_path}")
+                    break
+            if session_path:
+                break
+        
+        if not session_path:
+            logger.warning("⚠️ No authenticated session found, using anonymous mode")
+        
         p, browser, context, page = await launch_browser(
             headless=True,
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            storage_state=session_path  # Load authenticated cookies
         )
 
         try:
             url = f"https://www.tiktok.com/@{username}"
-            await page.goto(url, wait_until="domcontentloaded", timeout=15000)
-
-            try:
-                await page.wait_for_selector('[data-e2e="user-post-item"]', timeout=10000)
-                logger.info("✅ Profile loaded (Video grid detected)")
-            except:
-                logger.warning("⚠️ Profile might be empty or restricted")
+            await page.goto(url, wait_until="networkidle", timeout=25000)
+            
+            # Wait and scroll to trigger lazy loading
+            await asyncio.sleep(2)
+            await page.evaluate("window.scrollBy(0, 500)")
+            await asyncio.sleep(1)
+            
+            # Try multiple selectors for video grid
+            video_selectors = [
+                '[data-e2e="user-post-item"]',
+                '[class*="DivVideoFeed"] > div',
+                '[class*="VideoCard"]',
+                'div[class*="item-video"]'
+            ]
+            
+            video_loaded = False
+            for selector in video_selectors:
+                try:
+                    if await page.locator(selector).count() > 0:
+                        logger.info(f"✅ Profile loaded (Videos found with: {selector})")
+                        video_loaded = True
+                        break
+                except:
+                    continue
+            
+            if not video_loaded:
+                logger.warning("⚠️ Profile might be empty or restricted, checking bio...")
 
             stats = {
                 "username": username,
@@ -92,16 +140,46 @@ class SenseFaculty:
             except Exception as e:
                 logger.warning(f"⚠️ Avatar download failed: {e}")
 
-            video_elements = await page.locator('[data-e2e="user-post-item"]').all()
-            logger.info(f"📹 Found {len(video_elements)} videos")
+            # Scroll more to ensure videos load
+            for _ in range(3):
+                await page.evaluate("window.scrollBy(0, 300)")
+                await asyncio.sleep(0.5)
+            await page.evaluate("window.scrollTo(0, 0)")
+            await asyncio.sleep(1)
+
+            # Try multiple selectors for videos
+            video_elements = []
+            for selector in video_selectors:
+                try:
+                    elements = await page.locator(selector).all()
+                    if len(elements) > 0:
+                        video_elements = elements
+                        logger.info(f"📹 Found {len(video_elements)} videos with selector: {selector}")
+                        break
+                except:
+                    continue
+            
+            if not video_elements:
+                logger.warning("📹 Found 0 videos with any selector")
 
             for i, video in enumerate(video_elements[:5]):
                 try:
-                    views_el = video.locator('[data-e2e="video-views"]')
-                    views = await views_el.inner_text() if await views_el.count() else "0"
+                    # Try multiple view count selectors
+                    views = "0"
+                    view_selectors = ['[data-e2e="video-views"]', 'strong', '[class*="Count"]']
+                    for v_sel in view_selectors:
+                        try:
+                            views_el = video.locator(v_sel)
+                            if await views_el.count() > 0:
+                                views = await views_el.first.inner_text()
+                                break
+                        except:
+                            continue
 
+                    link = ""
                     link_el = video.locator('a')
-                    link = await link_el.get_attribute('href') if await link_el.count() else ""
+                    if await link_el.count() > 0:
+                        link = await link_el.first.get_attribute('href') or ""
 
                     stats["videos"].append({
                         "index": i,

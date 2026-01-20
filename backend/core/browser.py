@@ -72,15 +72,16 @@ async def launch_browser(
         # SIMPLIFIED LAUNCH - Remove aggressive stealth that triggers detection
         browser = await p.chromium.launch(
             headless=headless,
-            # Removed: args, ignore_default_args - TikTok detects these
+            args=STEALTH_ARGS,
+            ignore_default_args=["--enable-automation"],
         )
         logger.info(f"Browser launched (headless={headless})")
         
-        # SIMPLIFIED CONTEXT - Minimal options
         context_options: Dict[str, Any] = {
             "viewport": viewport or {"width": 1920, "height": 1080},
-            # Removed: bypass_csp, ignore_https_errors - conflicts with cookies
-            # Removed: custom user_agent - use default to match cookie origin
+            "user_agent": user_agent,  # Re-enable realistic user agent
+            "locale": "pt-BR",
+            "timezone_id": "America/Sao_Paulo",
         }
 
         if storage_state and os.path.exists(storage_state):
@@ -89,8 +90,22 @@ async def launch_browser(
         
         context = await browser.new_context(**context_options)
         
-        # REMOVED: Stealth init_script - TikTok detects webdriver override
-        # The best stealth is NO stealth when using authenticated sessions!
+        # Stealth injection - hide webdriver detection
+        await context.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+            Object.defineProperty(navigator, 'languages', {get: () => ['pt-BR', 'pt', 'en-US', 'en']});
+            Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+            window.chrome = { runtime: {} };
+            Object.defineProperty(navigator, 'maxTouchPoints', {get: () => 5});
+            
+            // Override permissions
+            const originalQuery = window.navigator.permissions.query;
+            window.navigator.permissions.query = (parameters) => (
+                parameters.name === 'notifications' ?
+                    Promise.resolve({ state: Notification.permission }) :
+                    originalQuery(parameters)
+            );
+        """)
         
         page = await context.new_page()
         

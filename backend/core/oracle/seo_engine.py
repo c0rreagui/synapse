@@ -11,14 +11,22 @@ class SEOEngine:
     def audit_profile(self, metadata: dict) -> dict:
         """
         Multimodal audit of a profile.
+        0. Niche Detection (NEW)
         1. Text Analysis (Bio, Username)
         2. Vision Analysis (Avatar)
         """
         score = 0
         details = []
         
-        # 1. Text Analysis
+        # 0. NICHE DETECTION - Analyze username, bio, and label to detect niche
         bio = metadata.get("bio", "") or metadata.get("bio_description", "") or metadata.get("signature", "")
+        username = metadata.get("username") or metadata.get("unique_id") or ""
+        label = metadata.get("label", "")
+        
+        detected_niche = self._detect_niche(username, bio, label)
+        details.append({"type": "niche", "data": detected_niche})
+        
+        # 1. Text Analysis
         if not bio:
             details.append({"type": "warning", "msg": "Biografia vazia. Oportunidade perdida."})
         elif len(bio) < 10:
@@ -52,18 +60,36 @@ class SEOEngine:
                 if img.mode in ("RGBA", "P"):
                     img = img.convert("RGB")
                 
-                # Oracle Prompt
+                # Oracle Prompt - ENHANCED for rich analysis
                 prompt = [
-                    "Voce e um especialista em Branding de Redes Sociais. Analise esta foto de perfil.",
+                    "Você é um ESPECIALISTA SENIOR em Branding de Redes Sociais com 15 anos de experiência. Analise esta foto de perfil com extrema atenção aos detalhes.",
                     img,
                     """
-                    Responda SOMENTE um JSON neste formato:
+                    Faça uma análise PROFUNDA e retorne SOMENTE JSON neste formato:
                     {
                         "score": 0-100,
-                        "impression": "string curta descrevendo a vibe",
-                        "pros": ["ponto forte 1", "ponto forte 2"],
-                        "cons": ["ponto fraco 1"],
-                        "verdict": "Profissional" | "Amador" | "Confuso"
+                        "impression": "descrição curta da vibe geral em 1 frase",
+                        "professionalism": "Amador" | "Intermediário" | "Profissional" | "Expert",
+                        "color_analysis": {
+                            "dominant_colors": ["cor1", "cor2"],
+                            "harmony": "Harmônico" | "Conflitante" | "Neutro",
+                            "mood": "Energético" | "Calmo" | "Sério" | "Divertido" | "Misterioso"
+                        },
+                        "composition": {
+                            "face_visible": true/false,
+                            "centered": true/false,
+                            "quality": "Alta" | "Média" | "Baixa",
+                            "lighting": "Bom" | "Ruim" | "Perfeito"
+                        },
+                        "pros": ["ponto forte 1 (específico)", "ponto forte 2 (específico)", "ponto forte 3"],
+                        "cons": ["ponto fraco 1 (com sugestão de melhoria)", "ponto fraco 2"],
+                        "immediate_actions": [
+                            {"priority": 1, "action": "ação urgente", "impact": "Alto"},
+                            {"priority": 2, "action": "ação recomendada", "impact": "Médio"}
+                        ],
+                        "verdict": "Profissional" | "Amador" | "Confuso" | "Mediano",
+                        "viral_potential": "Baixo" | "Médio" | "Alto",
+                        "competitor_comparison": "Acima da média" | "Na média" | "Abaixo da média"
                     }
                     """
                 ]
@@ -115,7 +141,7 @@ class SEOEngine:
                     
                     details.append({
                         "type": "warning",
-                        "msg": f"Análise Visual indisponível. Relatório gerado via Texto (Fallback).",
+                        "msg": f"⚠️ Avatar: Download falhou. Análise de Branding gerada via Texto.",
                     })
                     details.append({
                         "type": "vision",
@@ -189,19 +215,212 @@ class SEOEngine:
                     details.append({
                         "type": "full_page_vibe",
                         "data": vibe_data,
-                        "msg": "Análise Visual Completa (Vibe Check)"
+                        "msg": "✅ Vibe Check: Análise da Página Completa"
                     })
                     score += (vibe_data.get("score", 50) * 0.3) # Weight 30%
             except Exception as e:
                  print(f"Full Page Vision Failed: {e}")
                  details.append({"type": "warning", "msg": f"Erro no Vibe Check: {e}"})
 
-        # Finalize
+        # Finalize - Build Structured Response
         total_score = min(100, int(score))
+        
+        # Organize into sections for frontend
+        sections = {
+            "bio": {
+                "score": 70 if len(bio) > 50 else 40,
+                "label": "Bio & Identidade",
+                "icon": "📝",
+                "items": []
+            },
+            "avatar": {
+                "score": vision_score,
+                "label": "Visual Branding",
+                "icon": "🎨",
+                "items": []
+            },
+            "content": {
+                "score": 50,
+                "label": "Capas de Vídeo",
+                "icon": "🎬",
+                "items": []
+            },
+            "vibe": {
+                "score": 50,
+                "label": "Vibe Check",
+                "icon": "✨",
+                "items": []
+            }
+        }
+        
+        recommendations = []
+        niche_data = {}
+        
+        # Parse details into sections
+        for item in details:
+            item_type = item.get("type", "")
+            
+            # Handle Niche Detection Result
+            if item_type == "niche":
+                niche_data = item.get("data", {})
+                # Add personalized recommendations from niche analysis
+                for rec in niche_data.get("personalized_recommendations", []):
+                    recommendations.append(rec)
+                    
+            elif item_type == "bio":
+                sections["bio"]["items"].append({"status": "ok", "text": item.get("msg", "")})
+            elif item_type == "warning" and "Avatar" in item.get("msg", ""):
+                sections["avatar"]["items"].append({"status": "warning", "text": item.get("msg", "")})
+            elif item_type == "warning" and "Bio" in item.get("msg", ""):
+                sections["bio"]["items"].append({"status": "warning", "text": item.get("msg", "")})
+            elif item_type == "vision":
+                data = item.get("data", {})
+                sections["avatar"]["score"] = data.get("score", 50)
+                sections["avatar"]["raw_data"] = data  # Pass full AI response
+                
+                # Core impression
+                if data.get("impression"):
+                    sections["avatar"]["items"].append({"status": "info", "text": data["impression"]})
+                
+                # Professionalism badge
+                if data.get("professionalism"):
+                    sections["avatar"]["items"].append({"status": "badge", "text": f"Nível: {data['professionalism']}"})
+                
+                # Color Analysis
+                color_data = data.get("color_analysis", {})
+                if color_data.get("dominant_colors"):
+                    sections["avatar"]["items"].append({"status": "info", "text": f"Cores: {', '.join(color_data['dominant_colors'])}"})
+                if color_data.get("mood"):
+                    sections["avatar"]["items"].append({"status": "info", "text": f"Mood: {color_data['mood']}"})
+                
+                # Composition
+                comp = data.get("composition", {})
+                if comp.get("quality"):
+                    status = "ok" if comp["quality"] == "Alta" else "warning" if comp["quality"] == "Baixa" else "info"
+                    sections["avatar"]["items"].append({"status": status, "text": f"Qualidade: {comp['quality']}"})
+                if comp.get("lighting"):
+                    sections["avatar"]["items"].append({"status": "info", "text": f"Iluminação: {comp['lighting']}"})
+                
+                # Pros
+                for pro in data.get("pros", []):
+                    sections["avatar"]["items"].append({"status": "ok", "text": pro})
+                
+                # Cons
+                for con in data.get("cons", []):
+                    sections["avatar"]["items"].append({"status": "warning", "text": con})
+                
+                # Immediate Actions (Priority-based recommendations)
+                for action in data.get("immediate_actions", []):
+                    priority = action.get("priority", 99)
+                    action_text = action.get("action", "")
+                    impact = action.get("impact", "")
+                    if action_text:
+                        recommendations.append(f"[P{priority}] {action_text} (Impacto: {impact})")
+                
+                # Viral Potential
+                if data.get("viral_potential"):
+                    sections["avatar"]["items"].append({"status": "badge", "text": f"Potencial Viral: {data['viral_potential']}"})
+                
+            elif item_type == "video_vision":
+                data = item.get("data", {})
+                sections["content"]["score"] = data.get("score", 50)
+                sections["content"]["raw_data"] = data
+                
+                if data.get("hook_strength"):
+                    status = "ok" if data["hook_strength"] == "Forte" else "warning" if data["hook_strength"] == "Fraco" else "info"
+                    sections["content"]["items"].append({"status": status, "text": f"Força do Hook: {data['hook_strength']}"})
+                if data.get("visual_appeal"):
+                    sections["content"]["items"].append({"status": "ok", "text": data["visual_appeal"]})
+                if data.get("improvement_tip"):
+                    sections["content"]["items"].append({"status": "tip", "text": data["improvement_tip"]})
+                    recommendations.append(data["improvement_tip"])
+                    
+            elif item_type == "full_page_vibe":
+                data = item.get("data", {})
+                sections["vibe"]["score"] = data.get("score", 50)
+                sections["vibe"]["raw_data"] = data
+                
+                # Core Vibe
+                if data.get("overall_vibe"):
+                    sections["vibe"]["items"].append({"status": "badge", "text": f"Vibe: {data['overall_vibe']}"})
+                if data.get("first_impression"):
+                    sections["vibe"]["items"].append({"status": "info", "text": f"Primeira Impressão: {data['first_impression']}"})
+                
+                # Layout Analysis
+                layout = data.get("layout_analysis", {})
+                if layout.get("quality"):
+                    status = "ok" if layout["quality"] in ["Clean", "Balanced"] else "warning"
+                    sections["vibe"]["items"].append({"status": status, "text": f"Layout: {layout['quality']}"})
+                if layout.get("visual_hierarchy"):
+                    sections["vibe"]["items"].append({"status": "info", "text": f"Hierarquia Visual: {layout['visual_hierarchy']}"})
+                
+                # Thumbnail Analysis
+                thumbs = data.get("thumbnail_analysis", {})
+                if thumbs.get("consistency"):
+                    status = "ok" if thumbs["consistency"] == "Alta" else "warning" if thumbs["consistency"] == "Baixa" else "info"
+                    sections["vibe"]["items"].append({"status": status, "text": f"Thumbnails: {thumbs['consistency']} consistência"})
+                if thumbs.get("hook_strength"):
+                    sections["vibe"]["items"].append({"status": "info", "text": f"Hook Visual: {thumbs['hook_strength']}"})
+                
+                # Branding Cohesion
+                brand = data.get("branding_cohesion", {})
+                if brand.get("professional_level"):
+                    sections["vibe"]["items"].append({"status": "badge", "text": f"Nível: {brand['professional_level']}"})
+                if brand.get("style_consistency"):
+                    sections["vibe"]["items"].append({"status": "info", "text": brand["style_consistency"]})
+                
+                # Viral Readiness
+                if data.get("viral_readiness"):
+                    status = "ok" if "Pronto" in data["viral_readiness"] else "warning"
+                    sections["vibe"]["items"].append({"status": status, "text": f"Viral Ready: {data['viral_readiness']}"})
+                
+                # Pros/Cons
+                for pro in data.get("pros", []):
+                    sections["vibe"]["items"].append({"status": "ok", "text": pro})
+                for con in data.get("cons", []):
+                    sections["vibe"]["items"].append({"status": "warning", "text": con})
+                
+                # Immediate Actions
+                for action in data.get("immediate_actions", []):
+                    priority = action.get("priority", 99)
+                    action_text = action.get("action", "")
+                    impact = action.get("impact", "")
+                    if action_text:
+                        recommendations.append(f"[P{priority}] {action_text} (Impacto: {impact})")
+        
+        # Bio length check
+        if len(bio) < 30:
+            sections["bio"]["items"].append({"status": "warning", "text": "Bio muito curta"})
+            recommendations.append("Expandir bio com mais informações")
+        elif len(bio) > 50:
+            sections["bio"]["items"].append({"status": "ok", "text": f"Tamanho da bio OK ({len(bio)} chars)"})
+        
+        if "📧" not in bio and "@" not in bio and "link" not in bio.lower() and "👇" not in bio and "clique" not in bio.lower():
+            # Use PERSONALIZED CTAs from niche detection (if available)
+            personalized_ctas = niche_data.get("personalized_ctas", [])
+            if personalized_ctas:
+                sections["bio"]["cta_suggestions"] = personalized_ctas
+                recommendations.append(f"Adicionar CTA na bio. Sugestões para '{niche_data.get('niche', 'seu nicho')}': {', '.join(personalized_ctas[:2])}")
+            else:
+                # Fallback to generic CTAs
+                cta_examples = [
+                    "👇 Link na bio",
+                    "📩 DM para parcerias",
+                    "🔗 Meu curso/produto no link",
+                    "✨ Siga para mais conteúdo",
+                    "🎬 Novo vídeo todo dia!",
+                    "💼 Contato comercial"
+                ]
+                sections["bio"]["cta_suggestions"] = cta_examples
+                recommendations.append(f"Adicionar CTA na bio")
+
         return {
             "total_score": total_score,
             "vision_score": vision_score,
-            "details": details,
+            "sections": sections,
+            "recommendations": recommendations[:5],  # Top 5 tips
+            "niche": niche_data,  # Include full niche analysis
+            "details": details,  # Keep raw details for debugging
             "profile_overiew": {
                 "username": metadata.get("unique_id") or metadata.get("username"),
                 "bio": bio
@@ -219,16 +438,46 @@ class SEOEngine:
                 img = img.convert("RGB")
             
             prompt = [
-                "Analise este screenshot da página inteira do perfil TikTok.",
+                "Você é um ESPECIALISTA em UX/UI e Branding Digital com foco em TikTok. Analise este screenshot do perfil COMPLETO.",
                 img,
                 """
-                Responda SOMENTE JSON:
+                Faça uma análise EXTREMAMENTE DETALHADA e retorne SOMENTE JSON:
                 {
                     "score": 0-100,
-                    "layout_quality": "Clean" | "Crowded" | "Professional",
-                    "branding_consistency": "comentario sobre a consistencia visual (cores, thumbnails)",
-                    "vibe_check": "Qual a 'energia' do perfil? (Ex: Caótico, Minimalista, Corporate, Gamer)",
-                    "improvement_action": "O que mudar no layout/identidade visual?"
+                    "overall_vibe": "Qual a 'energia' dominante? (Ex: Caótico, Minimalista, Corporate, Gamer, Lifestyle, Educativo)",
+                    "first_impression": "O que um visitante pensa nos primeiros 3 segundos?",
+                    "layout_analysis": {
+                        "quality": "Clean" | "Crowded" | "Balanced" | "Caótico",
+                        "visual_hierarchy": "Clara" | "Confusa" | "Inexistente",
+                        "above_fold_impact": "Forte" | "Fraco" | "Médio"
+                    },
+                    "thumbnail_analysis": {
+                        "consistency": "Alta" | "Média" | "Baixa" | "Inexistente",
+                        "color_palette": ["cor1", "cor2", "cor3"],
+                        "text_usage": "Sim com consistência" | "Sim mas inconsistente" | "Não usa texto",
+                        "face_presence": "Sempre" | "Às vezes" | "Nunca",
+                        "hook_strength": "Forte" | "Médio" | "Fraco"
+                    },
+                    "branding_cohesion": {
+                        "score": 0-100,
+                        "color_consistency": "Consistente" | "Variado" | "Caótico",
+                        "style_consistency": "Forte identidade" | "Identidade parcial" | "Sem identidade clara",
+                        "professional_level": "Agência" | "Creator experiente" | "Iniciante" | "Amador"
+                    },
+                    "engagement_signals": {
+                        "content_variety": "Boa" | "Limitada" | "Excessiva",
+                        "posting_frequency_feel": "Ativo" | "Esporádico" | "Abandonado",
+                        "call_to_action_visible": true/false
+                    },
+                    "pros": ["ponto forte 1 específico", "ponto forte 2", "ponto forte 3"],
+                    "cons": ["problema 1 com solução", "problema 2 com solução"],
+                    "immediate_actions": [
+                        {"priority": 1, "action": "ação urgente", "impact": "Alto", "effort": "Baixo"},
+                        {"priority": 2, "action": "ação importante", "impact": "Alto", "effort": "Médio"},
+                        {"priority": 3, "action": "nice to have", "impact": "Médio", "effort": "Baixo"}
+                    ],
+                    "competitor_positioning": "Como este perfil se compara com top creators do nicho?",
+                    "viral_readiness": "Pronto para viralizar" | "Precisa de ajustes" | "Longe do ideal"
                 }
                 """
             ]
@@ -241,21 +490,22 @@ class SEOEngine:
 
     def competitor_spy(self, target_username: str) -> dict:
         """
-        Spy on a competitor.
-        MOCK DATA for scraping, REAL AI for analysis.
+        ENHANCED Spy on a competitor with DEEP analysis.
         """
         
-        # MOCKED Scraped Data (Simulating what a scraper would return)
-        # MOCKED Scraped Data (Smart Demo)
+        # MOCKED Scraped Data (Smart Demo based on username)
         if any(x in target_username.lower() for x in ["game", "zoka", "play", "cortes"]):
              mock_scraped_data = {
                 "username": target_username,
                 "followers": 554000,
+                "following": 320,
+                "likes": 12500000,
+                "videos": 450,
                 "bio": "Gamer lifestyle 🎮 | Lives todos os dias | Cola na grade!",
                 "recent_posts": [
-                    {"desc": "O susto que eu tomei nesse jogo kkkk", "views": 45000},
-                    {"desc": "Melhor jogada da semana #clips", "views": 120000},
-                    {"desc": "Live ON! Corre pra assistir", "views": 32000}
+                    {"desc": "O susto que eu tomei nesse jogo kkkk", "views": 45000, "likes": 3200, "comments": 120},
+                    {"desc": "Melhor jogada da semana #clips", "views": 120000, "likes": 8500, "comments": 340},
+                    {"desc": "Live ON! Corre pra assistir", "views": 32000, "likes": 2100, "comments": 89}
                 ],
                 "top_hashtags": ["#gaming", "#streamer", "#clips", "#viral"]
             }
@@ -263,38 +513,77 @@ class SEOEngine:
              mock_scraped_data = {
                 "username": target_username,
                 "followers": 15400,
+                "following": 890,
+                "likes": 234000,
+                "videos": 127,
                 "bio": "Marketing Digital sem enrolação 🚀 | Te ensino a vender todo dia | 👇 Aula Gratuita",
                 "recent_posts": [
-                    {"desc": "3 Erros que matam seu alcance #marketing #dicas", "views": 4500},
-                    {"desc": "Como fiz R$10k em 7 dias (Case real)", "views": 12000},
-                    {"desc": "Pare de postar conteudo ruim!", "views": 3200}
+                    {"desc": "3 Erros que matam seu alcance #marketing #dicas", "views": 4500, "likes": 320, "comments": 45},
+                    {"desc": "Como fiz R$10k em 7 dias (Case real)", "views": 12000, "likes": 890, "comments": 67},
+                    {"desc": "Pare de postar conteudo ruim!", "views": 3200, "likes": 210, "comments": 23}
                 ],
                 "top_hashtags": ["#marketingdigital", "#vendas", "#empreendedorismo"]
             }
         
-        # Oracle Analysis (Turbo Mode - BRUTAL)
+        # Calculate derived metrics
+        avg_views = sum(p["views"] for p in mock_scraped_data["recent_posts"]) / len(mock_scraped_data["recent_posts"])
+        engagement_rate = round((sum(p["likes"] + p["comments"] for p in mock_scraped_data["recent_posts"]) / sum(p["views"] for p in mock_scraped_data["recent_posts"])) * 100, 2)
+        
+        mock_scraped_data["avg_views"] = int(avg_views)
+        mock_scraped_data["engagement_rate"] = engagement_rate
+        
+        # ENHANCED Oracle Analysis Prompt
         prompt = f"""
-        Atue como um Consultor de Growth Hacking EXTREMAMENTE CRÍTICO e DATA-DRIVEN.
-        Analise este perfil concorrente sem piedade.
+        Você é um ESPECIALISTA em Análise Competitiva de TikTok com 10 anos de experiência.
+        Faça uma análise PROFUNDA e ESTRATÉGICA deste concorrente.
         
         Dados do Alvo:
-        {json.dumps(mock_scraped_data, indent=2)}
+        {json.dumps(mock_scraped_data, indent=2, ensure_ascii=False)}
         
-        Sua missão é DESTRUIR a estratégia deles e encontrar brechas para eu dominar.
-        NÃO dê conselhos genéricos ("melhore a bio"). Dê táticas de guerrilha.
+        Analise CADA aspecto e retorne um relatório DETALHADO.
         
-        Responda em JSON compatível com o schema:
+        Responda SOMENTE JSON:
         {{
-            "niche_detected": "Nicho exato (ex: Low-Ticket Info Product)",
-            "weakness_exposed": "Ache o ponto fraco. (Ex: 'Eles tem views mas não vendem nada pq o CTA é fraco', 'O conteúdo é repetitivo e o público está cansado'). Seja ácido.",
-            "content_hooks_to_steal": [
-                "Hook específico derivado dos posts deles que funcionaram",
-                "Hook 2"
+            "competitor_score": 0-100 (quão forte é este competidor),
+            "threat_level": "Baixo" | "Médio" | "Alto" | "Crítico",
+            "niche": "Nicho exato detectado",
+            "profile_analysis": {{
+                "bio_quality": 0-100,
+                "bio_critique": "Análise detalhada da bio",
+                "branding_strength": "Fraco" | "Médio" | "Forte",
+                "audience_type": "Descrição do público-alvo"
+            }},
+            "content_strategy": {{
+                "posting_frequency": "Diário" | "3-5x semana" | "Irregular",
+                "content_pillars": ["Pilar 1", "Pilar 2", "Pilar 3"],
+                "format_preference": "Formato mais usado",
+                "hook_style": "Estilo de gancho usado",
+                "cta_usage": "Como usam CTAs"
+            }},
+            "strengths": [
+                "Ponto forte 1 específico",
+                "Ponto forte 2 específico"
             ],
-            "growth_strategy_detected": "Engenharia reversa do funil deles. O que eles estão fazendo nos bastidores?",
-            "better_bio_suggestion": "Reescreva a bio deles para humilhar a atual em termos de conversão."
-        }}
-        """
+            "weaknesses": [
+                "Fraqueza explorável 1 (com sugestão de como atacar)",
+                "Fraqueza explorável 2 (com sugestão de como atacar)"
+            ],
+            "content_hooks_to_steal": [
+                "Hook específico que funcionou + por que funciona",
+                "Hook 2 + por que funciona",
+                "Hook 3 + por que funciona"
+            ],
+            "opportunity_zones": [
+                "Oportunidade 1: Onde você pode superá-los",
+                "Oportunidade 2: Gap no mercado que eles não cobrem"
+            ],
+            "battle_plan": {{
+                "immediate_actions": ["Ação 1 para hoje", "Ação 2 para amanhã"],
+                "content_ideas": ["Ideia de conteúdo 1 baseada na análise", "Ideia 2"],
+                "differentiation_strategy": "Como se posicionar diferente deles"
+            }},
+            "killer_bio": "Bio otimizada que seria melhor que a deles"
+        }}"""
         
         try:
             ai_res = self.client.generate_content(prompt)
@@ -310,7 +599,17 @@ class SEOEngine:
                 "analysis": analysis
             }
         except Exception as e:
-            return {"error": str(e), "scraped_data": mock_scraped_data}
+            return {
+                "error": str(e), 
+                "scraped_data": mock_scraped_data,
+                "analysis": {
+                    "competitor_score": 50,
+                    "threat_level": "Médio",
+                    "niche": "Desconhecido",
+                    "weaknesses": ["Erro na análise - tente novamente"],
+                    "content_hooks_to_steal": ["Não disponível"]
+                }
+            }
 
     def auto_fix_bio(self, current_bio: str, niche: str) -> list:
         prompt = f"""
@@ -381,6 +680,68 @@ class SEOEngine:
                 "hashtags": ["#viral", "#fyp"],
                 "viral_score": 50,
                 "viral_reason": f"Erro na IA: {str(e)}"
+            }
+
+    def _detect_niche(self, username: str, bio: str, label: str) -> dict:
+        """
+        Uses AI to detect the profile's niche and generate personalized recommendations.
+        """
+        try:
+            context = f"Username: {username}\nBio: {bio}\nLabel: {label}"
+            
+            prompt = f"""Analise este perfil TikTok e identifique o NICHO:
+
+{context}
+
+Responda SOMENTE JSON:
+{{
+    "niche": "Nome curto do nicho (ex: Cortes de Podcast, Receitas, Fitness, Humor, Games, Educação, Música, Moda, Tech, Finanças, Viagem, Pets)",
+    "niche_confidence": "Alta" | "Média" | "Baixa",
+    "audience": "Descrição do público-alvo ideal em 1 frase",
+    "content_style": "Estilo predominante (ex: Educativo, Entretenimento, Inspiracional, Informativo, Tutorial)",
+    "personalized_recommendations": [
+        "Recomendação específica para este nicho 1",
+        "Recomendação específica para este nicho 2",
+        "Recomendação específica para este nicho 3"
+    ],
+    "personalized_ctas": [
+        "CTA específico para o nicho",
+        "Outro CTA relevante para o público",
+        "CTA de conversão para este tipo de conteúdo"
+    ],
+    "competitor_tip": "Dica baseada em top creators deste nicho",
+    "trending_format": "Formato de vídeo que está em alta neste nicho"
+}}"""
+            
+            ai_res = self.client.generate_content(prompt)
+            txt = ai_res.text
+            
+            if "```json" in txt:
+                txt = txt.split("```json")[1].split("```")[0]
+            elif "```" in txt:
+                txt = txt.split("```")[1].split("```")[0]
+            
+            return json.loads(txt)
+            
+        except Exception as e:
+            print(f"Niche Detection Error: {e}")
+            return {
+                "niche": "Geral",
+                "niche_confidence": "Baixa",
+                "audience": "Público geral",
+                "content_style": "Variado",
+                "personalized_recommendations": [
+                    "Definir um nicho claro para atrair público fiel",
+                    "Manter consistência no estilo de conteúdo",
+                    "Usar hashtags relevantes para o tema"
+                ],
+                "personalized_ctas": [
+                    "👇 Siga para mais conteúdo",
+                    "💬 Comente sua opinião",
+                    "🔔 Ative as notificações"
+                ],
+                "competitor_tip": "Analise creators do seu nicho para inspiração",
+                "trending_format": "Vídeos curtos com hook forte nos primeiros 3s"
             }
 
 seo_engine = SEOEngine()

@@ -162,22 +162,22 @@ export default function ProfilesPage() {
                                         Usar Perfil
                                     </NeonButton>
 
-                                    {/* Validate Button */}
+                                    {/* Refresh Avatar Button */}
                                     <button
                                         onClick={async () => {
                                             const btn = document.getElementById(`validate-${i}`);
                                             if (btn) btn.classList.add('animate-spin');
                                             try {
-                                                const res = await fetch(`${API_BASE}/profiles/validate/${profile.id}`, { method: 'POST' });
+                                                const res = await fetch(`${API_BASE}/profiles/refresh-avatar/${profile.id}`, { method: 'POST' });
                                                 if (res.ok) fetchProfiles();
-                                                else alert('Erro ao validar.');
+                                                else alert('Erro ao atualizar avatar.');
                                             } catch {
                                                 alert('Erro de conexão.');
                                             }
                                             if (btn) btn.classList.remove('animate-spin');
                                         }}
                                         className="p-2.5 rounded-lg bg-[#1c2128] border border-white/10 text-gray-400 hover:text-white hover:border-synapse-primary/50 transition-all"
-                                        title="Atualizar dados do TikTok"
+                                        title="Atualizar avatar do TikTok"
                                     >
                                         <ArrowPathIcon id={`validate-${i}`} className="w-4 h-4" />
                                     </button>

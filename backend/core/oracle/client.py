@@ -42,8 +42,8 @@ class OracleClient:
 
     def generate_content(self, prompt_input):
         """
-        Unified wrapper: Routes Vision -> Gemini, Text -> Groq (if avail).
-        Raises Exception if no providers are active.
+        Unified wrapper: Routes Vision -> Groq (Llama 3.2V), Text -> Groq.
+        Gemini is fallback only.
         """
         self._enforce_rate_limit()
 
@@ -55,31 +55,24 @@ class OracleClient:
                     is_vision = True
                     break
         
-        # 1. Vision Request -> Try Gemini First (Stable)
-        if is_vision and self.model:
+        # 1. Try Groq FIRST for everything (including Vision)
+        if self.groq_client:
+            try:
+                return self._generate_groq(prompt_input)
+            except Exception as e:
+                print(f"Groq {'Vision' if is_vision else 'Text'} Error: {e}. Falling back to Gemini.")
+        
+        # 2. Fallback to Gemini
+        if self.model:
             try:
                 return self.model.generate_content(prompt_input)
             except Exception as e:
-                print(f"Gemini Vision Error: {e}. Falling back to Groq.")
-                # Fallthrough to Groq
-
-        # 2. Text Request OR Vision Fallback -> Use Groq
-        if self.provider == "groq" and self.groq_client:
-            try: 
-                return self._generate_groq(prompt_input)
-            except Exception as gx:
-                if is_vision: raise Exception(f"Vision Failed on both Gemini and Groq ({gx})")
-                raise gx
-        else:
-            if not self.model: 
-                raise Exception("Oracle Offline (No API Keys Configured). Please set GROQ_API_KEY or GEMINI_API_KEY.")
-            # If we are here, Groq failed or not avail, retry Gemini (if not tried yet logic?)
-            # Simplified: If Gemini failed earlier, we might loop? 
-            # No, self.model.generate_content call native lib.
-            return self.model.generate_content(prompt_input)
+                raise Exception(f"Both Groq and Gemini failed: {e}")
+        
+        raise Exception("Oracle Offline (No API Keys Configured).")
 
     def _generate_groq(self, prompt_input):
-        """Groq Implementation using Llama 3 models."""
+        """Groq Implementation using Llama 4 models."""
         messages = []
         model = "llama-3.3-70b-versatile" # Default for text
 
@@ -87,8 +80,8 @@ class OracleClient:
         if isinstance(prompt_input, str):
             messages = [{"role": "user", "content": prompt_input}]
         elif isinstance(prompt_input, list):
-            # Multimodal Logic (Llama 3.2 Vision)
-            model = "llama-3.2-90b-vision-preview" # 90B is smarter/stable
+            # Multimodal Logic (Llama 4 Vision)
+            model = "meta-llama/llama-4-scout-17b-16e-instruct" # Llama 4 Scout for Vision
             content_payload = []
             
             for item in prompt_input:
@@ -118,9 +111,9 @@ class OracleClient:
             "stop": None,
         }
         
-        # Llama 3.2 Vision often errors with response_format={"type": "json_object"}
+        # Llama 4 Vision/Scout models don't support JSON mode
         # Enable JSON mode only for text models
-        if "vision" not in model:
+        if "scout" not in model.lower() and "maverick" not in model.lower() and "vision" not in model.lower():
              params["response_format"] = {"type": "json_object"}
 
         completion = self.groq_client.chat.completions.create(**params)

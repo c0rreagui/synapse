@@ -83,7 +83,9 @@ class MindFaculty:
                 "debate_topic": "O que estão discutindo?"
             }},
             "best_times": [
-                {{"day": "Monday", "hour": 18, "reason": "High engagement"}}
+                {{"day": "Segunda", "hour": 12, "reason": "Razão específica baseada no nicho e público"}},
+                {{"day": "Quarta", "hour": 19, "reason": "Horário de pico para este tipo de conteúdo"}},
+                {{"day": "Sábado", "hour": 21, "reason": "Comportamento do público-alvo neste dia"}}
             ]
         }}
 
@@ -92,6 +94,7 @@ class MindFaculty:
         2. If Clips channel, voice_authenticity = "Borrowed".
         3. Analyze COMMENTS for sentiment. If mostly hate, score low.
         4. Be specific about lighting, editing, pacing.
+        5. For best_times: Consider the NICHE and AUDIENCE TYPE. Gaming/entertainment = evenings. Educational = lunch breaks. Lifestyle = weekends. Give 3-5 specific times with UNIQUE reasons for each, not generic "high engagement". Consider Brazilian timezone (GMT-3).
         """
 
         try:

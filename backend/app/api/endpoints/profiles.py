@@ -168,9 +168,28 @@ async def refresh_avatar_endpoint(profile_id: str):
             if not new_avatar_url:
                 raise HTTPException(status_code=404, detail="Não foi possível encontrar avatar no perfil")
             
-            # Update profile metadata
+            # Download avatar locally to avoid 403
+            local_avatar_url = new_avatar_url
+            try:
+                import aiohttp
+                static_dir = os.path.join(BASE_DIR, "static", "avatars")
+                os.makedirs(static_dir, exist_ok=True)
+                local_filename = f"{username}.jpg"
+                local_path = os.path.join(static_dir, local_filename)
+                
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(new_avatar_url) as resp:
+                        if resp.status == 200:
+                            with open(local_path, "wb") as f:
+                                f.write(await resp.read())
+                            local_avatar_url = f"http://localhost:8000/static/avatars/{local_filename}"
+                            logger.info(f"✅ Avatar downloaded locally: {local_filename}")
+            except Exception as dl_err:
+                logger.warning(f"⚠️ Could not download avatar locally: {dl_err}")
+
+            # Update profile metadata with LOCAL url
             old_avatar = metadata.get("avatar_url", "")
-            update_profile_metadata(profile_id, {"avatar_url": new_avatar_url})
+            update_profile_metadata(profile_id, {"avatar_url": local_avatar_url})
             
             logger.info(f"✅ Avatar atualizado para @{username}")
             
@@ -183,7 +202,7 @@ async def refresh_avatar_endpoint(profile_id: str):
                 "status": "success",
                 "profile_id": profile_id,
                 "username": username,
-                "avatar_url": new_avatar_url,
+                "avatar_url": local_avatar_url,
                 "previous_url": old_avatar[:50] + "..." if len(old_avatar) > 50 else old_avatar
             }
             
