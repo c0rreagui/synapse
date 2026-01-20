@@ -575,7 +575,7 @@ export default function OraclePage() {
                                 {/* Profile Selector (Shared with Audit) */}
                                 <div className="flex justify-end mb-4">
                                     <div className="flex items-center gap-3 bg-[#0f0a15] border border-white/10 rounded-full px-4 py-2">
-                                        <span className="text-sm text-gray-400">Profile:</span>
+                                        <span className="text-sm text-gray-400">Perfil:</span>
                                         <select
                                             value={selectedProfileId}
                                             onChange={(e) => setSelectedProfileId(e.target.value)}
@@ -593,14 +593,14 @@ export default function OraclePage() {
                                 {loading ? (
                                     <div className="h-64 flex flex-col items-center justify-center text-[#00f3ff] animate-pulse">
                                         <ChartBarIcon className="w-12 h-12 mb-4" />
-                                        <p>Crunching Data...</p>
+                                        <p>Processando Dados...</p>
                                     </div>
                                 ) : analyticsData ? (
                                     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
                                         {/* KPI Grid */}
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                             <StatCard
-                                                label="Total Views"
+                                                label="Total de Views"
                                                 value={formatNumber(analyticsData.summary.total_views)}
                                                 icon={<EyeIcon className="w-6 h-6 text-white" />}
                                                 color="purple"
@@ -608,20 +608,20 @@ export default function OraclePage() {
                                                 trendValue="12%"
                                             />
                                             <StatCard
-                                                label="Avg Engagement"
+                                                label="Engajamento Médio"
                                                 value={analyticsData.summary.avg_engagement.toFixed(1)}
                                                 icon={<HeartIcon className="w-6 h-6 text-white" />}
                                                 color="pink"
-                                                subValue="Likes + Comments per View"
+                                                subValue="Likes + Comentários por View"
                                             />
                                             <StatCard
-                                                label="Followers"
+                                                label="Seguidores"
                                                 value={formatNumber(analyticsData.summary.followers)}
                                                 icon={<SparklesIcon className="w-6 h-6 text-white" />}
                                                 color="blue"
                                             />
                                             <StatCard
-                                                label="Analyzed Posts"
+                                                label="Posts Analisados"
                                                 value={analyticsData.summary.posts_analyzed}
                                                 icon={<ChatBubbleLeftIcon className="w-6 h-6 text-white" />}
                                                 color="green"
@@ -632,25 +632,25 @@ export default function OraclePage() {
                                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                             {/* Main Chart */}
                                             <div className="lg:col-span-2 bg-[#0f0a15] border border-white/5 rounded-2xl p-6">
-                                                <h3 className="text-lg font-bold mb-6 text-gray-200">Views Growth</h3>
+                                                <h3 className="text-lg font-bold mb-6 text-gray-200">Crescimento de Views</h3>
                                                 <PerformanceChart data={analyticsData.history} />
                                             </div>
 
                                             {/* Insights */}
                                             <div className="bg-[#0f0a15] border border-white/5 rounded-2xl p-6">
-                                                <h3 className="text-lg font-bold mb-6 text-gray-200">Oracle Insights</h3>
+                                                <h3 className="text-lg font-bold mb-6 text-gray-200">Insights do Oracle</h3>
                                                 <div className="space-y-4">
                                                     <div className="p-4 bg-white/5 rounded-xl border border-white/5">
-                                                        <div className="text-sm text-gray-400 mb-1">Top Performing Day</div>
-                                                        <div className="text-xl font-bold text-white">Friday</div>
+                                                        <div className="text-sm text-gray-400 mb-1">Melhor Dia</div>
+                                                        <div className="text-xl font-bold text-white">Sexta-feira</div>
                                                     </div>
                                                     <div className="p-4 bg-white/5 rounded-xl border border-white/5">
-                                                        <div className="text-sm text-gray-400 mb-1">Viral Potential</div>
-                                                        <div className="text-xl font-bold text-[#00f3ff]">High</div>
+                                                        <div className="text-sm text-gray-400 mb-1">Potencial Viral</div>
+                                                        <div className="text-xl font-bold text-[#00f3ff]">Alto</div>
                                                     </div>
                                                     <div className="mt-4 p-4 rounded-xl bg-synapse-purple/10 border border-synapse-purple/20">
                                                         <p className="text-xs text-synapse-purple leading-relaxed">
-                                                            💡 <strong>Tip:</strong> Your videos posted on Fridays get 2x more views than other days.
+                                                            💡 <strong>Dica:</strong> Seus vídeos postados na sexta-feira têm 2x mais views que nos outros dias.
                                                         </p>
                                                     </div>
                                                 </div>

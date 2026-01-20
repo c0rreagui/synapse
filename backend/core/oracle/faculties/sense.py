@@ -18,7 +18,7 @@ class SenseFaculty:
     Gathers raw data from external sources (TikTok, etc.) using stealth browser automation.
     """
 
-    async def collect_profile(self, username: str) -> Dict[str, Any]:
+    async def collect_profile(self, username: str, timeout: int = 25000) -> Dict[str, Any]:
         """
         Scrapes a TikTok profile for public stats and latest videos.
         Enhanced with authenticated session to bypass bot detection.
@@ -59,7 +59,7 @@ class SenseFaculty:
 
         try:
             url = f"https://www.tiktok.com/@{username}"
-            await page.goto(url, wait_until="networkidle", timeout=25000)
+            await page.goto(url, wait_until="networkidle", timeout=timeout)
             
             # Wait and scroll to trigger lazy loading
             await asyncio.sleep(2)

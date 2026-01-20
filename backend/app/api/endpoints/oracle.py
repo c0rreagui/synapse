@@ -307,3 +307,100 @@ async def create_hashtags(request: HashtagRequest):
         return {"error": str(e)}
 
 
+# --- TREND CHECKER ENDPOINTS ---
+from core.oracle.trend_checker import trend_checker
+
+@router.get("/trends")
+async def get_cached_trends():
+    """Get cached trending sounds (no scraping)."""
+    return trend_checker.get_cached_trends()
+
+
+class TrendFetchRequest(BaseModel):
+    category: str = "all"
+    min_growth: float = 100
+
+
+@router.post("/trends/fetch")
+async def fetch_trends(request: TrendFetchRequest):
+    """
+    Fetch fresh trending sounds from TikTok Creative Center.
+    This performs live scraping and updates the cache.
+    """
+    trends = await trend_checker.fetch_trending_sounds(
+        category=request.category,
+        min_growth=request.min_growth
+    )
+    return {
+        "trends": [
+            {
+                "id": t.id,
+                "title": t.title,
+                "category": t.category,
+                "growth_24h": t.growth_24h,
+                "usage_count": t.usage_count,
+                "confidence": t.confidence
+            }
+            for t in trends
+        ],
+        "count": len(trends),
+        "fetched_at": trend_checker.last_updated.isoformat() if trend_checker.last_updated else None
+    }
+
+
+class HashtagValidateRequest(BaseModel):
+    hashtag: str
+
+
+@router.post("/trends/validate-hashtag")
+async def validate_hashtag(request: HashtagValidateRequest):
+    """Validate if a hashtag is currently trending."""
+    result = await trend_checker.validate_hashtag(request.hashtag)
+    return result
+
+
+# --- SENTIMENT PULSE ENDPOINTS ---
+from core.oracle.sentiment_pulse import sentiment_pulse
+
+
+@router.post("/sentiment/profile/{username}")
+async def analyze_profile_sentiment(username: str, max_comments: int = 50):
+    """
+    Analyze sentiment of comments on a profile's latest videos.
+    Returns sentiment percentages and strategy recommendations.
+    """
+    result = await sentiment_pulse.analyze_profile_sentiment(username, max_comments)
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    return result
+
+
+class VideoSentimentRequest(BaseModel):
+    video_url: str
+    max_comments: int = 50
+
+
+@router.post("/sentiment/video")
+async def analyze_video_sentiment(request: VideoSentimentRequest):
+    """Analyze sentiment of comments on a specific video."""
+    result = await sentiment_pulse.analyze_video_sentiment(
+        request.video_url, 
+        request.max_comments
+    )
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    return result
+
+
+class StrategyRequest(BaseModel):
+    positive_pct: float
+    negative_pct: float
+
+
+@router.post("/sentiment/strategy")
+async def get_strategy(request: StrategyRequest):
+    """Get strategy recommendations based on sentiment percentages (no scraping)."""
+    return sentiment_pulse.get_strategy_recommendations(
+        request.positive_pct,
+        request.negative_pct
+    )

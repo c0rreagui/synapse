@@ -100,8 +100,24 @@ class MindFaculty:
         try:
             response = self.client.generate_content(prompt)
             raw_text = response.text.strip()
-            clean_text = raw_text.replace("```json", "").replace("```", "")
-            metrics = json.loads(clean_text)
+            clean_text = raw_text.replace("```json", "").replace("```", "").strip()
+            
+            # Try direct JSON parse first
+            try:
+                metrics = json.loads(clean_text)
+            except json.JSONDecodeError as parse_error:
+                # Fallback: Extract JSON using regex
+                logger.warning(f"⚠️ Direct JSON parse failed, trying regex extraction...")
+                import re
+                json_match = re.search(r'\{.*\}', clean_text, re.DOTALL)
+                if json_match:
+                    try:
+                        metrics = json.loads(json_match.group())
+                        logger.info("✅ JSON extracted successfully via regex")
+                    except json.JSONDecodeError:
+                        raise ValueError(f"Failed to parse JSON even with regex: {parse_error}")
+                else:
+                    raise ValueError(f"No JSON object found in response: {parse_error}")
 
             return {
                 "profile": profile_data.get("username"),
