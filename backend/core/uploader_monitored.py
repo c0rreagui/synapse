@@ -28,6 +28,7 @@ async def upload_video_monitored(
     post: bool = False,
     enable_monitor: bool = False,  # 👁️ Monitor desativado por padrão
     viral_music_enabled: bool = False,
+    sound_title: str = None,  # 🎵 Título da música viral específica
     privacy_level: str = "public_to_everyone" # public_to_everyone, mutual_follow_friends, self_only
 ) -> dict:
     result = {"status": "error", "message": "", "screenshot_path": None}
@@ -323,14 +324,23 @@ async def upload_video_monitored(
                         await music_tab.click()
                         await page.wait_for_timeout(2000)
                         
-                        # 3. Selecionar Top 1
-                        first_song = page.locator('.music-item, [class*="music-card"]').first
+                        # 3. Buscar música específica (se sound_title fornecido)
+                        if sound_title:
+                            logger.info(f"🔍 Buscando música: {sound_title}")
+                            search_input = page.locator('input[placeholder*="Search"], input[placeholder*="Buscar"], input[type="search"]').first
+                            if await search_input.is_visible():
+                                await search_input.fill(sound_title)
+                                await page.wait_for_timeout(2000)  # Aguarda resultados
+                                logger.info("✅ Busca realizada, selecionando primeiro resultado...")
+                        
+                        # 4. Selecionar primeira música (resultado da busca ou Top 1)
+                        first_song = page.locator('.music-item, [class*="music-card"], [class*="sound-item"]').first
                         if await first_song.is_visible():
                             await first_song.hover()
                             use_btn = first_song.locator('button')
                             if await use_btn.count() > 0:
                                 await use_btn.first.click()
-                                logger.info("🎵 Música Viral aplicada!")
+                                logger.info(f"🎵 Música Viral aplicada: {sound_title or 'Top 1'}")
                                 await page.wait_for_timeout(1000)
                                 
                                 # 4. Ajustar Volume (Original 0%)

@@ -12,7 +12,8 @@ class ScheduleRequest(BaseModel):
     scheduled_time: str
     viral_music_enabled: bool = False
     music_volume: float = 0.0
-    trend_category: str = "General"
+    sound_id: str = None
+    sound_title: str = None
 
 @router.get("/list")
 async def list_schedule():
@@ -49,7 +50,8 @@ async def create_event(request: ScheduleRequest):
             request.scheduled_time,
             request.viral_music_enabled,
             request.music_volume,
-            request.trend_category
+            sound_id=request.sound_id,
+            sound_title=request.sound_title
         )
         await websocket.notify_schedule_update(scheduler_service.load_schedule())
         return event

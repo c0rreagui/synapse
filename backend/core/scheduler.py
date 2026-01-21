@@ -27,7 +27,7 @@ class Scheduler:
         with open(SCHEDULE_FILE, 'w') as f:
             json.dump(data, f, indent=2)
 
-    def add_event(self, profile_id: str, video_path: str, scheduled_time: str, viral_music_enabled: bool = False, music_volume: float = 0.0, trend_category: str = "General") -> Dict:
+    def add_event(self, profile_id: str, video_path: str, scheduled_time: str, viral_music_enabled: bool = False, music_volume: float = 0.0, sound_id: str = None, sound_title: str = None) -> Dict:
         """Schedules a new video upload."""
         events = self.load_schedule()
         event_id = str(uuid.uuid4())
@@ -39,7 +39,8 @@ class Scheduler:
             "scheduled_time": scheduled_time,
             "viral_music_enabled": viral_music_enabled,
             "music_volume": music_volume,
-            "trend_category": trend_category,
+            "sound_id": sound_id,
+            "sound_title": sound_title,
             "status": "pending",
             "created_at": datetime.now().isoformat()
         }

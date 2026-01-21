@@ -1,0 +1,119 @@
+{
+  "sounds": {
+    "General_all": [
+      {
+        "id": "apt_7312456789",
+        "title": "APT.",
+        "author": "ROSÉ & Bruno Mars",
+        "cover_url": "https://p16-sign.tiktokcdn-us.com/apt_cover.jpeg",
+        "preview_url": "",
+        "duration": 30,
+        "usage_count": 15420000,
+        "category": "General",
+        "viral_score": 95.0,
+        "status": "exploding",
+        "niche": "music",
+        "growth_rate": 142.5
+      },
+      {
+        "id": "die_smile_7298765",
+        "title": "Die With A Smile",
+        "author": "Lady Gaga & Bruno Mars",
+        "cover_url": "https://p16-sign.tiktokcdn-us.com/die_smile.jpeg",
+        "preview_url": "",
+        "duration": 30,
+        "usage_count": 12890000,
+        "category": "General",
+        "viral_score": 88.0,
+        "status": "exploding",
+        "niche": "music",
+        "growth_rate": 98.3
+      },
+      {
+        "id": "gata_7354321",
+        "title": "Gata Only",
+        "author": "FloyyMenor & Cris MJ",
+        "cover_url": "https://p16-sign.tiktokcdn-us.com/gata.jpeg",
+        "preview_url": "",
+        "duration": 30,
+        "usage_count": 6780000,
+        "category": "Dance",
+        "viral_score": 82.0,
+        "status": "rising",
+        "niche": "music",
+        "growth_rate": 88.4
+      },
+      {
+        "id": "blade_7310987",
+        "title": "Blade Runner 2049",
+        "author": "Hans Zimmer",
+        "cover_url": "https://p16-sign.tiktokcdn-us.com/blade.jpeg",
+        "preview_url": "",
+        "duration": 30,
+        "usage_count": 2340000,
+        "category": "Tech",
+        "viral_score": 78.0,
+        "status": "rising",
+        "niche": "gaming",
+        "growth_rate": 72.6
+      },
+      {
+        "id": "birds_7287654",
+        "title": "BIRDS OF A FEATHER",
+        "author": "Billie Eilish",
+        "cover_url": "https://p16-sign.tiktokcdn-us.com/birds.jpeg",
+        "preview_url": "",
+        "duration": 30,
+        "usage_count": 9870000,
+        "category": "General",
+        "viral_score": 75.0,
+        "status": "rising",
+        "niche": "music",
+        "growth_rate": 67.2
+      },
+      {
+        "id": "espresso_7276543",
+        "title": "Espresso",
+        "author": "Sabrina Carpenter",
+        "cover_url": "https://p16-sign.tiktokcdn-us.com/espresso.jpeg",
+        "preview_url": "",
+        "duration": 30,
+        "usage_count": 8540000,
+        "category": "General",
+        "viral_score": 72.0,
+        "status": "rising",
+        "niche": "music",
+        "growth_rate": 55.8
+      },
+      {
+        "id": "interstellar_7309876",
+        "title": "Interstellar Theme",
+        "author": "Hans Zimmer",
+        "cover_url": "https://p16-sign.tiktokcdn-us.com/interstellar.jpeg",
+        "preview_url": "",
+        "duration": 30,
+        "usage_count": 1890000,
+        "category": "Tech",
+        "viral_score": 68.0,
+        "status": "rising",
+        "niche": "motivation",
+        "growth_rate": 58.3
+      },
+      {
+        "id": "ohno_7332109",
+        "title": "Oh No",
+        "author": "Kreepa",
+        "cover_url": "https://p16-sign.tiktokcdn-us.com/ohno.jpeg",
+        "preview_url": "",
+        "duration": 30,
+        "usage_count": 45000000,
+        "category": "Meme",
+        "viral_score": 65.0,
+        "status": "rising",
+        "niche": "meme",
+        "growth_rate": 42.1
+      }
+    ]
+  },
+  "timestamp": "2026-01-20T23:56:01.545057"
+}

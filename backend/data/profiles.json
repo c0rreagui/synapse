@@ -11,12 +11,17 @@
             {
                 "day": "S\u00e1bado",
                 "hour": 20,
-                "reason": "Pico de engajamento durante a noite de finais de semana"
+                "reason": "O p\u00fablico-alvo tende a ter mais tempo livre nos fins de semana e busca conte\u00fado de entretenimento"
+            },
+            {
+                "day": "Quarta",
+                "hour": 14,
+                "reason": "O hor\u00e1rio de almo\u00e7o \u00e9 um momento ideal para compartilhar conte\u00fado inspirador e de lifestyle"
             },
             {
                 "day": "Domingo",
-                "hour": 15,
-                "reason": "Engajamento moderado durante a tarde de domingo"
+                "hour": 18,
+                "reason": "O fim de semana \u00e9 um momento para relaxar e buscar conte\u00fado que inspire e entretenha"
             }
         ],
         "oracle_last_run": "now",

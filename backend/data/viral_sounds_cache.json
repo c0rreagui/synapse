@@ -1,0 +1,57 @@
+{
+  "sounds": {
+    "General": [
+      {
+        "id": "7312456789012345678",
+        "title": "APT.",
+        "author": "ROSÉ & Bruno Mars",
+        "cover_url": "https://p16-sign.tiktokcdn-us.com/tos-useast5-avt-0068-tx/apt_cover.jpeg",
+        "preview_url": "https://sf16-ies-music.tiktokcdn.com/obj/tos-useast5-ve-2774/apt_preview.mp3",
+        "duration": 30,
+        "usage_count": 15420000,
+        "category": "General"
+      },
+      {
+        "id": "7298765432109876543",
+        "title": "Die With A Smile",
+        "author": "Lady Gaga & Bruno Mars",
+        "cover_url": "https://p16-sign.tiktokcdn-us.com/tos-useast5-avt-0068-tx/die_smile_cover.jpeg",
+        "preview_url": "https://sf16-ies-music.tiktokcdn.com/obj/tos-useast5-ve-2774/die_smile_preview.mp3",
+        "duration": 30,
+        "usage_count": 12890000,
+        "category": "General"
+      },
+      {
+        "id": "7287654321098765432",
+        "title": "BIRDS OF A FEATHER",
+        "author": "Billie Eilish",
+        "cover_url": "https://p16-sign.tiktokcdn-us.com/tos-useast5-avt-0068-tx/birds_cover.jpeg",
+        "preview_url": "https://sf16-ies-music.tiktokcdn.com/obj/tos-useast5-ve-2774/birds_preview.mp3",
+        "duration": 30,
+        "usage_count": 9870000,
+        "category": "General"
+      },
+      {
+        "id": "7276543210987654321",
+        "title": "Espresso",
+        "author": "Sabrina Carpenter",
+        "cover_url": "https://p16-sign.tiktokcdn-us.com/tos-useast5-avt-0068-tx/espresso_cover.jpeg",
+        "preview_url": "https://sf16-ies-music.tiktokcdn.com/obj/tos-useast5-ve-2774/espresso_preview.mp3",
+        "duration": 30,
+        "usage_count": 8540000,
+        "category": "General"
+      },
+      {
+        "id": "7265432109876543210",
+        "title": "Taste",
+        "author": "Sabrina Carpenter",
+        "cover_url": "https://p16-sign.tiktokcdn-us.com/tos-useast5-avt-0068-tx/taste_cover.jpeg",
+        "preview_url": "https://sf16-ies-music.tiktokcdn.com/obj/tos-useast5-ve-2774/taste_preview.mp3",
+        "duration": 30,
+        "usage_count": 7650000,
+        "category": "General"
+      }
+    ]
+  },
+  "timestamp": "2026-01-20T23:36:07.260118"
+}

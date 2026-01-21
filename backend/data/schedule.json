@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "id": "dc5c8a84-27cd-447d-8c6c-6ebe441612d4",
+    "profile_id": "test_profile",
+    "video_path": "test.mp4",
+    "scheduled_time": "2026-01-21T12:00:00",
+    "viral_music_enabled": true,
+    "music_volume": 50.0,
+    "sound_id": "sound123",
+    "sound_title": "APT. by Bruno Mars",
+    "status": "pending",
+    "created_at": "2026-01-20T20:33:52.397390"
+  }
+]
