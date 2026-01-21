@@ -225,3 +225,88 @@ async def get_niches():
             "niches": ["general", "tech", "meme", "dance", "fitness"],
             "description": {}
         }
+
+
+class AutoSelectRequest(BaseModel):
+    """Request para auto-seleção de música"""
+    niche: Optional[str] = None
+    video_description: Optional[str] = None
+    prefer_exploding: bool = True
+    min_viral_score: float = 60.0
+
+
+class AutoSelectResponse(BaseModel):
+    """Response da auto-seleção de música"""
+    success: bool
+    sound_id: Optional[str]
+    sound_title: Optional[str]
+    sound_author: Optional[str] = None
+    viral_score: Optional[float] = None
+    status: Optional[str] = None
+    niche: Optional[str] = None
+    reason: str
+
+
+@router.post("/auto-select", response_model=AutoSelectResponse)
+async def auto_select_music(request: AutoSelectRequest):
+    """
+    🤖 IA seleciona automaticamente a melhor música viral
+    
+    Critérios de seleção (em ordem de prioridade):
+    1. Sons EXPLODING têm prioridade máxima (+100 pontos)
+    2. Match de nicho se fornecido (+75 pontos)
+    3. Maior viral_score (até +50 pontos)
+    4. Maior taxa de crescimento (até +25 pontos)
+    
+    **Exemplo de uso:**
+    ```json
+    {
+        "niche": "tech",
+        "prefer_exploding": true,
+        "min_viral_score": 60
+    }
+    ```
+    
+    **Ou deixe a IA detectar o nicho a partir da descrição:**
+    ```json
+    {
+        "video_description": "Tutorial de programação com Python",
+        "prefer_exploding": true
+    }
+    ```
+    """
+    try:
+        selected = await viral_sounds_service.auto_select_music(
+            niche=request.niche,
+            video_description=request.video_description,
+            prefer_exploding=request.prefer_exploding,
+            min_viral_score=request.min_viral_score
+        )
+        
+        if selected:
+            return AutoSelectResponse(
+                success=True,
+                sound_id=selected.id,
+                sound_title=selected.title,
+                sound_author=selected.author,
+                viral_score=selected.viral_score,
+                status=selected.status,
+                niche=selected.niche,
+                reason=f"IA selecionou '{selected.title}' com score {selected.viral_score:.0f} (status: {selected.status})"
+            )
+        
+        return AutoSelectResponse(
+            success=False,
+            sound_id=None,
+            sound_title=None,
+            reason="Nenhuma música adequada encontrada com os critérios especificados"
+        )
+        
+    except Exception as e:
+        return AutoSelectResponse(
+            success=False,
+            sound_id=None,
+            sound_title=None,
+            reason=f"Erro na auto-seleção: {str(e)}"
+        )
+

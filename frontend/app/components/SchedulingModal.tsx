@@ -47,6 +47,10 @@ export default function SchedulingModal({
     const [soundPickerOpen, setSoundPickerOpen] = useState(false);
     const [isAutoScheduling, setIsAutoScheduling] = useState(false);
 
+    // 🤖 IA Auto-Select
+    const [aiAutoSelect, setAiAutoSelect] = useState(true); // Default: IA escolhe
+    const [isAutoSelecting, setIsAutoSelecting] = useState(false);
+
     // Upload State
     const [videoPath, setVideoPath] = useState<string>("");
     const [isUploading, setIsUploading] = useState(false);
@@ -189,6 +193,53 @@ export default function SchedulingModal({
         setSelectedProfiles(prev =>
             prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
         );
+    };
+
+    // 🤖 Função para IA Auto-Seleção de Música
+    const handleAiAutoSelect = async () => {
+        setIsAutoSelecting(true);
+        try {
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const res = await fetch(`${API_URL}/api/v1/viral-sounds/auto-select`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    video_description: description || undefined,
+                    prefer_exploding: true,
+                    min_viral_score: 60.0
+                })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success) {
+                    // Criar objeto ViralSound a partir da resposta
+                    const autoSelected: ViralSound = {
+                        id: data.sound_id,
+                        title: data.sound_title,
+                        author: data.sound_author || 'Artista',
+                        cover_url: '',
+                        preview_url: '',
+                        duration: 30,
+                        usage_count: 0,
+                        category: 'General',  // Campo obrigatório
+                        viral_score: data.viral_score || 0,
+                        status: data.status || 'normal',
+                        niche: data.niche || 'general',
+                        growth_rate: 0
+                    };
+                    setSelectedSound(autoSelected);
+                    toast.success(`🤖 IA selecionou: "${data.sound_title}"`);
+                } else {
+                    toast.error(data.reason || 'IA não encontrou música adequada');
+                }
+            }
+        } catch (e) {
+            console.error('Erro na auto-seleção:', e);
+            toast.error('Erro ao conectar com IA');
+        } finally {
+            setIsAutoSelecting(false);
+        }
     };
 
     const [conflict, setConflict] = useState<{ message: string; suggested_time?: string } | null>(null);
@@ -537,34 +588,108 @@ export default function SchedulingModal({
 
                                                     {/* Viral Sound Selection */}
                                                     <div className="space-y-3">
-                                                        <label className="text-xs font-mono text-gray-400 tracking-wider">SOM VIRAL</label>
+                                                        <div className="flex justify-between items-center">
+                                                            <label className="text-xs font-mono text-gray-400 tracking-wider">SOM VIRAL</label>
 
-                                                        {selectedSound ? (
-                                                            <div className="flex items-center gap-3 p-3 rounded-xl bg-synapse-purple/10 border border-synapse-purple/30">
-                                                                <div className="w-10 h-10 rounded-lg bg-synapse-purple/20 flex items-center justify-center">
-                                                                    <MusicalNoteIcon className="w-5 h-5 text-synapse-purple" />
-                                                                </div>
-                                                                <div className="flex-1 min-w-0">
-                                                                    <p className="text-sm font-medium text-white truncate">{selectedSound.title}</p>
-                                                                    <p className="text-xs text-gray-400 truncate">{selectedSound.author}</p>
-                                                                </div>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setSelectedSound(null)}
-                                                                    className="text-gray-500 hover:text-white transition-colors"
-                                                                >
-                                                                    <XMarkIcon className="w-4 h-4" />
-                                                                </button>
+                                                            {/* Toggle IA Escolhe */}
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] text-gray-500">Manual</span>
+                                                                <label className="relative inline-flex items-center cursor-pointer">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={aiAutoSelect}
+                                                                        onChange={(e) => {
+                                                                            setAiAutoSelect(e.target.checked);
+                                                                            if (e.target.checked) setSelectedSound(null);
+                                                                        }}
+                                                                        className="sr-only peer"
+                                                                    />
+                                                                    <div className="w-7 h-4 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-cyan-500 peer-checked:to-emerald-500"></div>
+                                                                </label>
+                                                                <span className="text-[10px] text-cyan-400 font-bold">🤖 IA</span>
+                                                            </div>
+                                                        </div>
+
+                                                        {aiAutoSelect ? (
+                                                            /* Modo IA Auto-Select */
+                                                            <div className="space-y-2">
+                                                                {selectedSound ? (
+                                                                    <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-cyan-500/10 to-emerald-500/10 border border-cyan-500/30">
+                                                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-cyan-500/20 to-emerald-500/20 flex items-center justify-center">
+                                                                            <span className="text-lg">🤖</span>
+                                                                        </div>
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <p className="text-sm font-medium text-white truncate">{selectedSound.title}</p>
+                                                                            <p className="text-xs text-gray-400 truncate">
+                                                                                {selectedSound.author} • Score: {selectedSound.viral_score?.toFixed(0) || '?'}
+                                                                            </p>
+                                                                        </div>
+                                                                        <div className="flex flex-col items-end gap-1">
+                                                                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-bold">
+                                                                                IA PICK
+                                                                            </span>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={handleAiAutoSelect}
+                                                                                className="text-[10px] text-gray-500 hover:text-cyan-400 transition-colors"
+                                                                            >
+                                                                                Trocar
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={handleAiAutoSelect}
+                                                                        disabled={isAutoSelecting}
+                                                                        className="w-full flex items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-cyan-500/30 hover:border-cyan-500 hover:bg-gradient-to-r hover:from-cyan-500/5 hover:to-emerald-500/5 transition-all text-cyan-400 hover:text-cyan-300 disabled:opacity-50"
+                                                                    >
+                                                                        {isAutoSelecting ? (
+                                                                            <>
+                                                                                <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+                                                                                <span className="text-sm font-medium">IA Analisando...</span>
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <span className="text-lg">🤖</span>
+                                                                                <span className="text-sm font-medium">IA Escolher Automaticamente</span>
+                                                                            </>
+                                                                        )}
+                                                                    </button>
+                                                                )}
+                                                                <p className="text-[10px] text-gray-500 text-center">
+                                                                    A IA seleciona a música com maior potencial viral
+                                                                </p>
                                                             </div>
                                                         ) : (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setSoundPickerOpen(true)}
-                                                                className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-dashed border-white/10 hover:border-synapse-purple/50 hover:bg-synapse-purple/5 transition-all text-gray-400 hover:text-synapse-purple"
-                                                            >
-                                                                <MusicalNoteIcon className="w-5 h-5" />
-                                                                <span className="text-sm font-medium">Escolher Música Viral</span>
-                                                            </button>
+                                                            /* Modo Manual */
+                                                            selectedSound ? (
+                                                                <div className="flex items-center gap-3 p-3 rounded-xl bg-synapse-purple/10 border border-synapse-purple/30">
+                                                                    <div className="w-10 h-10 rounded-lg bg-synapse-purple/20 flex items-center justify-center">
+                                                                        <MusicalNoteIcon className="w-5 h-5 text-synapse-purple" />
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className="text-sm font-medium text-white truncate">{selectedSound.title}</p>
+                                                                        <p className="text-xs text-gray-400 truncate">{selectedSound.author}</p>
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setSelectedSound(null)}
+                                                                        className="text-gray-500 hover:text-white transition-colors"
+                                                                    >
+                                                                        <XMarkIcon className="w-4 h-4" />
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setSoundPickerOpen(true)}
+                                                                    className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-dashed border-white/10 hover:border-synapse-purple/50 hover:bg-synapse-purple/5 transition-all text-gray-400 hover:text-synapse-purple"
+                                                                >
+                                                                    <MusicalNoteIcon className="w-5 h-5" />
+                                                                    <span className="text-sm font-medium">Escolher Música Viral</span>
+                                                                </button>
+                                                            )
                                                         )}
                                                     </div>
                                                 </div>

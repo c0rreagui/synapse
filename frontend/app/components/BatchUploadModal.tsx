@@ -4,7 +4,18 @@ import { Fragment, useState, useEffect, useRef, useMemo } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { TikTokProfile } from '../types';
 import { NeonButton } from './NeonButton';
-import { XMarkIcon, CloudArrowUpIcon, TrashIcon, FilmIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, CloudArrowUpIcon, TrashIcon, FilmIcon, ClockIcon, MusicalNoteIcon } from '@heroicons/react/24/outline';
+import { toast } from 'sonner';
+
+// Tipo para som viral
+interface ViralSound {
+    id: string;
+    title: string;
+    author: string;
+    viral_score?: number;
+    status?: string;
+    niche?: string;
+}
 import clsx from 'clsx';
 import { format, addMinutes } from 'date-fns';
 import { useDropzone } from 'react-dropzone';
@@ -60,6 +71,9 @@ export default function BatchUploadModal({
     const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [startTime, setStartTime] = useState('10:00');
     const [viralBoost, setViralBoost] = useState(false);
+    const [aiAutoSelect, setAiAutoSelect] = useState(true); // IA escolhe por padrão
+    const [isAutoSelecting, setIsAutoSelecting] = useState(false);
+    const [selectedSound, setSelectedSound] = useState<ViralSound | null>(null);
 
     // Dropzone Logic
     const onDrop = async (acceptedFiles: File[]) => {
@@ -69,7 +83,8 @@ export default function BatchUploadModal({
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop,
-        accept: { 'video/*': [] }
+        accept: { 'video/*': [] },
+        multiple: true  // Permite seleção de múltiplos arquivos
     });
 
     const generateThumbnail = (file: File): Promise<string> => {
@@ -101,6 +116,44 @@ export default function BatchUploadModal({
         );
     };
 
+    // 🤖 Função para IA Auto-Seleção de Música
+    const handleAiAutoSelect = async () => {
+        setIsAutoSelecting(true);
+        try {
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const res = await fetch(`${API_URL}/api/v1/viral-sounds/auto-select`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prefer_exploding: true,
+                    min_viral_score: 60.0
+                })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success) {
+                    setSelectedSound({
+                        id: data.sound_id,
+                        title: data.sound_title,
+                        author: data.sound_author || 'Artista',
+                        viral_score: data.viral_score,
+                        status: data.status,
+                        niche: data.niche
+                    });
+                    toast.success(`🤖 IA selecionou: "${data.sound_title}"`);
+                } else {
+                    toast.error(data.reason || 'IA não encontrou música adequada');
+                }
+            }
+        } catch (e) {
+            console.error('Erro na auto-seleção:', e);
+            toast.error('Erro ao conectar com IA');
+        } finally {
+            setIsAutoSelecting(false);
+        }
+    };
+
     const removeFile = (index: number) => {
         setFiles(prev => prev.filter((_, i) => i !== index));
     };
@@ -127,7 +180,9 @@ export default function BatchUploadModal({
                 strategy: strategy,
                 start_time: startDateTime.toISOString(),
                 interval_minutes: intervalMinutes,
-                viral_music_enabled: viralBoost
+                viral_music_enabled: viralBoost,
+                sound_id: viralBoost && selectedSound ? selectedSound.id : undefined,
+                sound_title: viralBoost && selectedSound ? selectedSound.title : undefined
             };
 
             const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -180,9 +235,9 @@ export default function BatchUploadModal({
                                     <div>
                                         <h3 className="text-xl font-bold text-white flex items-center gap-3">
                                             <CloudArrowUpIcon className="w-7 h-7 text-synapse-purple" />
-                                            Batch Commander
+                                            Central de Upload em Massa
                                         </h3>
-                                        <p className="text-xs text-gray-500 font-mono mt-1">// MASS_UPLOAD_PROTOCOL</p>
+                                        <p className="text-xs text-gray-500 font-mono mt-1">// PROTOCOLO_UPLOAD_EM_LOTE</p>
                                     </div>
                                     <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
                                         <XMarkIcon className="w-6 h-6" />
@@ -205,8 +260,8 @@ export default function BatchUploadModal({
                                         >
                                             <input {...getInputProps()} />
                                             <CloudArrowUpIcon className={clsx("w-10 h-10 mb-3 transition-colors", isDragActive ? "text-synapse-purple animate-bounce" : "text-gray-500 group-hover:text-synapse-purple")} />
-                                            <p className="text-sm text-gray-300 font-medium">Drag & Drop videos here</p>
-                                            <p className="text-xs text-gray-600 mt-1">or click to browse filesystem</p>
+                                            <p className="text-sm text-gray-300 font-medium">Arraste e solte vídeos aqui</p>
+                                            <p className="text-xs text-gray-600 mt-1">ou clique para selecionar arquivos</p>
 
                                             {isDragActive && (
                                                 <div className="absolute inset-0 bg-synapse-purple/10 pointer-events-none" />
@@ -416,6 +471,85 @@ export default function BatchUploadModal({
                                                     </div>
                                                 ))}
                                             </div>
+                                        </div>
+
+                                        {/* Viral Audio Boost */}
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between p-3 rounded-lg bg-synapse-purple/10 border border-synapse-purple/20">
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-2 h-2 rounded-full ${viralBoost ? 'bg-synapse-purple animate-pulse' : 'bg-gray-600'}`} />
+                                                    <span className="text-sm text-white font-medium">Viral Audio Boost</span>
+                                                </div>
+                                                <label className="relative inline-flex items-center cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={viralBoost}
+                                                        onChange={(e) => setViralBoost(e.target.checked)}
+                                                        className="sr-only peer"
+                                                    />
+                                                    <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-synapse-purple"></div>
+                                                </label>
+                                            </div>
+
+                                            {viralBoost && (
+                                                <div className="space-y-3 animate-in slide-in-from-top-2 duration-300">
+                                                    <div className="flex justify-between items-center">
+                                                        <label className="text-xs font-mono text-gray-400 tracking-wider">SOM VIRAL</label>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[10px] text-gray-500">Manual</span>
+                                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={aiAutoSelect}
+                                                                    onChange={(e) => {
+                                                                        setAiAutoSelect(e.target.checked);
+                                                                        if (e.target.checked) setSelectedSound(null);
+                                                                    }}
+                                                                    className="sr-only peer"
+                                                                />
+                                                                <div className="w-7 h-4 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-cyan-500 peer-checked:to-emerald-500"></div>
+                                                            </label>
+                                                            <span className="text-[10px] text-cyan-400 font-bold">🤖 IA</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {selectedSound ? (
+                                                        <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-cyan-500/10 to-emerald-500/10 border border-cyan-500/30">
+                                                            <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-cyan-500/20 to-emerald-500/20 flex items-center justify-center">
+                                                                <span className="text-sm">🤖</span>
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-xs font-medium text-white truncate">{selectedSound.title}</p>
+                                                                <p className="text-[10px] text-gray-400 truncate">
+                                                                    {selectedSound.author} • Score: {selectedSound.viral_score?.toFixed(0) || '?'}
+                                                                </p>
+                                                            </div>
+                                                            <span className="text-[8px] px-1 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-bold">
+                                                                IA PICK
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleAiAutoSelect}
+                                                            disabled={isAutoSelecting}
+                                                            className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-dashed border-cyan-500/30 hover:border-cyan-500 hover:bg-gradient-to-r hover:from-cyan-500/5 hover:to-emerald-500/5 transition-all text-cyan-400 hover:text-cyan-300 disabled:opacity-50"
+                                                        >
+                                                            {isAutoSelecting ? (
+                                                                <>
+                                                                    <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+                                                                    <span className="text-xs font-medium">IA Analisando...</span>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <span className="text-sm">🤖</span>
+                                                                    <span className="text-xs font-medium">IA Escolher Automaticamente</span>
+                                                                </>
+                                                            )}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Actions */}

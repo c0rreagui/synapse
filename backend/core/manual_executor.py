@@ -119,6 +119,7 @@ async def execute_approved_video(video_filename: str) -> dict:
             post=(action == 'immediate'),
             enable_monitor=True,
             viral_music_enabled=metadata.get('viral_music_enabled', False),
+            sound_title=metadata.get('sound_title'),  # 🎵 Música viral selecionada
             privacy_level=privacy_level
         )
         

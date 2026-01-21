@@ -343,16 +343,22 @@ async def upload_video_monitored(
                                 logger.info(f"🎵 Música Viral aplicada: {sound_title or 'Top 1'}")
                                 await page.wait_for_timeout(1000)
                                 
-                                # 4. Ajustar Volume (Original 0%)
+                                # 4. Ajustar Volume (Música 0%, Original 100%)
                                 volume_tab = page.locator('div, button').filter(has_text=re.compile(r"Volume", re.I)).last
                                 if await volume_tab.is_visible():
                                     await volume_tab.click()
                                     await page.wait_for_timeout(500)
                                     sliders = page.locator('input[type="range"]')
-                                    if await sliders.count() >= 2:
-                                        await sliders.first.fill("0") 
-                                        logger.info("🔈 Volume original definido para 0.")
-                                        if monitor: await monitor.capture_full_state(page, "volume_ajustado", "Volume original mudo")
+                                    slider_count = await sliders.count()
+                                    if slider_count >= 2:
+                                        # Slider 0 = Original (manter 100%), Slider 1 = Música (colocar 0%)
+                                        await sliders.nth(1).fill("0")  # Música adicionada = 0%
+                                        logger.info("🔈 Volume da música definido para 0% (vídeo original mantido em 100%)")
+                                        if monitor: await monitor.capture_full_state(page, "volume_ajustado", "Música muda, original 100%")
+                                    elif slider_count == 1:
+                                        # Se só tem 1 slider, provavelmente é o da música
+                                        await sliders.first.fill("0")
+                                        logger.info("🔈 Único slider de volume definido para 0%")
                             
                     # 5. Salvar
                     save_edit = page.locator('button:has-text("Salvar edição"), button:has-text("Save edit"), button:has-text("Confirmar")').last

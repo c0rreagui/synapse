@@ -391,7 +391,143 @@ class ViralSoundsService:
         for category in self.CATEGORIES.keys():
             await self.fetch_trending(category, 30, force_refresh=True)
         logger.info("✅ Atualização completa")
+    
+    async def auto_select_music(
+        self, 
+        niche: Optional[str] = None,
+        video_description: Optional[str] = None,
+        prefer_exploding: bool = True,
+        min_viral_score: float = 60.0
+    ) -> Optional[ViralSound]:
+        """
+        🤖 IA seleciona automaticamente a melhor música viral.
+        
+        Critérios de seleção (em ordem de prioridade):
+        1. Sons EXPLODING têm prioridade máxima
+        2. Match de nicho se fornecido
+        3. Maior viral_score
+        4. Maior taxa de crescimento
+        
+        Args:
+            niche: Nicho preferido (tech, fitness, meme, etc.)
+            video_description: Descrição do vídeo para detectar nicho via IA
+            prefer_exploding: Se True, prioriza sons com status 'exploding'
+            min_viral_score: Score mínimo para considerar
+            
+        Returns:
+            ViralSound selecionado ou None se não encontrar
+        """
+        logger.info(f"🤖 IA Auto-Seleção iniciada | Nicho: {niche or 'auto'} | Min Score: {min_viral_score}")
+        
+        # 1. Buscar todos os sons trending
+        all_sounds = await self.fetch_trending("General", 50)
+        
+        if not all_sounds:
+            logger.warning("❌ Nenhum som disponível para auto-seleção")
+            return None
+        
+        # 2. Se descrição do vídeo fornecida, detectar nicho via IA
+        detected_niche = niche
+        if video_description and not niche:
+            classifier = self._get_classifier()
+            if classifier:
+                try:
+                    classification = classifier.classify({
+                        "id": "video",
+                        "title": video_description[:100],  # Limitar tamanho
+                        "author": "content"
+                    })
+                    detected_niche = classification.primary_niche
+                    logger.info(f"🎯 Nicho detectado do vídeo: {detected_niche}")
+                except Exception as e:
+                    logger.warning(f"Erro ao detectar nicho: {e}")
+        
+        # 3. Filtrar por score mínimo
+        candidates = [s for s in all_sounds if s.viral_score >= min_viral_score]
+        
+        if not candidates:
+            # Se nenhum candidato com score alto, pegar os top 5 mesmo assim
+            candidates = all_sounds[:5]
+            logger.info(f"⚠️ Nenhum com score >= {min_viral_score}, usando top 5")
+        
+        # 4. Aplicar prioridades de seleção
+        scored_candidates = []
+        for sound in candidates:
+            score = 0
+            
+            # Prioridade 1: Status exploding (+100 pontos)
+            if prefer_exploding and sound.status == "exploding":
+                score += 100
+            elif sound.status == "rising":
+                score += 50
+            
+            # Prioridade 2: Match de nicho (+75 pontos)
+            if detected_niche and sound.niche.lower() == detected_niche.lower():
+                score += 75
+            
+            # Prioridade 3: Viral score (até +50 pontos)
+            score += (sound.viral_score / 100) * 50
+            
+            # Prioridade 4: Growth rate (até +25 pontos)
+            score += min(sound.growth_rate / 4, 25)
+            
+            scored_candidates.append((sound, score))
+        
+        # 5. Ordenar por pontuação total
+        scored_candidates.sort(key=lambda x: x[1], reverse=True)
+        
+        # 6. Selecionar o melhor
+        if scored_candidates:
+            selected, selection_score = scored_candidates[0]
+            logger.info(f"🎵 IA selecionou: '{selected.title}' por {selected.author}")
+            logger.info(f"   ├─ Viral Score: {selected.viral_score}")
+            logger.info(f"   ├─ Status: {selected.status}")
+            logger.info(f"   ├─ Nicho: {selected.niche}")
+            logger.info(f"   └─ Selection Score: {selection_score:.1f}")
+            return selected
+        
+        return None
+    
+    async def auto_select_for_video(
+        self,
+        video_path: Optional[str] = None,
+        caption: Optional[str] = None,
+        profile_niche: Optional[str] = None
+    ) -> dict:
+        """
+        🤖 Versão simplificada para integração direta.
+        Retorna dict com sound_id, sound_title e metadados.
+        """
+        # Usar caption como contexto se disponível
+        context = caption or ""
+        
+        selected = await self.auto_select_music(
+            niche=profile_niche,
+            video_description=context,
+            prefer_exploding=True,
+            min_viral_score=60.0
+        )
+        
+        if selected:
+            return {
+                "success": True,
+                "sound_id": selected.id,
+                "sound_title": selected.title,
+                "sound_author": selected.author,
+                "viral_score": selected.viral_score,
+                "status": selected.status,
+                "niche": selected.niche,
+                "reason": f"IA selecionou '{selected.title}' com score {selected.viral_score:.0f} (status: {selected.status})"
+            }
+        
+        return {
+            "success": False,
+            "sound_id": None,
+            "sound_title": None,
+            "reason": "Nenhuma música adequada encontrada"
+        }
 
 
 # Singleton
 viral_sounds_service = ViralSoundsService()
+

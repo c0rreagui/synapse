@@ -11,17 +11,17 @@
             {
                 "day": "S\u00e1bado",
                 "hour": 20,
-                "reason": "O p\u00fablico-alvo tende a ter mais tempo livre nos fins de semana e busca conte\u00fado de entretenimento"
+                "reason": "Hor\u00e1rio de lazer, quando o p\u00fablico est\u00e1 mais propenso a consumir entretenimento"
             },
             {
                 "day": "Quarta",
                 "hour": 14,
-                "reason": "O hor\u00e1rio de almo\u00e7o \u00e9 um momento ideal para compartilhar conte\u00fado inspirador e de lifestyle"
+                "reason": "P\u00f3s-almo\u00e7o, quando as pessoas buscam um momento de descanso e entretenimento"
             },
             {
                 "day": "Domingo",
                 "hour": 18,
-                "reason": "O fim de semana \u00e9 um momento para relaxar e buscar conte\u00fado que inspire e entretenha"
+                "reason": "Antes do in\u00edcio da semana, quando o p\u00fablico procura relaxar e se divertir"
             }
         ],
         "oracle_last_run": "now",
