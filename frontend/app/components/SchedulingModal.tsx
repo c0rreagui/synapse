@@ -1,10 +1,10 @@
 'use client';
 
-import { Fragment, useState, useEffect } from 'react';
+import { Fragment, useState, useEffect, useCallback } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { TikTokProfile } from '../types';
 import { NeonButton } from './NeonButton';
-import { XMarkIcon, CalendarDaysIcon, ClockIcon, UserGroupIcon, SparklesIcon, MusicalNoteIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, CalendarDaysIcon, ClockIcon, UserGroupIcon, SparklesIcon, MusicalNoteIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import { format, addDays, setHours, setMinutes, parseISO, getDay } from 'date-fns';
 import { toast } from 'sonner';
@@ -54,6 +54,15 @@ export default function SchedulingModal({
     // Upload State
     const [videoPath, setVideoPath] = useState<string>("");
     const [isUploading, setIsUploading] = useState(false);
+
+    // 🧠 Smart Logic Validation State
+    const [validation, setValidation] = useState<{
+        isValid: boolean;
+        canProceed: boolean;
+        issues: Array<{ severity: string; code: string; message: string; suggested_fix?: string }>;
+        suggestedTime?: string;
+    } | null>(null);
+    const [isValidating, setIsValidating] = useState(false);
 
     const handleFileUpload = async (file: File) => {
         if (!selectedProfiles[0]) return;
@@ -188,6 +197,53 @@ export default function SchedulingModal({
             // Reset profiles if needed, or keep selected if implementing sticky selection
         }
     }, [isOpen, initialDate, initialViralBoost]);
+
+    // 🧠 Smart Logic: Validar horário em tempo real
+    const validateScheduleTime = useCallback(async (date: string, time: string, profileId: string) => {
+        if (!date || !time || !profileId) {
+            setValidation(null);
+            return;
+        }
+
+        setIsValidating(true);
+        try {
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const proposedTime = new Date(`${date}T${time}`).toISOString();
+
+            const res = await fetch(`${API_URL}/api/v1/logic/check-conflict`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    profile_id: profileId,
+                    proposed_time: proposedTime
+                })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setValidation({
+                    isValid: data.is_valid,
+                    canProceed: data.can_proceed,
+                    issues: data.issues || [],
+                    suggestedTime: data.suggested_time
+                });
+            }
+        } catch (e) {
+            console.error('Validation error:', e);
+        } finally {
+            setIsValidating(false);
+        }
+    }, []);
+
+    // Debounce validation on date/time/profile change
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (selectedDate && selectedTime && selectedProfiles[0]) {
+                validateScheduleTime(selectedDate, selectedTime, selectedProfiles[0]);
+            }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [selectedDate, selectedTime, selectedProfiles, validateScheduleTime]);
 
     const toggleProfile = (id: string) => {
         setSelectedProfiles(prev =>
@@ -388,11 +444,75 @@ export default function SchedulingModal({
                                                         required
                                                         value={selectedTime}
                                                         onChange={(e) => setSelectedTime(e.target.value)}
-                                                        className="w-full bg-black/30 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-sm text-white focus:border-synapse-purple focus:ring-1 focus:ring-synapse-purple outline-none"
+                                                        className={clsx(
+                                                            "w-full bg-black/30 rounded-lg py-2 pl-9 pr-3 text-sm text-white focus:ring-1 outline-none transition-all",
+                                                            validation && !validation.canProceed
+                                                                ? "border-2 border-red-500 focus:border-red-500 focus:ring-red-500"
+                                                                : validation && validation.issues?.some(i => i.severity === 'warning')
+                                                                    ? "border-2 border-yellow-500 focus:border-yellow-500 focus:ring-yellow-500"
+                                                                    : validation && validation.issues?.some(i => i.code === 'PRIME_TIME')
+                                                                        ? "border-2 border-green-500 focus:border-green-500 focus:ring-green-500"
+                                                                        : "border border-white/10 focus:border-synapse-purple focus:ring-synapse-purple"
+                                                        )}
                                                     />
+                                                    {isValidating && (
+                                                        <div className="absolute right-3 top-2.5">
+                                                            <div className="w-4 h-4 border-2 border-synapse-purple border-t-transparent rounded-full animate-spin" />
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
+
+                                        {/* 🧠 Smart Logic Validation Feedback */}
+                                        {validation && validation.issues && validation.issues.length > 0 && (
+                                            <div className={clsx(
+                                                "p-3 rounded-lg border transition-all animate-in fade-in slide-in-from-top-2",
+                                                !validation.canProceed
+                                                    ? "bg-red-500/10 border-red-500/30"
+                                                    : validation.issues.some(i => i.severity === 'warning')
+                                                        ? "bg-yellow-500/10 border-yellow-500/30"
+                                                        : "bg-green-500/10 border-green-500/30"
+                                            )}>
+                                                <div className="flex items-start gap-2">
+                                                    {!validation.canProceed ? (
+                                                        <ExclamationTriangleIcon className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                                                    ) : validation.issues.some(i => i.severity === 'warning') ? (
+                                                        <ExclamationTriangleIcon className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
+                                                    ) : (
+                                                        <CheckCircleIcon className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                                                    )}
+                                                    <div className="flex-1 space-y-1">
+                                                        {validation.issues.map((issue, idx) => (
+                                                            <p key={idx} className={clsx(
+                                                                "text-xs",
+                                                                issue.severity === 'error' ? "text-red-300" :
+                                                                    issue.severity === 'warning' ? "text-yellow-300" :
+                                                                        "text-green-300"
+                                                            )}>
+                                                                {issue.message}
+                                                                {issue.suggested_fix && (
+                                                                    <span className="block text-gray-400 mt-0.5">{issue.suggested_fix}</span>
+                                                                )}
+                                                            </p>
+                                                        ))}
+                                                        {validation.suggestedTime && !validation.canProceed && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const dt = new Date(validation.suggestedTime!);
+                                                                    setSelectedDate(format(dt, 'yyyy-MM-dd'));
+                                                                    setSelectedTime(format(dt, 'HH:mm'));
+                                                                }}
+                                                                className="mt-2 text-xs bg-white/10 hover:bg-white/20 text-white px-2 py-1 rounded transition-colors"
+                                                            >
+                                                                Usar horário sugerido: {format(new Date(validation.suggestedTime), 'HH:mm')}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* Video Upload Section */}
                                         <div className="space-y-2">

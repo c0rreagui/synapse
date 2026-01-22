@@ -11,7 +11,7 @@ import axios from 'axios';
 import {
   PlayCircleIcon, CpuChipIcon, CheckCircleIcon,
   ClockIcon, XCircleIcon, XMarkIcon,
-  MagnifyingGlassIcon, ArrowPathIcon, CloudArrowUpIcon
+  MagnifyingGlassIcon, ArrowPathIcon, CloudArrowUpIcon, CalendarIcon
 } from '@heroicons/react/24/outline';
 import useWebSocket from './hooks/useWebSocket';
 import MetricsModal from './components/MetricsModal';
@@ -19,6 +19,7 @@ import { StitchCard } from './components/StitchCard';
 import { NeonButton } from './components/NeonButton';
 import clsx from 'clsx';
 import BatchUploadModal from './components/BatchUploadModal';
+import AudioSuggestionCard, { AudioSuggestion } from './components/AudioSuggestionCard';
 
 const API_BASE = 'http://localhost:8000/api/v1';
 
@@ -60,6 +61,11 @@ export default function Home() {
 
   // Selection State
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+
+  // Audio Suggestion State
+  const [audioSuggestions, setAudioSuggestions] = useState<AudioSuggestion[]>([]);
+  const [showAudioSuggestion, setShowAudioSuggestion] = useState(false);
+  const [lastUploadedFile, setLastUploadedFile] = useState<string>('');
 
   // Validation & Confirmation State
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; title: string; onConfirm: () => void; type: 'delete' | 'success' }>({ isOpen: false, title: '', onConfirm: () => { }, type: 'delete' });
@@ -152,7 +158,31 @@ export default function Home() {
 
       setUploadStatus('success');
       toast.success(`✓ ${file.name} enviado com sucesso!`);
+      setLastUploadedFile(file.name);
       fetchAllData();
+
+      // 🎵 Buscar sugestões de áudio após upload
+      try {
+        // Usar 'general' como nicho padrão
+        const niche = 'general';
+
+        const suggestRes = await fetch(`${API_BASE}/audio/suggest`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ niche, limit: 3 })
+        });
+
+        if (suggestRes.ok) {
+          const data = await suggestRes.json();
+          if (data.suggestions && data.suggestions.length > 0) {
+            setAudioSuggestions(data.suggestions);
+            setShowAudioSuggestion(true);
+          }
+        }
+      } catch (audioError) {
+        console.log('Audio suggestions not available:', audioError);
+      }
+
     } catch (error) {
       setUploadStatus('error');
       toast.error(`✕ Erro ao enviar ${file.name}`);
@@ -330,9 +360,10 @@ export default function Home() {
             <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest pl-1">Metrics & Telemetry</h3>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {[
-              { key: 'queued', icon: ClockIcon, label: 'Fila / Sched', value: ingestionStatus.queued + scheduledEvents.length, color: 'text-synapse-amber', bg: 'bg-synapse-amber/10', border: 'border-synapse-amber/30' },
+              { key: 'queued', icon: ClockIcon, label: 'Fila', value: ingestionStatus.queued, color: 'text-synapse-amber', bg: 'bg-synapse-amber/10', border: 'border-synapse-amber/30' },
+              { key: 'scheduled', icon: CalendarIcon, label: 'Agendados', value: scheduledEvents.length, color: 'text-synapse-purple', bg: 'bg-synapse-purple/10', border: 'border-synapse-purple/30' },
               { key: 'processing', icon: CpuChipIcon, label: 'Processando', value: ingestionStatus.processing, color: 'text-synapse-cyan', bg: 'bg-synapse-cyan/10', border: 'border-synapse-cyan/30' },
               { key: 'completed', icon: CheckCircleIcon, label: 'Concluídos', value: ingestionStatus.completed, color: 'text-synapse-emerald', bg: 'bg-synapse-emerald/10', border: 'border-synapse-emerald/30' },
               { key: 'failed', icon: XCircleIcon, label: 'Falhas', value: ingestionStatus.failed, color: 'text-red-500', bg: 'bg-red-500/10', border: 'border-red-500/30' },
@@ -402,7 +433,27 @@ export default function Home() {
                 }}
                 onClick={() => fileInputRef.current?.click()}
               >
-                <input ref={fileInputRef} id="file-input" type="file" className="hidden" onChange={e => e.target.files?.[0] && handleUpload(e.target.files[0])} accept=".mp4,.mov,.avi" />
+                <input
+                  ref={fileInputRef}
+                  id="file-input"
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={e => {
+                    const files = e.target.files;
+                    if (files && files.length > 1) {
+                      // Múltiplos arquivos -> abre BatchUploadModal
+                      setBatchFiles(Array.from(files));
+                      setShowBatchModal(true);
+                    } else if (files && files[0]) {
+                      // Um arquivo -> upload direto
+                      handleUpload(files[0]);
+                    }
+                    // Reset input para permitir selecionar o mesmo arquivo novamente
+                    e.target.value = '';
+                  }}
+                  accept=".mp4,.mov,.avi"
+                />
 
                 <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 transition-all duration-500 shadow-xl z-10 ${isDragging ? 'bg-synapse-emerald/20 text-synapse-emerald scale-110' : 'bg-[#1c2128] text-gray-500 group-hover:text-white'}`}>
                   {uploadStatus === 'uploading' ? (
@@ -429,6 +480,38 @@ export default function Home() {
                 </div>
               </div>
             </StitchCard>
+
+            {/* 🎵 AUDIO SUGGESTION - Mostra após upload */}
+            {showAudioSuggestion && audioSuggestions.length > 0 && (
+              <StitchCard className="p-4 relative backdrop-blur-sm border-purple-500/30">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🎵</span>
+                    <h4 className="text-sm font-bold text-white">Sugestão de Música IA</h4>
+                    <span className="text-[10px] px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded-full font-mono">
+                      para {lastUploadedFile}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setShowAudioSuggestion(false)}
+                    className="text-gray-500 hover:text-white transition-colors"
+                  >
+                    <XMarkIcon className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <AudioSuggestionCard
+                  suggestion={audioSuggestions[0]}
+                  onSelect={(selected) => {
+                    toast.success(`🎵 Música "${selected.title}" selecionada!`);
+                    setShowAudioSuggestion(false);
+                    // TODO: Associar música ao vídeo recém-uploadado
+                  }}
+                  onDismiss={() => setShowAudioSuggestion(false)}
+                  compact={false}
+                />
+              </StitchCard>
+            )}
 
             {/* PENDING LIST */}
             <StitchCard className="p-6 relative backdrop-blur-sm">
@@ -498,6 +581,108 @@ export default function Home() {
                   <NeonButton variant="danger" className="text-xs h-8" onClick={handleBulkReject}>Excluir</NeonButton>
                 </div>
               )}
+            </StitchCard>
+          </div>
+
+          {/* RIGHT COLUMN: PROFILES */}
+          <div className="xl:col-span-1 flex flex-col gap-4">
+            <StitchCard className="p-5">
+              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <span className="w-1.5 h-4 bg-gradient-to-b from-synapse-cyan to-synapse-emerald rounded-full"></span>
+                Perfis TikTok
+              </h3>
+              <div className="space-y-3">
+                {profiles.length === 0 ? (
+                  <div className="text-center py-8 text-gray-600 text-sm">
+                    Nenhum perfil cadastrado
+                  </div>
+                ) : (
+                  profiles.map(p => (
+                    <div
+                      key={p.id}
+                      onClick={() => setSelectedProfile(p.id)}
+                      className={clsx(
+                        "p-3 rounded-xl border cursor-pointer transition-all group",
+                        selectedProfile === p.id
+                          ? "bg-synapse-primary/10 border-synapse-primary/50 shadow-[0_0_15px_rgba(139,92,246,0.15)]"
+                          : "bg-black/30 border-white/5 hover:border-white/20 hover:bg-white/5"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={clsx(
+                          "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all",
+                          selectedProfile === p.id
+                            ? "bg-synapse-primary/20 border-synapse-primary text-synapse-primary"
+                            : "bg-gray-800 border-gray-700 text-gray-400 group-hover:border-synapse-primary/50"
+                        )}>
+                          {p.avatar_url ? (
+                            <img src={p.avatar_url} alt={p.label} className="w-full h-full rounded-full object-cover" />
+                          ) : (
+                            p.label.charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={clsx(
+                            "text-sm font-medium truncate transition-colors",
+                            selectedProfile === p.id ? "text-white" : "text-gray-300 group-hover:text-white"
+                          )}>
+                            {p.label}
+                          </p>
+                          <p className="text-[10px] text-gray-500 font-mono">@{p.username || p.id}</p>
+                        </div>
+                        {selectedProfile === p.id && (
+                          <div className="w-2 h-2 rounded-full bg-synapse-primary animate-pulse shadow-[0_0_8px_rgba(139,92,246,0.8)]"></div>
+                        )}
+                      </div>
+
+                      {/* Quick Stats */}
+                      <div className="mt-2 pt-2 border-t border-white/5 grid grid-cols-2 gap-2">
+                        <div className="text-center">
+                          <p className="text-[10px] text-gray-500 uppercase">Agendados</p>
+                          <p className="text-sm font-bold text-synapse-cyan">
+                            {scheduledEvents.filter(e => e.profile_id === p.id).length}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[10px] text-gray-500 uppercase">Status</p>
+                          <p className="text-[10px] px-2 py-0.5 rounded-full bg-synapse-emerald/20 text-synapse-emerald inline-block font-bold">
+                            ATIVO
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </StitchCard>
+
+            {/* Próximas Transmissões */}
+            <StitchCard className="p-5">
+              <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <ClockIcon className="w-4 h-4 text-synapse-amber" />
+                Próximos Posts
+              </h3>
+              <div className="space-y-2">
+                {scheduledEvents.slice(0, 3).map((event, i) => (
+                  <div key={event.id || i} className="flex items-center gap-3 p-2 rounded-lg bg-black/30 border border-white/5">
+                    <div className="w-8 h-8 rounded bg-synapse-amber/10 flex items-center justify-center text-synapse-amber text-xs font-mono">
+                      {new Date(event.scheduled_time).getHours().toString().padStart(2, '0')}:{new Date(event.scheduled_time).getMinutes().toString().padStart(2, '0')}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-white truncate">{event.video_path?.split(/[/\\]/).pop() || 'Vídeo'}</p>
+                      <p className="text-[10px] text-gray-500">{event.profile_id}</p>
+                    </div>
+                  </div>
+                ))}
+                {scheduledEvents.length === 0 && (
+                  <p className="text-center text-gray-600 text-sm py-4">Nenhum agendamento</p>
+                )}
+                {scheduledEvents.length > 3 && (
+                  <p className="text-center text-synapse-primary text-xs cursor-pointer hover:underline">
+                    +{scheduledEvents.length - 3} mais
+                  </p>
+                )}
+              </div>
             </StitchCard>
           </div>
         </div>

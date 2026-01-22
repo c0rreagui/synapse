@@ -168,12 +168,76 @@ export default function BatchUploadModal({
         });
     }, [files, startDate, startTime, intervalMinutes]);
 
+    // 🧠 State para validação Smart Logic
+    const [isValidating, setIsValidating] = useState(false);
+    const [validationResult, setValidationResult] = useState<{
+        canProceed: boolean;
+        errors: number;
+        warnings: number;
+        issues: { code: string; message: string; severity: string }[];
+    } | null>(null);
+
+    // 🧠 Validar batch com dry_run antes de submeter
+    const validateBatch = async () => {
+        const filePaths = files.map(f => `C:\\Videos\\${f.name}`);
+        const startDateTime = new Date(`${startDate}T${startTime}`);
+
+        const payload = {
+            files: filePaths,
+            profile_ids: selectedProfiles,
+            strategy: strategy,
+            start_time: startDateTime.toISOString(),
+            interval_minutes: intervalMinutes,
+            dry_run: true
+        };
+
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const res = await fetch(`${API_URL}/api/v1/scheduler/batch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        return res.json();
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const filePaths = files.map(f => `C:\\Videos\\${f.name}`); // Mock path
 
+        // 🧠 Step 1: Validar com dry_run
+        setIsValidating(true);
         try {
+            const validation = await validateBatch();
+
+            const issues: { code: string; message: string; severity: string }[] = [];
+            const validationData = validation.validation || {};
+            Object.values(validationData).forEach((v: any) => {
+                if (v.issues) {
+                    v.issues.forEach((issue: any) => {
+                        if (issue.severity === 'error' || issue.severity === 'warning') {
+                            issues.push(issue);
+                        }
+                    });
+                }
+            });
+
+            setValidationResult({
+                canProceed: validation.can_proceed,
+                errors: validation.summary?.errors || 0,
+                warnings: validation.summary?.warnings || 0,
+                issues
+            });
+
+            if (!validation.can_proceed) {
+                toast.error(`❌ ${validation.summary?.errors || 0} conflitos detectados`);
+                setIsValidating(false);
+                return;
+            }
+
+            // 🧠 Step 2: Se passou, agendar de verdade
+            const filePaths = files.map(f => `C:\\Videos\\${f.name}`);
             const startDateTime = new Date(`${startDate}T${startTime}`);
+
             const payload = {
                 files: filePaths,
                 profile_ids: selectedProfiles,
@@ -194,13 +258,17 @@ export default function BatchUploadModal({
 
             if (!res.ok) throw new Error("Batch scheduling failed");
 
+            toast.success(`🚀 ${files.length} vídeos agendados!`);
             onSuccess();
             onClose();
             setFiles([]);
             setSelectedProfiles([]);
+            setValidationResult(null);
         } catch (error) {
             console.error("Batch error", error);
-            alert("Failed to schedule batch.");
+            toast.error("Falha ao agendar batch");
+        } finally {
+            setIsValidating(false);
         }
     };
 
@@ -271,15 +339,15 @@ export default function BatchUploadModal({
                                         {/* Video Grid */}
                                         <div className="space-y-2">
                                             <div className="flex justify-between items-center px-1">
-                                                <label className="text-xs font-mono text-gray-500 uppercase tracking-wider">Queue ({files.length})</label>
+                                                <label className="text-xs font-mono text-gray-500 uppercase tracking-wider">Fila ({files.length})</label>
                                                 {files.length > 0 && (
-                                                    <button type="button" onClick={() => setFiles([])} className="text-[10px] text-red-500 hover:text-red-400">Clear All</button>
+                                                    <button type="button" onClick={() => setFiles([])} className="text-[10px] text-red-500 hover:text-red-400">Limpar Tudo</button>
                                                 )}
                                             </div>
 
                                             {files.length === 0 ? (
                                                 <div className="h-40 flex items-center justify-center text-gray-700 text-sm border border-white/5 rounded-xl bg-black/20">
-                                                    Queue is empty
+                                                    Fila vazia - arraste vídeos ou clique acima
                                                 </div>
                                             ) : (
                                                 <div className="grid grid-cols-3 gap-3 max-h-[300px] overflow-y-auto custom-scrollbar p-1">
@@ -341,10 +409,10 @@ export default function BatchUploadModal({
                                                 >
                                                     <div className="relative z-10">
                                                         <div className="text-sm font-bold text-white mb-1">
-                                                            {opt === 'INTERVAL' ? '💧 Drip Feed' : '🧠 Oracle AI'}
+                                                            {opt === 'INTERVAL' ? '💧 Gotejamento' : '🧠 Oracle IA'}
                                                         </div>
                                                         <div className="text-[10px] text-gray-400 leading-tight">
-                                                            {opt === 'INTERVAL' ? 'Regular intervals' : 'AI optimized times'}
+                                                            {opt === 'INTERVAL' ? 'Intervalos regulares' : 'Horários otimizados por IA'}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -355,7 +423,7 @@ export default function BatchUploadModal({
                                         <div className="p-5 rounded-2xl bg-white/5 border border-white/5 space-y-4">
                                             <div className="flex gap-3">
                                                 <div className="flex-1 space-y-1">
-                                                    <label className="text-[10px] uppercase text-gray-500 font-bold">Start Date</label>
+                                                    <label className="text-[10px] uppercase text-gray-500 font-bold">Data Início</label>
                                                     <input
                                                         type="date" value={startDate}
                                                         onChange={e => setStartDate(e.target.value)}
@@ -363,7 +431,7 @@ export default function BatchUploadModal({
                                                     />
                                                 </div>
                                                 <div className="flex-1 space-y-1">
-                                                    <label className="text-[10px] uppercase text-gray-500 font-bold">Start Time</label>
+                                                    <label className="text-[10px] uppercase text-gray-500 font-bold">Hora Início</label>
                                                     <input
                                                         type="time" value={startTime}
                                                         onChange={e => setStartTime(e.target.value)}
@@ -375,7 +443,7 @@ export default function BatchUploadModal({
                                             {strategy === 'INTERVAL' && (
                                                 <div className="space-y-3">
                                                     <div className="flex justify-between items-center">
-                                                        <label className="text-[10px] uppercase text-gray-500 font-bold">Frequency</label>
+                                                        <label className="text-[10px] uppercase text-gray-500 font-bold">Frequência</label>
                                                         <span className="text-xs text-synapse-purple font-mono">
                                                             {intervalMinutes < 60 ? `${intervalMinutes}m` : `${(intervalMinutes / 60).toFixed(1)}h`}
                                                         </span>
@@ -384,12 +452,12 @@ export default function BatchUploadModal({
                                                     {/* Presets */}
                                                     <div className="grid grid-cols-3 gap-2">
                                                         {[
-                                                            { label: '1x / Day', val: 1440 },
-                                                            { label: '2x / Day', val: 720 },
-                                                            { label: '3x / Day', val: 480 },
-                                                            { label: '1x / Week', val: 10080 },
-                                                            { label: 'Every 4h', val: 240 },
-                                                            { label: 'Custom', val: -1 }
+                                                            { label: '1x / Dia', val: 1440 },
+                                                            { label: '2x / Dia', val: 720 },
+                                                            { label: '3x / Dia', val: 480 },
+                                                            { label: '1x / Semana', val: 10080 },
+                                                            { label: 'A cada 4h', val: 240 },
+                                                            { label: 'Personalizado', val: -1 }
                                                         ].map((opt) => (
                                                             <button
                                                                 key={opt.label}
@@ -423,7 +491,7 @@ export default function BatchUploadModal({
                                             {/* Visual Timeline Bar */}
                                             {files.length > 0 && (
                                                 <div className="pt-2 border-t border-white/5 mt-4">
-                                                    <label className="text-[10px] uppercase text-gray-500 font-bold mb-2 block">Timeline Preview</label>
+                                                    <label className="text-[10px] uppercase text-gray-500 font-bold mb-2 block">Prévia da Timeline</label>
                                                     <div className="flex items-center gap-1 overflow-x-auto pb-2 custom-scrollbar">
                                                         {timelinePreview.map((time, i) => (
                                                             <div key={i} className="flex-shrink-0 flex flex-col items-center gap-1 group">
@@ -444,10 +512,10 @@ export default function BatchUploadModal({
                                         {/* Profiles Selection */}
                                         <div className="flex-1 flex flex-col min-h-0">
                                             <div className="flex justify-between items-center mb-2">
-                                                <label className="text-xs font-mono text-gray-500 uppercase tracking-wider">Targets ({selectedProfiles.length})</label>
+                                                <label className="text-xs font-mono text-gray-500 uppercase tracking-wider">Perfis ({selectedProfiles.length})</label>
                                                 <div className="flex gap-2">
-                                                    <button type="button" onClick={() => setSelectedProfiles(profiles.map(p => p.id))} className="text-[10px] text-synapse-purple hover:underline">All</button>
-                                                    <button type="button" onClick={() => setSelectedProfiles([])} className="text-[10px] text-gray-500 hover:text-white hover:underline">None</button>
+                                                    <button type="button" onClick={() => setSelectedProfiles(profiles.map(p => p.id))} className="text-[10px] text-synapse-purple hover:underline">Todos</button>
+                                                    <button type="button" onClick={() => setSelectedProfiles([])} className="text-[10px] text-gray-500 hover:text-white hover:underline">Nenhum</button>
                                                 </div>
                                             </div>
 
@@ -560,7 +628,7 @@ export default function BatchUploadModal({
                                                 className="w-full py-3 text-sm"
                                                 disabled={files.length === 0 || selectedProfiles.length === 0}
                                             >
-                                                Launch Campaign
+                                                🚀 Lançar Campanha
                                             </NeonButton>
                                         </div>
 

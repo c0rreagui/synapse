@@ -4,7 +4,7 @@ Saves files to inputs/ folder with profile tags for factory_watcher processing
 """
 import os
 import uuid
-from typing import Optional
+from typing import Optional, List, Any
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 
@@ -17,12 +17,18 @@ PENDING_DIR = os.path.join(BASE_DIR, "data", "pending")
 # Ensure pending directory exists
 os.makedirs(PENDING_DIR, exist_ok=True)
 
+class SchedulingSuggestion(BaseModel):
+    recommended_time: Optional[str] = None
+    score: float = 0
+    reasons: List[str] = []
+
 class IngestResponse(BaseModel):
     success: bool
     message: str
     file_id: str
     filename: str
     profile: str
+    scheduling_suggestion: Optional[SchedulingSuggestion] = None
 
 
 @router.post("/upload", response_model=IngestResponse)
@@ -88,12 +94,30 @@ async def upload_video(
         # 🟢 TRIGGER ORACLE IN BACKGROUND
         background_tasks.add_task(process_oracle_enrichment, metadata_path, file.filename, profile_id)
         
+        # 🧠 Smart Logic: Sugerir melhor horário para agendamento
+        scheduling_suggestion = None
+        try:
+            from core.smart_logic import smart_logic
+            suggested_slot = smart_logic.suggest_slot(
+                profile_id=profile_id,
+                prefer_prime_time=True
+            )
+            if suggested_slot:
+                scheduling_suggestion = SchedulingSuggestion(
+                    recommended_time=suggested_slot.time.isoformat(),
+                    score=suggested_slot.score,
+                    reasons=suggested_slot.reasons
+                )
+        except Exception as e:
+            print(f"Smart Logic suggestion error: {e}")
+        
         return IngestResponse(
             success=True,
             message=f"Video queued. Oracle Analysis started in background.",
             file_id=file_id,
             filename=tagged_filename,
-            profile=profile_id
+            profile=profile_id,
+            scheduling_suggestion=scheduling_suggestion
         )
         
     except Exception as e:
@@ -203,3 +227,71 @@ async def list_files(status: Optional[str] = None):
         results[key] = files
         
     return results
+
+
+@router.delete("/files/{filename}")
+async def delete_file(filename: str, status: str = "queued"):
+    """
+    Delete a file from the pipeline.
+    Status can be: queued, processing, completed, failed
+    """
+    processing_dir = os.path.join(BASE_DIR, "processing")
+    done_dir = os.path.join(BASE_DIR, "done")
+    errors_dir = os.path.join(BASE_DIR, "errors")
+    
+    paths = {
+        "queued": PENDING_DIR,
+        "processing": processing_dir,
+        "completed": done_dir,
+        "failed": errors_dir
+    }
+    
+    if status not in paths:
+        raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+    
+    directory = paths[status]
+    file_path = os.path.join(directory, filename)
+    
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail=f"File not found: {filename}")
+    
+    try:
+        os.remove(file_path)
+        
+        # Also remove metadata JSON if exists
+        json_path = file_path + ".json"
+        if os.path.exists(json_path):
+            os.remove(json_path)
+        
+        return {"success": True, "message": f"Deleted {filename}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete: {str(e)}")
+
+
+@router.post("/files/{filename}/reprocess")
+async def reprocess_file(filename: str):
+    """
+    Move a failed file back to queued for reprocessing.
+    """
+    import shutil
+    
+    errors_dir = os.path.join(BASE_DIR, "errors")
+    source = os.path.join(errors_dir, filename)
+    dest = os.path.join(PENDING_DIR, filename)
+    
+    if not os.path.exists(source):
+        raise HTTPException(status_code=404, detail=f"File not found in errors: {filename}")
+    
+    try:
+        shutil.move(source, dest)
+        
+        # Also move metadata JSON if exists
+        json_source = source + ".json"
+        json_dest = dest + ".json"
+        if os.path.exists(json_source):
+            shutil.move(json_source, json_dest)
+        
+        return {"success": True, "message": f"Moved {filename} back to queue"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to reprocess: {str(e)}")
+

@@ -18,6 +18,8 @@ const ROUTES_TO_PREFETCH = [
 interface InitStep {
     id: string;
     label: string;
+    description: string;
+    icon: string;
     status: 'pending' | 'loading' | 'done' | 'error';
 }
 
@@ -25,11 +27,12 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
     const router = useRouter();
     const [isReady, setIsReady] = useState(false);
     const [progress, setProgress] = useState(0);
+    const [elapsedTime, setElapsedTime] = useState(0);
     const [steps, setSteps] = useState<InitStep[]>([
-        { id: 'api', label: 'Conectando ao Backend', status: 'pending' },
-        { id: 'routes', label: 'Pré-carregando Módulos', status: 'pending' },
-        { id: 'profiles', label: 'Carregando Perfis', status: 'pending' },
-        { id: 'final', label: 'Inicializando Oracle', status: 'pending' },
+        { id: 'api', label: 'Conectando ao Backend', description: 'Estabelecendo conexão neural', icon: '🔌', status: 'pending' },
+        { id: 'routes', label: 'Pré-carregando Módulos', description: 'Preparando interfaces', icon: '📦', status: 'pending' },
+        { id: 'profiles', label: 'Carregando Perfis', description: 'Sincronizando identidades', icon: '👤', status: 'pending' },
+        { id: 'final', label: 'Inicializando Oracle', description: 'Ativando inteligência', icon: '🔮', status: 'pending' },
     ]);
 
     const updateStep = (id: string, status: 'loading' | 'done' | 'error') => {
@@ -42,6 +45,11 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
             setIsReady(true);
             return;
         }
+
+        // Timer para mostrar tempo decorrido
+        const timer = setInterval(() => {
+            setElapsedTime(prev => prev + 100);
+        }, 100);
 
         const initialize = async () => {
             try {
@@ -99,16 +107,20 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
 
                 // Small delay before showing app
                 await new Promise(r => setTimeout(r, 500));
+                clearInterval(timer);
                 setIsReady(true);
 
             } catch (error) {
                 console.error('Splash init error:', error);
                 // Still show app even if initialization fails
+                clearInterval(timer);
                 setIsReady(true);
             }
         };
 
         initialize();
+
+        return () => clearInterval(timer);
     }, [router]);
 
     // Show children when ready
@@ -142,54 +154,107 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
 
             {/* Logo & Title */}
             <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="relative z-10 text-center mb-12"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                className="relative z-10 text-center mb-16"
             >
-                {/* Spinning Ring */}
-                <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-                    className="absolute inset-0 w-32 h-32 mx-auto -top-4 border-2 border-purple-500/30 rounded-full border-t-purple-500"
-                />
+                {/* Premium Logo Container */}
+                <div className="relative w-40 h-40 mx-auto mb-8">
+                    {/* Outer Glow */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-600/30 via-cyan-500/30 to-emerald-500/30 rounded-full blur-2xl animate-pulse" />
 
-                {/* Logo Icon */}
-                <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-purple-600 to-cyan-500 flex items-center justify-center shadow-2xl shadow-purple-500/30">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-white">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
-                    </svg>
+                    {/* Orbital Ring 1 - Slow */}
+                    <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                        className="absolute inset-2 border border-purple-500/20 rounded-full"
+                    >
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-purple-500 rounded-full shadow-[0_0_10px_rgba(139,92,246,0.8)]" />
+                    </motion.div>
+
+                    {/* Orbital Ring 2 - Medium */}
+                    <motion.div
+                        animate={{ rotate: -360 }}
+                        transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+                        className="absolute inset-6 border border-cyan-500/30 rounded-full"
+                    >
+                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-1.5 h-1.5 bg-cyan-400 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+                    </motion.div>
+
+                    {/* Orbital Ring 3 - Fast */}
+                    <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                        className="absolute inset-10 border border-emerald-500/40 rounded-full"
+                    >
+                        <div className="absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                    </motion.div>
+
+                    {/* Core - Glowing Center */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <motion.div
+                            animate={{
+                                boxShadow: [
+                                    "0 0 30px rgba(139,92,246,0.4), 0 0 60px rgba(139,92,246,0.2)",
+                                    "0 0 50px rgba(139,92,246,0.6), 0 0 100px rgba(139,92,246,0.3)",
+                                    "0 0 30px rgba(139,92,246,0.4), 0 0 60px rgba(139,92,246,0.2)"
+                                ]
+                            }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                            className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 via-violet-600 to-indigo-700 flex items-center justify-center"
+                        >
+                            {/* Neural Icon - Stylized S */}
+                            <span className="text-3xl font-black text-white tracking-tighter" style={{ fontFamily: 'system-ui' }}>S</span>
+                        </motion.div>
+                    </div>
+
+                    {/* Pulse Effect */}
+                    <motion.div
+                        animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                        className="absolute inset-0 border-2 border-purple-500/50 rounded-full"
+                    />
                 </div>
 
-                <h1 className="text-4xl font-bold text-white tracking-wider font-mono">
+                <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-purple-200 to-white tracking-[0.2em] uppercase">
                     SYNAPSE
                 </h1>
-                <p className="text-purple-400 font-mono text-sm mt-2 tracking-widest">
-                    // CONTENT_AUTO_v1.2.0
-                </p>
+                <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5 }}
+                    className="text-gray-500 font-mono text-xs mt-3 tracking-[0.3em] uppercase"
+                >
+                    Content Automation System
+                </motion.p>
             </motion.div>
 
             {/* Progress Bar */}
             <motion.div
                 initial={{ opacity: 0, width: 0 }}
                 animate={{ opacity: 1, width: '100%' }}
-                className="relative z-10 w-80 mb-8"
+                className="relative z-10 w-96 mb-8"
             >
-                <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden shadow-inner">
                     <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${progress}%` }}
                         transition={{ duration: 0.3 }}
-                        className="h-full bg-gradient-to-r from-purple-500 to-cyan-500 rounded-full"
+                        className="h-full bg-gradient-to-r from-purple-500 via-cyan-400 to-emerald-500 rounded-full shadow-[0_0_10px_rgba(139,92,246,0.5)]"
                     />
                 </div>
                 <div className="flex justify-between mt-2">
                     <span className="text-xs text-gray-500 font-mono">INICIALIZANDO</span>
-                    <span className="text-xs text-purple-400 font-mono">{progress}%</span>
+                    <div className="flex items-center gap-3">
+                        <span className="text-[10px] text-gray-600 font-mono">{(elapsedTime / 1000).toFixed(1)}s</span>
+                        <span className="text-xs text-purple-400 font-mono font-bold">{progress}%</span>
+                    </div>
                 </div>
             </motion.div>
 
             {/* Steps */}
-            <div className="relative z-10 space-y-3 w-80">
+            <div className="relative z-10 space-y-2 w-96">
                 <AnimatePresence>
                     {steps.map((step, index) => (
                         <motion.div
@@ -197,22 +262,33 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: index * 0.1 }}
-                            className={`flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-mono transition-all ${step.status === 'done'
-                                    ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                                    : step.status === 'loading'
-                                        ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                                        : step.status === 'error'
-                                            ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                                            : 'bg-white/5 text-gray-500 border border-white/5'
+                            className={`flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-mono transition-all ${step.status === 'done'
+                                ? 'bg-gradient-to-r from-emerald-500/10 to-transparent text-emerald-400 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.1)]'
+                                : step.status === 'loading'
+                                    ? 'bg-gradient-to-r from-purple-500/10 to-transparent text-purple-400 border border-purple-500/30 shadow-[0_0_15px_rgba(139,92,246,0.15)]'
+                                    : step.status === 'error'
+                                        ? 'bg-gradient-to-r from-red-500/10 to-transparent text-red-400 border border-red-500/30'
+                                        : 'bg-white/5 text-gray-500 border border-white/5'
                                 }`}
                         >
-                            {/* Status Icon */}
+                            {/* Step Icon */}
+                            <span className="text-lg">{step.icon}</span>
+
+                            {/* Content */}
+                            <div className="flex-1">
+                                <span className="font-medium">{step.label}</span>
+                                <p className={`text-[10px] mt-0.5 ${step.status === 'done' ? 'text-emerald-500/50' : step.status === 'loading' ? 'text-purple-400/50' : 'text-gray-600'}`}>
+                                    {step.description}
+                                </p>
+                            </div>
+
+                            {/* Status Indicator */}
                             <div className="w-5 h-5 flex items-center justify-center">
                                 {step.status === 'done' && (
                                     <motion.span
                                         initial={{ scale: 0 }}
                                         animate={{ scale: 1 }}
-                                        className="text-green-400"
+                                        className="text-emerald-400 text-lg"
                                     >
                                         ✓
                                     </motion.span>
@@ -225,13 +301,12 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
                                     />
                                 )}
                                 {step.status === 'pending' && (
-                                    <span className="text-gray-600">○</span>
+                                    <span className="text-gray-700">○</span>
                                 )}
                                 {step.status === 'error' && (
                                     <span className="text-red-400">✗</span>
                                 )}
                             </div>
-                            <span>{step.label}</span>
                         </motion.div>
                     ))}
                 </AnimatePresence>

@@ -10,18 +10,18 @@
         "oracle_best_times": [
             {
                 "day": "S\u00e1bado",
-                "hour": 20,
-                "reason": "Hor\u00e1rio de lazer, quando o p\u00fablico est\u00e1 mais propenso a consumir entretenimento"
+                "hour": 18,
+                "reason": "O p\u00fablico jovem tende a ter mais tempo livre e busca conte\u00fado de entretenimento e divers\u00e3o nos fins de semana"
             },
             {
                 "day": "Quarta",
-                "hour": 14,
-                "reason": "P\u00f3s-almo\u00e7o, quando as pessoas buscam um momento de descanso e entretenimento"
+                "hour": 20,
+                "reason": "O hor\u00e1rio de pico para conte\u00fado de inspira\u00e7\u00e3o e motiva\u00e7\u00e3o \u00e9 \u00e0 noite, quando as pessoas buscam relaxar e se preparar para o dia seguinte"
             },
             {
                 "day": "Domingo",
-                "hour": 18,
-                "reason": "Antes do in\u00edcio da semana, quando o p\u00fablico procura relaxar e se divertir"
+                "hour": 15,
+                "reason": "O domingo \u00e0 tarde \u00e9 um bom hor\u00e1rio para compartilhar conte\u00fado mais leve e divertido, quando as pessoas est\u00e3o mais relaxadas e dispostas a se divertir"
             }
         ],
         "oracle_last_run": "now",
