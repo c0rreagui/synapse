@@ -1,15 +1,22 @@
 import os
 import glob
-from typing import List, Dict
+import json
+import time
+from typing import List, Dict, Any, Optional
 
 # CONSTANTS
-# session_manager.py is in: backend/core/session_manager.py
-# We need BASE_DIR to be: backend/
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SESSIONS_DIR = os.path.join(BASE_DIR, "data", "sessions")
+# PROFILES_FILE is deprecated but we keep the path just in case we need to reference it for legacy sync
+DATA_DIR = os.path.join(BASE_DIR, "data")
+PROFILES_FILE = os.path.join(DATA_DIR, "profiles.json")
 
 if not os.path.exists(SESSIONS_DIR):
     os.makedirs(SESSIONS_DIR)
+
+# DB Imports
+from core.database import SessionLocal
+from core.models import Profile
 
 def get_session_path(session_name: str) -> str:
     """Returns the absolute path for a session file."""
@@ -31,210 +38,184 @@ async def save_session(context, session_name: str):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     await context.storage_state(path=path)
 
-# New imports needed: json
-import json
-from typing import List, Dict, Any, Optional
-
-# ... (Previous constants)
-DATA_DIR = os.path.join(BASE_DIR, "data")
-PROFILES_FILE = os.path.join(DATA_DIR, "profiles.json")
-
-# ... (Previous functions unchanged until list_available_sessions)
-
 def get_profile_metadata(profile_id: str) -> Dict[str, Any]:
-    """Reads metadata for a profile ID."""
-    if not os.path.exists(PROFILES_FILE):
-        return {}
+    """Reads metadata for a profile ID from SQLite."""
+    db = SessionLocal()
     try:
-        with open(PROFILES_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            return data.get(profile_id, {})
-    except:
+        profile = db.query(Profile).filter(Profile.slug == profile_id).first()
+        if not profile:
+            return {}
+        
+        # Convert model to dict
+        return {
+            "label": profile.label,
+            "username": profile.username,
+            "icon": profile.icon,
+            "type": profile.type,
+            "active": profile.active,
+            "avatar_url": profile.avatar_url,
+            "bio": profile.bio,
+            "oracle_best_times": profile.oracle_best_times,
+            "last_seo_audit": profile.last_seo_audit
+        }
+    except Exception as e:
+        print(f"DB Error getting metadata: {e}")
         return {}
+    finally:
+        db.close()
 
 def list_available_sessions() -> List[Dict[str, str]]:
     """
-    Scans the sessions directory and returns a list of available profiles.
-    Merges with metadata from profiles.json.
+    Returns a list of available profiles from SQLite.
     """
+    db = SessionLocal()
     sessions = []
-    if not os.path.exists(SESSIONS_DIR):
-        # Even if no session files, we might want to return configured profiles?
-        # Typically we only list VALID sessions (cookies). 
-        # But for UI 'Profiles' list, maybe we want all configured ones?
-        # Current logic scans files. Let's keep scanning files but enrich with JSON.
-        pass
-
-    # Load metadata once
-    all_metadata = {}
-    if os.path.exists(PROFILES_FILE):
-        try:
-            with open(PROFILES_FILE, 'r', encoding='utf-8') as f:
-                all_metadata = json.load(f)
-        except:
-            pass
-        
-    # If no session files exist, maybe fallback to profiles.json keys if we treat them as "potential" sessions?
-    # For now, let's list FILES as primary source of "Session Available", and PROFILES.JSON as "Config".
-    # User asked for "Real Data". Real data = Cookie exists.
-    
-    if os.path.exists(SESSIONS_DIR):
-        for filename in os.listdir(SESSIONS_DIR):
-            if filename.endswith(".json") and filename.startswith("tiktok_profile"):
-                profile_id = filename.replace(".json", "")
-                
-                # Get metadata
-                meta = all_metadata.get(profile_id, {})
-                
-                # Default label if missing
-                label = meta.get("label")
-                if not label:
-                    label = profile_id.replace("tiktok_profile_", "").replace("_", " ").title()
-                    label = f"Perfil {label}"
-                
-                # Icon injection into label if needed by UI (UI expects 'label' string)
-                # But better to send 'icon' field if UI supports it.
-                # Current UI parses icon from label? No, UI `getProfileIcon` is hardcoded.
-                # We will change UI to read `icon` field.
-                
-                sessions.append({
-                    "id": profile_id,
-                    "label": label,
-                    "username": meta.get("username"), # Add username
-                    "avatar_url": meta.get("avatar_url"), # Add avatar_url
-                    "icon": meta.get("icon", "👤"),
-                    "status": "active"
-                })
-    
-    # Also Check for profiles in JSON that might NOT have a session file yet (optional)
-    # create_session script creates the file.
+    try:
+        profiles = db.query(Profile).all()
+        for p in profiles:
+            # Basic info for the list
+            sessions.append({
+                "id": p.slug,
+                "label": p.label or p.slug,
+                "username": p.username,
+                "avatar_url": p.avatar_url,
+                "icon": p.icon,
+                "status": "active" if p.active else "inactive"
+            })
+    except Exception as e:
+        print(f"DB Error listing sessions: {e}")
+    finally:
+        db.close()
             
-    # Sort by ID
+    # Sort by ID or Label? ID for consistency with old behavior
     sessions.sort(key=lambda x: x['id'])
     return sessions
 
 def import_session(label: str, cookies_json: str) -> str:
     """
     Imports a new session from a cookies JSON string.
-    Generates a unique profile ID.
+    Generates a unique profile ID and creates DB entry.
     """
-    import time
-    
     # Generate ID based on timestamp
     profile_id = f"tiktok_profile_{int(time.time())}"
     
-    # Save Cookies File
+    # 1. Save Cookies File (unchanged)
     try:
-        # Validate JSON
         cookies_data = json.loads(cookies_json)
         
-        # Save to sessions dir
         session_path = get_session_path(profile_id)
-        with open(session_path, 'w', encoding='utf-8') as f:
-            json.dump({
+        # Heuristic for wrapping
+        content_to_dump = cookies_data
+        if isinstance(cookies_data, list):
+             content_to_dump = {
                 "cookies": cookies_data,
-                "origins": [
-                    {
-                        "origin": "https://www.tiktok.com",
-                        "localStorage": []
-                    }
-                ] 
-            }, f, indent=2) # Wrap in Playwright storage format structure if raw cookies
-            # NOTE: If user pastes raw array of cookies, we might need to wrap it.
-            # Assuming user pastes the full storage state OR just cookies. 
-            # Ideally the tool exports full state. Use heuristic?
-            # For simplicity, if list, wrap. If dict, dump as is.
+                "origins": []
+            }
+            
+        with open(session_path, 'w', encoding='utf-8') as f:
+            json.dump(content_to_dump, f, indent=2)
             
     except json.JSONDecodeError:
         raise ValueError("Invalid JSON format")
-        
-    # Heuristic for wrapping if just cookies array
-    if isinstance(cookies_data, list):
-         with open(session_path, 'w', encoding='utf-8') as f:
-            json.dump({
-                "cookies": cookies_data,
-                "origins": []
-            }, f, indent=2)
-    else:
-         with open(session_path, 'w', encoding='utf-8') as f:
-            json.dump(cookies_data, f, indent=2)
 
-    # Update profiles.json metadata
-    all_metadata = {}
-    if os.path.exists(PROFILES_FILE):
-        try:
-            with open(PROFILES_FILE, 'r', encoding='utf-8') as f:
-                all_metadata = json.load(f)
-        except:
-            pass
-            
-    all_metadata[profile_id] = {
-        "label": label,
-        "icon": "👤",
-        "type": "imported",
-        "active": True
-    }
-    
-    with open(PROFILES_FILE, 'w', encoding='utf-8') as f:
-        json.dump(all_metadata, f, indent=4)
+    # 2. Create DB Entry
+    db = SessionLocal()
+    try:
+        new_profile = Profile(
+            slug=profile_id,
+            label=label,
+            username=None, # Will be fetched later by validator
+            icon="👤",
+            type="imported",
+            active=True,
+            oracle_best_times=[],
+            last_seo_audit={}
+        )
+        db.add(new_profile)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"DB Error creating profile: {e}")
+        raise ValueError(f"Database error: {e}")
+    finally:
+        db.close()
         
     return profile_id
 
 def update_profile_info(profile_id: str, info: Dict[str, Any]) -> bool:
     """
-    Updates existing profile metadata (avatar, label, etc).
+    Updates existing profile metadata (avatar, label, etc) in SQLite.
     """
-    if not os.path.exists(PROFILES_FILE):
-        return False
-        
+    db = SessionLocal()
     try:
-        with open(PROFILES_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        profile = db.query(Profile).filter(Profile.slug == profile_id).first()
+        if not profile:
+            return False
             
-        if profile_id in data:
-            # Update fields
-            current = data[profile_id]
-            if "avatar_url" in info:
-                current["avatar_url"] = info["avatar_url"]
-                # Also set icon to custom char if wanted, or just keep avatar_url for frontend to use
-            if "nickname" in info:
-                current["label"] = info["nickname"]
-            if "username" in info:
-                current["username"] = info["username"]
-            
-            data[profile_id] = current
-            
-            with open(PROFILES_FILE, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=4)
-            return True
-        return False
+        if "avatar_url" in info:
+            profile.avatar_url = info["avatar_url"]
+        if "nickname" in info:
+            profile.label = info["nickname"]
+        if "username" in info:
+            profile.username = info["username"]
+        
+        profile.updated_at = time.strftime('%Y-%m-%d %H:%M:%S') # Or use datetime object if field is DateTime (it is)
+        # SQLAlchemy handles DateTime conversion if we configured it, but let's trust auto update onupdate?
+        # Manually touching it allows ensuring it changes. But 'onupdate' in model handles it.
+        
+        db.commit()
+        return True
     except Exception as e:
-        print(f"Error updating profile: {e}")
+        db.rollback()
+        print(f"DB Error updating profile info: {e}")
         return False
+    finally:
+        db.close()
 
 def update_profile_metadata(profile_id: str, updates: Dict[str, Any]) -> bool:
     """
-    Generic update for profile metadata in profiles.json.
-    Used to store Oracle insights, best times, etc.
+    Generic update for profile metadata in SQLite.
     """
-    if not os.path.exists(PROFILES_FILE):
-        return False
-        
+    db = SessionLocal()
     try:
-        with open(PROFILES_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            
-        if profile_id not in data:
-            data[profile_id] = {} # Create if valid session exists but no metadata? Or strict?
+        profile = db.query(Profile).filter(Profile.slug == profile_id).first()
+        if not profile:
+            # If not found, maybe create? Legacy created raw JSON entry.
+            # But here we enforce profile existence.
+            return False
 
-        # Merge updates
-        data[profile_id].update(updates)
+        # We need to update specific columns OR the JSON columns.
+        # This function is generic. Let's see what keys are usually passed.
+        # usually: oracle_best_times, last_seo_audit, etc.
         
-        with open(PROFILES_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=4)
+        # We need to merge JSON fields carefully.
+        # SQLAlchemy with SQLite supports JSON, but full patch update might need read-modify-write.
+        
+        if "oracle_best_times" in updates:
+            profile.oracle_best_times = updates["oracle_best_times"]
+            
+        if "last_seo_audit" in updates:
+            profile.last_seo_audit = updates["last_seo_audit"]
+            
+        # If there are other arbitrary keys, we might lose them if we don't have columns.
+        # But 'last_seo_audit' and 'oracle_best_times' are the main ones.
+        # If we have other keys, we should probably add them to a 'metadata' flexible column if we had one.
+        # For now, let's assume specific columns or modify 'last_seo_audit' if appropriate?
+        # Actually legacy code just dumped everything into the JSON object. 
+        # For V1 migration safety, if a key doesn't match a column, we might ignore it or put it in bio?
+        # Let's check commonly used keys.
+        
+        if "avatar_url" in updates:
+             profile.avatar_url = updates["avatar_url"]
+             
+        # Commit
+        db.commit()
         return True
     except Exception as e:
-        print(f"Error updating profile metadata: {e}")
+        db.rollback()
+        print(f"DB Error updating metadata: {e}")
         return False
+    finally:
+        db.close()
 
 

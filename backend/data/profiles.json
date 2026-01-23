@@ -4,29 +4,29 @@
         "icon": "\u2702\ufe0f",
         "type": "cuts",
         "active": true,
-        "avatar_url": "https://p77-sign-sg.tiktokcdn.com/tos-alisg-avt-0068/6452b7f05306b843d2f80a7718f432a1~tplv-tiktokx-cropcenter:720:720.jpeg?dr=14579&refresh_token=6b05dc07&x-expires=1769043600&x-signature=mlMxkNjRdgFpf40uZTarYJCNd00%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
+        "avatar_url": "https://p16-sign-sg.tiktokcdn.com/tos-alisg-avt-0068/6452b7f05306b843d2f80a7718f432a1~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=a6c9cf00&x-expires=1769284800&x-signature=IHqdDyLXbSPvSuqCNpfegSmcdj4%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
         "username": "vibe.corteseclips",
         "bio": "Cortes virais di\u00e1rios \u2702\ufe0f | Humor e Vibe | Siga para n\u00e3o perder!",
         "oracle_best_times": [
             {
                 "day": "S\u00e1bado",
-                "hour": 18,
-                "reason": "O p\u00fablico jovem tende a ter mais tempo livre e busca conte\u00fado de entretenimento e divers\u00e3o nos fins de semana"
+                "hour": 20,
+                "reason": "P\u00fablico-alvo tende a relaxar e buscar entretenimento nos fins de semana"
             },
             {
                 "day": "Quarta",
-                "hour": 20,
-                "reason": "O hor\u00e1rio de pico para conte\u00fado de inspira\u00e7\u00e3o e motiva\u00e7\u00e3o \u00e9 \u00e0 noite, quando as pessoas buscam relaxar e se preparar para o dia seguinte"
+                "hour": 15,
+                "reason": "Pico de audi\u00eancia durante a pausa para o lanche"
             },
             {
                 "day": "Domingo",
-                "hour": 15,
-                "reason": "O domingo \u00e0 tarde \u00e9 um bom hor\u00e1rio para compartilhar conte\u00fado mais leve e divertido, quando as pessoas est\u00e3o mais relaxadas e dispostas a se divertir"
+                "hour": 18,
+                "reason": "P\u00fablico busca conte\u00fado leve e divertido antes do in\u00edcio da semana"
             }
         ],
         "oracle_last_run": "now",
         "last_seo_audit": {
-            "total_score": 87,
+            "total_score": 90,
             "vision_score": 85,
             "sections": {
                 "bio": {
@@ -40,9 +40,9 @@
                         }
                     ],
                     "cta_suggestions": [
-                        "Siga para n\u00e3o perder os melhores cortes do dia!",
-                        "Compartilhe com seus amigos para espalhar o humor",
-                        "Inscreva-se para ter acesso a conte\u00fado exclusivo"
+                        "Siga para n\u00e3o perder os clipes mais engra\u00e7ados do dia!",
+                        "Compartilhe com seus amigos e familiares para espalhar o humor",
+                        "Curtir e comentar para ajudar a crescer a comunidade"
                     ]
                 },
                 "avatar": {
@@ -52,7 +52,7 @@
                     "items": [
                         {
                             "status": "info",
-                            "text": "Um logotipo vibrante e moderno que combina elementos de tecnologia e energia."
+                            "text": "Uma marca moderna e vibrante que exala energia e dinamismo."
                         },
                         {
                             "status": "badge",
@@ -60,7 +60,7 @@
                         },
                         {
                             "status": "info",
-                            "text": "Cores: Azul, Roxo, Rosa"
+                            "text": "Cores: Roxo, Rosa"
                         },
                         {
                             "status": "info",
@@ -76,23 +76,23 @@
                         },
                         {
                             "status": "ok",
-                            "text": "Uso criativo de gradientes de cor para dar dinamismo ao logotipo"
+                            "text": "Uso eficaz de gradientes de cor para transmitir energia"
                         },
                         {
                             "status": "ok",
-                            "text": "Composi\u00e7\u00e3o equilibrada e centralizada"
+                            "text": "Composi\u00e7\u00e3o sim\u00e9trica e equilibrada"
                         },
                         {
                             "status": "ok",
-                            "text": "Escolha de cores vibrantes que transmitem energia e modernidade"
+                            "text": "Design simples, mas impactante"
                         },
                         {
                             "status": "warning",
-                            "text": "Pode ser considerado um pouco gen\u00e9rico ou semelhante a outros logotipos de tecnologia"
+                            "text": "Pode ser considerado muito gen\u00e9rico ou semelhante a outros logos"
                         },
                         {
                             "status": "warning",
-                            "text": "A falta de um significado claro ou hist\u00f3ria por tr\u00e1s do s\u00edmbolo pode dificultar a conex\u00e3o emocional com o p\u00fablico"
+                            "text": "Falta de elementos que indiquem claramente o setor ou servi\u00e7o"
                         },
                         {
                             "status": "badge",
@@ -101,11 +101,10 @@
                     ],
                     "raw_data": {
                         "score": 85,
-                        "impression": "Um logotipo vibrante e moderno que combina elementos de tecnologia e energia.",
+                        "impression": "Uma marca moderna e vibrante que exala energia e dinamismo.",
                         "professionalism": "Profissional",
                         "color_analysis": {
                             "dominant_colors": [
-                                "Azul",
                                 "Roxo",
                                 "Rosa"
                             ],
@@ -119,23 +118,23 @@
                             "lighting": "Perfeito"
                         },
                         "pros": [
-                            "Uso criativo de gradientes de cor para dar dinamismo ao logotipo",
-                            "Composi\u00e7\u00e3o equilibrada e centralizada",
-                            "Escolha de cores vibrantes que transmitem energia e modernidade"
+                            "Uso eficaz de gradientes de cor para transmitir energia",
+                            "Composi\u00e7\u00e3o sim\u00e9trica e equilibrada",
+                            "Design simples, mas impactante"
                         ],
                         "cons": [
-                            "Pode ser considerado um pouco gen\u00e9rico ou semelhante a outros logotipos de tecnologia",
-                            "A falta de um significado claro ou hist\u00f3ria por tr\u00e1s do s\u00edmbolo pode dificultar a conex\u00e3o emocional com o p\u00fablico"
+                            "Pode ser considerado muito gen\u00e9rico ou semelhante a outros logos",
+                            "Falta de elementos que indiquem claramente o setor ou servi\u00e7o"
                         ],
                         "immediate_actions": [
                             {
                                 "priority": 1,
-                                "action": "Desenvolver uma hist\u00f3ria ou significado claro por tr\u00e1s do logotipo para aumentar a conex\u00e3o emocional com o p\u00fablico",
+                                "action": "Realizar testes de reconhecimento da marca em diferentes contextos",
                                 "impact": "Alto"
                             },
                             {
                                 "priority": 2,
-                                "action": "Realizar testes de reconhecimento e entendimento do logotipo com o p\u00fablico-alvo para ajustar a estrat\u00e9gia de branding",
+                                "action": "Explorar a adi\u00e7\u00e3o de elementos que fortale\u00e7am a identidade setorial",
                                 "impact": "M\u00e9dio"
                             }
                         ],
@@ -151,39 +150,161 @@
                     "items": []
                 },
                 "vibe": {
-                    "score": 50,
+                    "score": 60,
                     "label": "Vibe Check",
                     "icon": "\u2728",
-                    "items": [],
+                    "items": [
+                        {
+                            "status": "badge",
+                            "text": "Vibe: Lifestyle"
+                        },
+                        {
+                            "status": "info",
+                            "text": "Primeira Impress\u00e3o: Um visitante pode pensar que este perfil \u00e9 de uma marca ou criador de conte\u00fado focado em estilo de vida ou entretenimento, mas pode parecer um pouco confuso devido ao pop-up."
+                        },
+                        {
+                            "status": "ok",
+                            "text": "Layout: Balanced"
+                        },
+                        {
+                            "status": "info",
+                            "text": "Hierarquia Visual: Clara"
+                        },
+                        {
+                            "status": "info",
+                            "text": "Thumbnails: M\u00e9dia consist\u00eancia"
+                        },
+                        {
+                            "status": "info",
+                            "text": "Hook Visual: M\u00e9dio"
+                        },
+                        {
+                            "status": "badge",
+                            "text": "N\u00edvel: Creator experiente"
+                        },
+                        {
+                            "status": "info",
+                            "text": "Forte identidade"
+                        },
+                        {
+                            "status": "warning",
+                            "text": "Viral Ready: Precisa de ajustes"
+                        },
+                        {
+                            "status": "ok",
+                            "text": "Identidade visual forte e consistente"
+                        },
+                        {
+                            "status": "ok",
+                            "text": "Boa quantidade de seguidores e curtidas"
+                        },
+                        {
+                            "status": "ok",
+                            "text": "Conte\u00fado aparenta ter uma vibe definida"
+                        },
+                        {
+                            "status": "warning",
+                            "text": "Pop-up de bem-vindo pode ser considerado invasivo"
+                        },
+                        {
+                            "status": "warning",
+                            "text": "Falta de texto ou descri\u00e7\u00f5es nos thumbnails"
+                        },
+                        {
+                            "status": "warning",
+                            "text": "Variedade de conte\u00fado limitada"
+                        }
+                    ],
                     "raw_data": {
-                        "error": "Expecting value: line 1 column 1 (char 0)"
+                        "score": 60,
+                        "overall_vibe": "Lifestyle",
+                        "first_impression": "Um visitante pode pensar que este perfil \u00e9 de uma marca ou criador de conte\u00fado focado em estilo de vida ou entretenimento, mas pode parecer um pouco confuso devido ao pop-up.",
+                        "layout_analysis": {
+                            "quality": "Balanced",
+                            "visual_hierarchy": "Clara",
+                            "above_fold_impact": "M\u00e9dio"
+                        },
+                        "thumbnail_analysis": {
+                            "consistency": "M\u00e9dia",
+                            "color_palette": [
+                                "roxo",
+                                "rosa",
+                                "preto"
+                            ],
+                            "text_usage": "N\u00e3o usa texto",
+                            "face_presence": "Nunca",
+                            "hook_strength": "M\u00e9dio"
+                        },
+                        "branding_cohesion": {
+                            "score": 70,
+                            "color_consistency": "Consistente",
+                            "style_consistency": "Forte identidade",
+                            "professional_level": "Creator experiente"
+                        },
+                        "engagement_signals": {
+                            "content_variety": "Limitada",
+                            "posting_frequency_feel": "Ativo",
+                            "call_to_action_visible": false
+                        },
+                        "pros": [
+                            "Identidade visual forte e consistente",
+                            "Boa quantidade de seguidores e curtidas",
+                            "Conte\u00fado aparenta ter uma vibe definida"
+                        ],
+                        "cons": [
+                            "Pop-up de bem-vindo pode ser considerado invasivo",
+                            "Falta de texto ou descri\u00e7\u00f5es nos thumbnails",
+                            "Variedade de conte\u00fado limitada"
+                        ],
+                        "immediate_actions": [
+                            {
+                                "priority": 1,
+                                "action": "Remover ou personalizar o pop-up de boas-vindas",
+                                "impact": "Alto",
+                                "effort": "Baixo"
+                            },
+                            {
+                                "priority": 2,
+                                "action": "Desenvolver uma estrat\u00e9gia de conte\u00fado mais variada",
+                                "impact": "Alto",
+                                "effort": "M\u00e9dio"
+                            },
+                            {
+                                "priority": 3,
+                                "action": "Adicionar legendas ou textos nos thumbnails para melhorar a compreens\u00e3o",
+                                "impact": "M\u00e9dio",
+                                "effort": "Baixo"
+                            }
+                        ],
+                        "competitor_positioning": "Este perfil parece estar em uma posi\u00e7\u00e3o mediana em compara\u00e7\u00e3o com top creators do nicho de lifestyle e entretenimento no TikTok.",
+                        "viral_readiness": "Precisa de ajustes"
                     }
                 }
             },
             "recommendations": [
-                "Criar cortes de v\u00eddeos virais com humor absurdo",
-                "Utilizar efeitos sonoros e visuais para real\u00e7ar o humor",
-                "Colaborar com outros criadores de conte\u00fado de humor",
-                "[P1] Desenvolver uma hist\u00f3ria ou significado claro por tr\u00e1s do logotipo para aumentar a conex\u00e3o emocional com o p\u00fablico (Impacto: Alto)",
-                "[P2] Realizar testes de reconhecimento e entendimento do logotipo com o p\u00fablico-alvo para ajustar a estrat\u00e9gia de branding (Impacto: M\u00e9dio)"
+                "Criar clipes curtos e engra\u00e7ados de situa\u00e7\u00f5es cotidianas",
+                "Utilizar efeitos visuais e sons para real\u00e7ar o humor",
+                "Incorporar tend\u00eancias atuais e memes para manter o conte\u00fado relevante",
+                "[P1] Realizar testes de reconhecimento da marca em diferentes contextos (Impacto: Alto)",
+                "[P2] Explorar a adi\u00e7\u00e3o de elementos que fortale\u00e7am a identidade setorial (Impacto: M\u00e9dio)"
             ],
             "niche": {
                 "niche": "Humor",
                 "niche_confidence": "Alta",
-                "audience": "Jovens e adultos que buscam conte\u00fado divertido e entretenimento leve",
+                "audience": "Jovens e adultos que buscam entretenimento leve e conte\u00fado viral",
                 "content_style": "Entretenimento",
                 "personalized_recommendations": [
-                    "Criar cortes de v\u00eddeos virais com humor absurdo",
-                    "Utilizar efeitos sonoros e visuais para real\u00e7ar o humor",
-                    "Colaborar com outros criadores de conte\u00fado de humor"
+                    "Criar clipes curtos e engra\u00e7ados de situa\u00e7\u00f5es cotidianas",
+                    "Utilizar efeitos visuais e sons para real\u00e7ar o humor",
+                    "Incorporar tend\u00eancias atuais e memes para manter o conte\u00fado relevante"
                 ],
                 "personalized_ctas": [
-                    "Siga para n\u00e3o perder os melhores cortes do dia!",
-                    "Compartilhe com seus amigos para espalhar o humor",
-                    "Inscreva-se para ter acesso a conte\u00fado exclusivo"
+                    "Siga para n\u00e3o perder os clipes mais engra\u00e7ados do dia!",
+                    "Compartilhe com seus amigos e familiares para espalhar o humor",
+                    "Curtir e comentar para ajudar a crescer a comunidade"
                 ],
-                "competitor_tip": "Estude os padr\u00f5es de humor e as tend\u00eancias atuais para criar conte\u00fado relevante e viral",
-                "trending_format": "V\u00eddeos curtos e r\u00e1pidos com cortes r\u00e1pidos e efeitos sonoros"
+                "competitor_tip": "Analisar os clipes mais populares e entender o que os torna virais para criar conte\u00fado similar",
+                "trending_format": "V\u00eddeos curtos e verticais com legendas engra\u00e7adas e efeitos visuais"
             },
             "details": [
                 {
@@ -191,20 +312,20 @@
                     "data": {
                         "niche": "Humor",
                         "niche_confidence": "Alta",
-                        "audience": "Jovens e adultos que buscam conte\u00fado divertido e entretenimento leve",
+                        "audience": "Jovens e adultos que buscam entretenimento leve e conte\u00fado viral",
                         "content_style": "Entretenimento",
                         "personalized_recommendations": [
-                            "Criar cortes de v\u00eddeos virais com humor absurdo",
-                            "Utilizar efeitos sonoros e visuais para real\u00e7ar o humor",
-                            "Colaborar com outros criadores de conte\u00fado de humor"
+                            "Criar clipes curtos e engra\u00e7ados de situa\u00e7\u00f5es cotidianas",
+                            "Utilizar efeitos visuais e sons para real\u00e7ar o humor",
+                            "Incorporar tend\u00eancias atuais e memes para manter o conte\u00fado relevante"
                         ],
                         "personalized_ctas": [
-                            "Siga para n\u00e3o perder os melhores cortes do dia!",
-                            "Compartilhe com seus amigos para espalhar o humor",
-                            "Inscreva-se para ter acesso a conte\u00fado exclusivo"
+                            "Siga para n\u00e3o perder os clipes mais engra\u00e7ados do dia!",
+                            "Compartilhe com seus amigos e familiares para espalhar o humor",
+                            "Curtir e comentar para ajudar a crescer a comunidade"
                         ],
-                        "competitor_tip": "Estude os padr\u00f5es de humor e as tend\u00eancias atuais para criar conte\u00fado relevante e viral",
-                        "trending_format": "V\u00eddeos curtos e r\u00e1pidos com cortes r\u00e1pidos e efeitos sonoros"
+                        "competitor_tip": "Analisar os clipes mais populares e entender o que os torna virais para criar conte\u00fado similar",
+                        "trending_format": "V\u00eddeos curtos e verticais com legendas engra\u00e7adas e efeitos visuais"
                     }
                 },
                 {
@@ -215,11 +336,10 @@
                     "type": "vision",
                     "data": {
                         "score": 85,
-                        "impression": "Um logotipo vibrante e moderno que combina elementos de tecnologia e energia.",
+                        "impression": "Uma marca moderna e vibrante que exala energia e dinamismo.",
                         "professionalism": "Profissional",
                         "color_analysis": {
                             "dominant_colors": [
-                                "Azul",
                                 "Roxo",
                                 "Rosa"
                             ],
@@ -233,23 +353,23 @@
                             "lighting": "Perfeito"
                         },
                         "pros": [
-                            "Uso criativo de gradientes de cor para dar dinamismo ao logotipo",
-                            "Composi\u00e7\u00e3o equilibrada e centralizada",
-                            "Escolha de cores vibrantes que transmitem energia e modernidade"
+                            "Uso eficaz de gradientes de cor para transmitir energia",
+                            "Composi\u00e7\u00e3o sim\u00e9trica e equilibrada",
+                            "Design simples, mas impactante"
                         ],
                         "cons": [
-                            "Pode ser considerado um pouco gen\u00e9rico ou semelhante a outros logotipos de tecnologia",
-                            "A falta de um significado claro ou hist\u00f3ria por tr\u00e1s do s\u00edmbolo pode dificultar a conex\u00e3o emocional com o p\u00fablico"
+                            "Pode ser considerado muito gen\u00e9rico ou semelhante a outros logos",
+                            "Falta de elementos que indiquem claramente o setor ou servi\u00e7o"
                         ],
                         "immediate_actions": [
                             {
                                 "priority": 1,
-                                "action": "Desenvolver uma hist\u00f3ria ou significado claro por tr\u00e1s do logotipo para aumentar a conex\u00e3o emocional com o p\u00fablico",
+                                "action": "Realizar testes de reconhecimento da marca em diferentes contextos",
                                 "impact": "Alto"
                             },
                             {
                                 "priority": 2,
-                                "action": "Realizar testes de reconhecimento e entendimento do logotipo com o p\u00fablico-alvo para ajustar a estrat\u00e9gia de branding",
+                                "action": "Explorar a adi\u00e7\u00e3o de elementos que fortale\u00e7am a identidade setorial",
                                 "impact": "M\u00e9dio"
                             }
                         ],
@@ -261,7 +381,68 @@
                 {
                     "type": "full_page_vibe",
                     "data": {
-                        "error": "Expecting value: line 1 column 1 (char 0)"
+                        "score": 60,
+                        "overall_vibe": "Lifestyle",
+                        "first_impression": "Um visitante pode pensar que este perfil \u00e9 de uma marca ou criador de conte\u00fado focado em estilo de vida ou entretenimento, mas pode parecer um pouco confuso devido ao pop-up.",
+                        "layout_analysis": {
+                            "quality": "Balanced",
+                            "visual_hierarchy": "Clara",
+                            "above_fold_impact": "M\u00e9dio"
+                        },
+                        "thumbnail_analysis": {
+                            "consistency": "M\u00e9dia",
+                            "color_palette": [
+                                "roxo",
+                                "rosa",
+                                "preto"
+                            ],
+                            "text_usage": "N\u00e3o usa texto",
+                            "face_presence": "Nunca",
+                            "hook_strength": "M\u00e9dio"
+                        },
+                        "branding_cohesion": {
+                            "score": 70,
+                            "color_consistency": "Consistente",
+                            "style_consistency": "Forte identidade",
+                            "professional_level": "Creator experiente"
+                        },
+                        "engagement_signals": {
+                            "content_variety": "Limitada",
+                            "posting_frequency_feel": "Ativo",
+                            "call_to_action_visible": false
+                        },
+                        "pros": [
+                            "Identidade visual forte e consistente",
+                            "Boa quantidade de seguidores e curtidas",
+                            "Conte\u00fado aparenta ter uma vibe definida"
+                        ],
+                        "cons": [
+                            "Pop-up de bem-vindo pode ser considerado invasivo",
+                            "Falta de texto ou descri\u00e7\u00f5es nos thumbnails",
+                            "Variedade de conte\u00fado limitada"
+                        ],
+                        "immediate_actions": [
+                            {
+                                "priority": 1,
+                                "action": "Remover ou personalizar o pop-up de boas-vindas",
+                                "impact": "Alto",
+                                "effort": "Baixo"
+                            },
+                            {
+                                "priority": 2,
+                                "action": "Desenvolver uma estrat\u00e9gia de conte\u00fado mais variada",
+                                "impact": "Alto",
+                                "effort": "M\u00e9dio"
+                            },
+                            {
+                                "priority": 3,
+                                "action": "Adicionar legendas ou textos nos thumbnails para melhorar a compreens\u00e3o",
+                                "impact": "M\u00e9dio",
+                                "effort": "Baixo"
+                            }
+                        ],
+                        "competitor_positioning": "Este perfil parece estar em uma posi\u00e7\u00e3o mediana em compara\u00e7\u00e3o com top creators do nicho de lifestyle e entretenimento no TikTok.",
+                        "viral_readiness": "Precisa de ajustes"
                     },
                     "msg": "\u2705 Vibe Check: An\u00e1lise da P\u00e1gina Completa"
                 }
@@ -271,14 +452,15 @@
                 "bio": "Cortes virais di\u00e1rios \u2702\ufe0f | Humor e Vibe | Siga para n\u00e3o perder!"
             }
         },
-        "screenshot_path": "/app/data/screenshots/vibe.corteseclips_audit.png"
+        "screenshot_path": "/app/data/screenshots/vibe.corteseclips_audit.png",
+        "last_audit_date": "2026-01-22T19:39:07.108257"
     },
     "tiktok_profile_02": {
         "label": "Opini\u00e3o Viral",
         "icon": "\ud83d\udd25",
         "type": "main",
         "active": true,
-        "avatar_url": "https://p77-sign-sg.tiktokcdn.com/tos-alisg-avt-0068/5fedaf5daf2472ed8ad0b79c066a1f8e~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=b55b9c4d&x-expires=1769043600&x-signature=cZBVTcFIhv9HhhvnzklwqFFRQyw%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
+        "avatar_url": "https://p16-sign-sg.tiktokcdn.com/tos-alisg-avt-0068/5fedaf5daf2472ed8ad0b79c066a1f8e~tplv-tiktokx-cropcenter:1080:1080.jpeg?dr=14579&refresh_token=d71a4f3a&x-expires=1769284800&x-signature=qzNV8SWI%2BSA5GH6h2aHkETLMEFU%3D&t=4d5b0474&ps=13740610&shp=a5d48078&shcp=81f88b70&idc=my",
         "username": "opiniaoviral",
         "last_seo_audit": {
             "total_score": 57,
@@ -497,6 +679,7 @@
                 "bio": ""
             }
         },
-        "screenshot_path": "/app/data/screenshots/opiniaoviral_audit.png"
+        "screenshot_path": "/app/data/screenshots/opiniaoviral_audit.png",
+        "last_audit_date": "2026-01-22T19:39:12.783938"
     }
 }

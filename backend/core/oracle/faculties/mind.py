@@ -98,7 +98,8 @@ class MindFaculty:
         """
 
         try:
-            response = self.client.generate_content(prompt)
+            # Using low temperature for analytical consistency (Logic > Creativity)
+            response = self.client.generate_content(prompt, temperature=0.1)
             raw_text = response.text.strip()
             clean_text = raw_text.replace("```json", "").replace("```", "").strip()
             

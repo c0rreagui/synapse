@@ -48,14 +48,59 @@ async def full_scan(username: str):
                 })
                 print(f"✅ Oracle Insight: Saved {len(strategy['best_times'])} optimal times for {profile_id}")
 
-        # 📸 AUTO-LEARN: Save 'recent_videos' for Visual Audit
-        if profile_id and "raw_data" in result and "videos" in result["raw_data"]:
-             videos = result["raw_data"]["videos"][:3] # Keep top 3
-             if videos:
-                session_manager.update_profile_metadata(profile_id, {
-                    "recent_videos": videos
-                })
-                print(f"✅ Oracle Insight: Saved {len(videos)} recent videos for {profile_id}")
+        # 📸 AUTO-LEARN: Save 'latest_videos' & 'stats' for Deep Analytics
+        if profile_id and "raw_data" in result:
+             raw = result["raw_data"]
+             updates = {}
+             
+             # Save Stats (Followers, Likes, etc)
+             if "followers" in raw:
+                 updates["stats"] = {
+                     "followerCount": raw.get("followers"),
+                     "heartCount": raw.get("likes"),
+                     "followingCount": raw.get("following"),
+                     "videoCount": len(raw.get("videos", []))
+                 }
+
+             # Save Videos (Top 10 for Analytics)
+             if "videos" in raw and raw["videos"]:
+                 # Map scraper video format to Metadata format if needed, or save raw
+                 # Scraper: {views, link, index}
+                 # Aggregator expects: {stats: {playCount, diggCount}, createTime}
+                 # We need to enrich or map. Scraper currently only gets views.
+                 # Let's save what we have, Aggregator handles missing keys gracefully-ish
+                 enrich_videos = []
+                 for v in raw["videos"]:
+                     # Convert "1.2M" to integer for Aggregator
+                     views_str = v.get("views", "0").upper()
+                     multiplier = 1
+                     if "K" in views_str:
+                         multiplier = 1000
+                         views_str = views_str.replace("K", "")
+                     elif "M" in views_str:
+                         multiplier = 1000000
+                         views_str = views_str.replace("M", "")
+                     
+                     try:
+                         view_count = int(float(views_str) * multiplier)
+                     except:
+                         view_count = 0
+
+                     enrich_videos.append({
+                         "stats": {
+                             "playCount": view_count,
+                             "diggCount": 0, # Scraper simple didn't get this
+                             "commentCount": 0
+                         },
+                         "createTime": 0, # We don't have date yet from simple scraper
+                         "link": v.get("link")
+                     })
+
+                 updates["latest_videos"] = enrich_videos
+
+             if updates:
+                 session_manager.update_profile_metadata(profile_id, updates)
+                 print(f"✅ Oracle Insight: Persisted stats & {len(updates.get('latest_videos', []))} videos for {profile_id}")
 
     except Exception as e:
         print(f"⚠️ Failed to auto-save oracle insights: {e}")
@@ -306,6 +351,55 @@ async def create_hashtags(request: HashtagRequest):
     except Exception as e:
         return {"error": str(e)}
 
+@router.get("/seo/keywords/{niche}")
+async def get_seo_keywords(niche: str):
+    """
+    [SYN-27] Discover high-potential keywords for a niche.
+    """
+    return seo_engine.suggest_keywords(niche)
+
+class GapRequest(BaseModel):
+    username: str
+    topic: str
+
+@router.post("/seo/gaps")
+async def analyze_content_gaps(request: GapRequest):
+    """
+    [SYN-27] Identify content gaps and opportunities.
+    """
+    return seo_engine.analyze_content_gaps(request.username, request.topic)
+
+@router.get("/seo/opportunities/{username}")
+async def get_opportunities(username: str):
+    """
+    [SYN-27] Quick opportunity check based on latest audit.
+    """
+    from core import session_manager
+    # Tenta obter ID da sessão ou usar username direto
+    metadata = session_manager.get_profile_metadata(username)
+    if not metadata:
+        # Tenta buscar por sessão
+        sessions = session_manager.list_available_sessions()
+        for s in sessions:
+            if s.get("username", "").lower() == username.lower().replace("@", ""):
+                 metadata = session_manager.get_profile_metadata(s.get("id"))
+                 break
+    
+    if not metadata:
+        return {"message": "Nenhuma auditoria recente encontrada para gerar oportunidades. Execute /full-scan primeiro."}
+    
+    # Extrair oportunidades salvas ou gerar novas
+    audit = metadata.get("last_seo_audit", {})
+    recs = audit.get("recommendations", [])
+    niche = audit.get("niche", {})
+    
+    return {
+        "username": username,
+        "niche_detected": niche.get("niche", "Unknown"),
+        "top_recommendations": recs,
+        "missed_ctas": audit.get("sections", {}).get("bio", {}).get("cta_suggestions", [])
+    }
+
 
 # --- TREND CHECKER ENDPOINTS ---
 from core.oracle.trend_checker import trend_checker
@@ -404,3 +498,120 @@ async def get_strategy(request: StrategyRequest):
         request.positive_pct,
         request.negative_pct
     )
+
+
+# --- TAVILY EXTERNAL RESEARCH (SYN-21) ---
+from core.oracle.tavily_client import tavily_client, TavilySearchResponse
+
+
+class ResearchRequest(BaseModel):
+    query: str
+    search_depth: str = "basic"  # "basic" (1 credit) or "advanced" (2 credits)
+    max_results: int = 5
+    topic: str = "general"  # "general" or "news"
+    days: int = None  # For news, filter by recent days
+
+
+@router.post("/research")
+async def web_research(request: ResearchRequest):
+    """
+    🔍 Pesquisa web via Tavily API.
+    
+    Usa créditos do Tavily (1 para basic, 2 para advanced).
+    Cache de 1h para economizar créditos.
+    """
+    result = await tavily_client.search(
+        query=request.query,
+        search_depth=request.search_depth,
+        max_results=request.max_results,
+        topic=request.topic,
+        days=request.days,
+        include_answer=True
+    )
+    
+    return {
+        "success": True,
+        "query": result.query,
+        "answer": result.answer,
+        "results": [r.to_dict() for r in result.results],
+        "response_time": result.response_time,
+        "source": "tavily"
+    }
+
+
+class NicheTrendsRequest(BaseModel):
+    niche: str
+    platform: str = "TikTok"
+
+
+@router.post("/external-trends")
+async def get_external_trends(request: NicheTrendsRequest):
+    """
+    📈 Busca tendências externas para um nicho via Tavily.
+    
+    Combina dados de múltiplas fontes web em tempo real.
+    """
+    result = await tavily_client.search_trends(
+        niche=request.niche,
+        platform=request.platform
+    )
+    
+    return {
+        "success": True,
+        "niche": request.niche,
+        "platform": request.platform,
+        "insights": result.answer,
+        "sources": [r.to_dict() for r in result.results],
+        "response_time": result.response_time
+    }
+
+
+class ExternalHashtagRequest(BaseModel):
+    topic: str
+    platform: str = "TikTok"
+
+
+@router.post("/hashtags-external")
+async def get_external_hashtags(request: ExternalHashtagRequest):
+    """
+    #️⃣ Busca hashtags em alta via pesquisa web (Tavily).
+    
+    Complementa a busca interna do TrendChecker com dados externos.
+    """
+    hashtags = await tavily_client.search_hashtags(
+        topic=request.topic,
+        platform=request.platform
+    )
+    
+    return {
+        "success": True,
+        "topic": request.topic,
+        "platform": request.platform,
+        "hashtags": hashtags,
+        "count": len(hashtags),
+        "source": "tavily"
+    }
+
+
+class CompetitorAnalysisRequest(BaseModel):
+    competitor_name: str
+    platform: str = "TikTok"
+
+
+@router.post("/competitor-research")
+async def research_competitor(request: CompetitorAnalysisRequest):
+    """
+    🔎 Análise de concorrente via pesquisa web (Tavily).
+    
+    Busca informações públicas sobre estratégia e desempenho do concorrente.
+    """
+    result = await tavily_client.analyze_competitor(
+        competitor_name=request.competitor_name,
+        platform=request.platform
+    )
+    
+    return {
+        "success": True,
+        **result
+    }
+

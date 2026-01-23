@@ -28,6 +28,7 @@ export interface SchedulingData {
     music_volume?: number;
     sound_id?: string;
     sound_title?: string;
+    trend_category?: string;
 }
 
 export default function SchedulingModal({

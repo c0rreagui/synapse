@@ -635,6 +635,78 @@ class SEOEngine:
         except:
             return ["Falha ao gerar bios. Tente novamente."]
 
+    def suggest_keywords(self, niche: str) -> dict:
+        """
+        [SYN-27] Suggests high-potential keywords for a specific niche.
+        Uses Tavily (if available) or AI reasoning.
+        """
+        # Tenta usar Tavily se disponível (integração futura ou via prompt se tiver acesso web)
+        # Aqui usamos o poder do LLM para gerar keywords baseadas em conhecimento de tendências
+        
+        prompt = f"""
+        Atue como um Especialista em SEO de TikTok.
+        Gere uma lista de KEYWORDS e TERMOS DE PESQUISA de alto potencial para o nicho: "{niche}".
+        
+        Classifique em:
+        1. Broad (Alto volume)
+        2. Specific (Cauda longa / Baixa competição)
+        3. Trending (O que está em alta agora)
+        
+        Responda SOMENTE JSON:
+        {{
+            "niche": "{niche}",
+            "high_volume": ["term1", "term2", "term3", ...],
+            "long_tail": ["term1", "term2", "..."],
+            "trending_now": ["term1", "term2", ...],
+            "content_ideas": ["Ideia de video usando keyword 1", "Ideia 2"]
+        }}
+        """
+        
+        try:
+            ai_res = self.client.generate_content(prompt)
+            txt = ai_res.text
+            if "```json" in txt:
+                txt = txt.split("```json")[1].split("```")[0]
+            elif "```" in txt:
+                 txt = txt.split("```")[1].split("```")[0]
+            
+            return json.loads(txt)
+        except Exception as e:
+            return {"error": str(e), "niche": niche}
+
+    def analyze_content_gaps(self, username: str, topic: str) -> dict:
+        """
+        [SYN-27] Identifies content gaps (what is NOT being covered but should be).
+        """
+        prompt = f"""
+        Analise o tópico "{topic}" para o perfil "{username}".
+        Identifique CONTENT GAPS (Lacunas de Conteúdo):
+        - O que os competidores estão fazendo que este perfil NÃO está?
+        - Perguntas que o público faz mas ninguém responde bem?
+        - Sub-nichos inexplorados dentro de {topic}?
+        
+        Responda SOMENTE JSON:
+        {{
+            "topic": "{topic}",
+            "missing_formats": ["Live", "Tutorial", "Vlog", ...],
+            "unanswered_questions": ["Pergunta 1", "Pergunta 2"],
+            "underserved_subtopics": ["Subtopico 1", "Subtopico 2"],
+            "blue_ocean_strategy": "Uma estratégia para dominar uma área sem competição"
+        }}
+        """
+        
+        try:
+            ai_res = self.client.generate_content(prompt)
+            txt = ai_res.text
+            if "```json" in txt:
+                txt = txt.split("```json")[1].split("```")[0]
+            elif "```" in txt:
+                 txt = txt.split("```")[1].split("```")[0]
+            
+            return json.loads(txt)
+        except Exception as e:
+            return {"error": str(e)}
+
     def generate_content_metadata(self, filename: str, niche: str = "General", duration: int = 0) -> dict:
         """
         Generates Viral Caption and Hashtags based on Filename context.

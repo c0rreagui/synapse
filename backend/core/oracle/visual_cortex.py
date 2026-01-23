@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class VisualCortex:
     """
     The Visual Cortex: Eyes of the Oracle.
-    Extracts key frames from video and performs multimodal analysis using Gemini.
+    Extracts key frames from video and performs multimodal analysis using Groq Vision.
     """
 
     def __init__(self):
@@ -62,20 +62,20 @@ class VisualCortex:
 
     async def analyze_video_content(self, video_path: str) -> Dict[str, Any]:
         """
-        Extracts frames and asks Gemini 2.0 to analyze the visual hook.
+        Extracts frames and asks Oracle Vision (Groq) to analyze the visual hook.
         """
         if not self.client:
             return {"error": "Visual Cortex Offline"}
 
-        logger.info(f"👁️ VisualCortex: Processing {video_path}")
+        logger.info(f"VisualCortex: Processing {video_path}")
 
         # 1. Extract Frames
         frames = self.extract_frames(video_path)
         if not frames:
             return {"error": "No frames extracted"}
 
-        # 2. Load Images for Gemini
-        # Gemini Python SDK expects PIL Images or path objects
+        # 2. Load Images for Vision Engine
+        # Oracle Client wrapper accepts PIL Images directly
         image_parts = []
         for f in frames:
             try:
@@ -100,14 +100,14 @@ class VisualCortex:
             }
         except Exception as e:
             if "429" in str(e):
-                logger.warning("⚠️ Oracle Visual Cortex Rate Limited (429)")
+                logger.warning("Oracle Visual Cortex Rate Limited (429)")
                 return {
                     "visual_analysis": "Oracle Visual Cortex is currently overwhelmed (Rate Limit). Try again later.",
                     "frames_analyzed": len(frames),
                     "status": "rate_limited"
                 }
 
-            logger.error(f"❌ Visual Analysis Failed: {e}")
+            logger.error(f"Visual Analysis Failed: {e}")
             return {"error": str(e)}
 
 visual_cortex = VisualCortex()

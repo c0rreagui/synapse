@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
 export interface OracleAnalysis {
     profile: string;
@@ -41,6 +41,11 @@ export interface OracleAnalysis {
             haters: string[];
             debate_topic?: string;
         };
+        best_times?: Array<{
+            day: string;
+            hour: number;
+            reason: string;
+        }>;
     };
     raw_model: string;
 }

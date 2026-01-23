@@ -536,13 +536,13 @@ export default function OraclePage() {
                                         )}
 
                                         {/* Best Times */}
-                                        {analysis.analysis.best_times?.length > 0 && (
+                                        {(analysis.analysis.best_times?.length ?? 0) > 0 && (
                                             <StitchCard className="p-5">
                                                 <h4 className="font-bold text-[#00f3ff] mb-4 flex items-center gap-2">
                                                     <span>🕐</span> Melhores Horários para Postar
                                                 </h4>
                                                 <div className="flex flex-wrap gap-3">
-                                                    {analysis.analysis.best_times.map((time: { day: string; hour: number; reason: string }, i: number) => (
+                                                    {analysis.analysis.best_times?.map((time: { day: string; hour: number; reason: string }, i: number) => (
                                                         <div key={i} className="p-3 bg-[#00f3ff]/10 rounded-lg text-center min-w-[120px]">
                                                             <p className="text-sm font-bold text-[#00f3ff]">{time.day}</p>
                                                             <p className="text-xl font-black text-white">{time.hour}:00</p>

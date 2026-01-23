@@ -114,7 +114,7 @@ class OracleAnalyst:
             return {
                 "profile": profile_data.get("username"),
                 "analysis": metrics,
-                "raw_model": "gemini-pro"
+                "raw_model": "groq-llama-3"
             }
 
         except Exception as e:

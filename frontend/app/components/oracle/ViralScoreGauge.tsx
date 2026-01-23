@@ -7,7 +7,8 @@ interface ViralScoreGaugeProps {
 
 export const ViralScoreGauge: React.FC<ViralScoreGaugeProps> = ({ score }) => {
     // Normalize 0-10 to 0-100 for gauge
-    const percentage = Math.min(Math.max(score * 10, 0), 100);
+    const safeScore = score ?? 0;
+    const percentage = Math.min(Math.max(safeScore * 10, 0), 100);
 
     // Color logic
     let color = '#ff003c'; // Red
@@ -50,7 +51,7 @@ export const ViralScoreGauge: React.FC<ViralScoreGaugeProps> = ({ score }) => {
                     animate={{ opacity: 1 }}
                     className="text-5xl font-bold font-mono text-white"
                 >
-                    {score.toFixed(1)}
+                    {safeScore.toFixed(1)}
                 </motion.span>
                 <span className="text-xs text-uppercase tracking-widest text-gray-400 mt-1">VIRALITY</span>
             </div>

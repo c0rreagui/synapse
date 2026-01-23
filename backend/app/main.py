@@ -31,7 +31,12 @@ async def startup_event():
         
         # Start Queue Worker (Async Loop)
         asyncio.create_task(worker_loop())
-        print("SYSTEM: Background workers (Factory + Queue) started.")
+        
+        # Start Oracle Automation (Smart Loop)
+        from core.oracle.automation import oracle_automator
+        asyncio.create_task(oracle_automator.start_loop())
+        
+        print("SYSTEM: Background workers (Factory + Queue + Oracle) started.")
     except Exception as e:
         print(f"ERROR starting workers: {e}")
 
@@ -50,7 +55,10 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://[::1]:3000",
         "http://localhost:8000",
+        "http://127.0.0.1:8000",
         "http://localhost:3001",
+        "http://127.0.0.1:3001",
+        "*"
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS", "PUT", "DELETE"],

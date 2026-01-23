@@ -1,86 +1,155 @@
+import uuid
 import json
 import os
-import uuid
-from typing import List, Dict, Optional
 from datetime import datetime, timedelta
-
-SCHEDULE_FILE = "data/schedule.json"
+from typing import List, Dict, Optional
+from core.database import SessionLocal
+from core.models import ScheduleItem
 
 class Scheduler:
     def __init__(self):
-        self._ensure_data_dir()
-
-    def _ensure_data_dir(self):
-        os.makedirs(os.path.dirname(SCHEDULE_FILE), exist_ok=True)
-        if not os.path.exists(SCHEDULE_FILE):
-            with open(SCHEDULE_FILE, 'w') as f:
-                json.dump([], f)
+        # Database is auto-initialized by core.database
+        pass
 
     def load_schedule(self) -> List[Dict]:
+        """Loads all schedule items from DB and formats them as dicts."""
+        db = SessionLocal()
         try:
-            with open(SCHEDULE_FILE, 'r') as f:
-                return json.load(f)
-        except (json.JSONDecodeError, FileNotFoundError):
+            items = db.query(ScheduleItem).all()
+            results = []
+            for item in items:
+                # Convert DB model to Dictionary expected by Frontend
+                # We unpack metadata_info back to top level for compatibility
+                meta = item.metadata_info if item.metadata_info else {}
+                
+                event = {
+                    "id": str(item.id), # Frontend expects string ID (legacy was uuid, DB is Integer usually, OR we can keep ID as string in model if we want? Model defined it as Integer. Frontend might break if it expects UUID string. Let's see.)
+                    # Wait, Model defined id as Integer? `id = Column(Integer, primary_key=True)`
+                    # Legacy used `str(uuid.uuid4())`.
+                    # If I change ID to int, frontend `key={event.id}` is fine.
+                    # BUT delete endpoint expects string? `event_id: str`. Int as string is fine.
+                    
+                    "profile_id": item.profile_slug,
+                    "video_path": item.video_path,
+                    "scheduled_time": item.scheduled_time.isoformat() if item.scheduled_time else None,
+                    "status": item.status,
+                    
+                    # Unpack metadata
+                    "viral_music_enabled": meta.get("viral_music_enabled", False),
+                    "music_volume": meta.get("music_volume", 0.0),
+                    "sound_id": meta.get("sound_id"),
+                    "sound_title": meta.get("sound_title"),
+                    "metadata": meta # Keep original metadata dict accessible if needed
+                }
+                results.append(event)
+            return results
+        except Exception as e:
+            print(f"DB Error loading schedule: {e}")
             return []
-
-    def save_schedule(self, data: List[Dict]):
-        with open(SCHEDULE_FILE, 'w') as f:
-            json.dump(data, f, indent=2)
+        finally:
+            db.close()
 
     def add_event(self, profile_id: str, video_path: str, scheduled_time: str, viral_music_enabled: bool = False, music_volume: float = 0.0, sound_id: str = None, sound_title: str = None) -> Dict:
         """Schedules a new video upload."""
-        events = self.load_schedule()
-        event_id = str(uuid.uuid4())
-        
-        new_event = {
-            "id": event_id,
-            "profile_id": profile_id,
-            "video_path": video_path,
-            "scheduled_time": scheduled_time,
-            "viral_music_enabled": viral_music_enabled,
-            "music_volume": music_volume,
-            "sound_id": sound_id,
-            "sound_title": sound_title,
-            "status": "pending",
-            "created_at": datetime.now().isoformat()
-        }
-        events.append(new_event)
-        self.save_schedule(events)
-        return new_event
+        db = SessionLocal()
+        try:
+            # Parse time
+            dt = datetime.fromisoformat(scheduled_time)
+            
+            # Pack extras into metadata
+            meta = {
+                "viral_music_enabled": viral_music_enabled,
+                "music_volume": music_volume,
+                "sound_id": sound_id,
+                "sound_title": sound_title
+            }
+            
+            new_item = ScheduleItem(
+                profile_slug=profile_id,
+                video_path=video_path,
+                scheduled_time=dt,
+                status="pending",
+                metadata_info=meta
+            )
+            
+            db.add(new_item)
+            db.commit()
+            db.refresh(new_item)
+            
+            # Return dict format
+            return {
+                "id": str(new_item.id),
+                "profile_id": new_item.profile_slug,
+                "video_path": new_item.video_path,
+                "scheduled_time": new_item.scheduled_time.isoformat(),
+                "viral_music_enabled": viral_music_enabled,
+                "music_volume": music_volume,
+                "sound_id": sound_id,
+                "sound_title": sound_title,
+                "status": new_item.status,
+                "created_at": datetime.now().isoformat()
+            }
+        except Exception as e:
+            db.rollback()
+            print(f"DB Error adding event: {e}")
+            raise e
+        finally:
+            db.close()
 
     def delete_event(self, event_id: str) -> bool:
-        events = self.load_schedule()
-        initial_len = len(events)
-        events = [e for e in events if e['id'] != event_id]
-        if len(events) < initial_len:
-            self.save_schedule(events)
-            return True
-        return False
+        db = SessionLocal()
+        try:
+            # Try to find by ID (Integer)
+            # Incoming event_id might be string "1".
+            try:
+                pk = int(event_id)
+            except ValueError:
+                # If it's a legacy UUID string, we won't find it in new DB integer column.
+                return False
+                
+            item = db.query(ScheduleItem).filter(ScheduleItem.id == pk).first()
+            if item:
+                db.delete(item)
+                db.commit()
+                return True
+            return False
+        except Exception as e:
+            db.rollback()
+            print(f"DB Error deleting event: {e}")
+            return False
+        finally:
+            db.close()
 
     def is_slot_available(self, profile_id: str, check_time: datetime, buffer_minutes: int = 15) -> bool:
         """Checks if a time slot is free for a given profile within a buffer."""
-        events = self.load_schedule()
-        
-        check_start = check_time - timedelta(minutes=buffer_minutes)
-        check_end = check_time + timedelta(minutes=buffer_minutes)
-        
-        for event in events:
-            if event['profile_id'] != profile_id:
-                continue
-                
-            event_time = datetime.fromisoformat(event['scheduled_time'])
-            # Naive comparison assuming both are same timezone logic
-            if check_start < event_time < check_end:
-                return False
-                
-        return True
+        db = SessionLocal()
+        try:
+            check_start = check_time - timedelta(minutes=buffer_minutes)
+            check_end = check_time + timedelta(minutes=buffer_minutes)
+            
+            # Query for overlap
+            # We want count of events for this profile in range
+            count = db.query(ScheduleItem).filter(
+                ScheduleItem.profile_slug == profile_id,
+                ScheduleItem.scheduled_time > check_start,
+                ScheduleItem.scheduled_time < check_end
+            ).count()
+            
+            return count == 0
+        except Exception as e:
+            print(f"DB Error checking slot: {e}")
+            return False # Fail safe? Or True? False prevents overlap.
+        finally:
+            db.close()
 
     def find_next_available_slot(self, profile_id: str, start_time: datetime) -> str:
         """Finds the next available slot starting from start_time."""
         current_check = start_time
         
-        # Safety limit to prevent infinite loops (e.g. max 1 week lookahead)
-        max_attempts = 672 # 7 days * 24 hours * 4 slots/hour
+        # Optimization: Instead of 600 queries, we could fetch all future events once.
+        # But for 'find next', usually it's close.
+        
+        max_attempts = 672 # 7 days
         attempts = 0
         
         while attempts < max_attempts:
@@ -91,17 +160,27 @@ class Scheduler:
             current_check += timedelta(minutes=15)
             attempts += 1
             
-        # Fallback if really full (unlikely)
         return (start_time + timedelta(days=7)).isoformat()
 
-
     def update_event(self, event_id: str, scheduled_time: str) -> bool:
-        events = self.load_schedule()
-        for event in events:
-            if event['id'] == event_id:
-                event['scheduled_time'] = scheduled_time
-                self.save_schedule(events)
+        db = SessionLocal()
+        try:
+            try:
+                pk = int(event_id)
+            except ValueError:
+                return False
+
+            item = db.query(ScheduleItem).filter(ScheduleItem.id == pk).first()
+            if item:
+                item.scheduled_time = datetime.fromisoformat(scheduled_time)
+                db.commit()
                 return True
-        return False
+            return False
+        except Exception as e:
+            db.rollback()
+            print(f"DB Error updating event: {e}")
+            return False
+        finally:
+            db.close()
 
 scheduler_service = Scheduler()
