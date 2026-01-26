@@ -127,15 +127,36 @@ export default function ProfilesPage() {
 
             {/* MAIN */}
             <main className="flex-1 p-8 overflow-y-auto bg-grid-pattern">
-                <header className="flex items-center gap-4 mb-8">
-                    <Link href="/">
-                        <div className="w-10 h-10 rounded-lg bg-[#1c2128] border border-white/10 flex items-center justify-center cursor-pointer hover:border-synapse-primary/50 transition-colors group">
-                            <ArrowLeftIcon className="w-5 h-5 text-gray-400 group-hover:text-synapse-primary" />
+                <header className="flex items-center justify-between mb-8">
+                    <div className="flex items-center gap-4">
+                        <Link href="/">
+                            <div className="w-10 h-10 rounded-lg bg-[#1c2128] border border-white/10 flex items-center justify-center cursor-pointer hover:border-synapse-primary/50 transition-colors group">
+                                <ArrowLeftIcon className="w-5 h-5 text-gray-400 group-hover:text-synapse-primary" />
+                            </div>
+                        </Link>
+                        <div>
+                            <h2 className="text-2xl font-bold text-white m-0">Perfis TikTok</h2>
+                            <p className="text-sm text-gray-500 m-0">Gerenciar sessões de upload</p>
                         </div>
-                    </Link>
-                    <div>
-                        <h2 className="text-2xl font-bold text-white m-0">Perfis TikTok</h2>
-                        <p className="text-sm text-gray-500 m-0">Gerenciar sessões de upload</p>
+                    </div>
+
+                    <div className="flex gap-3">
+                        <NeonButton
+                            variant="secondary"
+                            onClick={async () => {
+                                if (confirm("Atualizar todos os perfis sequencialmente? Isso pode levar algum tempo.")) {
+                                    for (const p of profiles) {
+                                        await handleRefreshAvatar(p.id);
+                                    }
+                                    alert("Todos os perfis foram atualizados!");
+                                }
+                            }}
+                            disabled={Object.values(refreshingProfiles).some(v => v)}
+                            className="text-xs"
+                        >
+                            <ArrowPathIcon className={`w-4 h-4 ${Object.values(refreshingProfiles).some(v => v) ? 'animate-spin' : ''}`} />
+                            Refresh All
+                        </NeonButton>
                     </div>
                 </header>
 

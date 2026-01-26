@@ -325,29 +325,51 @@ export default function Home() {
       <main className="flex-1 p-8 overflow-y-auto max-h-screen bg-grid-pattern">
 
         {/* HEADER */}
-        <header className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center border transition-all duration-500 ${backendOnline ? 'bg-synapse-emerald/10 border-synapse-emerald/30 shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'bg-red-500/10 border-red-500/30'}`}>
-              <CpuChipIcon className={`w-7 h-7 ${backendOnline ? 'text-synapse-emerald animate-pulse' : 'text-red-500'}`} />
+        <header className="flex items-center justify-between mb-10 relative">
+          {/* Decorative Top Line */}
+          <div className="absolute -top-8 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+
+          <div className="flex items-center gap-6">
+            <div className={`w-14 h-14 relative flex items-center justify-center border transition-all duration-500 ${backendOnline ? 'bg-synapse-emerald/5 border-synapse-emerald/20' : 'bg-red-500/5 border-red-500/20'}`}>
+              <div className="absolute inset-0 border-[0.5px] border-white/5 m-1 pointer-events-none" />
+              <CpuChipIcon className={`w-8 h-8 ${backendOnline ? 'text-synapse-emerald shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'text-red-500'}`} />
+
+              {/* Corner Accents */}
+              <div className="absolute top-0 left-0 w-1.5 h-1.5 border-t border-l border-white/30" />
+              <div className="absolute bottom-0 right-0 w-1.5 h-1.5 border-b border-r border-white/30" />
             </div>
+
             <div>
-              <h2 className="text-3xl font-bold text-white tracking-tight">Synapse Dashboard</h2>
-              <p className="text-xs text-gray-400 flex items-center gap-2 font-mono mt-1">
-                <ClockIcon className="w-3 h-3" /> SYSTEM_TIME: {lastUpdate || 'SYNCING...'}
-              </p>
+              <h2 className="text-4xl font-bold text-white tracking-tighter uppercase font-mono">
+                Synapse<span className="text-synapse-primary">_OS</span>
+              </h2>
+              <div className="flex items-center gap-4 mt-1">
+                <p className="text-[10px] text-gray-500 font-mono flex items-center gap-1.5 uppercase tracking-widest border-r border-white/10 pr-4">
+                  <ClockIcon className="w-3 h-3" /> T-SYNC: {lastUpdate || 'INITIALIZING...'}
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <div className={`w-1.5 h-1.5 rounded-full ${backendOnline ? 'bg-synapse-emerald animate-pulse' : 'bg-red-500'}`} />
+                  <span className={`text-[10px] uppercase font-bold tracking-wider ${backendOnline ? 'text-synapse-emerald' : 'text-red-500'}`}>
+                    {backendOnline ? 'SYSTEM ONLINE' : 'CRITICAL FAILURE'}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <button onClick={() => fetchAllData()} className="p-2 rounded-lg border border-white/10 hover:bg-white/5 active:scale-95 transition-all text-gray-400 hover:text-white" title="Atualizar">
-              <ArrowPathIcon className="w-5 h-5" />
+            {/* Tech Buttons */}
+            <button onClick={() => fetchAllData()} className="h-10 px-4 flex items-center gap-2 border border-white/10 bg-black/40 hover:bg-white/5 hover:border-synapse-primary/50 transition-all group active:scale-95">
+              <ArrowPathIcon className="w-4 h-4 text-gray-400 group-hover:text-synapse-primary group-hover:rotate-180 transition-all duration-700" />
+              <span className="text-xs font-mono text-gray-400 group-hover:text-white uppercase">Refresh</span>
             </button>
-            <button onClick={() => setShowCommandPalette(true)} className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition-all text-sm text-gray-400 cursor-pointer hover:border-synapse-primary/30 group">
-              <MagnifyingGlassIcon className="w-4 h-4 group-hover:text-white transition-colors" />
-              <span>Comando</span>
-              <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-white ml-2">Ctrl+K</span>
+
+            <button onClick={() => setShowCommandPalette(true)} className="hidden md:flex h-10 items-center gap-3 px-5 border border-white/10 bg-black/40 hover:bg-white/5 hover:border-synapse-primary/50 transition-all group active:scale-95 relative overflow-hidden">
+              <div className="absolute inset-0 bg-synapse-primary/5 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+              <MagnifyingGlassIcon className="w-4 h-4 text-gray-400 group-hover:text-white relative z-10" />
+              <span className="text-xs font-mono text-gray-400 group-hover:text-white uppercase relative z-10">Command Line</span>
+              <kbd className="text-[9px] bg-white/5 border border-white/10 px-1.5 py-0.5 rounded text-gray-500 font-mono relative z-10 group-hover:border-synapse-primary/30 group-hover:text-synapse-primary">CTRL+K</kbd>
             </button>
-            <ConnectionStatus isOnline={backendOnline} lastUpdate={lastUpdate} />
           </div>
         </header>
 

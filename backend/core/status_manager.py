@@ -16,11 +16,37 @@ class StatusManager:
         self.file_path = STATUS_FILE
         self._ensure_dir()
         self.async_callback = None
-        # In-memory storage for bots status (to avoid full file dependency for high freq updates)
         self.bots_status = {
-            "uploader": {"id": "1", "name": "ATLAS-01", "role": "UPLOADER", "status": "online", "current_task": "Idle", "uptime": "0s"},
-            "factory": {"id": "2", "name": "FORGE-X", "role": "FACTORY", "status": "online", "current_task": "Watching inputs...", "uptime": "0s"},
-            "monitor": {"id": "3", "name": "WATCHER-V2", "role": "MONITOR", "status": "online", "current_task": "System Check", "uptime": "0s"}
+            "uploader": {
+                "id": "1", 
+                "name": "ATLAS-01", 
+                "role": "UPLOADER", 
+                "status": "online", 
+                "current_task": "Idle", 
+                "uptime": "0s",
+                "description": "Unidade de transmissao de alta largura de banda. Garantindo metricas globais de propagacao.",
+                "avatar": "/avatars/atlas.png"
+            },
+            "factory": {
+                "id": "2", 
+                "name": "FORGE-X", 
+                "role": "FACTORY", 
+                "status": "online", 
+                "current_task": "Watching inputs...", 
+                "uptime": "0s",
+                "description": "Nucleo de sintese neural. Montando dados brutos em construcoes cognitivas.",
+                "avatar": "/avatars/forge.png"
+            },
+            "monitor": {
+                "id": "3", 
+                "name": "WATCHER-V2", 
+                "role": "MONITOR", 
+                "status": "online", 
+                "current_task": "System Check", 
+                "uptime": "0s",
+                "description": "Sentinela onisciente. Analisando anomalias de telemetria em tempo real.",
+                "avatar": "/avatars/watcher.png"
+            }
         }
         self.start_times = {
             "uploader": time.time(),

@@ -91,7 +91,7 @@ async def validate_profile(profile_id: str) -> Dict:
             # It ignores others.
             # We should call update_profile_metadata for the rest.
              
-            update_profile_info(profile_id, result_data)
+            update_success = update_profile_info(profile_id, result_data)
             
             from core.session_manager import update_profile_metadata
             update_profile_metadata(profile_id, {

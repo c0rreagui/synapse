@@ -488,101 +488,120 @@ class SEOEngine:
         except Exception as e:
              return {"error": str(e)}
 
-    def competitor_spy(self, target_username: str) -> dict:
+    async def competitor_spy(self, target_username: str) -> dict:
         """
-        ENHANCED Spy on a competitor with DEEP analysis.
+        ENHANCED Spy on a competitor with DEEP analysis using REAL DATA.
         """
+        from core.oracle.collector import oracle_collector
         
-        # MOCKED Scraped Data (Smart Demo based on username)
-        if any(x in target_username.lower() for x in ["game", "zoka", "play", "cortes"]):
-             mock_scraped_data = {
-                "username": target_username,
-                "followers": 554000,
-                "following": 320,
-                "likes": 12500000,
-                "videos": 450,
-                "bio": "Gamer lifestyle 🎮 | Lives todos os dias | Cola na grade!",
-                "recent_posts": [
-                    {"desc": "O susto que eu tomei nesse jogo kkkk", "views": 45000, "likes": 3200, "comments": 120},
-                    {"desc": "Melhor jogada da semana #clips", "views": 120000, "likes": 8500, "comments": 340},
-                    {"desc": "Live ON! Corre pra assistir", "views": 32000, "likes": 2100, "comments": 89}
-                ],
-                "top_hashtags": ["#gaming", "#streamer", "#clips", "#viral"]
-            }
+        print(f"🕵️ Spying on {target_username}...")
+        
+        # 1. Real Scraping
+        scraped_stats = await oracle_collector.collect_tiktok_profile(target_username)
+        
+        if "error" in scraped_stats:
+            # Fallback only on hard error, but usually we want to know
+            print(f"⚠️ Scraping failed: {scraped_stats['error']}")
+            return {"error": "Falha ao coletar dados do perfil. Verifique o user ou tente novamente.", "details": scraped_stats}
+
+        # 2. Parse Numbers (Convert "35.3M" -> 35300000)
+        def parse_stat(val):
+            if isinstance(val, (int, float)): return int(val)
+            if not val or val == "Unknown": return 0
+            val = val.upper().replace("LIKES", "").replace("FOLLOWERS", "").replace("FOLLOWING", "").strip()
+            mult = 1
+            if "K" in val:
+                mult = 1000
+                val = val.replace("K", "")
+            elif "M" in val:
+                mult = 1000000
+                val = val.replace("M", "")
+            elif "B" in val:
+                mult = 1000000000
+                val = val.replace("B", "")
+            try:
+                return int(float(val) * mult)
+            except:
+                return 0
+
+        # Enrich stats with parsed values for AI math
+        scraped_stats["followers_count"] = parse_stat(scraped_stats.get("followers"))
+        scraped_stats["likes_count"] = parse_stat(scraped_stats.get("likes"))
+        scraped_stats["following_count"] = parse_stat(scraped_stats.get("following"))
+        
+        # 3. Calculate Derived Metrics
+        videos = scraped_stats.get("videos", [])
+        total_views = 0
+        total_interactions = 0
+        
+        for v in videos:
+            v_views = parse_stat(v.get("views"))
+            total_views += v_views
+            # We don't have likes/comments per video in basic scrape, assume 10% engagement for estimation if missing
+            # But wait, collector structure for videos only has 'views'.
+            # Let's derive ESTIMATED engagement from total likes / total videos (heuristic)
+            
+        video_count_est = max(1, len(videos)) # Only top 5 usually
+        # To get real avg, we need total video count? We don't have it easily from HTML sometimes.
+        # Let's use the valid videos we found.
+        
+        if video_count_est > 0:
+            avg_views = total_views / video_count_est
         else:
-             mock_scraped_data = {
-                "username": target_username,
-                "followers": 15400,
-                "following": 890,
-                "likes": 234000,
-                "videos": 127,
-                "bio": "Marketing Digital sem enrolação 🚀 | Te ensino a vender todo dia | 👇 Aula Gratuita",
-                "recent_posts": [
-                    {"desc": "3 Erros que matam seu alcance #marketing #dicas", "views": 4500, "likes": 320, "comments": 45},
-                    {"desc": "Como fiz R$10k em 7 dias (Case real)", "views": 12000, "likes": 890, "comments": 67},
-                    {"desc": "Pare de postar conteudo ruim!", "views": 3200, "likes": 210, "comments": 23}
-                ],
-                "top_hashtags": ["#marketingdigital", "#vendas", "#empreendedorismo"]
-            }
+            avg_views = 0
+            
+        # Engagement Rate global heuristic: (Total Likes / Total Videos) / Avg Views?
+        # Better: (Likes / Followers) is a common simplistic metric if we don't have per-video engagement
+        # Let's use a mock engagement rate if we lack granular data, or calculate strictly.
+        if scraped_stats["followers_count"] > 0:
+            # Likes per follower ratio (Popstar metric)
+            engagement_rate = round((scraped_stats["likes_count"] / scraped_stats["followers_count"]) * 10, 2) # Arbitrary scale factor
+        else:
+            engagement_rate = 0.0
+
+        scraped_stats["avg_views_recent"] = int(avg_views)
+        scraped_stats["est_engagement_rate"] = engagement_rate
         
-        # Calculate derived metrics
-        avg_views = sum(p["views"] for p in mock_scraped_data["recent_posts"]) / len(mock_scraped_data["recent_posts"])
-        engagement_rate = round((sum(p["likes"] + p["comments"] for p in mock_scraped_data["recent_posts"]) / sum(p["views"] for p in mock_scraped_data["recent_posts"])) * 100, 2)
-        
-        mock_scraped_data["avg_views"] = int(avg_views)
-        mock_scraped_data["engagement_rate"] = engagement_rate
-        
-        # ENHANCED Oracle Analysis Prompt
+        # 4. ENHANCED Oracle Analysis Prompt
         prompt = f"""
-        Você é um ESPECIALISTA em Análise Competitiva de TikTok com 10 anos de experiência.
-        Faça uma análise PROFUNDA e ESTRATÉGICA deste concorrente.
+        Você é um ESPECIALISTA em Análise Competitiva de TikTok.
         
-        Dados do Alvo:
-        {json.dumps(mock_scraped_data, indent=2, ensure_ascii=False)}
+        Dados REAIS do Alvo (@{target_username}):
+        {json.dumps(scraped_stats, indent=2, ensure_ascii=False)}
+        
+        OBS: Os dados acima foram extraídos em tempo real. "videos" contém apenas os últimos posts.
+        Use os números de seguidores/likes TOTAIS para julgar a autoridade.
         
         Analise CADA aspecto e retorne um relatório DETALHADO.
         
         Responda SOMENTE JSON:
         {{
-            "competitor_score": 0-100 (quão forte é este competidor),
+            "competitor_score": 0-100 (quão perigoso/forte é este competidor),
             "threat_level": "Baixo" | "Médio" | "Alto" | "Crítico",
             "niche": "Nicho exato detectado",
             "profile_analysis": {{
                 "bio_quality": 0-100,
-                "bio_critique": "Análise detalhada da bio",
+                "bio_critique": "Critica construtiva da bio",
                 "branding_strength": "Fraco" | "Médio" | "Forte",
-                "audience_type": "Descrição do público-alvo"
+                "audience_type": "Descrição do público dele"
             }},
             "content_strategy": {{
-                "posting_frequency": "Diário" | "3-5x semana" | "Irregular",
-                "content_pillars": ["Pilar 1", "Pilar 2", "Pilar 3"],
-                "format_preference": "Formato mais usado",
-                "hook_style": "Estilo de gancho usado",
-                "cta_usage": "Como usam CTAs"
+                "posting_frequency": "Baseado na frequencia aparente",
+                "content_pillars": ["Pilar Provável 1", "Pilar 2"],
+                "format_preference": "Formato aparente (Reels, Vlogs, Cortes)",
+                "hook_style": "Estilo de titulos/hooks usados",
+                "cta_usage": "Uso de chamadas para ação"
             }},
-            "strengths": [
-                "Ponto forte 1 específico",
-                "Ponto forte 2 específico"
-            ],
-            "weaknesses": [
-                "Fraqueza explorável 1 (com sugestão de como atacar)",
-                "Fraqueza explorável 2 (com sugestão de como atacar)"
-            ],
-            "content_hooks_to_steal": [
-                "Hook específico que funcionou + por que funciona",
-                "Hook 2 + por que funciona",
-                "Hook 3 + por que funciona"
-            ],
-            "opportunity_zones": [
-                "Oportunidade 1: Onde você pode superá-los",
-                "Oportunidade 2: Gap no mercado que eles não cobrem"
-            ],
+            "strengths": ["Ponto forte 1", "Ponto forte 2"],
+            "weaknesses": ["Fraqueza 1", "Fraqueza 2"],
+            "content_hooks_to_steal": ["Hook derivado 1", "Hook 2", "Hook 3"],
+            "opportunity_zones": ["Oportunidade 1", "Oportunidade 2"],
             "battle_plan": {{
-                "immediate_actions": ["Ação 1 para hoje", "Ação 2 para amanhã"],
-                "content_ideas": ["Ideia de conteúdo 1 baseada na análise", "Ideia 2"],
-                "differentiation_strategy": "Como se posicionar diferente deles"
+                "immediate_actions": ["Ação 1", "Ação 2"],
+                "content_ideas": ["Ideia 1", "Ideia 2"],
+                "differentiation_strategy": "Estratégia única"
             }},
-            "killer_bio": "Bio otimizada que seria melhor que a deles"
+            "killer_bio": "Sugestão de bio melhorada"
         }}"""
         
         try:
@@ -595,19 +614,17 @@ class SEOEngine:
             
             analysis = json.loads(txt)
             return {
-                "scraped_data": mock_scraped_data,
+                "scraped_data": scraped_stats,
                 "analysis": analysis
             }
         except Exception as e:
             return {
-                "error": str(e), 
-                "scraped_data": mock_scraped_data,
+                "error": f"AI Parsing failed: {str(e)}", 
+                "scraped_data": scraped_stats,
                 "analysis": {
-                    "competitor_score": 50,
-                    "threat_level": "Médio",
-                    "niche": "Desconhecido",
-                    "weaknesses": ["Erro na análise - tente novamente"],
-                    "content_hooks_to_steal": ["Não disponível"]
+                    "competitor_score": 0,
+                    "weaknesses": ["Erro na IA"],
+                    "threat_level": "Erro"
                 }
             }
 

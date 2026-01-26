@@ -10,9 +10,10 @@ export interface LogEntry {
 interface Props {
     logs?: (string | LogEntry)[];
     className?: string;
+    autoScroll?: boolean;
 }
 
-export default function LogTerminal({ logs = [], className = '' }: Props) {
+export default function LogTerminal({ logs = [], className = '', autoScroll = false }: Props) {
     const bottomRef = useRef<HTMLDivElement>(null);
     const [filter, setFilter] = useState<'all' | 'error'>('all');
 
@@ -33,10 +34,12 @@ export default function LogTerminal({ logs = [], className = '' }: Props) {
         ? parsedLogs
         : parsedLogs.filter(l => l.level === 'error');
 
-    // Auto-scroll
+    // Auto-scroll (Optional)
     useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [logs]);
+        if (autoScroll) {
+            bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [logs, autoScroll]);
 
     return (
         <div className={`bg-black border border-green-900/50 rounded-lg flex flex-col overflow-hidden font-mono text-xs ${className}`}>
@@ -73,9 +76,9 @@ export default function LogTerminal({ logs = [], className = '' }: Props) {
                     <div key={i} className="flex gap-2 group hover:bg-green-900/5 px-1 rounded-sm">
                         <span className="text-gray-600 shrink-0 select-none">[{log.timestamp}]</span>
                         <span className={`break-all ${log.level === 'error' ? 'text-red-500 font-bold' :
-                                log.level === 'success' ? 'text-green-400' :
-                                    log.level === 'warning' ? 'text-yellow-500' :
-                                        'text-gray-300'
+                            log.level === 'success' ? 'text-green-400' :
+                                log.level === 'warning' ? 'text-yellow-500' :
+                                    'text-gray-300'
                             }`}>
                             {log.level === 'error' && '❌ '}
                             {log.level === 'success' && '✅ '}

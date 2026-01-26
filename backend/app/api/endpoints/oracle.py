@@ -330,7 +330,7 @@ class SpyRequest(BaseModel):
 
 @router.post("/seo/spy")
 async def spy_competitor(request: SpyRequest):
-    return seo_engine.competitor_spy(request.competitor_handle)
+    return await seo_engine.competitor_spy(request.competitor_handle)
 
 class FixBioRequest(BaseModel):
     current_bio: str

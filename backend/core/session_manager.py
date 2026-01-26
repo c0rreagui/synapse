@@ -56,7 +56,9 @@ def get_profile_metadata(profile_id: str) -> Dict[str, Any]:
             "avatar_url": profile.avatar_url,
             "bio": profile.bio,
             "oracle_best_times": profile.oracle_best_times,
-            "last_seo_audit": profile.last_seo_audit
+            "last_seo_audit": profile.last_seo_audit,
+            "stats": profile.last_seo_audit.get("stats", {}) if profile.last_seo_audit else {},
+            "latest_videos": profile.last_seo_audit.get("latest_videos", []) if profile.last_seo_audit else []
         }
     except Exception as e:
         print(f"DB Error getting metadata: {e}")
@@ -218,6 +220,12 @@ def update_profile_metadata(profile_id: str, updates: Dict[str, Any]) -> bool:
             current_audit = dict(profile.last_seo_audit) if profile.last_seo_audit else {}
             current_audit["stats"] = updates["stats"]
             profile.last_seo_audit = current_audit
+
+        if "latest_videos" in updates:
+             # Store videos in last_seo_audit
+             current_audit = dict(profile.last_seo_audit) if profile.last_seo_audit else {}
+             current_audit["latest_videos"] = updates["latest_videos"]
+             profile.last_seo_audit = current_audit
 
         profile.updated_at = datetime.utcnow()
 

@@ -6,19 +6,38 @@ interface StitchCardProps {
     className?: string;
     hoverEffect?: boolean;
     onClick?: () => void;
+    noPadding?: boolean;
 }
 
-export const StitchCard = ({ children, className, hoverEffect = true, onClick }: StitchCardProps) => {
+export const StitchCard = ({ children, className, hoverEffect = true, onClick, noPadding = false }: StitchCardProps) => {
     return (
         <div
             onClick={onClick}
             className={clsx(
-                "stitch-card relative overflow-hidden",
-                hoverEffect && "hover:border-synapse-primary hover:shadow-[0_0_30px_rgba(139,92,246,0.15)] card-lift",
+                // Base: Deep Dark Glass + Rounded Squircle
+                "relative group bg-[#0c0c0c]/80 backdrop-blur-2xl rounded-[32px] border border-white/5 overflow-hidden transition-all duration-500",
+
+                // Hover Effects: Neon Border + Shadow Bloom
+                hoverEffect && "hover:border-synapse-primary/40 hover:shadow-[0_0_60px_-15px_rgba(139,92,246,0.3)]",
+
+                // Padding control
+                !noPadding && "p-6",
+
                 className
             )}
         >
-            {/* Optional: subtle inner glow or noise texture could be added here */}
+            {/* 1. GLOBAL HOLOGRAPHIC GRID (Shared DNA) */}
+            <div className="absolute inset-0 z-0 opacity-[0.15] pointer-events-none mix-blend-color-dodge transition-opacity duration-700 group-hover:opacity-30"
+                style={{ backgroundImage: 'linear-gradient(rgba(139, 92, 246, 0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(139, 92, 246, 0.4) 1px, transparent 1px)', backgroundSize: '32px 32px' }}>
+            </div>
+
+            {/* 2. SUBTLE SCANLINES */}
+            <div className="absolute inset-0 z-0 opacity-10 pointer-events-none bg-[linear-gradient(rgba(0,0,0,0)_50%,rgba(0,0,0,0.4)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,3px_100%]"></div>
+
+            {/* 3. AMBIENT BLOOM (Top Right) */}
+            <div className="absolute -top-[50%] -right-[50%] w-[100%] h-[100%] rounded-full blur-[100px] opacity-10 transition-all duration-1000 group-hover:opacity-20 bg-[conic-gradient(at_top_right,_var(--tw-gradient-stops))] from-synapse-primary/50 via-synapse-cyan/30 to-transparent pointer-events-none" />
+
+            {/* Content Content */}
             <div className="relative z-10">{children}</div>
         </div>
     );

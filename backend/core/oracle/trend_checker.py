@@ -122,8 +122,7 @@ class TrendChecker:
             db.rollback()
         finally:
             db.close()
-        except Exception as e:
-            logger.error(f"❌ Failed to save trends cache: {e}")
+
     
     async def fetch_trending_sounds(self, category: str = "all", min_growth: float = 100) -> List[TrendData]:
         """

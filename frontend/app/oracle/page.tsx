@@ -24,6 +24,8 @@ import { PerformanceChart } from '../components/analytics/PerformanceChart';
 import { ChartBarIcon, HeartIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/solid';
 import { RetentionChart } from '../components/oracle/RetentionChart';
 import { EngagementHeatmap } from '../components/oracle/EngagementHeatmap';
+import { PatternCard } from '../components/oracle/PatternCard';
+import { MetricComparisonChart } from '../components/oracle/MetricComparisonChart';
 import axios from 'axios';
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1');
@@ -631,32 +633,53 @@ export default function OraclePage() {
                                             />
                                         </div>
 
-                                        {/* Charts Area */}
-                                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                            {/* Main Chart */}
-                                            <div className="lg:col-span-2 bg-[#0f0a15] border border-white/5 rounded-2xl p-6">
-                                                <h3 className="text-lg font-bold mb-6 text-gray-200">Crescimento de Views</h3>
-                                                <PerformanceChart data={analyticsData.history} />
-                                            </div>
+                                        {/* Advanced Charts Row 1: Retention & Heatmap */}
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                            <RetentionChart />
+                                            <EngagementHeatmap />
+                                        </div>
 
-                                            {/* Insights */}
-                                            <div className="bg-[#0f0a15] border border-white/5 rounded-2xl p-6">
-                                                <h3 className="text-lg font-bold mb-6 text-gray-200">Insights do Oracle</h3>
-                                                <div className="space-y-4">
-                                                    <div className="p-4 bg-white/5 rounded-xl border border-white/5">
-                                                        <div className="text-sm text-gray-400 mb-1">Melhor Dia</div>
-                                                        <div className="text-xl font-bold text-white">Sexta-feira</div>
-                                                    </div>
-                                                    <div className="p-4 bg-white/5 rounded-xl border border-white/5">
-                                                        <div className="text-sm text-gray-400 mb-1">Potencial Viral</div>
-                                                        <div className="text-xl font-bold text-[#00f3ff]">Alto</div>
-                                                    </div>
-                                                    <div className="mt-4 p-4 rounded-xl bg-synapse-purple/10 border border-synapse-purple/20">
-                                                        <p className="text-xs text-synapse-purple leading-relaxed">
-                                                            💡 <strong>Dica:</strong> Seus vídeos postados na sexta-feira têm 2x mais views que nos outros dias.
-                                                        </p>
-                                                    </div>
-                                                </div>
+                                        {/* Advanced Charts Row 2: Performance & Comparison */}
+                                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                            <div className="lg:col-span-2">
+                                                <StitchCard className="p-1 border-none bg-transparent">
+                                                    <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-wider ml-2">Histórico de Views</h3>
+                                                    <PerformanceChart data={analyticsData.history} />
+                                                </StitchCard>
+                                            </div>
+                                            <div>
+                                                <MetricComparisonChart />
+                                            </div>
+                                        </div>
+
+                                        {/* Patterns Intelligence */}
+                                        <div>
+                                            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                                                <SparklesIcon className="w-5 h-5 text-yellow-400" />
+                                                Padrões Detectados pela IA
+                                            </h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                <PatternCard
+                                                    type="VIRAL_HOOK"
+                                                    title="Hook Visual Detectado"
+                                                    description="Vídeos que começam com movimento rápido de câmera têm 45% mais retenção nos primeiros 3s."
+                                                    confidence={92}
+                                                    impact="HIGH"
+                                                />
+                                                <PatternCard
+                                                    type="TIMING"
+                                                    title="Janela de Ouro"
+                                                    description="Publicações feitas entre 18:00 e 20:00 performam 2.5x melhor."
+                                                    confidence={88}
+                                                    impact="MEDIUM"
+                                                />
+                                                <PatternCard
+                                                    type="ANOMALY"
+                                                    title="Queda de Engajamento"
+                                                    description="Vídeos com mais de 60s estão sofrendo queda brusca de retenção após 40s."
+                                                    confidence={75}
+                                                    impact="LOW"
+                                                />
                                             </div>
                                         </div>
                                     </div>
@@ -1170,39 +1193,7 @@ export default function OraclePage() {
                         )}
 
 
-                        {/* DEEP ANALYTICS TAB */}
-                        {
-                            activeTab === 'DEEP_ANALYTICS' && (
-                                <motion.div
-                                    key="deep_analytics"
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -10 }}
-                                    className="max-w-4xl mx-auto space-y-8"
-                                >
-                                    <div className="p-6 rounded-2xl bg-[#13111a] border border-white/10 text-center mb-6">
-                                        <h3 className="text-2xl font-bold mb-2 flex items-center justify-center gap-2">
-                                            <span className="text-synapse-purple">🧠</span> Deep Analytics
-                                        </h3>
-                                        <p className="text-gray-400">Análise profunda de retenção e padrões de engajamento.</p>
-                                    </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <RetentionChart />
-                                        <EngagementHeatmap />
-                                    </div>
-
-                                    {/* Metric Comparison Placeholder or Future Component */}
-                                    <StitchCard className="p-6 bg-black/20 border-white/5">
-                                        <h3 className="text-lg font-bold text-white mb-4">Métricas Comparativas</h3>
-                                        <p className="text-sm text-gray-500 mb-4">Comparação de performance entre diferentes tipos de conteúdo.</p>
-                                        <div className="h-[200px] flex items-center justify-center border border-dashed border-white/10 rounded-xl">
-                                            <span className="text-xs text-gray-600">Em desenvolvimento...</span>
-                                        </div>
-                                    </StitchCard>
-                                </motion.div>
-                            )
-                        }
                     </AnimatePresence >
 
                 </div >
