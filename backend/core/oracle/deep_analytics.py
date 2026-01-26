@@ -14,55 +14,76 @@ class DeepAnalytics:
         Analisa performance de um vídeo específico.
         Espera video_data contendo: duration, stats (diggCount, playCount, etc)
         """
-        stats = video_data.get('stats', {})
-        play_count = stats.get('playCount', 0)
-        digg_count = stats.get('diggCount', 0)
-        share_count = stats.get('shareCount', 0)
-        comment_count = stats.get('commentCount', 0)
-        duration = video_data.get('video', {}).get('duration', 0)
+        try:
+            stats = video_data.get('stats', {})
+            play_count = stats.get('playCount', 0)
+            digg_count = stats.get('diggCount', 0)
+            share_count = stats.get('shareCount', 0)
+            comment_count = stats.get('commentCount', 0)
+            duration = video_data.get('video', {}).get('duration', 0)
 
-        if not play_count or not duration:
-            return {"error": "Insufficient data"}
+            if not play_count or not duration:
+                # Return limited data instead of error if basic info missing
+                return {
+                    "video_id": video_data.get('id', 'unknown'),
+                    "error": "Insufficient data (0 views or duration)",
+                    "basic_stats": {"views": 0, "engagement_rate": 0}
+                }
 
-        # Calcular Engagement Rate
-        interactions = digg_count + share_count + comment_count
-        engagement_rate = interactions / play_count if play_count > 0 else 0
-        
-        # Gerar análise de retenção
-        retention: RetentionAnalysis = retention_analyzer.analyze_curve(
-            duration=duration,
-            total_views=play_count,
-            engagement_score=engagement_rate
-        )
+            # Calcular Engagement Rate
+            interactions = digg_count + share_count + comment_count
+            engagement_rate = interactions / play_count if play_count > 0 else 0
+            
+            # Gerar análise de retenção
+            try:
+                retention: RetentionAnalysis = retention_analyzer.analyze_curve(
+                    duration=duration,
+                    total_views=play_count,
+                    engagement_score=engagement_rate
+                )
+            except Exception as e:
+                # Fallback if retention engine fails
+                from core.oracle.retention_curve import RetentionAnalysis
+                retention = RetentionAnalysis(curve=[], average_watch_time=0, completion_rate=0, drop_off_points=[])
 
-        # Deep Metrics preliminares para o pattern detector
-        deep_metrics_pre = {
-            "retention_curve": retention.curve, # Objeto puro
-            "completion_rate": retention.completion_rate
-        }
+            # Deep Metrics preliminares para o pattern detector
+            deep_metrics_pre = {
+                "retention_curve": retention.curve, # Objeto puro
+                "completion_rate": retention.completion_rate
+            }
 
-        # Detectar Padrões
-        patterns = pattern_detector.detect_patterns(stats, deep_metrics_pre)
+            # Detectar Padrões
+            try:
+                 patterns = pattern_detector.detect_patterns(stats, deep_metrics_pre)
+            except:
+                 patterns = []
 
-        return {
-            "video_id": video_data.get('id'),
-            "basic_stats": {
-                "views": play_count,
-                "likes": digg_count,
-                "shares": share_count,
-                "comments": comment_count,
-                "engagement_rate": round(engagement_rate * 100, 2)
-            },
-            "deep_metrics": {
-                "retention_curve": [asdict(p) for p in retention.curve],
-                "average_watch_time": retention.average_watch_time,
-                "completion_rate": retention.completion_rate,
-                "drop_off_seconds": retention.drop_off_points,
-                "viral_score": self._calculate_viral_score(play_count, engagement_rate),
-                "patterns": [asdict(p) for p in patterns]
-            },
-            "insights": self._generate_insights(retention, engagement_rate, patterns)
-        }
+            return {
+                "video_id": video_data.get('id'),
+                "basic_stats": {
+                    "views": play_count,
+                    "likes": digg_count,
+                    "shares": share_count,
+                    "comments": comment_count,
+                    "engagement_rate": round(engagement_rate * 100, 2)
+                },
+                "deep_metrics": {
+                    "retention_curve": [asdict(p) for p in retention.curve],
+                    "average_watch_time": retention.average_watch_time,
+                    "completion_rate": retention.completion_rate,
+                    "drop_off_seconds": retention.drop_off_points,
+                    "viral_score": self._calculate_viral_score(play_count, engagement_rate),
+                    "patterns": [asdict(p) for p in patterns]
+                },
+                "insights": self._generate_insights(retention, engagement_rate, patterns)
+            }
+        except Exception as e:
+            # Global fallback
+            return {
+                "video_id": video_data.get('id', 'unknown'),
+                "error": f"Analytics engine failed: {str(e)}",
+                "basic_stats": {}
+            }
 
     def _calculate_viral_score(self, views: int, engagement: float) -> int:
         """Calcula score viral de 0 a 100"""

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
     Squares2X2Icon, UserGroupIcon, CubeTransparentIcon,
-    DocumentTextIcon, ChartBarIcon, CalendarIcon, EyeIcon
+    DocumentTextIcon, ChartBarIcon, CalendarIcon, EyeIcon, CloudArrowUpIcon
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 
@@ -14,6 +14,7 @@ const navItems = [
     { href: '/oracle', icon: CubeTransparentIcon, label: 'Oracle' },
     // SEO & Discovery merged into Oracle
     { href: '/factory', icon: CubeTransparentIcon, label: 'Factory Watcher' },
+    { href: '/upload', icon: CloudArrowUpIcon, label: 'Upload Manual' },
     { href: '/scheduler', icon: CalendarIcon, label: 'Agendamento' },
     { href: '/logs', icon: DocumentTextIcon, label: 'Logs' },
 ];

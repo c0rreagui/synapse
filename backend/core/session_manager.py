@@ -77,9 +77,9 @@ def list_available_sessions() -> List[Dict[str, str]]:
             sessions.append({
                 "id": p.slug,
                 "label": p.label or p.slug,
-                "username": p.username,
-                "avatar_url": p.avatar_url,
-                "icon": p.icon,
+                "username": p.username or "",
+                "avatar_url": p.avatar_url or "",
+                "icon": p.icon or "",
                 "status": "active" if p.active else "inactive"
             })
     except Exception as e:
@@ -147,6 +147,14 @@ def update_profile_info(profile_id: str, info: Dict[str, Any]) -> bool:
     Updates existing profile metadata (avatar, label, etc) in SQLite.
     """
     db = SessionLocal()
+from datetime import datetime
+
+def update_profile_info(profile_id: str, info: Dict[str, Any]) -> bool:
+    """
+    Updates basic profile info (label, username, avatar) in SQLite.
+    info dict keys: 'nickname' (maps to label), 'username', 'avatar_url', 'bio'
+    """
+    db = SessionLocal()
     try:
         profile = db.query(Profile).filter(Profile.slug == profile_id).first()
         if not profile:
@@ -158,10 +166,15 @@ def update_profile_info(profile_id: str, info: Dict[str, Any]) -> bool:
             profile.label = info["nickname"]
         if "username" in info:
             profile.username = info["username"]
+        if "bio" in info:
+            profile.bio = info["bio"]
+            
+        # Add support for Active Status Toggle
+        if "active" in info:
+            profile.active = info["active"]
         
-        profile.updated_at = time.strftime('%Y-%m-%d %H:%M:%S') # Or use datetime object if field is DateTime (it is)
-        # SQLAlchemy handles DateTime conversion if we configured it, but let's trust auto update onupdate?
-        # Manually touching it allows ensuring it changes. But 'onupdate' in model handles it.
+        # FIX: Use datetime object, not string
+        profile.updated_at = datetime.utcnow()
         
         db.commit()
         return True
@@ -180,35 +193,34 @@ def update_profile_metadata(profile_id: str, updates: Dict[str, Any]) -> bool:
     try:
         profile = db.query(Profile).filter(Profile.slug == profile_id).first()
         if not profile:
-            # If not found, maybe create? Legacy created raw JSON entry.
-            # But here we enforce profile existence.
             return False
 
-        # We need to update specific columns OR the JSON columns.
-        # This function is generic. Let's see what keys are usually passed.
-        # usually: oracle_best_times, last_seo_audit, etc.
-        
-        # We need to merge JSON fields carefully.
-        # SQLAlchemy with SQLite supports JSON, but full patch update might need read-modify-write.
-        
         if "oracle_best_times" in updates:
             profile.oracle_best_times = updates["oracle_best_times"]
             
         if "last_seo_audit" in updates:
-            profile.last_seo_audit = updates["last_seo_audit"]
+            # Merge logic could be better but overwriting or setting keys is fine for now
+            current_audit = dict(profile.last_seo_audit) if profile.last_seo_audit else {}
+            if isinstance(updates["last_seo_audit"], dict):
+                current_audit.update(updates["last_seo_audit"])
+            else:
+                current_audit = updates["last_seo_audit"]
+            profile.last_seo_audit = current_audit
             
-        # If there are other arbitrary keys, we might lose them if we don't have columns.
-        # But 'last_seo_audit' and 'oracle_best_times' are the main ones.
-        # If we have other keys, we should probably add them to a 'metadata' flexible column if we had one.
-        # For now, let's assume specific columns or modify 'last_seo_audit' if appropriate?
-        # Actually legacy code just dumped everything into the JSON object. 
-        # For V1 migration safety, if a key doesn't match a column, we might ignore it or put it in bio?
-        # Let's check commonly used keys.
-        
         if "avatar_url" in updates:
              profile.avatar_url = updates["avatar_url"]
-             
-        # Commit
+
+        if "bio" in updates:
+            profile.bio = updates["bio"]
+            
+        if "stats" in updates:
+            # Store stats in last_seo_audit just to have them somewhere since no columns exist
+            current_audit = dict(profile.last_seo_audit) if profile.last_seo_audit else {}
+            current_audit["stats"] = updates["stats"]
+            profile.last_seo_audit = current_audit
+
+        profile.updated_at = datetime.utcnow()
+
         db.commit()
         return True
     except Exception as e:
@@ -218,4 +230,42 @@ def update_profile_metadata(profile_id: str, updates: Dict[str, Any]) -> bool:
     finally:
         db.close()
 
+def delete_session(profile_id: str) -> bool:
+    """
+    Deletes a profile from SQLite (and its related data) and removes its session file.
+    """
+    db = SessionLocal()
+    try:
+        # 1. Find Profile
+        profile = db.query(Profile).filter(Profile.slug == profile_id).first()
+        if not profile:
+            return False
 
+        # 2. Delete related Audits (FK constraint)
+        # Imports inside function to avoid circular imports if any, though model import is top level
+        from core.models import Audit, ScheduleItem
+        
+        db.query(Audit).filter(Audit.profile_id == profile.id).delete()
+        
+        # 3. Delete related Schedule Items (Loose slug link)
+        db.query(ScheduleItem).filter(ScheduleItem.profile_slug == profile_id).delete()
+
+        # 4. Delete Profile
+        db.delete(profile)
+        db.commit()
+        
+        # 5. Delete File
+        session_path = get_session_path(profile_id)
+        if os.path.exists(session_path):
+            try:
+                os.remove(session_path)
+            except OSError as e:
+                print(f"Error removing session file: {e}")
+                
+        return True
+    except Exception as e:
+        db.rollback()
+        print(f"DB Error deleting profile: {e}")
+        return False
+    finally:
+        db.close()

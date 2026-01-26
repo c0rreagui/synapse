@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, JSON, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from .database import Base
-from datetime import datetime
+from datetime import datetime, timezone
 
 class Profile(Base):
     __tablename__ = "profiles"
@@ -21,8 +21,8 @@ class Profile(Base):
     last_seo_audit = Column(JSON, default=dict) # The BIG audit object
     
     # Metadata
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Future relations
     # audits = relationship("Audit", back_populates="profile")
@@ -36,7 +36,7 @@ class Audit(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     profile_id = Column(Integer, ForeignKey("profiles.id"))
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     data = Column(JSON) # The full audit result snapshot
     score = Column(Integer) # Quick access to total score
 
@@ -51,4 +51,26 @@ class ScheduleItem(Base):
     scheduled_time = Column(DateTime)
     status = Column(String, default="pending") # pending, posted, failed
     metadata_info = Column(JSON, default=dict) # Title, caption, tags
+
+class Trend(Base):
+    """
+    Stores trending sounds/hashtags validated by Oracle.
+    Migrated from trends.json to support history and analytics.
+    """
+    __tablename__ = "trends"
+
+    id = Column(Integer, primary_key=True, index=True)
+    niche = Column(String, index=True) # e.g. "dance", "comedy", "all"
+    platform = Column(String, default="tiktok")
     
+    # Core Data
+    title = Column(String) # Hashtag name or Sound title
+    identifier = Column(String, index=True) # e.g. "sound_123" or "hashtag_xyz" (for dedup)
+    
+    # Metrics
+    volume = Column(Integer, default=0) # Usage count/Views
+    growth_24h = Column(Integer, default=0) # Percentage growth * 100 (int for precision)
+    score = Column(Integer, default=0) # Confidence score (0-100)
+    
+    cached_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    expires_at = Column(DateTime) # Explicit expiration for cache logic    

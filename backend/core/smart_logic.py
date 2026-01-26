@@ -14,7 +14,7 @@ Usado em:
 import json
 import os
 from dataclasses import dataclass, asdict
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta, time, timezone
 from typing import List, Dict, Optional, Any, Tuple
 from enum import Enum
 
@@ -289,7 +289,11 @@ class SmartLogic:
             OptimalTimeSlot com o horário sugerido
         """
         if preferred_time is None:
-            preferred_time = datetime.now()
+            preferred_time = datetime.now(timezone.utc)
+        else:
+            # Ensure preferred_time is aware
+            if preferred_time.tzinfo is None:
+                preferred_time = preferred_time.replace(tzinfo=timezone.utc)
         
         # Começar a busca a partir do horário preferido
         current = preferred_time
@@ -362,16 +366,22 @@ class SmartLogic:
             Lista de OptimalTimeSlot ordenada por score
         """
         if target_date is None:
-            target_date = datetime.now()
+            target_date = datetime.now(timezone.utc)
         
         slots: List[OptimalTimeSlot] = []
         
         # Começar do início do dia alvo
+        # Force timezone on target_date if missing
+        if target_date.tzinfo is None:
+             target_date = target_date.replace(tzinfo=timezone.utc)
+
         day_start = target_date.replace(hour=6, minute=0, second=0, microsecond=0)
         
         # Se o dia é hoje e já passou das 6h, começar de agora
-        if target_date.date() == datetime.now().date():
-            day_start = max(day_start, datetime.now())
+        # Compare dates in UTC
+        now_utc = datetime.now(timezone.utc)
+        if target_date.date() == now_utc.date():
+            day_start = max(day_start, now_utc)
         
         current = day_start
         day_end = day_start.replace(hour=23, minute=59)

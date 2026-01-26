@@ -16,6 +16,7 @@ from playwright.async_api import Page
 from core.browser import launch_browser, close_browser
 from core.session_manager import get_session_path
 from core.monitor import TikTokMonitor
+from core.locking import session_lock, SessionLockError
 
 logger = logging.getLogger(__name__)
 
@@ -44,23 +45,66 @@ async def upload_video_monitored(
         return {"status": "error", "message": "Video not found"}
     
     session_path = get_session_path(session_name)
-    p, browser, context, page = await launch_browser(headless=False, storage_state=session_path)
     
-    # 🎬 INICIAR PLAYWRIGHT TRACE (só se monitor ativo)
-    if monitor:
-        await monitor.start_tracing(context)
-        # 📝 Injetar console logger ULTRA-DETALHADO
-        await monitor.inject_console_logger(page)
-        # 📸 INICIAR CAPTURA CONTÍNUA (500ms)
-        await monitor.start_continuous_screenshot(page, interval=0.5)
+    # Init vars for finally block
+    p = None
+    browser = None
+    context = None
+    page = None
     
+    # 🔒 LOCK SESSION (Manual Context Manager to avoid re-indenting 1000 lines)
+    _lock_ctx = session_lock(session_name)
+    _lock_acquired = False
+
     try:
+        _lock_ctx.__enter__()
+        _lock_acquired = True
+        
+        p, browser, context, page = await launch_browser(headless=False, storage_state=session_path)
+            
+        # 🎬 INICIAR PLAYWRIGHT TRACE (só se monitor ativo)
+        if monitor:
+            await monitor.start_tracing(context)
+            # 📝 Injetar console logger ULTRA-DETALHADO
+            await monitor.inject_console_logger(page)
+            # 📸 INICIAR CAPTURA CONTÍNUA (500ms)
+            await monitor.start_continuous_screenshot(page, interval=0.5)
+        
+        # ========== STEP 0: RENDERIZAÇÃO (SIMULADA/PREPARATÓRIA) ==========
+        # Como o vídeo já vem pronto, o "Render" aqui é a preparação do ambiente Playwright/Browser
+        from core.status_manager import status_manager
+        status_manager.update_status("busy", step="rendering", progress=50, logs=["Renderizando ambiente seguro..."])
+
+        
         # ========== STEP 1: NAVEGAÇÃO ==========
+        status_manager.update_status("busy", step="uploading", progress=60, logs=["Acessando TikTok Studio..."])
         await page.goto("https://www.tiktok.com/tiktokstudio/upload", timeout=120000)
         await page.wait_for_timeout(5000)
         if monitor:
             await monitor.capture_full_state(page, "navegacao_inicial", 
                                             "Página de upload do TikTok Studio carregada")
+        
+        # 🛡️ SECURITY CHECK: Detect Login Redirect (Dead Session)
+        current_url = page.url
+        if "login" in current_url or "tiktok.com" not in current_url:
+            logger.error(f"❌ SESSÃO MORTA DETECTADA! Redirecionado para login: {current_url}")
+            
+            # Auto-Kill Session in DB to prevent infinite retries
+            try:
+                from core.session_manager import update_profile_info
+                # Remove "tiktok_profile_" prefix to get ID/Slug
+                pid = session_name
+                # Some session names are full strings, handle that if needed, 
+                # but get_session_path uses session_name directly, so slug matches.
+                
+                update_profile_info(pid, {"active": False})
+                logger.critical(f"💀 PERFIL {pid} DESATIVADO AUTOMATICAMENTE NO BANCO.")
+                
+                status_manager.update_status("error", logs=["Sessão expirada. Perfil desativado."])
+            except Exception as kill_err:
+                logger.error(f"Erro ao desativar perfil: {kill_err}")
+                
+            raise Exception("Session Expired - Login Required")
         
         
         # ========== STEP 2: UPLOAD DO VÍDEO (COM FALLBACKS) ==========
@@ -991,5 +1035,12 @@ async def upload_video_monitored(
             logger.info("="*60)
         else:
             await close_browser(p, browser)
+
+        # 🔓 RELEASE LOCK
+        if _lock_acquired:
+            try:
+                _lock_ctx.__exit__(None, None, None)
+            except Exception as le:
+                logger.error(f"Erro ao liberar lock: {le}")
         
     return result

@@ -47,6 +47,11 @@ async def execute_approved_video(video_filename: str) -> dict:
     """
     logger.info(f"🚀 Iniciando execução manual: {video_filename}")
     
+    # Security: Prevent Path Traversal
+    if ".." in video_filename or "/" in video_filename or "\\" in video_filename:
+         logger.critical(f"🛑 ATTEMPTED PATH TRAVERSAL IN EXECUTOR: {video_filename}")
+         return {"status": "error", "message": "Invalid filename (Path Traversal Detected)"}
+    
     approved_path = os.path.join(APPROVED_DIR, video_filename)
     
     if not os.path.exists(approved_path):
@@ -73,8 +78,24 @@ async def execute_approved_video(video_filename: str) -> dict:
     else:
         session_name = profile_id
     
+    # 🛡️ SAFETY CHECK: Verify if profile is active in DB
+    from core import session_manager
+    # We use the session_name (slug) to query status
+    # Standardize slug: if it's p1, convert to tiktok_profile_01. If it's pure slug, used directly.
+    # The session_name variable holds the correct slug for the file, so we use that.
+    
+    db_meta = session_manager.get_profile_metadata(session_name)
+    if db_meta:
+        if db_meta.get("active") is False:
+            logger.warning(f"🛑 Execução abortada: Perfil {session_name} está INATIVO/BANIDO.")
+            status_manager.update_status("error", logs=[f"Perfil {session_name} inativo. Re-autentique."])
+            return {"status": "error", "message": "Profile is inactive (login required)"}
+    else:
+        # If not found in DB, it might be a new import or legacy. We assume active but log warning.
+        logger.warning(f"⚠️ Perfil {session_name} não encontrado no banco. Prosseguindo com risco.")
+    
     # Move to processing
-    status_manager.update_status("busy", video_filename, 10, "Movendo para Processing...", logs=["Movendo arquivo..."])
+    status_manager.update_status("busy", video_filename, 10, "Movendo para Processing...", step="ingesting", logs=["Movendo arquivo..."])
     proc_path = os.path.join(PROCESSING_DIR, video_filename)
     try:
         if os.path.exists(proc_path):
@@ -88,7 +109,7 @@ async def execute_approved_video(video_filename: str) -> dict:
     # Get caption (use from metadata or generate with Brain)
     caption = metadata.get('caption')
     if not caption:
-        status_manager.update_status("busy", video_filename, 20, "Gerando Legenda (Brain AI)...", logs=["Analisando vídeo com IA..."])
+        status_manager.update_status("busy", video_filename, 20, "Gerando Legenda (Brain AI)...", step="transcribing", logs=["Analisando vídeo com IA..."])
         logger.info("🧠 Brain gerando caption...")
         brain_data = await brain.generate_smart_caption(video_filename)
         caption = brain_data["caption"]

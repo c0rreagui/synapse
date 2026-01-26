@@ -2,7 +2,7 @@ import asyncio
 import sys
 
 if sys.platform == "win32":
-    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,7 +30,7 @@ async def startup_event():
         app.state.watcher_observer = await start_watcher()
         
         # Start Queue Worker (Async Loop)
-        asyncio.create_task(worker_loop())
+        app.state.queue_worker_task = asyncio.create_task(worker_loop())
         
         # Start Oracle Automation (Smart Loop)
         from core.oracle.automation import oracle_automator
@@ -42,11 +42,28 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    print("🛑 SHUTDOWN SEQUENCE INITIATED...")
+    
     if hasattr(app.state, "watcher_observer") and app.state.watcher_observer:
         print("Stopping Factory Watcher...")
         app.state.watcher_observer.stop()
         # observer.join() might block async loop, usually safe to just stop in async context or run in executor
         # app.state.watcher_observer.join() 
+    
+    if hasattr(app.state, "queue_worker_task") and app.state.queue_worker_task:
+        print("Stopping Queue Worker...")
+        app.state.queue_worker_task.cancel()
+        try:
+            await app.state.queue_worker_task
+        except asyncio.CancelledError:
+            print("✅ Queue Worker stopped gracefully.")
+            
+    from core.oracle.automation import oracle_automator
+    if oracle_automator.is_running:
+        print("Stopping Oracle Automation...")
+        oracle_automator.stop()
+        
+    print("👋 System Shutdown Complete.") 
 
 app.add_middleware(
     CORSMiddleware,
@@ -58,7 +75,7 @@ app.add_middleware(
         "http://127.0.0.1:8000",
         "http://localhost:3001",
         "http://127.0.0.1:3001",
-        "*"
+        # "*",  <-- REMOVED: Cannot use wildcard with allow_credentials=True
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS", "PUT", "DELETE"],

@@ -22,11 +22,12 @@ class OracleAutomator:
             try:
                 await self.check_and_run_tasks()
             except Exception as e:
+                import traceback
                 print(f"⚠️ Oracle Automation Error: {e}")
+                traceback.print_exc()
             
-            # Verifica a cada 1 hora (3600s) para não sobrecarregar
-            # Para testes, podemos reduzir via config
-            await asyncio.sleep(3600)
+            # Verifica a cada 30 minutos (1800s)
+            await asyncio.sleep(1800)
 
     async def check_and_run_tasks(self):
         """Verifica perfis que precisam de auditoria ou spy."""
@@ -43,8 +44,12 @@ class OracleAutomator:
             if not last_audit_iso:
                 should_run_audit = True
             else:
-                last_audit = datetime.fromisoformat(last_audit_iso)
-                if datetime.now() - last_audit > timedelta(days=7):
+                try:
+                    last_audit = datetime.fromisoformat(last_audit_iso)
+                    if datetime.now() - last_audit > timedelta(days=7):
+                        should_run_audit = True
+                except ValueError:
+                    logger.warning(f"⚠️ Invalid date format for profile {profile_id}: {last_audit_iso}. Forcing audit.")
                     should_run_audit = True
             
             if should_run_audit:

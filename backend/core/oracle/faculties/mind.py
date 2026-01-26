@@ -97,38 +97,52 @@ class MindFaculty:
         5. For best_times: Consider the NICHE and AUDIENCE TYPE. Gaming/entertainment = evenings. Educational = lunch breaks. Lifestyle = weekends. Give 3-5 specific times with UNIQUE reasons for each, not generic "high engagement". Consider Brazilian timezone (GMT-3).
         """
 
-        try:
-            # Using low temperature for analytical consistency (Logic > Creativity)
-            response = self.client.generate_content(prompt, temperature=0.1)
-            raw_text = response.text.strip()
-            clean_text = raw_text.replace("```json", "").replace("```", "").strip()
-            
-            # Try direct JSON parse first
+        # RETRY MECHANISM (Resilience)
+        max_retries = 3
+        last_error = None
+        
+        import asyncio
+        for attempt in range(max_retries):
             try:
-                metrics = json.loads(clean_text)
-            except json.JSONDecodeError as parse_error:
-                # Fallback: Extract JSON using regex
-                logger.warning(f"⚠️ Direct JSON parse failed, trying regex extraction...")
-                import re
-                json_match = re.search(r'\{.*\}', clean_text, re.DOTALL)
-                if json_match:
-                    try:
-                        metrics = json.loads(json_match.group())
-                        logger.info("✅ JSON extracted successfully via regex")
-                    except json.JSONDecodeError:
-                        raise ValueError(f"Failed to parse JSON even with regex: {parse_error}")
-                else:
-                    raise ValueError(f"No JSON object found in response: {parse_error}")
+                # Using low temperature for analytical consistency (Logic > Creativity)
+                response = self.client.generate_content(prompt, temperature=0.1)
+                raw_text = response.text.strip()
+                clean_text = raw_text.replace("```json", "").replace("```", "").strip()
+                
+                # Try direct JSON parse first
+                try:
+                    metrics = json.loads(clean_text)
+                except json.JSONDecodeError as parse_error:
+                    # Fallback: Extract JSON using regex
+                    logger.warning(f"⚠️ Direct JSON parse failed, trying regex extraction...")
+                    import re
+                    json_match = re.search(r'\{.*\}', clean_text, re.DOTALL)
+                    if json_match:
+                        try:
+                            metrics = json.loads(json_match.group())
+                            logger.info("✅ JSON extracted successfully via regex")
+                        except json.JSONDecodeError:
+                            raise ValueError(f"Failed to parse JSON even with regex: {parse_error}")
+                    else:
+                        # Only raise if this was the last attempt, otherwise loop retry might fix it (unlikely for pure bad JSON but possible if LLM hallucinated)
+                        raise ValueError(f"No JSON object found in response: {parse_error}")
 
-            return {
-                "profile": profile_data.get("username"),
-                "analysis": metrics,
-                "faculty": "mind"
-            }
+                return {
+                    "profile": profile_data.get("username"),
+                    "analysis": metrics,
+                    "faculty": "mind"
+                }
 
-        except Exception as e:
-            logger.error(f"❌ Oracle.Mind failed: {e}")
-            return {
-                "error": str(e),
-                "raw_response": response.text if 'response' in locals() else "No response"
-            }
+            except Exception as e:
+                last_error = e
+                logger.warning(f"⚠️ Oracle.Mind attempt {attempt+1}/{max_retries} failed: {e}")
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt # 1s, 2s, 4s...
+                    await asyncio.sleep(wait_time)
+        
+        # If all retries failed
+        logger.error(f"❌ Oracle.Mind failed after {max_retries} attempts: {last_error}")
+        return {
+            "error": str(last_error),
+            "raw_response": response.text if 'response' in locals() else "No response"
+        }

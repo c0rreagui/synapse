@@ -31,7 +31,7 @@ class OracleClient:
             time.sleep(self.min_interval - elapsed)
         self.last_request_time = time.time()
 
-    def generate_content(self, prompt_input):
+    def generate_content(self, prompt_input, **kwargs):
         """
         Unified wrapper for Groq models.
         Routes to Vision model if input contains images.
@@ -50,12 +50,12 @@ class OracleClient:
                     break
         
         try:
-            return self._generate_groq(prompt_input, is_vision)
+            return self._generate_groq(prompt_input, is_vision, **kwargs)
         except Exception as e:
             print(f"Groq Generation Error: {e}")
             raise e
 
-    def _generate_groq(self, prompt_input, is_vision: bool):
+    def _generate_groq(self, prompt_input, is_vision: bool, **kwargs):
         messages = []
         # Default Text Model: Llama 3.3 70B (Reliable & Fast)
         model = "llama-3.3-70b-versatile" 
@@ -94,7 +94,7 @@ class OracleClient:
                 
             messages = [{"role": "user", "content": text_content}]
 
-        # Prepare params
+        # Prepare params with defaults
         params = {
             "model": model,
             "messages": messages,
@@ -105,9 +105,12 @@ class OracleClient:
             "stop": None,
         }
         
+        # Override with kwargs (e.g., temperature from MindFaculty)
+        params.update(kwargs)
+        
         # JSON Mode only strict for Text models currently in reusable way
         # But Llama 3.3 supports response_format={"type": "json_object"} nicely
-        if not is_vision and "json" in str(messages).lower():
+        if not is_vision and "json" in str(messages).lower() and "response_format" not in params:
              params["response_format"] = {"type": "json_object"}
 
         completion = self.client.chat.completions.create(**params)
@@ -124,5 +127,11 @@ class OracleClient:
             return {"message": response.text.strip(), "provider": self.provider}
         except Exception as e:
             return {"error": str(e)}
+
+    def is_online(self):
+        return self.client is not None
+
+    def get_engine_name(self):
+        return "groq-llama-3.3-70b"
 
 oracle_client = OracleClient()

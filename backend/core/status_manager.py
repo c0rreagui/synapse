@@ -27,6 +27,8 @@ class StatusManager:
             "factory": time.time(),
             "monitor": time.time()
         }
+        from threading import Lock
+        self._lock = Lock()
 
     def set_async_callback(self, callback):
         self.async_callback = callback
@@ -37,7 +39,7 @@ class StatusManager:
     def _get_system_stats(self):
         try:
             return {
-                "cpu_percent": psutil.cpu_percent(interval=None),
+                "cpu_percent": psutil.cpu_percent(interval=0.1),
                 "ram_percent": psutil.virtual_memory().percent,
                 "disk_usage": psutil.disk_usage(BASE_DIR).percent
             }
@@ -85,8 +87,9 @@ class StatusManager:
         }
         
         try:
-            with open(self.file_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=2)
+            with self._lock:
+                with open(self.file_path, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, indent=2)
         except Exception as e:
             print(f"Failed to write status: {e}")
 

@@ -14,6 +14,8 @@ import DayDetailsModal from '../components/DayDetailsModal';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1');
+
 export default function SchedulerPage() {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [events, setEvents] = useState<ScheduleEvent[]>([]);
@@ -30,8 +32,8 @@ export default function SchedulerPage() {
     const fetchData = async () => {
         try {
             const [eventsRes, profilesRes] = await Promise.all([
-                fetch('http://localhost:8000/api/v1/scheduler/list'),
-                fetch('http://localhost:8000/api/v1/profiles')
+                fetch(`${API_URL}/api/v1/scheduler/list`),
+                fetch(`${API_URL}/api/v1/profiles`)
             ]);
 
             if (eventsRes.ok) setEvents(await eventsRes.json());
@@ -59,7 +61,7 @@ export default function SchedulerPage() {
 
     const handleDeleteEvent = async (eventId: string) => {
         try {
-            const res = await fetch(`http://localhost:8000/api/v1/scheduler/${eventId}`, { method: 'DELETE' });
+            const res = await fetch(`${API_URL}/api/v1/scheduler/${eventId}`, { method: 'DELETE' });
             if (!res.ok) throw new Error("Falha ao deletar");
 
             // Optimistic update or refetch
@@ -83,7 +85,7 @@ export default function SchedulerPage() {
         newDate.setHours(hours, minutes);
 
         try {
-            const res = await fetch(`http://localhost:8000/api/v1/scheduler/${eventId}`, {
+            const res = await fetch(`${API_URL}/api/v1/scheduler/${eventId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ scheduled_time: newDate.toISOString() })
@@ -114,7 +116,7 @@ export default function SchedulerPage() {
                     trend_category: data.trend_category
                 };
 
-                const res = await fetch('http://localhost:8000/api/v1/scheduler/create', {
+                const res = await fetch(`${API_URL}/api/v1/scheduler/create`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)

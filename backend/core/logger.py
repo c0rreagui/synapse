@@ -51,6 +51,20 @@ class JsonLogger:
             "source": source
         }
         
+        # ROTATION CHECK (5MB limit)
+        try:
+            if os.path.exists(self.file_path) and os.path.getsize(self.file_path) > 5 * 1024 * 1024:
+                # Rotate: app.jsonl -> app_backup.jsonl
+                backup_path = self.file_path.replace(".jsonl", "_backup.jsonl")
+                if os.path.exists(backup_path):
+                    os.remove(backup_path) # Overwrite previous backup
+                os.rename(self.file_path, backup_path)
+                
+                # Add rotation log to new file
+                self.log("info", "♻️ Log rotated due to size limit", "system")
+        except Exception as e:
+            print(f"Log rotation failed: {e}")
+
         # Write to file (Append)
         try:
             with open(self.file_path, 'a', encoding='utf-8') as f:

@@ -109,5 +109,13 @@ class VisualCortex:
 
             logger.error(f"Visual Analysis Failed: {e}")
             return {"error": str(e)}
+        finally:
+            # 🧹 CLEANUP: Delete extracted frames to prevent disk bloat
+            try:
+                for f in frames:
+                    if os.path.exists(f):
+                        os.remove(f)
+            except Exception as cleanup_err:
+                logger.warning(f"Failed to cleanup frames: {cleanup_err}")
 
 visual_cortex = VisualCortex()

@@ -42,7 +42,8 @@ async def full_scan(username: str):
         if profile_id and "strategic_analysis" in result:
             strategy = result["strategic_analysis"]
             if "best_times" in strategy:
-                session_manager.update_profile_metadata(profile_id, {
+                from fastapi.concurrency import run_in_threadpool
+                await run_in_threadpool(session_manager.update_profile_metadata, profile_id, {
                     "oracle_best_times": strategy["best_times"],
                     "oracle_last_run": "now" 
                 })
@@ -99,7 +100,8 @@ async def full_scan(username: str):
                  updates["latest_videos"] = enrich_videos
 
              if updates:
-                 session_manager.update_profile_metadata(profile_id, updates)
+                 from fastapi.concurrency import run_in_threadpool
+                 await run_in_threadpool(session_manager.update_profile_metadata, profile_id, updates)
                  print(f"✅ Oracle Insight: Persisted stats & {len(updates.get('latest_videos', []))} videos for {profile_id}")
 
     except Exception as e:
@@ -272,20 +274,33 @@ class ReplyRequest(BaseModel):
     context: str = ""
 
 @router.post("/reply")
+@router.post("/reply")
 async def generate_reply(request: ReplyRequest):
     """
     Generates a reply to a comment using the Auto-Responder.
     """
     from core.oracle.community_manager import community_manager
-    return {"reply": community_manager.generate_reply(request.comment, request.tone, request.context)}
+    from fastapi.concurrency import run_in_threadpool
+    
+    reply_text = await run_in_threadpool(
+        community_manager.generate_reply, 
+        request.comment, 
+        request.tone, 
+        request.context
+    )
+    return {"reply": reply_text}
 
 # --- SEO & DISCOVERY (TURBO) ---
 from core.oracle.seo_engine import seo_engine
 from core import session_manager
 
 @router.post("/seo/audit/{profile_id}")
+@router.post("/seo/audit/{profile_id}")
 async def audit_profile(profile_id: str):
-    metadata = session_manager.get_profile_metadata(profile_id)
+    from fastapi.concurrency import run_in_threadpool
+    
+    # Run sync DB read in threadpool
+    metadata = await run_in_threadpool(session_manager.get_profile_metadata, profile_id)
     if not metadata:
         raise HTTPException(status_code=404, detail="Profile not found")
     
@@ -294,18 +309,20 @@ async def audit_profile(profile_id: str):
     if username:
         try:
             print(f"📸 Starting Visual Audit Scan for @{username}...")
+            # oracle.sense is already async, keep as is
             screenshot_path = await oracle.sense.capture_profile_screenshot(username)
             if screenshot_path:
                 metadata["screenshot_path"] = screenshot_path
-                # Persist screenshot path for future reference
-                session_manager.update_profile_metadata(profile_id, {"screenshot_path": screenshot_path})
+                # Persist screenshot path (sync DB write)
+                await run_in_threadpool(session_manager.update_profile_metadata, profile_id, {"screenshot_path": screenshot_path})
         except Exception as e:
             print(f"⚠️ Visual Audit Scan Failed: {e}")
 
-    result = seo_engine.audit_profile(metadata)
+    # Run blocking analysis engine
+    result = await run_in_threadpool(seo_engine.audit_profile, metadata)
     
-    # Auto-save last audit
-    session_manager.update_profile_metadata(profile_id, {"last_seo_audit": result})
+    # Auto-save last audit (sync DB write)
+    await run_in_threadpool(session_manager.update_profile_metadata, profile_id, {"last_seo_audit": result})
     return result
 
 class SpyRequest(BaseModel):

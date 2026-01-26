@@ -12,6 +12,8 @@ logger = logging.getLogger("QueueWorker")
 # Caminhos
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APPROVED_DIR = os.path.join(BASE_DIR, "data", "approved")
+PROCESSING_DIR = os.path.join(BASE_DIR, "processing") # Where zombies live
+DONE_DIR = os.path.join(BASE_DIR, "data", "done")
 
 # Adicionar root ao path para imports
 sys.path.append(BASE_DIR)
@@ -19,9 +21,82 @@ sys.path.append(BASE_DIR)
 from core.manual_executor import execute_approved_video
 from core.status_manager import status_manager
 
+import shutil
+
+def cleanup_done_files():
+    """
+    Deletes files in done/ that are older than 48 hours to prevent disk bloat.
+    """
+    if not os.path.exists(DONE_DIR):
+        return
+        
+    logger.info("🧹 Executing Disk Cleanup (Done Folder)...")
+    cleaned_count = 0
+    now = time.time()
+    cutoff = now - (48 * 3600) # 48 hours
+    
+    for filename in os.listdir(DONE_DIR):
+        file_path = os.path.join(DONE_DIR, filename)
+        try:
+            if os.path.getmtime(file_path) < cutoff:
+                os.remove(file_path)
+                logger.info(f"🗑️ Cleaned old file: {filename}")
+                cleaned_count += 1
+        except Exception as e:
+            logger.error(f"Error cleaning {filename}: {e}")
+            
+    if cleaned_count > 0:
+        logger.info(f"✨ Cleanup removed {cleaned_count} old files.")
+
+def recover_zombie_tasks():
+    """
+    Checks for files stuck in processing/ (zombies) and moves them back to approved/.
+    This happens if the server crashed during execution.
+    """
+    if not os.path.exists(PROCESSING_DIR):
+        return
+
+    logger.info("🧟 Verificando tarefas zumbis (falhas anteriores)...")
+    moved_count = 0
+    
+    for filename in os.listdir(PROCESSING_DIR):
+        if filename.endswith(".mp4"):
+            src = os.path.join(PROCESSING_DIR, filename)
+            dst = os.path.join(APPROVED_DIR, filename)
+            
+            try:
+                # If destination exists, we might overwrite or rename. 
+                # Rename ensures we don't lose the new one if coincidentally same name (unlikely with timestamps).
+                # But overwrite is cleaner for retries.
+                if os.path.exists(dst):
+                    logger.warning(f"⚠️ Zombie {filename} conflita com arquivo em approved. Sobrescrevendo.")
+                    os.remove(dst)
+                
+                shutil.move(src, dst)
+                logger.info(f"❤️ Ressuscitando Zombie: {filename} -> approved/")
+                moved_count += 1
+                
+                # Also move metadata json if exists
+                meta_json = filename + ".json"
+                src_meta = os.path.join(PROCESSING_DIR, meta_json)
+                dst_meta = os.path.join(APPROVED_DIR, meta_json)
+                if os.path.exists(src_meta):
+                    if os.path.exists(dst_meta): os.remove(dst_meta)
+                    shutil.move(src_meta, dst_meta)
+                    
+            except Exception as e:
+                logger.error(f"❌ Falha ao recuperar zombie {filename}: {e}")
+
+    if moved_count > 0:
+        logger.info(f"✅ {moved_count} tarefas zumbis recuperadas e enfileiradas novamente.")
+
 async def worker_loop():
     logger.info("🚀 Queue Worker Iniciado - Monitorando pasta APPROVED...")
     logger.info(f"📂 Diretório: {APPROVED_DIR}")
+    
+    # Run Validations/Cleanups
+    recover_zombie_tasks()
+    cleanup_done_files()
     
     while True:
         try:
@@ -94,6 +169,10 @@ async def worker_loop():
             
         except KeyboardInterrupt:
             logger.info("🛑 Worker interrompido pelo usuário.")
+            break
+        except asyncio.CancelledError:
+            logger.info("🛑 Worker cancelado pelo sistema (Shutdown).")
+            # Cleanup if needed
             break
         except Exception as global_e:
             logger.error(f"💥 Erro crítico no worker loop: {global_e}")

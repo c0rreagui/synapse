@@ -19,8 +19,15 @@ def check_counts():
         
         if profile_count > 0:
             print("--- Profiles ---")
-            for p in db.query(Profile).all():
-                print(f"ID: {p.id}, Slug: {p.slug}, Label: {p.label}")
+            profiles = db.query(Profile).all()
+            for p in profiles:
+                print(f"ID: {p.id}, Slug: {p.slug}, Label: {p.label}, Active: {p.active}")
+
+        if schedule_count > 0:
+            print("--- Schedule Items ---")
+            schedule_items = db.query(ScheduleItem).all()
+            for s in schedule_items:
+                print(f"ID: {s.id}, Profile ID: {s.profile_id}, Day: {s.day_of_week}, Start: {s.start_time}, End: {s.end_time}")
                 
     except Exception as e:
         print(f"Error checking DB: {e}")

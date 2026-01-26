@@ -12,7 +12,7 @@ import { StitchCard } from '../components/StitchCard';
 import { NeonButton } from '../components/NeonButton';
 import clsx from 'clsx';
 
-const API_BASE = 'http://localhost:8000/api/v1';
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1') + '/api/v1';
 
 export default function ProfilesPage() {
     const [profiles, setProfiles] = useState<TikTokProfile[]>([]);
@@ -21,6 +21,7 @@ export default function ProfilesPage() {
     const [importLabel, setImportLabel] = useState('');
     const [importCookies, setImportCookies] = useState('');
     const [error, setError] = useState<string | null>(null);
+    const [refreshingProfiles, setRefreshingProfiles] = useState<Record<string, boolean>>({});
 
     async function fetchProfiles() {
         setLoading(true);
@@ -52,6 +53,22 @@ export default function ProfilesPage() {
         fetchProfiles();
     }, []);
 
+    const handleDelete = async (id: string, label: string) => {
+        if (!confirm(`Tem certeza que deseja excluir o perfil "${label}"?`)) return;
+
+        try {
+            const res = await fetch(`${API_BASE}/profiles/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                fetchProfiles();
+            } else {
+                alert("Erro ao excluir perfil. Tente novamente.");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Erro de conexão com o servidor.");
+        }
+    };
+
     const handleImport = async () => {
         if (!importLabel || !importCookies) return;
 
@@ -80,7 +97,24 @@ export default function ProfilesPage() {
         }
     };
 
+    const handleRefreshAvatar = async (profileId: string) => {
+        setRefreshingProfiles(prev => ({ ...prev, [profileId]: true }));
+        try {
+            const res = await fetch(`${API_BASE}/profiles/refresh-avatar/${profileId}`, { method: 'POST' });
+            if (res.ok) {
+                fetchProfiles();
+            } else {
+                const err = await res.json().catch(() => ({ detail: "Erro desconhecido" }));
+                alert(`Erro: ${err.detail || "Falha na requisição"}`);
+            }
+        } catch (e) {
+            alert(`Erro de conexão: ${e}`);
+        }
+        setRefreshingProfiles(prev => ({ ...prev, [profileId]: false }));
+    };
+
     const getProfileIcon = (id: string, customIcon?: string) => {
+        if (!id) return '👤';
         if (customIcon && customIcon !== "👤") return customIcon;
         if (id.includes('01')) return '✂️';
         if (id.includes('02')) return '🔥';
@@ -164,26 +198,25 @@ export default function ProfilesPage() {
 
                                     {/* Refresh Avatar Button */}
                                     <button
-                                        onClick={async () => {
-                                            const btn = document.getElementById(`validate-${i}`);
-                                            if (btn) btn.classList.add('animate-spin');
-                                            try {
-                                                const res = await fetch(`${API_BASE}/profiles/refresh-avatar/${profile.id}`, { method: 'POST' });
-                                                if (res.ok) fetchProfiles();
-                                                else alert('Erro ao atualizar avatar.');
-                                            } catch {
-                                                alert('Erro de conexão.');
-                                            }
-                                            if (btn) btn.classList.remove('animate-spin');
-                                        }}
-                                        className="p-2.5 rounded-lg bg-[#1c2128] border border-white/10 text-gray-400 hover:text-white hover:border-synapse-primary/50 transition-all"
+                                        onClick={() => handleRefreshAvatar(profile.id)}
+                                        disabled={refreshingProfiles[profile.id]}
+                                        className={clsx(
+                                            "p-2.5 rounded-lg bg-[#1c2128] border border-white/10 text-gray-400 hover:text-white hover:border-synapse-primary/50 transition-all",
+                                            refreshingProfiles[profile.id] && "opacity-50 cursor-not-allowed"
+                                        )}
                                         title="Atualizar avatar do TikTok"
                                     >
-                                        <ArrowPathIcon id={`validate-${i}`} className="w-4 h-4" />
+                                        <ArrowPathIcon
+                                            className={clsx(
+                                                "w-4 h-4",
+                                                refreshingProfiles[profile.id] && "animate-spin text-synapse-primary"
+                                            )}
+                                        />
                                     </button>
 
                                     <button
                                         title="Excluir perfil"
+                                        onClick={() => handleDelete(profile.id, profile.label)}
                                         className="p-2.5 rounded-lg bg-[#1c2128] border border-white/10 text-gray-400 hover:text-red-400 hover:border-red-500/50 transition-all"
                                     >
                                         <TrashIcon className="w-4 h-4" />

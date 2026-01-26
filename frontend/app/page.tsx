@@ -21,7 +21,7 @@ import clsx from 'clsx';
 import BatchUploadModal from './components/BatchUploadModal';
 import AudioSuggestionCard, { AudioSuggestion } from './components/AudioSuggestionCard';
 
-const API_BASE = 'http://localhost:8000/api/v1';
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1') + '/api/v1';
 
 interface IngestionStatus { queued: number; processing: number; completed: number; failed: number; }
 interface PendingVideo {
@@ -40,6 +40,7 @@ interface PendingVideo {
 export default function Home() {
   const [ingestionStatus, setIngestionStatus] = useState<IngestionStatus>({ queued: 0, processing: 0, completed: 0, failed: 0 });
   const [pendingVideos, setPendingVideos] = useState<PendingVideo[]>([]);
+
   const [profiles, setProfiles] = useState<TikTokProfile[]>([]);
   const [scheduledEvents, setScheduledEvents] = useState<ScheduleEvent[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -95,7 +96,8 @@ export default function Home() {
   const fetchAllData = useCallback(async () => {
     try {
       setLastUpdate(new Date().toLocaleTimeString());
-      const healthRes = await fetch('http://localhost:8000/');
+      const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1');
+      const healthRes = await fetch(`${apiUrl}/`);
       setBackendOnline(healthRes.ok);
       // Se backend offline, não tenta o resto para evitar spam de erros
       if (!healthRes.ok) return;

@@ -36,6 +36,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const handlersRef = useRef<Set<WebSocketHandler>>(new Set());
     const isConnectingRef = useRef(false);
+    const [retryCount, setRetryCount] = useState(0);
 
     const connect = () => {
         // Prevent multiple simultaneous connection attempts
@@ -55,7 +56,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         }
 
         isConnectingRef.current = true;
-        const ws = new WebSocket('ws://localhost:8000/ws/updates');
+        const apiBase = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace('http', 'ws').replace('https', 'wss').replace('localhost', '127.0.0.1');
+        const ws = new WebSocket(`${apiBase}/ws/updates`);
 
         ws.onopen = () => {
             setIsConnected(true);
@@ -94,19 +96,36 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
             }
         };
 
+
+
+        // ... inside connect ...
+
+        ws.onopen = () => {
+            setIsConnected(true);
+            isConnectingRef.current = false;
+            setRetryCount(0); // Reset backoff on success
+        };
+
+        // ...
+
         ws.onclose = () => {
             setIsConnected(false);
             isConnectingRef.current = false;
 
-            // Reconnect after 3 seconds
+            // Exponential Backoff: 3s -> 6s -> 12s -> 24s -> 30s (max)
+            const baseDelay = 3000;
+            const delay = Math.min(baseDelay * Math.pow(2, retryCount), 30000);
+
+            console.log(`🔌 WS Closed. Reconnecting in ${delay}ms (Attempt ${retryCount + 1})`);
+
             reconnectTimeoutRef.current = setTimeout(() => {
+                setRetryCount(prev => prev + 1);
                 connect();
-            }, 3000);
+            }, delay);
         };
 
         ws.onerror = () => {
-            // Error details are not available in browser WebSocket API
-            // Silently handle to avoid empty error logs
+            // Just let close handler trigger reconnect
             isConnectingRef.current = false;
         };
 

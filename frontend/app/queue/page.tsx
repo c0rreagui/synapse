@@ -13,6 +13,8 @@ import { PendingVideo } from '../types';
 
 // Interface moved to types/index.ts
 
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1');
+
 export default function QueuePage() {
     const [pendingVideos, setPendingVideos] = useState<PendingVideo[]>([]);
     const [loading, setLoading] = useState(true);
@@ -42,7 +44,7 @@ export default function QueuePage() {
 
     const fetchPendingVideos = async () => {
         try {
-            const response = await fetch('http://localhost:8000/api/v1/queue/pending');
+            const response = await fetch(`${API_URL}/api/v1/queue/pending`);
             const data = await response.json();
             setPendingVideos(data);
         } catch (error) {
@@ -68,7 +70,7 @@ export default function QueuePage() {
     const confirmRejectVideo = async () => {
         if (!confirmReject) return;
         try {
-            await fetch(`http://localhost:8000/api/v1/queue/${confirmReject}`, {
+            await fetch(`${API_URL}/api/v1/queue/${confirmReject}`, {
                 method: 'DELETE'
             });
             fetchPendingVideos();
@@ -91,7 +93,7 @@ export default function QueuePage() {
                 ? `${selectedDate}T${selectedTime}:00`
                 : null;
 
-            const response = await fetch('http://localhost:8000/api/v1/queue/approve', {
+            const response = await fetch(`${API_URL}/api/v1/queue/approve`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

@@ -22,7 +22,11 @@ import {
 import { StatCard } from '../components/analytics/StatCard';
 import { PerformanceChart } from '../components/analytics/PerformanceChart';
 import { ChartBarIcon, HeartIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/solid';
+import { RetentionChart } from '../components/oracle/RetentionChart';
+import { EngagementHeatmap } from '../components/oracle/EngagementHeatmap';
 import axios from 'axios';
+
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1');
 
 // Terminal loading lines
 const TERMINAL_LINES = [
@@ -86,7 +90,7 @@ export default function OraclePage() {
 
     // Load profiles on mount
     useEffect(() => {
-        fetch('http://localhost:8000/api/v1/profiles')
+        fetch(`${API_URL}/api/v1/profiles`)
             .then(res => res.json())
             .then(data => {
                 setProfiles(data);
@@ -101,7 +105,6 @@ export default function OraclePage() {
             const fetchAnalytics = async () => {
                 setLoading(true);
                 try {
-                    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
                     const response = await axios.get(`${API_URL}/api/v1/analytics/${selectedProfileId}`);
                     setAnalyticsData(response.data);
                 } catch (error) {
@@ -165,7 +168,7 @@ export default function OraclePage() {
         setLoading(true);
         setAuditResult(null);
         try {
-            const res = await fetch(`http://localhost:8000/api/v1/oracle/seo/audit/${selectedProfileId}`, { method: 'POST' });
+            const res = await fetch(`${API_URL}/api/v1/oracle/seo/audit/${selectedProfileId}`, { method: 'POST' });
             if (!res.ok) throw new Error("Audit failed");
             const data = await res.json();
             setAuditResult(data);
@@ -181,7 +184,7 @@ export default function OraclePage() {
         setLoading(true);
         try {
             const currentBio = auditResult?.profile_overiew?.bio || "Nova conta, sem bio definida.";
-            const res = await fetch(`http://localhost:8000/api/v1/oracle/seo/fix-bio`, {
+            const res = await fetch(`${API_URL}/api/v1/oracle/seo/fix-bio`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ current_bio: currentBio, niche: "General" })
@@ -198,7 +201,7 @@ export default function OraclePage() {
         if (!competitorHandle) return;
         setLoading(true);
         try {
-            const res = await fetch(`http://localhost:8000/api/v1/oracle/seo/spy`, {
+            const res = await fetch(`${API_URL}/api/v1/oracle/seo/spy`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ competitor_handle: competitorHandle })
@@ -217,7 +220,7 @@ export default function OraclePage() {
     const runHashtags = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`http://localhost:8000/api/v1/oracle/seo/hashtags`, {
+            const res = await fetch(`${API_URL}/api/v1/oracle/seo/hashtags`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ hashtagForm })
@@ -1165,10 +1168,45 @@ export default function OraclePage() {
                                 </div>
                             </motion.div>
                         )}
-                    </AnimatePresence>
 
-                </div>
-            </main>
-        </div>
+
+                        {/* DEEP ANALYTICS TAB */}
+                        {
+                            activeTab === 'DEEP_ANALYTICS' && (
+                                <motion.div
+                                    key="deep_analytics"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    className="max-w-4xl mx-auto space-y-8"
+                                >
+                                    <div className="p-6 rounded-2xl bg-[#13111a] border border-white/10 text-center mb-6">
+                                        <h3 className="text-2xl font-bold mb-2 flex items-center justify-center gap-2">
+                                            <span className="text-synapse-purple">🧠</span> Deep Analytics
+                                        </h3>
+                                        <p className="text-gray-400">Análise profunda de retenção e padrões de engajamento.</p>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <RetentionChart />
+                                        <EngagementHeatmap />
+                                    </div>
+
+                                    {/* Metric Comparison Placeholder or Future Component */}
+                                    <StitchCard className="p-6 bg-black/20 border-white/5">
+                                        <h3 className="text-lg font-bold text-white mb-4">Métricas Comparativas</h3>
+                                        <p className="text-sm text-gray-500 mb-4">Comparação de performance entre diferentes tipos de conteúdo.</p>
+                                        <div className="h-[200px] flex items-center justify-center border border-dashed border-white/10 rounded-xl">
+                                            <span className="text-xs text-gray-600">Em desenvolvimento...</span>
+                                        </div>
+                                    </StitchCard>
+                                </motion.div>
+                            )
+                        }
+                    </AnimatePresence >
+
+                </div >
+            </main >
+        </div >
     );
 }

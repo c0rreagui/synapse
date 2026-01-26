@@ -64,6 +64,26 @@ class Scheduler:
                 "sound_title": sound_title
             }
             
+            # Race Condition Check: Prevent duplicate scheduling for same video/time
+            existing = db.query(ScheduleItem).filter(
+                ScheduleItem.profile_slug == profile_id,
+                ScheduleItem.video_path == video_path,
+                ScheduleItem.status == 'pending'
+            ).first()
+            
+            if existing:
+                # If exact duplicate exists, return it instead of creating new
+                # This prevents double-clicks from creating two items
+                print(f"Duplicate schedule detected for {video_path}, returning existing.")
+                return {
+                    "id": str(existing.id),
+                    "profile_id": existing.profile_slug,
+                    "video_path": existing.video_path,
+                    "scheduled_time": existing.scheduled_time.isoformat() if existing.scheduled_time else None,
+                    "status": existing.status,
+                    "message": "Duplicate detected, returned existing item."
+                }
+
             new_item = ScheduleItem(
                 profile_slug=profile_id,
                 video_path=video_path,

@@ -19,9 +19,9 @@ async def get_profiles():
     Retorna uma lista formatada para o Frontend.
     """
     # Usando o Session Manager como fonte única da verdade
-    # Usando o Session Manager como fonte única da verdade
     from core.session_manager import list_available_sessions
-    return list_available_sessions()
+    from fastapi.concurrency import run_in_threadpool
+    return await run_in_threadpool(list_available_sessions)
 
 # Alias root para list
 @router.get("/", response_model=List[Dict[str, str]])
@@ -40,14 +40,14 @@ async def import_profile_endpoint(request: ImportProfileRequest):
     Importa um novo perfil a partir de um JSON de cookies.
     """
     from fastapi import HTTPException
-    from core.session_manager import import_session
+    from fastapi.concurrency import run_in_threadpool
+    from core.session_manager import import_session, get_profile_metadata
     
     try:
-        profile_id = import_session(request.label, request.cookies)
+        profile_id = await run_in_threadpool(import_session, request.label, request.cookies)
         
         # Notify
-        from core.session_manager import get_profile_metadata
-        profile_data = get_profile_metadata(profile_id)
+        profile_data = await run_in_threadpool(get_profile_metadata, profile_id)
         if profile_data:
             await websocket.notify_profile_change(profile_data)
 
@@ -110,107 +110,71 @@ async def validate_profile_endpoint(profile_id: str):
 @router.post("/refresh-avatar/{profile_id}")
 async def refresh_avatar_endpoint(profile_id: str):
     """
-    Busca o avatar atualizado do TikTok para um perfil.
-    Usa Playwright para acessar o perfil e extrair a nova URL do avatar.
+    Turbine mode: Atualiza TUDO do perfil (Avatar, Nick, Bio, Stats) usando o validador completo.
     """
+    import subprocess
+    import sys
+    import json
     from fastapi import HTTPException
-    from core.session_manager import get_profile_metadata, update_profile_metadata
-    from core.browser import launch_browser, close_browser
-    import logging
     
-    logger = logging.getLogger(__name__)
+    script_path = os.path.join(BASE_DIR, "core", "validator_cli.py")
     
-    # Get current profile data
-    metadata = get_profile_metadata(profile_id)
-    if not metadata:
-        raise HTTPException(status_code=404, detail=f"Perfil {profile_id} não encontrado")
-    
-    username = metadata.get("username")
-    if not username:
-        raise HTTPException(status_code=400, detail="Perfil não tem username definido")
-    
-    logger.info(f"🔄 Refreshing avatar for @{username}...")
+    # Pass current environment to subprocess to ensure PYTHONPATH is set
+    env = os.environ.copy()
+    env["PYTHONPATH"] = BASE_DIR
     
     try:
-        p, browser, context, page = await launch_browser(
-            headless=True,
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        # Reusing the subprocess logic from validate endpoint for stability
+        # avoiding circular imports and event loop issues
+        result_proc = subprocess.run(
+            [sys.executable, script_path, profile_id],
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env
         )
         
-        try:
-            # Navigate to profile
-            url = f"https://www.tiktok.com/@{username}"
-            await page.goto(url, wait_until="domcontentloaded", timeout=15000)
+        if result_proc.returncode != 0:
+             # Log stderr for debug
+             print(f"Validator CLI Error: {result_proc.stderr}")
+             raise Exception(f"Script Error: {result_proc.stderr}")
             
-            # Wait for avatar to load
-            await page.wait_for_timeout(3000)
-            
-            # Try multiple selectors for avatar (TikTok changes these often)
-            avatar_selectors = [
-                '[data-e2e="user-avatar"] img',
-                '.css-1zpj2q-ImgAvatar img',
-                'img[class*="Avatar"]',
-                '.share-avatar img',
-                'img[src*="tiktokcdn.com"][src*="avt"]'
-            ]
-            
-            new_avatar_url = None
-            for selector in avatar_selectors:
-                try:
-                    if await page.locator(selector).count() > 0:
-                        new_avatar_url = await page.locator(selector).first.get_attribute("src")
-                        if new_avatar_url and "tiktokcdn.com" in new_avatar_url:
-                            logger.info(f"✅ Found avatar with selector: {selector}")
-                            break
-                except:
-                    continue
-            
-            if not new_avatar_url:
-                raise HTTPException(status_code=404, detail="Não foi possível encontrar avatar no perfil")
-            
-            # Download avatar locally to avoid 403
-            local_avatar_url = new_avatar_url
-            try:
-                import aiohttp
-                static_dir = os.path.join(BASE_DIR, "static", "avatars")
-                os.makedirs(static_dir, exist_ok=True)
-                local_filename = f"{username}.jpg"
-                local_path = os.path.join(static_dir, local_filename)
-                
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(new_avatar_url) as resp:
-                        if resp.status == 200:
-                            with open(local_path, "wb") as f:
-                                f.write(await resp.read())
-                            local_avatar_url = f"http://localhost:8000/static/avatars/{local_filename}"
-                            logger.info(f"✅ Avatar downloaded locally: {local_filename}")
-            except Exception as dl_err:
-                logger.warning(f"⚠️ Could not download avatar locally: {dl_err}")
+        output = result_proc.stdout.strip()
+        
+        # Extract JSON
+        start_idx = output.find("{")
+        end_idx = output.rfind("}")
+        
+        if start_idx != -1 and end_idx != -1:
+            json_str = output[start_idx:end_idx+1]
+            result = json.loads(json_str)
+        else:
+             raise Exception(f"No valid JSON in output: {output}")
 
-            # Update profile metadata with LOCAL url
-            old_avatar = metadata.get("avatar_url", "")
-            update_profile_metadata(profile_id, {"avatar_url": local_avatar_url})
+        if result.get("status") == "error":
+            raise HTTPException(status_code=500, detail=result["message"])
             
-            logger.info(f"✅ Avatar atualizado para @{username}")
-            
-            # Notify
-            updated_profile = get_profile_metadata(profile_id)
-            if updated_profile:
-                await websocket.notify_profile_change(updated_profile)
+        # Notify Frontend
+        from core.session_manager import get_profile_metadata
+        profile_data = get_profile_metadata(profile_id)
+        if profile_data:
+            await websocket.notify_profile_change(profile_data)
 
-            return {
-                "status": "success",
-                "profile_id": profile_id,
-                "username": username,
-                "avatar_url": local_avatar_url,
-                "previous_url": old_avatar[:50] + "..." if len(old_avatar) > 50 else old_avatar
-            }
-            
-        finally:
-            await close_browser(p, browser)
-            
-    except HTTPException:
-        raise
+        return result
+        
     except Exception as e:
-        logger.error(f"❌ Erro ao atualizar avatar: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/{profile_id}")
+async def delete_profile_endpoint(profile_id: str):
+    """
+    Remove um perfil do sistema (banco de dados e arquivo de sessão).
+    """
+    from fastapi import HTTPException
+    from core.session_manager import delete_session
+    
+    success = delete_session(profile_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Perfil não encontrado ou erro ao excluir")
+        
+    return {"status": "success", "message": f"Perfil {profile_id} removido."}

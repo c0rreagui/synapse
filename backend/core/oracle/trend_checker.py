@@ -6,7 +6,7 @@ import logging
 import json
 import os
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
 from core.browser import launch_browser, close_browser
@@ -46,27 +46,82 @@ class TrendChecker:
         self._load_cache()
     
     def _load_cache(self):
-        """Load cached trends from file."""
+        """Load cached trends from SQLite."""
+        from core.database import SessionLocal
+        from core.models import Trend
+        
+        db = SessionLocal()
         try:
-            if os.path.exists(self.DATA_FILE):
-                with open(self.DATA_FILE, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    self.last_updated = datetime.fromisoformat(data.get('last_updated', ''))
-                    self.trends_cache = [TrendData(**t) for t in data.get('trends', [])]
-                    logger.info(f"📊 Loaded {len(self.trends_cache)} cached trends")
+            # Load fresh trends (not expired)
+            # Query Logic: Get latest snapshot. 
+            # For simplicity, we fetch trends created in the last 24h.
+            now = datetime.now()
+            
+            # Simple retrieval: fetch all valid trends
+            # In a real scenario, we might want to filter by category, 
+            # but here we load 'active' cache into memory.
+            
+            # Check latest cached_at to determine if we have fresh data
+            latest = db.query(Trend).order_by(Trend.cached_at.desc()).first()
+            
+            if latest:
+                self.last_updated = latest.cached_at.replace(tzinfo=None) # naive compat
+                
+                # Fetch trends from that batch
+                batch_time = latest.cached_at
+                trends_db = db.query(Trend).filter(Trend.cached_at == batch_time).all()
+                
+                self.trends_cache = [
+                    TrendData(
+                        id=t.identifier,
+                        title=t.title,
+                        category=t.niche,
+                        growth_24h=float(t.growth_24h),
+                        usage_count=t.volume,
+                        confidence=float(t.score) / 100.0,
+                        url=None
+                    ) for t in trends_db
+                ]
+                logger.info(f"📊 Loaded {len(self.trends_cache)} cached trends from SQLite (Time: {batch_time})")
+            else:
+                logger.info("ℹ️ No cached trends found in SQLite.")
+                
         except Exception as e:
-            logger.warning(f"⚠️ Could not load trends cache: {e}")
+            logger.warning(f"⚠️ Could not load trends from DB: {e}")
+        finally:
+            db.close()
     
     def _save_cache(self):
-        """Save trends to file."""
+        """Save trends to SQLite."""
+        from core.database import SessionLocal
+        from core.models import Trend
+        
+        db = SessionLocal()
+        now_utc = datetime.now(timezone.utc)
+        
         try:
-            data = {
-                'last_updated': datetime.now().isoformat(),
-                'trends': [asdict(t) for t in self.trends_cache]
-            }
-            with open(self.DATA_FILE, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
-            logger.info(f"💾 Saved {len(self.trends_cache)} trends to cache")
+            db_objects = []
+            for t in self.trends_cache:
+                db_objects.append(Trend(
+                    niche=t.category,
+                    platform="tiktok",
+                    title=t.title,
+                    identifier=t.id,
+                    volume=int(t.usage_count),
+                    growth_24h=int(t.growth_24h), # Store as int
+                    score=int(t.confidence * 100), # Store as 0-100
+                    cached_at=now_utc
+                ))
+            
+            db.add_all(db_objects)
+            db.commit()
+            logger.info(f"💾 Saved {len(db_objects)} trends to SQLite")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to save trends to DB: {e}")
+            db.rollback()
+        finally:
+            db.close()
         except Exception as e:
             logger.error(f"❌ Failed to save trends cache: {e}")
     
