@@ -52,7 +52,7 @@ class VisionFaculty:
             ])
             return frames[:num_frames]
         except Exception as e:
-            logger.error(f"❌ FFmpeg failed: {e}")
+            logger.error(f"[ERROR] FFmpeg failed: {e}")
             return []
 
     async def analyze_video(self, video_path: str) -> Dict[str, Any]:
@@ -62,7 +62,7 @@ class VisionFaculty:
         if not self.client:
             return {"error": "Oracle Vision is offline"}
 
-        logger.info(f"👁️ Oracle.Vision: Processing {video_path}")
+        logger.info(f"[VISION] Oracle.Vision: Processing {video_path}")
 
         frames = self.extract_frames(video_path)
         if not frames:
@@ -92,13 +92,13 @@ class VisionFaculty:
             }
         except Exception as e:
             if "429" in str(e):
-                logger.warning("⚠️ Oracle.Vision Rate Limited (429)")
+                logger.warning("[WARNING] Oracle.Vision Rate Limited (429)")
                 return {
                     "visual_analysis": "Rate limited. Try again later.",
                     "frames_analyzed": len(frames),
                     "status": "rate_limited"
                 }
-            logger.error(f"❌ Vision Analysis Failed: {e}")
+            logger.error(f"[ERROR] Vision Analysis Failed: {e}")
             return {"error": str(e)}
 
     async def analyze_thumbnail(self, image_path: str) -> Dict[str, Any]:

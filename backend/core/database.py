@@ -8,9 +8,7 @@ import os
 # connection is usually thread-bound. For simple apps this is fine.
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # BASE_DIR is .../backend
-# The populated DB is at Project Root (.../Synapse/synapse.db)
-PROJECT_ROOT = os.path.dirname(BASE_DIR)
-DB_PATH = os.path.join(PROJECT_ROOT, "synapse.db")
+DB_PATH = os.path.join(BASE_DIR, "synapse.db")
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(

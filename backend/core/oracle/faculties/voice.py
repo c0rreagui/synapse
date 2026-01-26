@@ -27,7 +27,7 @@ class VoiceFaculty:
         if not self.client:
             return {"error": "Oracle Voice is offline"}
 
-        logger.info(f"🎤 Oracle.Voice: Generating metadata for {filename}")
+        logger.info(f"[VOICE] Oracle.Voice: Generating metadata for {filename}")
 
         prompt = f"""
         You are a TikTok SEO expert. Generate VIRAL metadata for this video.
@@ -58,7 +58,7 @@ class VoiceFaculty:
             result["faculty"] = "voice"
             return result
         except Exception as e:
-            logger.error(f"❌ Oracle.Voice metadata failed: {e}")
+            logger.error(f"[ERROR] Oracle.Voice metadata failed: {e}")
             return {"error": str(e)}
 
     async def generate_bio(self, current_bio: str, niche: str) -> Dict[str, Any]:

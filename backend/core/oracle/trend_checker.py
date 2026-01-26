@@ -82,12 +82,12 @@ class TrendChecker:
                         url=None
                     ) for t in trends_db
                 ]
-                logger.info(f"📊 Loaded {len(self.trends_cache)} cached trends from SQLite (Time: {batch_time})")
+                logger.info(f"[TRENDS] Loaded {len(self.trends_cache)} cached trends from SQLite (Time: {batch_time})")
             else:
-                logger.info("ℹ️ No cached trends found in SQLite.")
+                logger.info("[TRENDS] No cached trends found in SQLite.")
                 
         except Exception as e:
-            logger.warning(f"⚠️ Could not load trends from DB: {e}")
+            logger.warning(f"[TRENDS] Could not load trends from DB: {e}")
         finally:
             db.close()
     
@@ -115,10 +115,10 @@ class TrendChecker:
             
             db.add_all(db_objects)
             db.commit()
-            logger.info(f"💾 Saved {len(db_objects)} trends to SQLite")
+            logger.info(f"[TRENDS] Saved {len(db_objects)} trends to SQLite")
             
         except Exception as e:
-            logger.error(f"❌ Failed to save trends to DB: {e}")
+            logger.error(f"[TRENDS] Failed to save trends to DB: {e}")
             db.rollback()
         finally:
             db.close()
@@ -135,7 +135,7 @@ class TrendChecker:
         Returns:
             List of TrendData objects
         """
-        logger.info(f"🔍 Fetching trending sounds (category={category}, min_growth={min_growth}%)...")
+        logger.info(f"[TRENDS] Fetching trending sounds (category={category}, min_growth={min_growth}%)...")
         
         p, browser, context, page = await launch_browser(headless=True)
         trends = []
@@ -164,13 +164,13 @@ class TrendChecker:
                     cards = await page.locator(selector).all()
                     if len(cards) > 0:
                         sound_cards = cards
-                        logger.info(f"✅ Found {len(cards)} sound cards with selector: {selector}")
+                        logger.info(f"[TRENDS] Found {len(cards)} sound cards with selector: {selector}")
                         break
                 except Exception:
                     continue
             
             if not sound_cards:
-                logger.warning("⚠️ No sound cards found, trying fallback extraction...")
+                logger.warning("[TRENDS] No sound cards found, trying fallback extraction...")
                 # Fallback: Extract from page content
                 return await self._fallback_extraction(page, min_growth)
             
@@ -225,7 +225,7 @@ class TrendChecker:
                     logger.debug(f"Failed to parse sound card {i}: {e}")
                     continue
             
-            logger.info(f"✅ Extracted {len(trends)} trending sounds with growth >= {min_growth}%")
+            logger.info(f"[TRENDS] Extracted {len(trends)} trending sounds with growth >= {min_growth}%")
             
             # Update cache
             self.trends_cache = trends
@@ -235,7 +235,7 @@ class TrendChecker:
             return trends
             
         except Exception as e:
-            logger.error(f"❌ Trend fetching failed: {e}")
+            logger.error(f"[TRENDS] Trend fetching failed: {e}")
             return self.trends_cache  # Return cached data on failure
             
         finally:
@@ -251,7 +251,7 @@ class TrendChecker:
             if json_match:
                 data = json.loads(json_match.group(1))
                 # Extract trends from state (structure varies)
-                logger.info("📊 Extracted data from page state")
+                logger.info("[TRENDS] Extracted data from page state")
                 return []
         except:
             pass
@@ -284,7 +284,7 @@ class TrendChecker:
         Returns:
             Dict with validation result and current stats
         """
-        logger.info(f"#️⃣ Validating hashtag: {hashtag}")
+        logger.info(f"[TRENDS] Validating hashtag: {hashtag}")
         
         # Clean hashtag
         hashtag = hashtag.lstrip('#').lower()

@@ -51,8 +51,9 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
 
     useEffect(() => {
         const fetchStatus = async () => {
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
             try {
-                const res = await fetch('http://127.0.0.1:8000/api/v1/status');
+                const res = await fetch(`${API_URL}/api/v1/status`);
                 if (res.ok) {
                     setStatus(await res.json());
                 }

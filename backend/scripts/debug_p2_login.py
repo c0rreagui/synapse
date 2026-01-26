@@ -30,13 +30,13 @@ def debug_login():
         # 4. Injetar cookies na força bruta
         try:
             context.add_cookies(cookies)
-            print("✅ Cookies injetados no contexto.")
+            print("[SUCCESS] Cookies injected into context.")
         except Exception as e:
-            print(f"❌ Erro ao injetar cookies: {e}")
+            print(f"[ERROR] Failed to inject cookies: {e}")
 
         # 5. Navegar
         page = context.new_page()
-        print("📍 Navegando para upload...")
+        print("[INFO] Navegando para upload...")
         page.goto("https://www.tiktok.com/tiktokstudio/upload")
         
         # 6. Esperar para vermos o resultado
@@ -44,17 +44,17 @@ def debug_login():
         
         # Check URL
         current_url = page.url
-        print(f"📌 Current URL: {current_url}")
+        print(f"[INFO] Current URL: {current_url}")
         
         if "login" in current_url.lower():
-            print("❌ FAILED: Still on login page")
+            print("[FAILURE] Still on login page")
         else:
-            print("✅ SUCCESS: Logged in!")
+            print("[SUCCESS] Logged in!")
         
         # 7. Screenshot
         screenshot_path = os.path.join(static_dir, "debug_p2_manual.png")
         page.screenshot(path=screenshot_path)
-        print(f"📸 Screenshot salvo em {screenshot_path}")
+        print(f"[SCREENSHOT] Screenshot salvo em {screenshot_path}")
         
         # Manter aberto por 30s para inspeção visual
         print("⏳ Mantendo navegador aberto por 30s...")

@@ -78,14 +78,14 @@ class SenseFaculty:
             for selector in video_selectors:
                 try:
                     if await page.locator(selector).count() > 0:
-                        logger.info(f"✅ Profile loaded (Videos found with: {selector})")
+                        logger.info(f"[SENSE] Profile loaded (Videos found with: {selector})")
                         video_loaded = True
                         break
                 except:
                     continue
             
             if not video_loaded:
-                logger.warning("⚠️ Profile might be empty or restricted, checking bio...")
+                logger.warning("[WARNING] Profile might be empty or restricted, checking bio...")
 
             stats = {
                 "username": username,
@@ -111,7 +111,7 @@ class SenseFaculty:
                         stats[key] = await page.locator(sel).first.inner_text()
                         break
 
-            # 🖼️ Avatar Extraction & Fix (Download to avoid 403)
+            # Avatar Extraction & Fix (Download to avoid 403)
             try:
                 avatar_sel = '[data-e2e="user-user-img"]'
                 if await page.locator(avatar_sel).count() > 0:
@@ -134,11 +134,11 @@ class SenseFaculty:
                                         f.write(await resp.read())
                                     # Set stats to LOCAL URL
                                     stats["avatar_url"] = f"http://localhost:8000/static/avatars/{local_filename}"
-                                    logger.info(f"✅ Avatar downloaded: {local_filename}")
+                                    logger.info(f"[AVATAR] Avatar downloaded: {local_filename}")
                                 else:
                                     stats["avatar_url"] = raw_src # Fallback
             except Exception as e:
-                logger.warning(f"⚠️ Avatar download failed: {e}")
+                logger.warning(f"[WARNING] Avatar download failed: {e}")
 
             # Scroll more to ensure videos load
             for _ in range(3):
@@ -154,13 +154,13 @@ class SenseFaculty:
                     elements = await page.locator(selector).all()
                     if len(elements) > 0:
                         video_elements = elements
-                        logger.info(f"📹 Found {len(video_elements)} videos with selector: {selector}")
+                        logger.info(f"[VIDEO] Found {len(video_elements)} videos with selector: {selector}")
                         break
                 except:
                     continue
             
             if not video_elements:
-                logger.warning("📹 Found 0 videos with any selector")
+                logger.warning("[VIDEO] Found 0 videos with any selector")
 
             for i, video in enumerate(video_elements[:5]):
                 try:
@@ -192,7 +192,7 @@ class SenseFaculty:
             return stats
 
         except Exception as e:
-            logger.error(f"❌ Oracle.Sense failed: {e}")
+            logger.error(f"[ERROR] Oracle.Sense failed: {e}")
             return {"error": str(e)}
 
         finally:

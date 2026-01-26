@@ -230,25 +230,25 @@ class SEOEngine:
             "bio": {
                 "score": 70 if len(bio) > 50 else 40,
                 "label": "Bio & Identidade",
-                "icon": "📝",
+                "icon": "[BIO]",
                 "items": []
             },
             "avatar": {
                 "score": vision_score,
                 "label": "Visual Branding",
-                "icon": "🎨",
+                "icon": "[ART]",
                 "items": []
             },
             "content": {
                 "score": 50,
                 "label": "Capas de Vídeo",
-                "icon": "🎬",
+                "icon": "[VIDEO]",
                 "items": []
             },
             "vibe": {
                 "score": 50,
                 "label": "Vibe Check",
-                "icon": "✨",
+                "icon": "[VIBE]",
                 "items": []
             }
         }
@@ -395,7 +395,10 @@ class SEOEngine:
         elif len(bio) > 50:
             sections["bio"]["items"].append({"status": "ok", "text": f"Tamanho da bio OK ({len(bio)} chars)"})
         
-        if "📧" not in bio and "@" not in bio and "link" not in bio.lower() and "👇" not in bio and "clique" not in bio.lower():
+        # Emoji-safe logic for bio check
+        has_contact_info = any(x in bio.lower() for x in ["@", "link", "clique", "dm", "contato", "email", "www"])
+        
+        if not has_contact_info:
             # Use PERSONALIZED CTAs from niche detection (if available)
             personalized_ctas = niche_data.get("personalized_ctas", [])
             if personalized_ctas:
@@ -404,12 +407,12 @@ class SEOEngine:
             else:
                 # Fallback to generic CTAs
                 cta_examples = [
-                    "👇 Link na bio",
-                    "📩 DM para parcerias",
-                    "🔗 Meu curso/produto no link",
-                    "✨ Siga para mais conteúdo",
-                    "🎬 Novo vídeo todo dia!",
-                    "💼 Contato comercial"
+                    "[LINK] Link na bio",
+                    "[DM] DM para parcerias",
+                    "[LINK] Meu curso/produto no link",
+                    "[+] Siga para mais conteúdo",
+                    "[VIDEO] Novo vídeo todo dia!",
+                    "[CONTACT] Contato comercial"
                 ]
                 sections["bio"]["cta_suggestions"] = cta_examples
                 recommendations.append(f"Adicionar CTA na bio")
@@ -494,14 +497,14 @@ class SEOEngine:
         """
         from core.oracle.collector import oracle_collector
         
-        print(f"🕵️ Spying on {target_username}...")
+        print(f"[SPY] Spying on {target_username}...")
         
         # 1. Real Scraping
         scraped_stats = await oracle_collector.collect_tiktok_profile(target_username)
         
         if "error" in scraped_stats:
             # Fallback only on hard error, but usually we want to know
-            print(f"⚠️ Scraping failed: {scraped_stats['error']}")
+            print(f"[WARNING] Scraping failed: {scraped_stats['error']}")
             return {"error": "Falha ao coletar dados do perfil. Verifique o user ou tente novamente.", "details": scraped_stats}
 
         # 2. Parse Numbers (Convert "35.3M" -> 35300000)

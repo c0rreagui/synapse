@@ -22,7 +22,7 @@ class VisualCortex:
         Uses FFmpeg to extract N evenly spaced frames from a video.
         """
         if not os.path.exists(video_path):
-            logger.error(f"❌ Video not found: {video_path}")
+            logger.error(f"[VISUAL] Video not found: {video_path}")
             return []
 
         # Ensure output dir exists
@@ -57,7 +57,7 @@ class VisualCortex:
             ])
             return frames[:num_frames]
         except Exception as e:
-            logger.error(f"❌ FFmpeg failed: {e}")
+            logger.error(f"[VISUAL] FFmpeg failed: {e}")
             return []
 
     async def analyze_video_content(self, video_path: str) -> Dict[str, Any]:
@@ -110,7 +110,7 @@ class VisualCortex:
             logger.error(f"Visual Analysis Failed: {e}")
             return {"error": str(e)}
         finally:
-            # 🧹 CLEANUP: Delete extracted frames to prevent disk bloat
+            # CLEANUP: Delete extracted frames to prevent disk bloat
             try:
                 for f in frames:
                     if os.path.exists(f):

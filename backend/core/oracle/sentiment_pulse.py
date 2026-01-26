@@ -88,7 +88,7 @@ class SentimentPulse:
         Returns:
             SentimentResult as dict
         """
-        logger.info(f"💬 Analyzing sentiment for @{username}...")
+        logger.info(f"[COMMENTS] Analyzing sentiment for @{username}...")
         
         # Step 1: Collect profile data to get video URLs
         profile_data = await self.sense.collect_profile(username)
@@ -111,7 +111,7 @@ class SentimentPulse:
         if not all_comments:
             return {"error": "No comments found"}
         
-        logger.info(f"📝 Collected {len(all_comments)} comments for analysis")
+        logger.info(f"[COMMENTS] Collected {len(all_comments)} comments for analysis")
         
         # Step 3: Analyze with LLM
         return await self._analyze_with_llm(all_comments)
@@ -127,7 +127,7 @@ class SentimentPulse:
         Returns:
             SentimentResult as dict
         """
-        logger.info(f"💬 Analyzing sentiment for video: {video_url}")
+        logger.info(f"[COMMENTS] Analyzing sentiment for video: {video_url}")
         
         # Collect comments
         comments = await self.sense.collect_comments(video_url, max_comments=max_comments)
@@ -135,7 +135,7 @@ class SentimentPulse:
         if not comments:
             return {"error": "No comments found"}
         
-        logger.info(f"📝 Collected {len(comments)} comments for analysis")
+        logger.info(f"[COMMENTS] Collected {len(comments)} comments for analysis")
         
         return await self._analyze_with_llm(comments)
     
@@ -169,7 +169,7 @@ class SentimentPulse:
         }}
         
         REGRAS:
-        1. Considere emojis como indicadores (❤️😍 = positivo, 😤🤮 = negativo)
+        1. Considere emojis como indicadores (Love/Fire = positivo, Angry/Sick = negativo)
         2. Ignore comentários muito curtos (1-2 palavras)
         3. "lovers" = usuários muito engajados positivamente
         4. "haters" = usuários críticos ou negativos
@@ -219,11 +219,11 @@ class SentimentPulse:
                 analyzed_at=datetime.now().isoformat()
             )
             
-            logger.info(f"✅ Sentiment analysis complete: {positive_pct:.0f}% positive")
+            logger.info(f"[SUCCESS] Sentiment analysis complete: {positive_pct:.0f}% positive")
             return asdict(result)
             
         except Exception as e:
-            logger.error(f"❌ Sentiment analysis failed: {e}")
+            logger.error(f"[ERROR] Sentiment analysis failed: {e}")
             return {"error": str(e)}
     
     def _determine_strategy(self, positive_pct: float, negative_pct: float) -> Dict[str, Any]:

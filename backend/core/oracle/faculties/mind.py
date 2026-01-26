@@ -26,7 +26,7 @@ class MindFaculty:
         if not self.client:
             return {"error": "Oracle Mind is offline"}
 
-        logger.info(f"🧠 Oracle.Mind: Analyzing {profile_data.get('username')}...")
+        logger.info(f"[MIND] Oracle.Mind: Analyzing {profile_data.get('username')}...")
 
         context_str = json.dumps(profile_data, indent=2)
         comments = profile_data.get("comments", [])
@@ -114,13 +114,13 @@ class MindFaculty:
                     metrics = json.loads(clean_text)
                 except json.JSONDecodeError as parse_error:
                     # Fallback: Extract JSON using regex
-                    logger.warning(f"⚠️ Direct JSON parse failed, trying regex extraction...")
+                    logger.warning(f"[WARNING] Direct JSON parse failed, trying regex extraction...")
                     import re
                     json_match = re.search(r'\{.*\}', clean_text, re.DOTALL)
                     if json_match:
                         try:
                             metrics = json.loads(json_match.group())
-                            logger.info("✅ JSON extracted successfully via regex")
+                            logger.info("[SUCCESS] JSON extracted successfully via regex")
                         except json.JSONDecodeError:
                             raise ValueError(f"Failed to parse JSON even with regex: {parse_error}")
                     else:
