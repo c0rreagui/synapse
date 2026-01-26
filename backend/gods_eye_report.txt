@@ -1,0 +1,17 @@
+[2026-01-26 17:19:03] [INFO] 👁️ INICIANDO O OLHO QUE TUDO VÊ (Diagnostic Scan) 👁️
+[2026-01-26 17:19:03] [INFO] ====================================================
+[2026-01-26 17:19:03] [INFO] 🔍 Checando Infraestrutura...
+[2026-01-26 17:19:03] [CRITICAL] ❌ Frontend Container: unknown
+[2026-01-26 17:19:03] [INFO] ✅ Backend Container: ONLINE
+[2026-01-26 17:19:03] [INFO] 
+🔍 Checando API Endpoints...
+[2026-01-26 17:19:03] [INFO] ✅ API Health Check: OK (0.061676s)
+[2026-01-26 17:19:03] [INFO] 
+🔍 Checando Sessões/Profiles...
+[2026-01-26 17:19:04] [INFO] ✅ Profiles Endpoint: OK (Found 2 profiles)
+[2026-01-26 17:19:04] [INFO] 
+🔍 Analisando Logs Recentes (Backend)...
+[2026-01-26 17:19:04] [INFO] ✅ Nenhum erro crítico recente nos logs.
+[2026-01-26 17:19:04] [INFO] 
+====================================================
+[2026-01-26 17:19:04] [INFO] 👁️ SCAN CONCLUÍDO.

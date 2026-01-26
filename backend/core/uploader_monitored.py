@@ -1,6 +1,6 @@
 """
-TikTok Uploader Module - VERSÃO ULTRA-MONITORADA 👁️
-Captura TODAS as informações possíveis do Bot e TikTok Studio
+TikTok Uploader Module - VERSAO ULTRA-MONITORADA
+Captura TODAS as informacoes possiveis do Bot e TikTok Studio
 """
 import asyncio
 import os
@@ -27,19 +27,19 @@ async def upload_video_monitored(
     hashtags: list = None,
     schedule_time: str = None, 
     post: bool = False,
-    enable_monitor: bool = False,  # 👁️ Monitor desativado por padrão
+    enable_monitor: bool = False,  # Monitor desativado por padrao
     viral_music_enabled: bool = False,
-    sound_title: str = None,  # 🎵 Título da música viral específica
+    sound_title: str = None,  # Titulo da musica viral especifica
     privacy_level: str = "public_to_everyone" # public_to_everyone, mutual_follow_friends, self_only
 ) -> dict:
     result = {"status": "error", "message": "", "screenshot_path": None}
     
-    # 👁️ MONITOR ULTRA-DETALHADO (só ativa se solicitado)
+    # MONITOR ULTRA-DETALHADO (so ativa se solicitado)
     monitor = TikTokMonitor(session_name) if enable_monitor else None
     if enable_monitor:
-        logger.info(f"👁️ OLHO DE DEUS ativado: {monitor.run_id}")
+        logger.info(f"[MONITOR] OLHO DE DEUS ativado: {monitor.run_id}")
     else:
-        logger.info("📹 Monitor desativado (modo produção)")
+        logger.info("[UPLOAD] Monitor desativado (modo producao)")
 
     if not os.path.exists(video_path):
         return {"status": "error", "message": "Video not found"}

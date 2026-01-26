@@ -26,7 +26,8 @@ async def upload_video(
     schedule_time: str = None, 
     post: bool = False,
     viral_music_enabled: bool = False,
-    music_volume: float = 0.0 # Default to Silent
+    viral_sound_query: str = None, # [SYN-NEW] Sound name from Tavily/TrendChecker
+    music_volume: float = 0.0 
 ) -> dict:
     result = {"status": "error", "message": "", "screenshot_path": None}
     
@@ -97,18 +98,39 @@ async def upload_video(
                         await music_tab.click()
                         await page.wait_for_timeout(2000)
                         
-                        # 3. Selecionar Top 1 Global/Recomendado
-                        # Geralmente a primeira lista é Trending
-                        first_song = page.locator('.music-item, [class*="music-card"]').first
-                        if await first_song.is_visible():
-                            await first_song.hover()
-                            use_btn = first_song.locator('button')
+                        # 3. [SYN-NEW] VIRAL SEARCH & SELECT
+                        # If query provided (from Tavily), search for it.
+                        if viral_sound_query:
+                            logger.info(f"🔍 Buscando som viral específico: {viral_sound_query}")
+                            search_box = page.locator('input[placeholder*="Search"], input[placeholder*="Pesquisar"]').first
+                            if await search_box.is_visible():
+                                await search_box.fill(viral_sound_query)
+                                await page.keyboard.press("Enter")
+                                await page.wait_for_timeout(2000)
+                        
+                        # Select sound (Randomize top 5 to avoid repetition if no query, or pick first result of search)
+                        import random
+                        available_songs = page.locator('.music-item, [class*="music-card"]')
+                        count = await available_songs.count()
+                        
+                        if count > 0:
+                            # If search was used, pick first. If generic list, pick random top 5.
+                            index_to_pick = 0
+                            if not viral_sound_query and count > 1:
+                                limit = min(count, 5)
+                                index_to_pick = random.randint(0, limit - 1)
+                                logger.info(f"🎲 Selecionando música aleatória do Top {limit} (Index: {index_to_pick})")
+                            
+                            target_song = available_songs.nth(index_to_pick)
+                            await target_song.hover()
+                            use_btn = target_song.locator('button')
                             if await use_btn.count() > 0:
                                 await use_btn.first.click()
-                                logger.info("🎵 Música Viral aplicada!")
+                                logger.info(f"🎵 Música aplicada! (Query: {viral_sound_query or 'Random Viral'})")
                                 await page.wait_for_timeout(1000)
                                 
-                                    # 4. Ajustar Volume (CRÍTICO: Original 100%, Adicionado 0%)
+                                    # 4. Ajustar Volume (MANTÉM ORIGINAL 100%, ADICIONADO 0%)
+                                    # Isso garante que a música conta para o algoritmo mas não atrapalha o áudio
                                     volume_tab = page.locator('div, button').filter(has_text=re.compile(r"Volume", re.I)).last
                                     if await volume_tab.is_visible():
                                         await volume_tab.click()

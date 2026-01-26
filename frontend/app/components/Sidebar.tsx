@@ -14,7 +14,7 @@ const navItems = [
     { href: '/oracle', icon: CubeTransparentIcon, label: 'Oracle' },
     // SEO & Discovery merged into Oracle
     { href: '/factory', icon: CubeTransparentIcon, label: 'Factory Watcher' },
-    { href: '/upload', icon: CloudArrowUpIcon, label: 'Upload Manual' },
+
     { href: '/scheduler', icon: CalendarIcon, label: 'Agendamento' },
     { href: '/logs', icon: DocumentTextIcon, label: 'Logs' },
 ];

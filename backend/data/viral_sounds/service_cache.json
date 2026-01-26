@@ -110,7 +110,7 @@
         "category": "Meme",
         "viral_score": 65.0,
         "status": "rising",
-        "niche": "music",
+        "niche": "meme",
         "growth_rate": 42.1
       }
     ],
@@ -118,5 +118,5 @@
     "General_viral": [],
     "General_humor": []
   },
-  "timestamp": "2026-01-21T19:02:12.533258"
+  "timestamp": "2026-01-26T03:00:23.454011"
 }

@@ -57,16 +57,25 @@ class OracleClient:
 
     def _generate_groq(self, prompt_input, is_vision: bool, **kwargs):
         messages = []
-        # Default Text Model: Llama 3.3 70B (Reliable & Fast)
-        model = "llama-3.3-70b-versatile" 
+        # Helper to execute with fallback
+        primary_model = "llama-3.3-70b-versatile"
+        fallback_model = "llama-3.1-8b-instant"
+        
+        models_to_try = [primary_model]
+        if not is_vision:
+            models_to_try.append(fallback_model)
+        else:
+             # Vision Model: Llama 4 Scout (Preview)
+             models_to_try = ["meta-llama/llama-4-scout-17b-16e-instruct"] 
 
+        # 1. Buid Messages (Once, as they don't depend on model usually, unless Vision specific logic needed)
+        # However, Vision model is specific.
+        
+        # We build the content payload first
+        content_payload = []
+        text_content = ""
+        
         if is_vision:
-            # Vision Model: Llama 4 Scout (Preview)
-            # ID confirmado via documentação Groq (22/01/2026)
-            model = "meta-llama/llama-4-scout-17b-16e-instruct" 
-            
-            content_payload = []
-            
             # Flat input list handling
             input_list = prompt_input if isinstance(prompt_input, list) else [prompt_input]
             
@@ -82,44 +91,58 @@ class OracleClient:
                         "type": "image_url", 
                         "image_url": {"url": f"data:image/jpeg;base64,{img_str}"}
                     })
-            
             messages = [{"role": "user", "content": content_payload}]
         else:
             # Text Only Mode
-            text_content = ""
             if isinstance(prompt_input, list):
                 text_content = "\n".join([str(x) for x in prompt_input if isinstance(x, str)])
             else:
                 text_content = str(prompt_input)
-                
             messages = [{"role": "user", "content": text_content}]
 
-        # Prepare params with defaults
-        params = {
-            "model": model,
-            "messages": messages,
-            "temperature": 0.7,
-            "max_completion_tokens": 1024,
-            "top_p": 1,
-            "stream": False,
-            "stop": None,
-        }
+        last_error = None
         
-        # Override with kwargs (e.g., temperature from MindFaculty)
-        params.update(kwargs)
-        
-        # JSON Mode only strict for Text models currently in reusable way
-        # But Llama 3.3 supports response_format={"type": "json_object"} nicely
-        if not is_vision and "json" in str(messages).lower() and "response_format" not in params:
-             params["response_format"] = {"type": "json_object"}
-
-        completion = self.client.chat.completions.create(**params)
-        
-        # Mocking the Gemini Response Object structure for compatibility
-        class MockResponse:
-            def __init__(self, text): self.text = text
+        for model in models_to_try:
+            # Prepare params with defaults
+            params = {
+                "model": model,
+                "messages": messages,
+                "temperature": 0.7,
+                "max_completion_tokens": 1024,
+                "top_p": 1,
+                "stream": False,
+                "stop": None,
+            }
             
-        return MockResponse(completion.choices[0].message.content)
+            # Override with kwargs (e.g., temperature from MindFaculty)
+            params.update(kwargs)
+            
+            # JSON Mode only strict for Text models currently in reusable way
+            # But Llama 3.3 supports response_format={"type": "json_object"} nicely
+            if not is_vision and "json" in str(messages).lower() and "response_format" not in params:
+                 params["response_format"] = {"type": "json_object"}
+
+            try:
+                completion = self.client.chat.completions.create(**params)
+                
+                # Mocking the Gemini Response Object structure for compatibility
+                class MockResponse:
+                    def __init__(self, text): self.text = text
+                    
+                return MockResponse(completion.choices[0].message.content)
+            
+            except Exception as e:
+                error_str = str(e).lower()
+                if "rate_limit" in error_str or "429" in error_str:
+                    print(f"⚠️ Rate Limit hit on {model}. Retrying with fallback (if avail)...")
+                    last_error = e
+                    continue # Try next model
+                else:
+                    raise e # Other errors override fallback
+                    
+        # If loop finishes without return
+        if last_error:
+            raise last_error
 
     def ping(self):
         try:

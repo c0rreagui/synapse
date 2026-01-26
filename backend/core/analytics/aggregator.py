@@ -135,15 +135,33 @@ class AnalyticsAggregator:
         # If eng is high (0.2), decay is slow (0.95). If low (0.01), decay is fast (0.85)
         decay = 0.9 + (min(avg_engagement, 0.2) * 0.2) 
         
+        current_val = 100.0
+        
         for t in range(0, 60, 2): # Every 2 seconds
             if t == 0:
                 val = 100
-            elif t < 3:
-                val = base_retention * 0.9 # Immediate drop
+            elif t < 4:
+                # Immediate hook drop-off (always happens)
+                drop = 5 if avg_engagement > 0.1 else 15
+                if t == 2: current_val -= drop
+                val = current_val
             else:
-                val = base_retention * (decay ** (t/5)) # Exponential decay
+                # Exponential decay over time based on engagement
+                # Formula: val = previous * decay
+                # But decay needs to be per-step. 
+                # If decay is 0.94 per 5 seconds?
+                # Let's simple apply a small multiplier per step (2s)
+                # step_decay = 0.98 (strong) vs 0.95 (weak)
+                
+                # Boost based on engagement: 0.2 engagement -> +0.04 boost
+                base_step = 0.96 
+                boost = min(avg_engagement, 0.2) * 0.15 # Max 0.03
+                step_decay = base_step + boost
+                if step_decay > 0.995: step_decay = 0.995 # Cap at 99.5% retention per step
+                
+                current_val = current_val * step_decay
+                val = current_val
             
-            base_retention = val
             curve.append({"time": t, "retention": int(val)})
             
         return curve

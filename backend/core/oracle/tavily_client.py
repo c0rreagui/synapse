@@ -203,7 +203,7 @@ class TavilyClient:
         Returns:
             Lista de hashtags encontradas
         """
-        query = f"trending {platform} hashtags {topic} 2024"
+        query = f"top trending viral {platform} hashtags related to {topic} right now"
         result = await self.search(
             query=query,
             search_depth="basic",

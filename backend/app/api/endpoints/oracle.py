@@ -268,6 +268,156 @@ async def rewrite_caption(request: RewriteRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Rewrite failed: {e}")
 
+class GenerateCaptionRequest(BaseModel):
+    instruction: str
+    tone: str = "Viral"
+    include_hashtags: bool = True
+    length: str = "short" # short, medium, long
+    video_context: str = "" # Filename or visual description
+    output_type: str = "caption" # caption, hashtags
+
+@router.post("/generate_caption")
+async def generate_caption(request: GenerateCaptionRequest):
+    """
+    Generates a caption OR hashtags based on instructions.
+    """
+    real_trends = []
+    if request.include_hashtags or request.output_type == "hashtags":
+        try:
+            # [SYN-44] Use Tavily to get REAL-TIME viral tags
+            from core.oracle.tavily_client import tavily_client
+            # Use user instruction as topic if available, otherwise context, otherwise fallback
+            topic = request.instruction.strip() if request.instruction else (request.video_context if request.video_context else "Viral TikTok Trends")
+            # If topic looks like a filename, fallback to generic
+            if topic.endswith(('.mp4', '.mov', '.avi')):
+                topic = "Viral TikTok Trends" 
+                
+            real_trends = await tavily_client.search_hashtags(topic=topic, platform="TikTok")
+        except Exception as e:
+            print(f"⚠️ Tavily hashtag fetch failed: {e}")
+
+    trends_context = f"REAL-TIME TRENDING TAGS (Use these if relevant): {', '.join(real_trends)}" if real_trends else ""
+
+    if request.output_type == "hashtags":
+        prompt = f"""
+        Generate exactly 3-5 highly relevant, high-impact hashtags for a TikTok video.
+        
+        CONTEXT:
+        - Topic: {request.video_context}
+        - Tone: {request.tone}
+        - {trends_context}
+        
+        RULES:
+        1. QUANTITY: STICK TO 3 AWSOME TAGS (Max 5). QUALITY > QUANTITY.
+        2. STRATEGY: 1 Broad (#FYP or #Viral) + 2-3 Specific Niche Tags.
+        3. Output ONLY the hashtags separated by spaces.
+        4. No other text.
+        """
+    else:
+        length_instruction = "Concise but impactful (Start with a killer Hook, 2-3 short sentences total)." if request.length == "short" else "Story-driven (Hook -> Value -> Retention, 4-6 lines)."
+        
+        # Determine Primary Source
+        user_intent = request.instruction.strip()
+        if not user_intent:
+             primary_directive = f"Create a viral caption relevant to the topic: '{request.video_context}'."
+        else:
+             primary_directive = f"The user wrote: '{user_intent}'. ELABORATE on this idea."
+
+        prompt = f"""
+        You are a World-Class UX Writer and Viral TikTok Copywriter.
+        Your job is NOT to describe the video. Your job is to SELL the click/watch time using psychology.
+        
+        CONTEXT:
+        - Tone: {request.tone}
+        - Topic: "{request.video_context}"
+        - Length: {length_instruction}
+        - User Directive: "{user_intent if user_intent else '(None - Use Topic)'}"
+        - {trends_context}
+
+        🔥 PRIMARY DIRECTIVE:
+        {primary_directive}
+        
+        🧠 UX WRITING RULES:
+        1. **KILL THE ROBOT**: No "Neste vídeo", "Confira", "Estou aqui". Be direct.
+        2. **THE HOOK IS GOD**: First line must be a thumb-stopper.
+        3. **CONVERSATIONAL**: Lowercase aesthetic, minimal punctuation. Gen Z vibe.
+        
+        #️⃣ SMART HASHTAG STRATEGY (CRITICAL):
+        {'If hashtags are allowed:' if request.include_hashtags else 'SKIP THIS SECTION (No Hashtags).'}
+        1. **Quantity**: EXACTLY 3-5 tags.
+        2. **The Mix**:
+           - 1x Broad/Viral (e.g. #fyp, #viral)
+           - 2x Niche (e.g. #marketingdigital, #dicas)
+           - 1x Specific Context (e.g. #copywritingtips)
+        3. **Integration**: Place them at the very end, separated by spaces.
+        4. **Real-Time**: If specific tags were provided in Context, USE THEM if relevant.
+
+        🎨 TONE ADJUSTMENT:
+        - "Viral": High dopamine. Short. Punchy.
+        - "Polêmico": Divisive.
+        - "Engraçado": Self-deprecating or ironic.
+        - "Profissional": Clean, direct benefit.
+
+        OUTPUT FORMAT (PT-BR):
+        [Hook / Reaction]
+        
+        [Context / Twist]
+        
+        [Hashtags]
+        """
+    
+    try:
+        response = oracle_client.generate_content(prompt)
+        text = response.text.strip()
+        
+        # 🧹 STRICT FILTERING (Remove LLM Meta-Talk)
+        import re
+        # Remove common prefixes like "Here is...", "Based on...", "Given..."
+        text = re.sub(r"^(Here is|Based on|Given|Sure|Okay|No problem|Anotação|Note|Obviamente|Claro).*?(\n|$)", "", text, flags=re.IGNORECASE | re.MULTILINE).strip()
+        # Remove markdown bold labels like **Legenda:** or **Caption:**
+        text = re.sub(r"\*\*(Legenda|Caption|Resultado|Output|Hook):\*\*\s*", "", text, flags=re.IGNORECASE)
+        # Remove surrounding quotes
+        text = re.sub(r"^[\"']|[\"']$", "", text)
+        # Remove lines that are just "Instruction:" or similar
+        text = re.sub(r"^(Instruction|Directive):.*", "", text, flags=re.IGNORECASE | re.MULTILINE).strip()
+        
+        # ✂️ HASHTAG ENFORCER (Rule: Max 5)
+        # 1. Identify all hashtags in the text
+        tags_found = re.findall(r"#\w+", text)
+        
+        if len(tags_found) > 5:
+            # Keep only the first 5
+            allowed_tags = tags_found[:5]
+            
+            # Remove ALL hashtags from the text to start clean
+            # Note: This regex removes #word. careful not to break text like "eu amo #brasil". 
+            # But usually hashtags are at the end. 
+            # Strategy: Split text into Body and Tags parts based on the first group of hashtags at the end
+            
+            # Simple approach: Replace the detected spam tags with empty, then append allowed
+            text_no_tags = re.sub(r"#\w+(?:\s+#\w+)*$", "", text).strip() 
+            # If standard regex fails to catch scattered tags, we just force append.
+            # But to be safe, let's just use the text as is if regex is too complex, 
+            # BUT usually the LLM puts them at the end.
+            
+            # Let's try aggressive cleanup of the END of the string
+            lines = text.split('\n')
+            new_lines = []
+            captured_tags = []
+            
+            for line in lines:
+                # If line is mostly hashtags, ignore it
+                if line.strip().startswith('#') and len(re.findall(r"#\w+", line)) > 0:
+                    continue
+                new_lines.append(line)
+            
+            text = "\n".join(new_lines).strip()
+            text += f"\n\n{' '.join(allowed_tags)}"
+            
+        return {"caption": text}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Generation failed: {e}")
+
 class ReplyRequest(BaseModel):
     comment: str
     tone: str = "Witty"

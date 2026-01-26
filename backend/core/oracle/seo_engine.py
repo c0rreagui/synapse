@@ -724,7 +724,7 @@ class SEOEngine:
         except Exception as e:
             return {"error": str(e)}
 
-    def generate_content_metadata(self, filename: str, niche: str = "General", duration: int = 0) -> dict:
+    async def generate_content_metadata(self, filename: str, niche: str = "General", duration: int = 0) -> dict:
         """
         Generates Viral Caption and Hashtags based on Filename context.
         Used by Ingestion to pre-populate metadata.
@@ -732,22 +732,42 @@ class SEOEngine:
         # Clean filename
         clean_name = filename.replace("_", " ").replace("-", " ").replace(".mp4", "")
         
+        # [SYN-40] Fetch Real Trending Hashtags
+        from core.oracle.trend_checker import trend_checker
+        cached_trends = trend_checker.get_cached_trends()
+        trend_tags = []
+        if cached_trends and "trends" in cached_trends:
+            # Filter trends that might match niche or are generic high-volume
+            # Extract hashtags if title starts with #, otherwise just pass titles as context
+            for t in cached_trends["trends"][:10]:
+                if t["title"].startswith("#"):
+                    trend_tags.append(t["title"])
+        
+        trend_context = f"Trending Now: {', '.join(trend_tags)}" if trend_tags else "No specific live trends, use evergreen viral tags."
+
         prompt = f"""
         Atue como um Estrategista de Conteúdo Viral (TikTok/Reels).
         Analise este arquivo de vídeo que acabou de ser enviado:
         
         Nome do Arquivo: "{clean_name}"
         Nicho do Perfil: "{niche}"
+        Contexto Viral: {trend_context}
         
         Tarefa:
-        1. Crie uma LEGENDA (Caption) altamente engajadora (curta, com pergunta ou gancho).
-        2. Selecione 15 HASHTAGS otimizadas para este nicho.
-        3. Estime um "Potencial Viral" (0-100) baseado no tema sugerido pelo nome.
+        1. Crie uma LEGENDA (Caption) altamente engajadora. 
+           - OBRIGATÓRIO: Terminar com um CTA de Crescimento (Ex: "Siga para mais", "Curte se concorda").
+           - Use ganchos de curiosidade.
+        2. Selecione 15 HASHTAGS otimizadas:
+           - 5 Tags de Nicho (Específicas)
+           - 5 Tags Virais (Gerais/Broad)
+           - 5 Tags de Tendência (Oportunidade)
+           - Tente incluir tags do Contexto Viral se fizerem sentido.
+        3. Estime um "Potencial Viral" (0-100).
         
         Responda APENAS JSON:
         {{
-            "suggested_caption": "string",
-            "hashtags": ["#tag1", "#tag2"],
+            "suggested_caption": "Legenda aqui (incluindo emojis e CTA)",
+            "hashtags": ["#tag1", "#tag2", ...],
             "viral_score": 85,
             "viral_reason": "Explica por que este tema funciona"
         }}
@@ -765,8 +785,8 @@ class SEOEngine:
         except Exception as e:
             print(f"Content Gen Error: {e}")
             return {
-                "suggested_caption": f"{clean_name} - Confira!",
-                "hashtags": ["#viral", "#fyp"],
+                "suggested_caption": f"{clean_name} - Siga para mais content! 👇",
+                "hashtags": ["#viral", "#fyp", f"#{niche.replace(' ', '')}"],
                 "viral_score": 50,
                 "viral_reason": f"Erro na IA: {str(e)}"
             }

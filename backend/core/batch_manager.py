@@ -40,6 +40,7 @@ class BatchEvent:
     validation_result: Optional[Dict] = None
     event_id: Optional[str] = None  # ID após agendado
     status: str = "pending"
+    metadata: Dict = field(default_factory=dict) # [SYN-39] Per-event config
     
     def to_dict(self) -> Dict:
         return {
@@ -98,33 +99,68 @@ class BatchManager:
         interval_minutes: int = 60,
         viral_music_enabled: bool = False,
         sound_id: Optional[str] = None,
-        sound_title: Optional[str] = None
+        sound_title: Optional[str] = None,
+        mix_viral_sounds: bool = False  # [SYN-39] New Flag
     ) -> str:
         """
         Cria um novo batch e retorna batch_id.
-        
-        Args:
-            files: Lista de caminhos de vídeo
-            profiles: Lista de profile_ids
-            start_time: Horário de início
-            interval_minutes: Intervalo entre posts
-            
-        Returns:
-            batch_id: ID único do batch
         """
         batch_id = f"batch_{uuid.uuid4().hex[:8]}"
+        
+        # [SYN-39] Load Trends for Auto-Mix if enabled
+        viral_sounds_pool = []
+        if viral_music_enabled and mix_viral_sounds:
+            try:
+                from core.oracle.trend_checker import trend_checker
+                trends = trend_checker.get_cached_trends().get("trends", [])
+                # Filter for sounds (assuming trend objects have a type or we just take all)
+                # Ideally we check category or type, but here we take top 20 whatever they are
+                viral_sounds_pool = trends[:20]
+                print(f"🎵 Auto-Mix: Loaded {len(viral_sounds_pool)} sounds for rotation.")
+            except Exception as e:
+                print(f"⚠️ Auto-Mix Error: {e}")
         
         # Gerar eventos
         events: List[BatchEvent] = []
         cursor = start_time
         
+        sound_idx = 0
+        
         for i, video_path in enumerate(files):
             for profile_id in profiles:
+                # Determine Sound for this specific event
+                event_sound_id = sound_id
+                event_sound_title = sound_title
+                
+                # Apply Auto-Mix
+                if viral_sounds_pool:
+                    track = viral_sounds_pool[sound_idx % len(viral_sounds_pool)]
+                    event_sound_id = track["id"]
+                    event_sound_title = track["title"]
+                    sound_idx += 1
+                
+                # Store per-event config (overrides batch config if needed)
+                # But BatchEvent struct doesn't have metadata field?
+                # We need to pass this config to execute_batch or store it in event.
+                # Currently BatchEvent is simple.
+                # Let's add a `metadata` field to BatchEvent or just rely on the fact that
+                # we need to persist this choice.
+                # Wait, execute_batch uses `batch["config"]`.
+                # If we want per-event sound, we MUST modify BatchEvent to hold it.
+                # Let's add `config_override` dict to BatchEvent.
+                
                 events.append(BatchEvent(
                     id=f"{batch_id}_{i}_{profile_id}",
                     profile_id=profile_id,
                     video_path=video_path,
-                    scheduled_time=cursor
+                    scheduled_time=cursor,
+                    # We will attach the sound info here. 
+                    # See BatchEvent definition update below.
+                    metadata={
+                        "viral_music_enabled": viral_music_enabled,
+                        "sound_id": event_sound_id,
+                        "sound_title": event_sound_title
+                    }
                 ))
             cursor += timedelta(minutes=interval_minutes)
         
@@ -137,7 +173,8 @@ class BatchManager:
                 "interval_minutes": interval_minutes,
                 "viral_music_enabled": viral_music_enabled,
                 "sound_id": sound_id,
-                "sound_title": sound_title
+                "sound_title": sound_title,
+                "mix_viral_sounds": mix_viral_sounds
             }
         }
         
@@ -244,13 +281,19 @@ class BatchManager:
             
             # Agendar
             try:
+                # [SYN-39] Prefer event metadata for sound config if present (Auto-Mix)
+                evt_meta = event.metadata or {}
+                
+                use_sound_id = evt_meta.get("sound_id") or config.get("sound_id")
+                use_sound_title = evt_meta.get("sound_title") or config.get("sound_title")
+                
                 scheduled_event = scheduler_service.add_event(
                     profile_id=event.profile_id,
                     video_path=event.video_path,
                     scheduled_time=safe_time,
                     viral_music_enabled=config.get("viral_music_enabled", False),
-                    sound_id=config.get("sound_id"),
-                    sound_title=config.get("sound_title")
+                    sound_id=use_sound_id,
+                    sound_title=use_sound_title
                 )
                 event.event_id = scheduled_event.get("id")
                 event.status = "scheduled"

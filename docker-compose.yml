@@ -14,6 +14,7 @@ services:
       - ./processing:/app/processing
       - ./done:/app/done
       - ./errors:/app/errors
+      - ./synapse.db:/synapse.db # Persistência do Banco de Dados
     environment:
       - ENVIRONMENT=development
 
@@ -27,7 +28,7 @@ services:
       - ./frontend:/app # Live Reload do código
       - /app/node_modules # Evita conflito com node_modules do Windows
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_URL=
     depends_on:
       - backend
 

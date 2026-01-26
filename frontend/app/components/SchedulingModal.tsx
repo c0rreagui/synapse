@@ -73,7 +73,7 @@ export default function SchedulingModal({
         formData.append('profile_id', selectedProfiles[0]);
 
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
             const res = await fetch(`${API_URL}/api/v1/ingest/upload`, {
                 method: 'POST',
                 body: formData
@@ -103,7 +103,7 @@ export default function SchedulingModal({
         if (!description) return;
         setIsRewriting(true);
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
             const res = await fetch(`${API_URL}/api/v1/oracle/rewrite_caption`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -114,9 +114,13 @@ export default function SchedulingModal({
                 const data = await res.json();
                 if (data.options) setSuggestions(data.options);
                 if (data.hashtags) setGeneratedHashtags(data.hashtags);
+            } else {
+                toast.error("IA Ocupada (Rate Limit). Tentando modelo alternativo...");
+                throw new Error("API Error");
             }
         } catch (e) {
             console.error("Rewrite failed", e);
+            toast.error("Falha ao gerar legenda. Tente novamente.");
         } finally {
             setIsRewriting(false);
         }
@@ -443,8 +447,23 @@ export default function SchedulingModal({
                                                     <input
                                                         type="time"
                                                         required
+                                                        step="300"
                                                         value={selectedTime}
                                                         onChange={(e) => setSelectedTime(e.target.value)}
+                                                        onBlur={(e) => {
+                                                            const val = e.target.value;
+                                                            if (val) {
+                                                                const [h, m] = val.split(':').map(Number);
+                                                                const roundedM = Math.round(m / 5) * 5;
+                                                                const newM = roundedM === 60 ? 0 : roundedM;
+                                                                // Handle hour rollover if needed, but simplistic approach usually fine
+                                                                // Actually safe approach:
+                                                                const date = new Date();
+                                                                date.setHours(h);
+                                                                date.setMinutes(roundedM);
+                                                                setSelectedTime(format(date, 'HH:mm'));
+                                                            }
+                                                        }}
                                                         className={clsx(
                                                             "w-full bg-black/30 rounded-lg py-2 pl-9 pr-3 text-sm text-white focus:ring-1 outline-none transition-all",
                                                             validation && !validation.canProceed

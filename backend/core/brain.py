@@ -1,6 +1,6 @@
 """
-🧠 Brain Module - O Cérebro do Conteúdo
-Responsável por gerar metadados inteligentes (Legendas, Hashtags)
+BRAIN Module - O Cerebro do Conteudo
+Responsavel por gerar metadados inteligentes (Legendas, Hashtags)
 baseado no nome do arquivo e perfil detectado.
 """
 import random
@@ -9,44 +9,44 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Configurações de Nicho (Mock DB)
+# Configuracoes de Nicho (Mock DB)
 NICHE_CONFIG = {
     "p1": {
         "type": "cortes",
         "hashtags": ["cortes", "podcast", "humor", "viral", "fy"],
         "hooks": [
-            "Você não vai acreditar nisso! 😱",
-            "O final é surpreendente! 😂",
+            "Voce nao vai acreditar nisso!",
+            "O final e surpreendente!",
             "Melhor momento do podcast!",
-            "Quem concorda? 👇"
+            "Quem concorda?"
         ]
     },
     "p2": {
         "type": "curiosidades",
         "hashtags": ["curiosidades", "fatos", "vocesabia", "interessante", "historia"],
         "hooks": [
-            "Sabia dessa? 🤯",
+            "Sabia dessa?",
             "Fato curioso do dia!",
-            "Isso vai explodir sua mente 🧠",
+            "Isso vai explodir sua mente",
             "A verdade sobre..."
         ]
     },
     "default": {
         "type": "geral",
         "hashtags": ["fyp", "foryou", "viral", "tiktok"],
-        "hooks": ["Confira isso!", "Muito bom!", "Olha só 👀"]
+        "hooks": ["Confira isso!", "Muito bom!", "Olha so"]
     }
 }
 
 async def generate_smart_caption(filename: str, profile_prefix: str = None) -> dict:
     """
     Gera legenda e hashtags inteligentes baseadas no arquivo.
-    Ex: @p1_gato_engracado.mp4 -> "O final é surpreendente! Gato Engracado #humor #gato"
+    Ex: @p1_gato_engracado.mp4 -> "O final e surpreendente! Gato Engracado #humor #gato"
     """
     try:
-        # 1. Detectar Perfil se não fornecido
+        # 1. Detectar Perfil se nao fornecido
         if not profile_prefix:
-            # Aceita p1, p2, pcortes, pnews (alfanumérico após @)
+            # Aceita p1, p2, pcortes, pnews (alfanumerico apos @)
             match = re.match(r"^@?([a-zA-Z0-9]+)_", filename)
             profile_prefix = match.group(1) if match else "default"
         
@@ -54,11 +54,11 @@ async def generate_smart_caption(filename: str, profile_prefix: str = None) -> d
         profile_key = profile_prefix if profile_prefix in NICHE_CONFIG else "default"
         config = NICHE_CONFIG[profile_key]
         
-        # 2. Limpar Nome do Arquivo para Título
-        # Remove extensão e prefixo @pX_
+        # 2. Limpar Nome do Arquivo para Titulo
+        # Remove extensao e prefixo @pX_
         clean_name = re.sub(r"^@?p\d+_", "", filename) # Remove prefixo
         clean_name = os.path.splitext(clean_name)[0]   # Remove .mp4
-        clean_name = clean_name.replace("_", " ").replace("-", " ") # _ para espaço
+        clean_name = clean_name.replace("_", " ").replace("-", " ") # _ para espaco
         clean_title = clean_name.title() # Title Case
         
         # 3. Escolher Gancho
@@ -76,7 +76,7 @@ async def generate_smart_caption(filename: str, profile_prefix: str = None) -> d
         selected_tags = random.sample(niche_tags, min(len(niche_tags), 4)) + \
                         random.sample(general_tags, 1)
         
-        logger.info(f"🧠 Brain gerou para {filename}: {caption}")
+        logger.info(f"[BRAIN] Brain gerou para {filename}: {caption}")
         
         return {
             "caption": caption,
@@ -86,7 +86,7 @@ async def generate_smart_caption(filename: str, profile_prefix: str = None) -> d
         }
         
     except Exception as e:
-        logger.error(f"🧠 Erro no Brain: {e}")
+        logger.error(f"[BRAIN] Erro no Brain: {e}")
         # Fallback seguro
         return {
             "caption": f"Video novo! {filename}",

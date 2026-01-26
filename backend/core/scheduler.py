@@ -1,7 +1,8 @@
 import uuid
 import json
 import os
-from datetime import datetime, timedelta
+import asyncio
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Optional
 from core.database import SessionLocal
 from core.models import ScheduleItem
@@ -22,16 +23,16 @@ class Scheduler:
                 # We unpack metadata_info back to top level for compatibility
                 meta = item.metadata_info if item.metadata_info else {}
                 
+                # Ensure we return UTC-aware string so frontend converts to Local correctly
+                s_time = item.scheduled_time
+                if s_time and s_time.tzinfo is None:
+                    s_time = s_time.replace(tzinfo=timezone.utc)
+
                 event = {
-                    "id": str(item.id), # Frontend expects string ID (legacy was uuid, DB is Integer usually, OR we can keep ID as string in model if we want? Model defined it as Integer. Frontend might break if it expects UUID string. Let's see.)
-                    # Wait, Model defined id as Integer? `id = Column(Integer, primary_key=True)`
-                    # Legacy used `str(uuid.uuid4())`.
-                    # If I change ID to int, frontend `key={event.id}` is fine.
-                    # BUT delete endpoint expects string? `event_id: str`. Int as string is fine.
-                    
+                    "id": str(item.id),
                     "profile_id": item.profile_slug,
                     "video_path": item.video_path,
-                    "scheduled_time": item.scheduled_time.isoformat() if item.scheduled_time else None,
+                    "scheduled_time": s_time.isoformat() if s_time else None,
                     "status": item.status,
                     
                     # Unpack metadata
@@ -49,19 +50,21 @@ class Scheduler:
         finally:
             db.close()
 
-    def add_event(self, profile_id: str, video_path: str, scheduled_time: str, viral_music_enabled: bool = False, music_volume: float = 0.0, sound_id: str = None, sound_title: str = None) -> Dict:
+    def add_event(self, profile_id: str, video_path: str, scheduled_time: str, viral_music_enabled: bool = False, music_volume: float = 0.0, sound_id: str = None, sound_title: str = None, smart_captions: bool = False) -> Dict:
         """Schedules a new video upload."""
         db = SessionLocal()
         try:
-            # Parse time
-            dt = datetime.fromisoformat(scheduled_time)
+            # Parse time (Safe Z handle)
+            clean_time = scheduled_time.replace("Z", "+00:00")
+            dt = datetime.fromisoformat(clean_time)
             
             # Pack extras into metadata
             meta = {
                 "viral_music_enabled": viral_music_enabled,
                 "music_volume": music_volume,
                 "sound_id": sound_id,
-                "sound_title": sound_title
+                "sound_title": sound_title,
+                "smart_captions": smart_captions
             }
             
             # Race Condition Check: Prevent duplicate scheduling for same video/time
@@ -101,7 +104,7 @@ class Scheduler:
                 "id": str(new_item.id),
                 "profile_id": new_item.profile_slug,
                 "video_path": new_item.video_path,
-                "scheduled_time": new_item.scheduled_time.isoformat(),
+                "scheduled_time": new_item.scheduled_time.replace(tzinfo=timezone.utc).isoformat() if new_item.scheduled_time.tzinfo is None else new_item.scheduled_time.isoformat(),
                 "viral_music_enabled": viral_music_enabled,
                 "music_volume": music_volume,
                 "sound_id": sound_id,
@@ -184,23 +187,133 @@ class Scheduler:
 
     def update_event(self, event_id: str, scheduled_time: str) -> bool:
         db = SessionLocal()
+        print(f"DEBUG: update_event called for id='{event_id}'")
         try:
+            # Try to handle both Integer (new) and String/UUID (legacy) IDs
+            item = None
+            
+            # First try as integer
             try:
                 pk = int(event_id)
+                item = db.query(ScheduleItem).filter(ScheduleItem.id == pk).first()
             except ValueError:
-                return False
-
-            item = db.query(ScheduleItem).filter(ScheduleItem.id == pk).first()
+                pass
+            
+            if not item:
+                # Fallback to string search
+                print(f"DEBUG: searching as string '{event_id}'")
+                item = db.query(ScheduleItem).filter(ScheduleItem.id == event_id).first()
+            
             if item:
-                item.scheduled_time = datetime.fromisoformat(scheduled_time)
+                print(f"DEBUG: found item {item.id}, updating...")
+                # Safe Z handle
+                clean_time = scheduled_time.replace("Z", "+00:00")
+                item.scheduled_time = datetime.fromisoformat(clean_time)
                 db.commit()
                 return True
+            
+            print(f"DEBUG: Item not found for id '{event_id}'")
             return False
-        except Exception as e:
+        except Exception:
             db.rollback()
-            print(f"DB Error updating event: {e}")
-            return False
+            raise  # Re-raise exception to be caught by API endpoint (500)
         finally:
             db.close()
+
+    async def start_loop(self):
+        """Starts the background scheduler loop."""
+        print("[SCHEDULER] Loop Started...")
+        while True:
+            try:
+                await self.check_due_items()
+            except Exception as e:
+                print(f"Scheduler Loop Error: {e}")
+            await asyncio.sleep(60) # Check every minute
+
+    async def check_due_items(self):
+        """Checks DB for pending items that are due."""
+        db = SessionLocal()
+        try:
+            now = datetime.now(timezone.utc)
+            
+            # Find due items
+            # SQLite stores dates as naive strings mostly, or we handled it.
+            # If we used timezone.utc in add_event, it stored ISO string with +00:00.
+            # SQLAlchemy with SQLite might need careful comparison.
+            # Let's fetch all pending and filter in python to be safe against SQLite timezone quirks, 
+            # or rely on simple comparison if formats align.
+            
+            # Optimization: Filter roughly in SQL
+            items = db.query(ScheduleItem).filter(
+                ScheduleItem.status == 'pending',
+                ScheduleItem.scheduled_time <= now
+            ).all()
+            
+            for item in items:
+                print(f"[SCHEDULER] Triggering due item {item.id} - {item.video_path}")
+                # Execute Logic
+                await self.execute_due_item(item, db)
+                
+        except Exception as e:
+            print(f"Error checking due items: {e}")
+        finally:
+            db.close()
+
+    async def execute_due_item(self, item: ScheduleItem, db):
+        from core.manual_executor import execute_approved_video
+        from core.status_manager import status_manager
+        
+        try:
+            # 1. Update status to processing
+            item.status = 'processing'
+            db.commit()
+            
+            status_manager.update_status(
+                state="busy",
+                current_task=f"Scheduled: {os.path.basename(item.video_path)}",
+                step="Executando Agendamento",
+                progress=0
+            )
+            
+            # 2. Execute
+            # execute_approved_video expects a FILE PATH.
+            # It usually moves file from approved/ -> processing/ -> done/
+            # Here the file is likely in inputs/ or already in done/ if it was processed?
+            # Wait, `video_path` in DB usually points to the file.
+            # If it was uploaded via `scheduler/create`, where is the file?
+            # It might be in `data/pending` or `data/library`.
+            # We pass the absolute path.
+            
+            print(f"[SCHEDULER] Executing Video: {item.video_path}")
+            
+            # Need to ensure file exists
+            if not os.path.exists(item.video_path):
+                 print(f"[SCHEDULER] File not found: {item.video_path}")
+                 item.status = 'failed'
+                 # item.error_log = "File not found on disk" (No column)
+                 print(f"Error Log: File not found on disk")
+                 db.commit()
+                 return
+
+            # Call manual executor (which handles upload logic)
+            # execute_approved_video is async
+            result = await execute_approved_video(item.video_path, is_scheduled=True, metadata=item.metadata_info)
+            
+            if result.get('status') == 'success':
+                item.status = 'completed'
+                item.published_url = result.get('url')
+            else:
+                item.status = 'failed'
+                # item.error_log = result.get('message')
+                print(f"Error Log: {result.get('message')}")
+            
+            db.commit()
+            
+        except Exception as e:
+            print(f"[SCHEDULER] Execution Failed: {e}")
+            item.status = 'failed'
+            # item.error_log = str(e)
+            print(f"Error Log: {str(e)}")
+            db.commit()
 
 scheduler_service = Scheduler()

@@ -32,10 +32,10 @@ def session_lock(session_name: str, timeout: int = 600): # 10 min default timeou
         try:
             mtime = os.path.getmtime(lock_file)
             if time.time() - mtime > timeout:
-                logger.warning(f"🔓 Found stale lock for {session_name} (Age: {int(time.time()-mtime)}s). Breaking lock.")
+                logger.warning(f"[LOCK] Found stale lock for {session_name} (Age: {int(time.time()-mtime)}s). Breaking lock.")
                 os.remove(lock_file)
             else:
-                 logger.warning(f"🔒 Session {session_name} is currently locked by another process.")
+                 logger.warning(f"[LOCK] Session {session_name} is currently locked by another process.")
                  raise SessionLockError(f"Session {session_name} is locked.")
         except FileNotFoundError:
             # Race condition, file gone -> proceed
@@ -47,13 +47,13 @@ def session_lock(session_name: str, timeout: int = 600): # 10 min default timeou
         # Create lock
         with open(lock_file, 'w') as f:
             f.write(str(time.time()))
-        logger.info(f"🔒 Acquired lock for {session_name}")
+        logger.info(f"[LOCK] Acquired lock for {session_name}")
         yield
     finally:
         # 2. Release Lock
         try:
             if os.path.exists(lock_file):
                 os.remove(lock_file)
-                logger.info(f"🔓 Released lock for {session_name}")
+                logger.info(f"[LOCK] Released lock for {session_name}")
         except Exception as e:
             logger.error(f"Error releasing lock for {session_name}: {e}")

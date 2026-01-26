@@ -35,34 +35,63 @@ for d in [APPROVED_DIR, PROCESSING_DIR, DONE_DIR, ERRORS_DIR]:
     os.makedirs(d, exist_ok=True)
 
 
-async def execute_approved_video(video_filename: str) -> dict:
+async def execute_approved_video(
+    video_input: str, 
+    is_scheduled: bool = False, 
+    metadata: Optional[dict] = None
+) -> dict:
     """
     Execute upload for a single approved video.
     
     Args:
-        video_filename: Filename in approved/ directory
+        video_input: Filename (rel to approved/) or Absolute Path.
+        is_scheduled: If True, indicates triggered by automated scheduler.
+        metadata: Optional dict override (e.g. from Scheduler DB).
         
     Returns:
         dict with status and message
     """
-    logger.info(f"🚀 Iniciando execução manual: {video_filename}")
+    logger.info(f"Iniciando execucao {'agendada' if is_scheduled else 'manual'}: {os.path.basename(video_input)}")
     
-    # Security: Prevent Path Traversal
-    if ".." in video_filename or "/" in video_filename or "\\" in video_filename:
-         logger.critical(f"🛑 ATTEMPTED PATH TRAVERSAL IN EXECUTOR: {video_filename}")
-         return {"status": "error", "message": "Invalid filename (Path Traversal Detected)"}
+    # 1. Determine Source Path and Filename
+    if os.path.isabs(video_input):
+        source_path = video_input
+        video_filename = os.path.basename(video_input)
+        # If absolute, verify it exists
+        if not os.path.exists(source_path):
+             return {"status": "error", "message": f"Source file not found: {source_path}"}
+    else:
+        # Relative to APPROVED_DIR (Legacy/Queue Worker mode)
+        video_filename = video_input
+        
+        # Security: Prevent Path Traversal
+        if ".." in video_filename or "/" in video_filename or "\\" in video_filename:
+             logger.critical(f"🛑 ATTEMPTED PATH TRAVERSAL IN EXECUTOR: {video_filename}")
+             return {"status": "error", "message": "Invalid filename (Path Traversal Detected)"}
+        
+        source_path = os.path.join(APPROVED_DIR, video_filename)
+        if not os.path.exists(source_path):
+            return {"status": "error", "message": f"Video {video_filename} not found in approved/"}
     
-    approved_path = os.path.join(APPROVED_DIR, video_filename)
-    
-    if not os.path.exists(approved_path):
-        return {"status": "error", "message": f"Video {video_filename} not found in approved/"}
-    
-    # Load metadata
-    metadata_path = os.path.join(APPROVED_DIR, f"{video_filename}.json")
-    metadata = {}
-    if os.path.exists(metadata_path):
-        with open(metadata_path, 'r', encoding='utf-8') as f:
-            metadata = json.load(f)
+    # 2. Load Metadata (Priority: Argument > JSON Sidecar)
+    # If explicit metadata passed (from Scheduler DB), usage that. 
+    # Otherwise try to load from formatted JSON sidecar.
+    if not metadata:
+        metadata = {}
+        # Try finding json adjacent to source
+        json_path = source_path + ".json"
+        
+        # If not found, try removing extension (if legacy naming)
+        if not os.path.exists(json_path):
+             json_path = os.path.splitext(source_path)[0] + ".json"
+             
+        if os.path.exists(json_path):
+            try:
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    metadata = json.load(f)
+            except Exception as e:
+                logger.warning(f"Failed to load sidecar metadata: {e}")
+
     
     # Extract profile from metadata or filename
     profile_id = metadata.get('profile_id', 'p1')
@@ -95,22 +124,45 @@ async def execute_approved_video(video_filename: str) -> dict:
         logger.warning(f"⚠️ Perfil {session_name} não encontrado no banco. Prosseguindo com risco.")
     
     # Move to processing
-    status_manager.update_status("busy", video_filename, 10, "Movendo para Processing...", step="ingesting", logs=["Movendo arquivo..."])
+    # If is_scheduled (Absolute path from library/input), we should COPY or MOVE to processing?
+    # Usually Scheduler picks from library/inputs. If we move, we lose the source file? 
+    # ACTUALLY: Scheduler uses 'video_path'. If it's in a temp folder ('pending'), moving is fine.
+    # If it's in a Library folder, we should probably COPY to processing to preserve the library master?
+    # BUT current logic moves. Let's stick to move for now to avoid duplicates, OR COPY if is_scheduled.
+    # User feedback likely implies "Publish this".
+    # Let's MOVE to processing to ensure we have    # Move to processing
+    status_manager.update_status(
+        state="busy", 
+        current_task=video_filename, 
+        progress=10, 
+        step="Movendo para Processing...", 
+        logs=["Movendo arquivo..."]
+    )
     proc_path = os.path.join(PROCESSING_DIR, video_filename)
     try:
-        if os.path.exists(proc_path):
-            os.remove(proc_path)
-        shutil.move(approved_path, proc_path)
+        # If source and dest are same (e.g. reprocessing), don't fail
+        if os.path.abspath(source_path) != os.path.abspath(proc_path):
+            if os.path.exists(proc_path):
+                os.remove(proc_path)
+            shutil.move(source_path, proc_path)
+        else:
+            logger.info("Source is already in processing folder.")
     except Exception as e:
-        logger.error(f"❌ Erro ao mover para processing: {e}")
+        logger.error(f"Erro ao mover para processing: {e}")
         status_manager.update_status("error", logs=[f"Erro de I/O: {e}"])
         return {"status": "error", "message": str(e)}
     
     # Get caption (use from metadata or generate with Brain)
     caption = metadata.get('caption')
     if not caption:
-        status_manager.update_status("busy", video_filename, 20, "Gerando Legenda (Brain AI)...", step="transcribing", logs=["Analisando vídeo com IA..."])
-        logger.info("🧠 Brain gerando caption...")
+        status_manager.update_status(
+            state="busy", 
+            current_task=video_filename, 
+            progress=20, 
+            step="Gerando Legenda (Brain AI)...", 
+            logs=["Analisando video com IA..."]
+        )
+        logger.info("[BRAIN] Brain gerando caption...")
         brain_data = await brain.generate_smart_caption(video_filename)
         caption = brain_data["caption"]
         hashtags = brain_data["hashtags"]
@@ -127,7 +179,13 @@ async def execute_approved_video(video_filename: str) -> dict:
     action = metadata.get('action', 'scheduled')
     schedule_time = metadata.get('schedule_time')
 
-    status_manager.update_status("busy", video_filename, 40, "Iniciando Upload Automático", logs=["Abrindo navegador...", f"Perfil: {session_name}", f"Privacidade: {privacy_level}"])
+    status_manager.update_status(
+        state="busy", 
+        current_task=video_filename, 
+        progress=40, 
+        step="Iniciando Upload Automatico", 
+        logs=["Abrindo navegador...", f"Perfil: {session_name}", f"Privacidade: {privacy_level}"]
+    )
 
     # Execute upload
     try:

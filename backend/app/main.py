@@ -2,7 +2,8 @@ import asyncio
 import sys
 
 if sys.platform == "win32":
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,7 +37,11 @@ async def startup_event():
         from core.oracle.automation import oracle_automator
         asyncio.create_task(oracle_automator.start_loop())
         
-        print("SYSTEM: Background workers (Factory + Queue + Oracle) started.")
+        # Start Scheduler Loop (The Missing Engine)
+        from core.scheduler import scheduler_service
+        asyncio.create_task(scheduler_service.start_loop())
+        
+        print("SYSTEM: Background workers (Factory + Queue + Oracle + Scheduler) started.")
     except Exception as e:
         print(f"ERROR starting workers: {e}")
 
@@ -78,7 +83,7 @@ app.add_middleware(
         # "*",  <-- REMOVED: Cannot use wildcard with allow_credentials=True
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS", "PUT", "DELETE"],
+    allow_methods=["GET", "POST", "OPTIONS", "PUT", "DELETE", "PATCH"],
     allow_headers=["*"],
 )
 

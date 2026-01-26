@@ -10,11 +10,12 @@ import { StitchCard } from '../components/StitchCard';
 import { NeonButton } from '../components/NeonButton';
 import SchedulingModal, { SchedulingData } from '../components/SchedulingModal';
 import BatchUploadModal from '../components/BatchUploadModal';
+import ScheduledVideosModal from '../components/ScheduledVideosModal';
 import DayDetailsModal from '../components/DayDetailsModal';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1');
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || '');
 
 export default function SchedulerPage() {
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -25,6 +26,7 @@ export default function SchedulerPage() {
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+    const [isScheduledModalOpen, setIsScheduledModalOpen] = useState(false);
     const [isDayDetailsOpen, setIsDayDetailsOpen] = useState(false);
     const [modalDate, setModalDate] = useState(new Date());
 
@@ -33,7 +35,7 @@ export default function SchedulerPage() {
         try {
             const [eventsRes, profilesRes] = await Promise.all([
                 fetch(`${API_URL}/api/v1/scheduler/list`),
-                fetch(`${API_URL}/api/v1/profiles`)
+                fetch(`${API_URL}/api/v1/profiles/list`)
             ]);
 
             if (eventsRes.ok) setEvents(await eventsRes.json());
@@ -180,12 +182,21 @@ export default function SchedulerPage() {
                         </button>
                     </div>
 
-                    <button
-                        onClick={() => setIsBatchModalOpen(true)}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-synapse-purple/10 border border-synapse-purple/30 hover:bg-synapse-purple/20 rounded-xl text-synapse-purple text-sm font-bold transition-all shadow-[0_0_15px_rgba(139,92,246,0.1)] hover:shadow-[0_0_20px_rgba(139,92,246,0.3)]"
-                    >
-                        <span>📦 Bulk Upload</span>
-                    </button>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => setIsScheduledModalOpen(true)}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white text-sm font-bold transition-all shadow-lg"
+                        >
+                            <span className="opacity-80">📋 Ver Fila</span>
+                        </button>
+
+                        <button
+                            onClick={() => setIsBatchModalOpen(true)}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-synapse-purple/10 border border-synapse-purple/30 hover:bg-synapse-purple/20 rounded-xl text-synapse-purple text-sm font-bold transition-all shadow-[0_0_15px_rgba(139,92,246,0.1)] hover:shadow-[0_0_20px_rgba(139,92,246,0.3)]"
+                        >
+                            <span>📦 Bulk Upload</span>
+                        </button>
+                    </div>
                 </header>
 
                 {/* Config Panel */}
@@ -295,6 +306,16 @@ export default function SchedulerPage() {
                         toast.success("Campanha iniciada com sucesso!");
                     }}
                     profiles={profiles}
+                />
+
+                <ScheduledVideosModal
+                    isOpen={isScheduledModalOpen}
+                    onClose={() => setIsScheduledModalOpen(false)}
+                    profiles={profiles}
+                    onDelete={(id) => {
+                        setEvents(prev => prev.filter(e => e.id !== id));
+                    }}
+                    onUpdate={fetchData} // Sync trigger
                 />
 
                 <DayDetailsModal

@@ -24,7 +24,7 @@ import { PerformanceChart } from '../components/analytics/PerformanceChart';
 import { ChartBarIcon, HeartIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/solid';
 import { RetentionChart } from '../components/oracle/RetentionChart';
 import { EngagementHeatmap } from '../components/oracle/EngagementHeatmap';
-import { PatternCard } from '../components/oracle/PatternCard';
+import { PatternCard, PatternType } from '../components/oracle/PatternCard';
 import { MetricComparisonChart } from '../components/oracle/MetricComparisonChart';
 import axios from 'axios';
 
@@ -60,6 +60,22 @@ interface AnalyticsData {
         engagement: number;
     }[];
     best_times: any[];
+    // [SYN-38] Enhanced Analytics Field Mapping
+    heatmap_data: { hour: number; intensity: number }[];
+    retention_curve: { time: number; retention: number }[];
+    comparison: {
+        period: string;
+        current: { views: number; likes: number; count: number };
+        previous: { views: number; likes: number; count: number };
+        growth: { views: number; likes: number };
+    };
+    patterns: {
+        type: PatternType;
+        title: string;
+        description: string;
+        confidence: number;
+        impact: 'HIGH' | 'MEDIUM' | 'LOW';
+    }[];
 }
 
 export default function OraclePage() {
@@ -635,8 +651,10 @@ export default function OraclePage() {
 
                                         {/* Advanced Charts Row 1: Retention & Heatmap */}
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                            <RetentionChart />
-                                            <EngagementHeatmap />
+                                            {/* Fix Key Mismatch: Backend 'time' -> Component 'second' (or update component) */}
+                                            {/* We will update Component to be flexible, but here let's map it just in case */}
+                                            <RetentionChart data={analyticsData.retention_curve?.map(d => ({ second: d.time, retention_rate: d.retention }))} />
+                                            <EngagementHeatmap data={analyticsData.heatmap_data} />
                                         </div>
 
                                         {/* Advanced Charts Row 2: Performance & Comparison */}
@@ -648,7 +666,19 @@ export default function OraclePage() {
                                                 </StitchCard>
                                             </div>
                                             <div>
-                                                <MetricComparisonChart />
+                                                {/* Transform Comparison Data for Chart */}
+                                                <MetricComparisonChart data={[
+                                                    {
+                                                        period: 'Views',
+                                                        current: analyticsData.comparison?.current.views || 0,
+                                                        previous: analyticsData.comparison?.previous.views || 0
+                                                    },
+                                                    {
+                                                        period: 'Likes',
+                                                        current: analyticsData.comparison?.current.likes || 0,
+                                                        previous: analyticsData.comparison?.previous.likes || 0
+                                                    }
+                                                ]} />
                                             </div>
                                         </div>
 
@@ -659,27 +689,20 @@ export default function OraclePage() {
                                                 Padrões Detectados pela IA
                                             </h3>
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                                <PatternCard
-                                                    type="VIRAL_HOOK"
-                                                    title="Hook Visual Detectado"
-                                                    description="Vídeos que começam com movimento rápido de câmera têm 45% mais retenção nos primeiros 3s."
-                                                    confidence={92}
-                                                    impact="HIGH"
-                                                />
-                                                <PatternCard
-                                                    type="TIMING"
-                                                    title="Janela de Ouro"
-                                                    description="Publicações feitas entre 18:00 e 20:00 performam 2.5x melhor."
-                                                    confidence={88}
-                                                    impact="MEDIUM"
-                                                />
-                                                <PatternCard
-                                                    type="ANOMALY"
-                                                    title="Queda de Engajamento"
-                                                    description="Vídeos com mais de 60s estão sofrendo queda brusca de retenção após 40s."
-                                                    confidence={75}
-                                                    impact="LOW"
-                                                />
+                                                {analyticsData.patterns && analyticsData.patterns.length > 0 ? (
+                                                    analyticsData.patterns.map((pattern, idx) => (
+                                                        <PatternCard
+                                                            key={idx}
+                                                            type={pattern.type}
+                                                            title={pattern.title}
+                                                            description={pattern.description}
+                                                            confidence={pattern.confidence}
+                                                            impact={pattern.impact}
+                                                        />
+                                                    ))
+                                                ) : (
+                                                    <p className="text-gray-500 col-span-3 text-sm">Nenhum padrão significativo detectado ainda.</p>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
