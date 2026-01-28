@@ -5,6 +5,7 @@ export default {
         "./pages/**/*.{js,ts,jsx,tsx,mdx}",
         "./components/**/*.{js,ts,jsx,tsx,mdx}",
         "./app/**/*.{js,ts,jsx,tsx,mdx}",
+        "./stories/**/*.{js,ts,jsx,tsx,mdx}",
     ],
     theme: {
         extend: {
@@ -22,6 +23,15 @@ export default {
                     yellow: "var(--cmd-yellow)",
                     purple: "var(--cmd-purple)", // New
                     cyan: "var(--cmd-blue)",     // New
+                },
+                // Neo-Glass Palette (SYN-36)
+                neo: {
+                    bg: "#05040a",      // Deep Void
+                    surface: "#0f0a15", // Neural Layer
+                    glass: "rgba(13, 17, 23, 0.7)", // Glass Module
+                    border: "rgba(139, 92, 246, 0.2)",
+                    primary: "#8b5cf6", // Violet Neon
+                    secondary: "#d946ef", // Magenta
                 },
                 // Stitch Mode Palette
                 synapse: {
@@ -41,6 +51,12 @@ export default {
                     text: "#e9d5ff",      // Light Violet Text
                     border: "rgba(139, 92, 246, 0.2)",
                 }
+            },
+            borderRadius: {
+                neo: "32px", // Squircle
+            },
+            backdropBlur: {
+                '2xl': '40px', // Deep Blur override
             },
             animation: {
                 'radar-scan': 'radarScan 4s linear infinite',

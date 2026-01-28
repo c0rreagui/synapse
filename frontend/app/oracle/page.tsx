@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Sidebar from '../components/Sidebar';
+// import Sidebar from '../components/Sidebar';
 import { OracleInput } from '../components/oracle/OracleInput';
 import { ViralScoreGauge } from '../components/oracle/ViralScoreGauge';
 import { InsightCard } from '../components/oracle/InsightCard';
@@ -263,9 +263,8 @@ export default function OraclePage() {
     ];
 
     return (
-        <div className="flex bg-[#050505] h-screen overflow-hidden font-sans text-gray-100">
-            <Sidebar />
-            <main className="flex-1 overflow-y-auto relative h-full scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
+        <div className="bg-[#050505] h-screen overflow-hidden font-sans text-gray-100 flex flex-col relative">
+            <div className="flex-1 overflow-y-auto relative h-full scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
                 {/* Background Grid */}
                 <div className="absolute inset-0 bg-[linear-gradient(rgba(18,18,18,0)_1px,transparent_1px),linear-gradient(90deg,rgba(18,18,18,0)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_70%,transparent_100%)] pointer-events-none z-0 opacity-20" />
 
@@ -1220,7 +1219,7 @@ export default function OraclePage() {
                     </AnimatePresence >
 
                 </div >
-            </main >
+            </div >
         </div >
     );
 }

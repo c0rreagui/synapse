@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  # 🎨 Design System (Storybook) - Isolated
+  storybook:
+    build: ./frontend
+    container_name: synapse-storybook
+    ports:
+      - "6006:6006"
+    volumes:
+      - ./frontend:/app # Live Reload
+      - /app/node_modules
+    environment:
+      - WATCHPACK_POLLING=true # Windows fix for file watching
+    command: npm run storybook -- --ci --host 0.0.0.0 --port 6006

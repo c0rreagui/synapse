@@ -28,7 +28,7 @@ interface WebSocketHandler {
     onQueueUpdate?: (data: PendingVideo[]) => void;
 }
 
-const WebSocketContext = createContext<WebSocketContextValue | null>(null);
+export const WebSocketContext = createContext<WebSocketContextValue | null>(null);
 
 export function WebSocketProvider({ children }: { children: ReactNode }) {
     const [isConnected, setIsConnected] = useState(false);

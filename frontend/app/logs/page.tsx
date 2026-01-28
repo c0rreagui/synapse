@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Sidebar from '../components/Sidebar';
+// // import Sidebar from '../components/Sidebar';
 import useWebSocket from '../hooks/useWebSocket';
 import LogTerminal, { LogEntry } from '../components/LogTerminal';
 import SystemMonitor from '../components/SystemMonitor';
@@ -108,10 +108,8 @@ export default function LogsPage() {
 
 
     return (
-        <div className="flex min-h-screen bg-synapse-bg text-synapse-text font-sans overflow-hidden selection:bg-synapse-primary selection:text-white">
-            <Sidebar />
-
-            <main className="flex-1 p-6 flex flex-col h-screen overflow-hidden relative bg-grid-pattern">
+        <>
+            <div className="flex flex-col h-screen overflow-hidden relative bg-grid-pattern">
 
                 {/* Header */}
                 <header className="flex justify-between items-center mb-6 z-10 border-b border-white/10 pb-4 bg-black/40 backdrop-blur-md sticky top-0">
@@ -190,7 +188,7 @@ export default function LogsPage() {
                     </div>
 
                 </div>
-            </main>
-        </div>
+            </div>
+        </>
     );
 }

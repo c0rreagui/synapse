@@ -59,7 +59,7 @@ interface BatchContextType {
     updateFileMetadata: (id: string, metadata: any) => void;
 }
 
-const BatchContext = createContext<BatchContextType | undefined>(undefined);
+export const BatchContext = createContext<BatchContextType | undefined>(undefined);
 
 interface BatchProviderProps {
     children: ReactNode;

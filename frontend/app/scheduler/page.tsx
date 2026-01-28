@@ -5,7 +5,7 @@ import { ptBR } from 'date-fns/locale';
 import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon, MusicalNoteIcon } from '@heroicons/react/24/outline';
 import { ScheduleEvent, TikTokProfile } from '../types';
 import useWebSocket from '../hooks/useWebSocket';
-import Sidebar from '../components/Sidebar';
+// import Sidebar from '../components/Sidebar';
 import { StitchCard } from '../components/StitchCard';
 import { NeonButton } from '../components/NeonButton';
 import SchedulingModal, { SchedulingData } from '../components/SchedulingModal';
@@ -157,181 +157,177 @@ export default function SchedulerPage() {
     const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
 
     return (
-        <div className="flex min-h-screen bg-synapse-bg text-synapse-text font-sans selection:bg-synapse-primary selection:text-white">
-            <Sidebar />
+        <>
+            <header className="flex items-center justify-between mb-8">
+                <div>
+                    <h2 className="text-2xl font-bold text-white flex items-center gap-3 m-0">
+                        <CalendarIcon className="w-8 h-8 text-synapse-purple" />
+                        Smart Scheduler
+                    </h2>
+                    <p className="text-sm text-gray-500 font-mono m-0 mt-1">// PLANEJAMENTO_TEMPORAL</p>
+                </div>
 
-            <main className="flex-1 p-8 overflow-y-auto bg-grid-pattern flex flex-col">
-                <header className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4 bg-[#1c2128] p-2 rounded-xl border border-white/10 shadow-lg">
+                    <button onClick={prevMonth} className="p-2 hover:bg-white/5 rounded-lg text-gray-400 hover:text-white transition-colors">
+                        <ChevronLeftIcon className="w-5 h-5" />
+                    </button>
+                    <span className="font-mono text-synapse-purple font-bold w-40 text-center uppercase tracking-wider text-sm">
+                        {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
+                    </span>
+                    <button onClick={nextMonth} className="p-2 hover:bg-white/5 rounded-lg text-gray-400 hover:text-white transition-colors">
+                        <ChevronRightIcon className="w-5 h-5" />
+                    </button>
+                </div>
+
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => setIsScheduledModalOpen(true)}
+                        className="flex items-center gap-2 px-6 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white text-sm font-bold transition-all shadow-lg"
+                    >
+                        <span className="opacity-80">📋 Ver Fila</span>
+                    </button>
+
+                    <button
+                        onClick={() => setIsBatchModalOpen(true)}
+                        className="flex items-center gap-2 px-6 py-2.5 bg-synapse-purple/10 border border-synapse-purple/30 hover:bg-synapse-purple/20 rounded-xl text-synapse-purple text-sm font-bold transition-all shadow-[0_0_15px_rgba(139,92,246,0.1)] hover:shadow-[0_0_20px_rgba(139,92,246,0.3)]"
+                    >
+                        <span>📦 Bulk Upload</span>
+                    </button>
+                </div>
+            </header>
+
+            {/* Config Panel */}
+            <StitchCard className="p-5 mb-6 flex items-center justify-between bg-black/40 backdrop-blur-md">
+                <div className="flex items-center gap-4">
+                    <div className="p-3 bg-synapse-purple/15 rounded-xl border border-synapse-purple/20">
+                        <MusicalNoteIcon className="w-6 h-6 text-synapse-purple" />
+                    </div>
                     <div>
-                        <h2 className="text-2xl font-bold text-white flex items-center gap-3 m-0">
-                            <CalendarIcon className="w-8 h-8 text-synapse-purple" />
-                            Smart Scheduler
-                        </h2>
-                        <p className="text-sm text-gray-500 font-mono m-0 mt-1">// PLANEJAMENTO_TEMPORAL</p>
+                        <span className="text-base font-bold text-white block">Viral Audio Boost</span>
+                        <span className="text-sm text-gray-500">Aplica top trend oculta para engajamento.</span>
                     </div>
+                </div>
 
-                    <div className="flex items-center gap-4 bg-[#1c2128] p-2 rounded-xl border border-white/10 shadow-lg">
-                        <button onClick={prevMonth} className="p-2 hover:bg-white/5 rounded-lg text-gray-400 hover:text-white transition-colors">
-                            <ChevronLeftIcon className="w-5 h-5" />
-                        </button>
-                        <span className="font-mono text-synapse-purple font-bold w-40 text-center uppercase tracking-wider text-sm">
-                            {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
-                        </span>
-                        <button onClick={nextMonth} className="p-2 hover:bg-white/5 rounded-lg text-gray-400 hover:text-white transition-colors">
-                            <ChevronRightIcon className="w-5 h-5" />
-                        </button>
-                    </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                        type="checkbox"
+                        checked={viralBoost}
+                        onChange={(e) => setViralBoost(e.target.checked)}
+                        className="sr-only peer"
+                    />
+                    <div className="w-12 h-7 bg-gray-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-synapse-purple border border-gray-600 peer-checked:border-synapse-purple/50 shadow-inner"></div>
+                </label>
+            </StitchCard>
 
-                    <div className="flex gap-3">
-                        <button
-                            onClick={() => setIsScheduledModalOpen(true)}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white text-sm font-bold transition-all shadow-lg"
-                        >
-                            <span className="opacity-80">📋 Ver Fila</span>
-                        </button>
-
-                        <button
-                            onClick={() => setIsBatchModalOpen(true)}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-synapse-purple/10 border border-synapse-purple/30 hover:bg-synapse-purple/20 rounded-xl text-synapse-purple text-sm font-bold transition-all shadow-[0_0_15px_rgba(139,92,246,0.1)] hover:shadow-[0_0_20px_rgba(139,92,246,0.3)]"
-                        >
-                            <span>📦 Bulk Upload</span>
-                        </button>
-                    </div>
-                </header>
-
-                {/* Config Panel */}
-                <StitchCard className="p-5 mb-6 flex items-center justify-between bg-black/40 backdrop-blur-md">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-synapse-purple/15 rounded-xl border border-synapse-purple/20">
-                            <MusicalNoteIcon className="w-6 h-6 text-synapse-purple" />
+            {/* Calendar Grid */}
+            <StitchCard className="flex-1 p-6 relative bg-black/40 backdrop-blur-sm border border-white/5">
+                <div className="grid grid-cols-7 gap-4 mb-4 pb-4 border-b border-white/5">
+                    {['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB'].map(day => (
+                        <div key={day} className="text-center font-mono text-xs text-gray-500 font-bold uppercase tracking-widest opacity-70">
+                            {day}
                         </div>
-                        <div>
-                            <span className="text-base font-bold text-white block">Viral Audio Boost</span>
-                            <span className="text-sm text-gray-500">Aplica top trend oculta para engajamento.</span>
-                        </div>
-                    </div>
+                    ))}
+                </div>
 
-                    <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                            type="checkbox"
-                            checked={viralBoost}
-                            onChange={(e) => setViralBoost(e.target.checked)}
-                            className="sr-only peer"
-                        />
-                        <div className="w-12 h-7 bg-gray-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-synapse-purple border border-gray-600 peer-checked:border-synapse-purple/50 shadow-inner"></div>
-                    </label>
-                </StitchCard>
+                <div className="grid grid-cols-7 gap-2 h-[600px] overflow-y-auto custom-scrollbar">
+                    {days.map((day) => {
+                        const dayEvents = events.filter(e => isSameDay(new Date(e.scheduled_time), day));
+                        const isToday = isSameDay(day, new Date());
 
-                {/* Calendar Grid */}
-                <StitchCard className="flex-1 p-6 relative bg-black/40 backdrop-blur-sm border border-white/5">
-                    <div className="grid grid-cols-7 gap-4 mb-4 pb-4 border-b border-white/5">
-                        {['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB'].map(day => (
-                            <div key={day} className="text-center font-mono text-xs text-gray-500 font-bold uppercase tracking-widest opacity-70">
-                                {day}
-                            </div>
-                        ))}
-                    </div>
+                        return (
+                            <div
+                                key={day.toISOString()}
+                                className={clsx(
+                                    "min-h-[120px] rounded-xl border p-3 relative group transition-all duration-300 flex flex-col gap-2 cursor-pointer",
+                                    isToday
+                                        ? "bg-synapse-purple/5 border-synapse-purple/50 shadow-[inset_0_0_20px_rgba(139,92,246,0.05)]"
+                                        : "bg-white/[0.02] border-white/5 hover:border-synapse-purple/30 hover:bg-white/5 hover:shadow-lg hover:shadow-synapse-purple/5"
+                                )}
+                                onClick={() => openDayDetails(day)}
+                            >
+                                <span className={clsx(
+                                    "text-sm font-mono block mb-1 p-1 w-7 h-7 flex items-center justify-center rounded-full transition-colors",
+                                    isToday ? "bg-synapse-purple text-white font-bold shadow-lg shadow-synapse-purple/40" : "text-gray-500 group-hover:text-white"
+                                )}>
+                                    {format(day, 'd')}
+                                </span>
 
-                    <div className="grid grid-cols-7 gap-2 h-[600px] overflow-y-auto custom-scrollbar">
-                        {days.map((day) => {
-                            const dayEvents = events.filter(e => isSameDay(new Date(e.scheduled_time), day));
-                            const isToday = isSameDay(day, new Date());
-
-                            return (
-                                <div
-                                    key={day.toISOString()}
-                                    className={clsx(
-                                        "min-h-[120px] rounded-xl border p-3 relative group transition-all duration-300 flex flex-col gap-2 cursor-pointer",
-                                        isToday
-                                            ? "bg-synapse-purple/5 border-synapse-purple/50 shadow-[inset_0_0_20px_rgba(139,92,246,0.05)]"
-                                            : "bg-white/[0.02] border-white/5 hover:border-synapse-purple/30 hover:bg-white/5 hover:shadow-lg hover:shadow-synapse-purple/5"
+                                <div className="space-y-1.5 overflow-y-auto max-h-[80px] custom-scrollbar pointer-events-none">
+                                    {dayEvents.map(event => (
+                                        <div
+                                            key={event.id}
+                                            className={clsx(
+                                                "text-[10px] px-2 py-1.5 rounded-md truncate border flex items-center gap-1.5",
+                                                event.viral_music_enabled
+                                                    ? "bg-synapse-purple/90 text-white border-transparent shadow-sm"
+                                                    : "bg-synapse-purple/10 text-synapse-purple border-synapse-purple/20"
+                                            )}
+                                        >
+                                            <span className="font-bold opacity-80">{format(new Date(event.scheduled_time), 'HH:mm')}</span>
+                                            {event.viral_music_enabled && (
+                                                <MusicalNoteIcon className="w-3 h-3 text-white" />
+                                            )}
+                                        </div>
+                                    ))}
+                                    {dayEvents.length > 3 && (
+                                        <div className="text-[9px] text-center text-gray-500 font-medium">
+                                            +{dayEvents.length - 3} mais
+                                        </div>
                                     )}
-                                    onClick={() => openDayDetails(day)}
-                                >
-                                    <span className={clsx(
-                                        "text-sm font-mono block mb-1 p-1 w-7 h-7 flex items-center justify-center rounded-full transition-colors",
-                                        isToday ? "bg-synapse-purple text-white font-bold shadow-lg shadow-synapse-purple/40" : "text-gray-500 group-hover:text-white"
-                                    )}>
-                                        {format(day, 'd')}
-                                    </span>
-
-                                    <div className="space-y-1.5 overflow-y-auto max-h-[80px] custom-scrollbar pointer-events-none">
-                                        {dayEvents.map(event => (
-                                            <div
-                                                key={event.id}
-                                                className={clsx(
-                                                    "text-[10px] px-2 py-1.5 rounded-md truncate border flex items-center gap-1.5",
-                                                    event.viral_music_enabled
-                                                        ? "bg-synapse-purple/90 text-white border-transparent shadow-sm"
-                                                        : "bg-synapse-purple/10 text-synapse-purple border-synapse-purple/20"
-                                                )}
-                                            >
-                                                <span className="font-bold opacity-80">{format(new Date(event.scheduled_time), 'HH:mm')}</span>
-                                                {event.viral_music_enabled && (
-                                                    <MusicalNoteIcon className="w-3 h-3 text-white" />
-                                                )}
-                                            </div>
-                                        ))}
-                                        {dayEvents.length > 3 && (
-                                            <div className="text-[9px] text-center text-gray-500 font-medium">
-                                                +{dayEvents.length - 3} mais
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Hover hint */}
-                                    <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-b-xl" />
                                 </div>
-                            );
-                        })}
-                    </div>
-                </StitchCard>
 
-                {/* Modals */}
-                <SchedulingModal
-                    isOpen={isModalOpen}
-                    onClose={() => setIsModalOpen(false)}
-                    onSubmit={handleScheduleSubmit}
-                    initialDate={modalDate}
-                    initialViralBoost={viralBoost}
-                    profiles={profiles}
-                />
+                                {/* Hover hint */}
+                                <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-b-xl" />
+                            </div>
+                        );
+                    })}
+                </div>
+            </StitchCard>
 
-                <BatchUploadModal
-                    isOpen={isBatchModalOpen}
-                    onClose={() => setIsBatchModalOpen(false)}
-                    onSuccess={() => {
-                        fetchData();
-                        setIsBatchModalOpen(false);
-                        toast.success("Campanha iniciada com sucesso!");
-                    }}
-                    profiles={profiles}
-                />
+            {/* Modals */}
+            <SchedulingModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onSubmit={handleScheduleSubmit}
+                initialDate={modalDate}
+                initialViralBoost={viralBoost}
+                profiles={profiles}
+            />
 
-                <ScheduledVideosModal
-                    isOpen={isScheduledModalOpen}
-                    onClose={() => setIsScheduledModalOpen(false)}
-                    profiles={profiles}
-                    onDelete={(id) => {
-                        setEvents(prev => prev.filter(e => e.id !== id));
-                    }}
-                    onUpdate={fetchData} // Sync trigger
-                />
+            <BatchUploadModal
+                isOpen={isBatchModalOpen}
+                onClose={() => setIsBatchModalOpen(false)}
+                onSuccess={() => {
+                    fetchData();
+                    setIsBatchModalOpen(false);
+                    toast.success("Campanha iniciada com sucesso!");
+                }}
+                profiles={profiles}
+            />
 
-                <DayDetailsModal
-                    isOpen={isDayDetailsOpen}
-                    onClose={() => setIsDayDetailsOpen(false)}
-                    date={modalDate}
-                    events={events.filter(e => isSameDay(new Date(e.scheduled_time), modalDate))}
-                    profiles={profiles}
-                    onDeleteEvent={handleDeleteEvent}
-                    onEditEvent={handleEditEvent}
-                    onAddEvent={() => {
-                        setIsDayDetailsOpen(false);
-                        setIsModalOpen(true);
-                    }}
-                />
-            </main>
-        </div>
+            <ScheduledVideosModal
+                isOpen={isScheduledModalOpen}
+                onClose={() => setIsScheduledModalOpen(false)}
+                profiles={profiles}
+                onDelete={(id) => {
+                    setEvents(prev => prev.filter(e => e.id !== id));
+                }}
+                onUpdate={fetchData} // Sync trigger
+            />
+
+            <DayDetailsModal
+                isOpen={isDayDetailsOpen}
+                onClose={() => setIsDayDetailsOpen(false)}
+                date={modalDate}
+                events={events.filter(e => isSameDay(new Date(e.scheduled_time), modalDate))}
+                profiles={profiles}
+                onDeleteEvent={handleDeleteEvent}
+                onEditEvent={handleEditEvent}
+                onAddEvent={() => {
+                    setIsDayDetailsOpen(false);
+                    setIsModalOpen(true);
+                }}
+            />
+        </>
     );
 }

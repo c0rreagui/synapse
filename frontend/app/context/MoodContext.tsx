@@ -9,7 +9,7 @@ interface MoodContextType {
     setMood: (mood: Mood) => void;
 }
 
-const MoodContext = createContext<MoodContextType | undefined>(undefined);
+export const MoodContext = createContext<MoodContextType | undefined>(undefined);
 
 export function MoodProvider({ children }: { children: ReactNode }) {
     const [mood, setMood] = useState<Mood>('IDLE');
