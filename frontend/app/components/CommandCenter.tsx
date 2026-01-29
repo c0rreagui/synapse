@@ -6,20 +6,23 @@ import { useMood } from '../context/MoodContext';
 import useWebSocket from '../hooks/useWebSocket';
 import { BackendStatus, LogEntry, ScheduleEvent } from '../types';
 import { StitchCard } from './StitchCard';
-import { NeonButton } from './NeonButton';
+import { NeoButton } from '../../components/design-system/NeoButton';
 import BotCard from './BotCard';
 import {
-    CpuChipIcon,
-    ClockIcon,
-    PauseCircleIcon,
-    PlayCircleIcon,
-    XCircleIcon,
-    CommandLineIcon,
-    CloudArrowUpIcon,
-    ChatBubbleBottomCenterTextIcon,
-    FilmIcon,
-    PaperAirplaneIcon
-} from '@heroicons/react/24/outline';
+    Cpu,
+    Clock,
+    CirclePause,
+    CirclePlay,
+    CircleX,
+    Terminal,
+    CloudUpload,
+    MessageSquareText,
+    Film,
+    Send,
+    Activity,
+    Server,
+    HardDrive
+} from 'lucide-react';
 
 interface Props {
     scheduledVideos?: ScheduleEvent[];
@@ -89,72 +92,67 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
     const quotaPercent = Math.min((diffDays / TIKTOK_LIMIT_DAYS) * 100, 100);
 
     return (
-        <StitchCard className={`mb-6 p-0 border transition-all duration-300 bg-[#0d1117] ${isBusy ? 'shadow-[0_0_30px_rgba(16,185,129,0.15)] scanline-active' : ''}`}>
+        <StitchCard className={`mb-8 p-0 border border-white/5 transition-all duration-500 bg-black/40 backdrop-blur-2xl rounded-3xl overflow-hidden ${isBusy ? 'shadow-[0_0_50px_rgba(16,185,129,0.1)]' : ''}`}>
 
             {/* Header Bar */}
-            <div className="px-5 py-3 flex flex-col md:flex-row md:items-center justify-between border-b border-white/5 bg-gradient-to-r from-white/5 to-transparent gap-4">
+            <div className="px-6 py-4 flex flex-col md:flex-row md:items-center justify-between border-b border-white/5 bg-white/[0.02] gap-4">
                 <div className="flex items-center gap-6">
                     {/* Status Badge */}
                     <div className="flex items-center gap-3">
                         <div className="relative w-3 h-3">
-                            <div className={`absolute inset-0 rounded-full animate-ping opacity-75 ${isError ? 'bg-red-500' : isBusy ? 'bg-synapse-emerald' : 'bg-synapse-cyan'}`}></div>
-                            <div className={`relative w-3 h-3 rounded-full ${isError ? 'bg-red-500' : isBusy ? 'bg-synapse-emerald' : 'bg-synapse-cyan'}`}></div>
+                            <div className={`absolute inset-0 rounded-full animate-ping opacity-75 ${isError ? 'bg-red-500' : isBusy ? 'bg-emerald-500' : 'bg-cyan-500'}`}></div>
+                            <div className={`relative w-3 h-3 rounded-full ${isError ? 'bg-red-500' : isBusy ? 'bg-emerald-500' : 'bg-cyan-500'}`}></div>
                         </div>
                         <div>
-                            <h3 className="m-0 text-sm font-semibold text-white tracking-widest flex items-center gap-2">
-                                CMD_CENTER <span className="text-gray-600">{'//'}</span> <span className={isError ? 'text-red-500' : isBusy ? 'text-synapse-emerald' : 'text-synapse-cyan'}>{effectiveStatus.state.toUpperCase()}</span>
+                            <h3 className="m-0 text-sm font-semibold text-white tracking-widest flex items-center gap-2 font-mono">
+                                CMD_CENTER <span className="text-white/20">{'//'}</span> <span className={isError ? 'text-red-400' : isBusy ? 'text-emerald-400' : 'text-cyan-400'}>{effectiveStatus.state.toUpperCase()}</span>
                             </h3>
-                            <p className={`m-0 text-[10px] font-mono mt-0.5 ${isError ? 'text-red-400' : 'text-gray-400'}`}>
+                            <p className={`m-0 text-[10px] font-mono mt-0.5 uppercase tracking-wider opacity-60 ${isError ? 'text-red-300' : 'text-gray-400'}`}>
                                 {effectiveStatus.job.step || 'SYSTEM READY'}
                             </p>
                         </div>
                     </div>
 
                     {/* NETWORK PULSE */}
-                    <div className="hidden md:flex items-center gap-2 ml-3 pl-3 border-l border-white/10 h-8">
-                        {/* Simple CSS-based Signal Viz for performance instead of SVG */}
+                    <div className="hidden md:flex items-center gap-3 ml-4 pl-4 border-l border-white/5 h-8">
                         <div className="flex gap-0.5 items-end h-4">
-                            <div className={`w-1 bg-current transition-all duration-300 ${isBusy ? 'h-full animate-pulse text-synapse-emerald' : 'h-2 text-gray-700'}`}></div>
-                            <div className={`w-1 bg-current transition-all duration-300 ${isBusy ? 'h-3 animate-pulse delay-75 text-synapse-emerald' : 'h-1 text-gray-700'}`}></div>
-                            <div className={`w-1 bg-current transition-all duration-300 ${isBusy ? 'h-full animate-pulse delay-150 text-synapse-emerald' : 'h-2 text-gray-700'}`}></div>
-                            <div className={`w-1 bg-current transition-all duration-300 ${isBusy ? 'h-2 animate-pulse delay-100 text-synapse-emerald' : 'h-1 text-gray-700'}`}></div>
+                            {[1, 2, 3, 4].map((i) => (
+                                <div
+                                    key={i}
+                                    className={`w-1 rounded-full transition-all duration-300 ${isBusy
+                                        ? `bg-emerald-500 animate-pulse`
+                                        : 'bg-white/10 h-2'}`}
+                                    style={{
+                                        height: isBusy ? `${Math.random() * 100}%` : undefined,
+                                        animationDelay: `${i * 75}ms`
+                                    }}
+                                ></div>
+                            ))}
                         </div>
                         <div className="text-[9px] font-mono text-gray-500 leading-3">
                             <div>NET</div>
-                            <div className={isBusy ? 'text-synapse-emerald' : 'text-gray-700'}>{isBusy ? 'TX/RX' : 'IDLE'}</div>
+                            <div className={isBusy ? 'text-emerald-500' : 'text-gray-600'}>{isBusy ? 'ACTIVE' : 'IDLE'}</div>
                         </div>
                     </div>
 
                     {/* Hardware Widgets */}
                     {effectiveStatus.system && (
-                        <div className="hidden lg:flex gap-4 border-l border-white/10 pl-4">
-                            <div title="System Load">
-                                <div className="flex items-center gap-1 text-[10px] text-gray-500 mb-0.5">
-                                    <CpuChipIcon className="w-3 h-3" /> CPU
+                        <div className="hidden lg:flex gap-6 border-l border-white/5 pl-6">
+                            <div title="System Load" className="group">
+                                <div className="flex items-center gap-1.5 text-[10px] text-gray-500 mb-0.5 uppercase tracking-wider group-hover:text-gray-300 transition-colors">
+                                    <Cpu className="w-3 h-3" /> CPU
                                 </div>
-                                <div className={`text-xs font-bold ${effectiveStatus.system.cpu_percent > 80 ? 'text-red-500' : 'text-gray-300'}`}>
+                                <div className={`text-xs font-mono font-bold ${effectiveStatus.system.cpu_percent > 80 ? 'text-red-400' : 'text-white/80'}`}>
                                     {effectiveStatus.system.cpu_percent.toFixed(1)}%
                                 </div>
                             </div>
 
-                            <div title="RAM Usage">
-                                <div className="flex items-center gap-1 text-[10px] text-gray-500 mb-0.5">
-                                    <CpuChipIcon className="w-3 h-3" /> RAM
+                            <div title="RAM Usage" className="group">
+                                <div className="flex items-center gap-1.5 text-[10px] text-gray-500 mb-0.5 uppercase tracking-wider group-hover:text-gray-300 transition-colors">
+                                    <HardDrive className="w-3 h-3" /> RAM
                                 </div>
-                                <div className={`text-xs font-bold text-gray-300`}>
+                                <div className={`text-xs font-mono font-bold text-white/80`}>
                                     {effectiveStatus.system.ram_percent.toFixed(1)}%
-                                </div>
-                            </div>
-
-                            <div title="TikTok Schedule Window">
-                                <div className="flex items-center gap-1 text-[10px] text-gray-500 mb-0.5">
-                                    <ClockIcon className="w-3 h-3" /> QUOTA
-                                </div>
-                                <div className="w-16 h-1 mt-1 bg-gray-800 rounded-full overflow-hidden">
-                                    <div
-                                        className={`h-full ${quotaPercent > 90 ? 'bg-red-500' : 'bg-synapse-primary'}`}
-                                        style={{ width: `${quotaPercent}%` }}
-                                    ></div>
                                 </div>
                             </div>
                         </div>
@@ -165,44 +163,51 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
                 <div className="flex items-center gap-4">
                     {/* Worker Controls */}
                     <div className="flex items-center gap-2">
-                        <NeonButton variant="ghost" className="p-1.5 h-8 w-8 rounded-full" title="Pause"><PauseCircleIcon className="w-5 h-5" /></NeonButton>
-                        <NeonButton variant="ghost" className="p-1.5 h-8 w-8 rounded-full text-synapse-emerald" title="Resume"><PlayCircleIcon className="w-5 h-5" /></NeonButton>
-                        <NeonButton variant="danger" className="p-1.5 h-8 w-8 rounded-full" title="STOP"><XCircleIcon className="w-5 h-5" /></NeonButton>
+                        <NeoButton variant="ghost" size="icon" className="rounded-full text-gray-400 hover:text-white" title="Pause">
+                            <CirclePause className="w-5 h-5" />
+                        </NeoButton>
+                        <NeoButton variant="ghost" size="icon" className="rounded-full text-emerald-500 hover:text-emerald-400" title="Resume">
+                            <CirclePlay className="w-5 h-5" />
+                        </NeoButton>
+                        <NeoButton variant="danger" size="icon" className="rounded-full" title="STOP">
+                            <CircleX className="w-5 h-5" />
+                        </NeoButton>
                     </div>
 
                     <div className="h-6 w-px bg-white/10 hidden md:block"></div>
 
                     <button
                         onClick={() => setExpanded(!expanded)}
-                        className="text-gray-500 hover:text-white transition-colors flex items-center gap-2 text-xs font-mono group"
+                        className={`transition-all duration-300 flex items-center gap-2 text-xs font-mono px-3 py-1.5 rounded-lg border ${expanded ? 'bg-white/10 border-white/20 text-white' : 'bg-transparent border-transparent text-gray-500 hover:bg-white/5 hover:text-gray-300'}`}
                     >
-                        <CommandLineIcon className="w-4 h-4 group-hover:text-synapse-primary" />
-                        {expanded ? 'HIDE_LOGS' : '>_ TERMINAL'}
+                        <Terminal className="w-3.5 h-3.5" />
+                        {expanded ? 'HIDE_LOGS' : 'TERMINAL'}
                     </button>
                 </div>
             </div>
 
             {/* Breadcrumbs / Pipeline Stepper */}
-            <div className="px-5 py-2 border-b border-white/5 flex overflow-x-auto gap-4 scrollbar-hide">
+            <div className="px-6 py-3 border-b border-white/5 flex overflow-x-auto gap-1 scrollbar-hide bg-black/20">
                 {[
-                    { id: 'ingesting', label: 'INGEST', icon: CloudArrowUpIcon },
-                    { id: 'transcribing', label: 'CAPTION', icon: ChatBubbleBottomCenterTextIcon },
-                    { id: 'rendering', label: 'RENDER', icon: FilmIcon },
-                    { id: 'uploading', label: 'PUBLISH', icon: PaperAirplaneIcon }
+                    { id: 'ingesting', label: 'INGEST', icon: CloudUpload },
+                    { id: 'transcribing', label: 'CAPTION', icon: MessageSquareText },
+                    { id: 'rendering', label: 'RENDER', icon: Film },
+                    { id: 'uploading', label: 'PUBLISH', icon: Send }
                 ].map((step, i, arr) => {
                     const isActive = effectiveStatus.job.step?.toLowerCase().includes(step.id);
-                    const isCompleted = false; // logic placeholder
                     const iconColor = isActive ? 'text-white' : 'text-gray-600';
-                    const activeBg = isActive ? 'bg-synapse-primary/20 border-synapse-primary/40' : 'border-transparent';
+                    const activeClasses = isActive
+                        ? 'bg-gradient-to-r from-purple-500/20 to-blue-500/20 border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.1)]'
+                        : 'border-transparent opacity-60';
 
                     return (
                         <div key={step.id} className="flex items-center shrink-0">
-                            <div className={`flex items-center gap-2 px-2 py-1 rounded border ${activeBg} transition-all`}>
+                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${activeClasses} transition-all duration-300`}>
                                 <step.icon className={`w-3.5 h-3.5 ${iconColor}`} />
-                                <span className={`text-[10px] font-bold ${isActive ? 'text-white' : 'text-gray-600'}`}>{step.label}</span>
+                                <span className={`text-[10px] font-bold tracking-wider ${isActive ? 'text-white' : 'text-gray-600'}`}>{step.label}</span>
                             </div>
                             {i < arr.length - 1 && (
-                                <div className="w-3 h-px bg-white/10 mx-2" />
+                                <div className="w-4 h-px bg-white/5 mx-2" />
                             )}
                         </div>
                     );
@@ -210,7 +215,7 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
             </div>
 
             {/* BOTS GRID */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border-b border-white/5 bg-black/20">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 border-b border-white/5 bg-gradient-to-b from-transparent to-black/20">
                 {(effectiveStatus.bots || []).map(bot => (
                     <BotCard key={bot.id} {...bot} />
                 ))}
@@ -218,52 +223,49 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
 
             {/* Expanded Logs */}
             {expanded && (
-                <div className="p-4 bg-[#05040a] font-mono text-xs text-synapse-text border-t border-synapse-border max-h-[200px] overflow-y-auto custom-scrollbar">
+                <div className="p-4 bg-[#0a0a0a] font-mono text-xs text-gray-300 border-t border-white/10 max-h-[300px] overflow-y-auto custom-scrollbar shadow-inner">
                     {effectiveStatus.job.logs.length > 0 ? (
                         effectiveStatus.job.logs.map((log, i) => (
-                            <div key={i} className="mb-1.5 flex gap-2">
-                                <span className="text-synapse-primary/50 text-[10px] opacity-50 select-none leading-5">
+                            <div key={i} className="mb-2 flex gap-3 opacity-0 animate-in fade-in slide-in-from-bottom-1 duration-300 fill-mode-forwards" style={{ animationDelay: `${i * 50}ms` }}>
+                                <span className="text-white/20 text-[10px] select-none shrink-0 w-16">
                                     {new Date(effectiveStatus.last_updated || Date.now()).toLocaleTimeString()}
                                 </span>
-                                <span className="text-synapse-secondary select-none">➜</span>
-                                <span className={`${i === 0 ? 'text-white font-bold' : 'opacity-80'}`}>{log}</span>
+                                <span className="text-purple-500/50 select-none">➜</span>
+                                <span className={`${i === 0 ? 'text-white font-bold' : 'opacity-70'}`}>{log}</span>
                             </div>
                         ))
                     ) : (
-                        <div className="opacity-30 italic">Waiting for system output...</div>
+                        <div className="opacity-30 italic p-4 text-center">Waiting for system output...</div>
                     )}
                 </div>
             )}
             {/* SCHEDULED EVENTS */}
             {scheduledVideos.length > 0 && (
-                <div className="p-4 border-t border-white/5 bg-black/40">
-                    <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                        <ClockIcon className="w-3 h-3 text-synapse-purple" /> Upcoming Transmissions
+                <div className="p-6 border-t border-white/5 bg-black/40 backdrop-blur-md">
+                    <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <Clock className="w-3.5 h-3.5 text-purple-400" /> Upcoming Transmissions
                     </h4>
                     <div className="space-y-2">
                         {scheduledVideos.slice(0, 5).map(evt => (
-                            <div key={evt.id} className="flex items-center justify-between text-xs p-2 rounded bg-white/5 border border-white/5 hover:border-synapse-purple/30 transition-colors group">
+                            <div key={evt.id} className="flex items-center justify-between text-xs p-3 rounded-xl bg-white/5 border border-white/5 hover:border-purple-500/30 hover:bg-purple-500/5 transition-all duration-300 group cursor-default">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-synapse-purple shadow-[0_0_5px_rgba(192,132,252,0.8)]"></div>
+                                    <div className="relative">
+                                        <div className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]"></div>
+                                    </div>
                                     <span className="text-gray-300 font-medium truncate max-w-[200px] group-hover:text-white transition-colors">
                                         {evt.video_path.split(/[\\/]/).pop()}
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <span className="px-1.5 py-0.5 rounded bg-synapse-purple/10 text-synapse-purple border border-synapse-purple/20 font-mono text-[10px]">
+                                    <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono text-[10px]">
                                         {evt.profile_id}
                                     </span>
-                                    <div className="font-mono text-gray-400 text-[10px]">
+                                    <div className="font-mono text-gray-500 text-[10px]">
                                         {new Date(evt.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </div>
                                 </div>
                             </div>
                         ))}
-                        {scheduledVideos.length > 5 && (
-                            <div className="text-[10px] text-center text-gray-600 pt-1 italic">
-                                +{scheduledVideos.length - 5} queued in signal buffer
-                            </div>
-                        )}
                     </div>
                 </div>
             )}

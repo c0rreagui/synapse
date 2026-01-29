@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs';
 import DataTable from '../app/components/DataTable';
-import Badge from '../app/components/Badge';
 
 const meta: Meta<typeof DataTable> = {
     title: 'App/Organisms/DataTable',
@@ -15,36 +14,47 @@ const meta: Meta<typeof DataTable> = {
 export default meta;
 type Story = StoryObj<typeof DataTable>;
 
-const DATA = [
-    { id: '1', name: 'Video_001.mp4', size: '120MB', status: 'Uploaded', date: '2023-10-01' },
-    { id: '2', name: 'Video_002.mp4', size: '450MB', status: 'Processing', date: '2023-10-02' },
-    { id: '3', name: 'Short_Clip.mov', size: '12MB', status: 'Error', date: '2023-10-03' },
-    { id: '4', name: 'Intro.mp4', size: '55MB', status: 'Uploaded', date: '2023-10-04' },
-    { id: '5', name: 'Outro.mp4', size: '30MB', status: 'Uploaded', date: '2023-10-05' },
-    { id: '6', name: 'Raw_Footage.mkv', size: '2.4GB', status: 'Pending', date: '2023-10-06' },
-];
+const DATA = Array.from({ length: 25 }, (_, i) => ({
+    id: String(i + 1),
+    name: `Video_${String(i + 1).padStart(3, '0')}.mp4`,
+    size: `${Math.floor(Math.random() * 500 + 10)}MB`,
+    status: i % 5 === 0 ? 'Error' : i % 3 === 0 ? 'Processing' : 'Uploaded',
+    date: `2023-10-${String(i % 30 + 1).padStart(2, '0')}`,
+}));
 
 const COLUMNS = [
-    { key: 'name', header: 'File Name', sortable: true },
-    { key: 'size', header: 'Size', sortable: true },
+    { key: 'name', header: 'File Name', sortable: true, width: '30%' },
+    { key: 'size', header: 'Size', sortable: true, align: 'right', width: '15%' },
     {
         key: 'status',
         header: 'Status',
         sortable: true,
+        align: 'center',
         render: (val: string) => {
-            const color = val === 'Uploaded' ? '#3fb950' : val === 'Error' ? '#f85149' : val === 'Processing' ? '#e3b341' : '#8b949e';
-            return <span style={{ color, fontWeight: 600 }}>{val}</span>;
+            const color = val === 'Uploaded' ? 'text-emerald-400' : val === 'Error' ? 'text-red-400' : 'text-amber-400';
+            return <span className={`font-semibold ${color}`}>{val}</span>;
         }
     },
-    { key: 'date', header: 'Date', sortable: true },
+    { key: 'date', header: 'Date', sortable: true, align: 'right' },
 ];
 
 export const Default: Story = {
     args: {
         columns: COLUMNS as any,
-        data: DATA,
+        data: DATA.slice(0, 5), // Small dataset
         searchable: true,
         exportable: true,
+        rowsPerPage: 5,
+    },
+};
+
+export const Paginated: Story = {
+    args: {
+        columns: COLUMNS as any,
+        data: DATA, // 25 items
+        searchable: true,
+        exportable: true,
+        rowsPerPage: 5,
     },
 };
 

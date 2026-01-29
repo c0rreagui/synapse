@@ -222,6 +222,7 @@ export interface TikTokProfile {
     icon?: string;
     status: 'active' | 'inactive' | 'expired';
     session_valid?: boolean;
+    niche?: string;
 }
 
 // --- WEBSOCKET TYPES ---

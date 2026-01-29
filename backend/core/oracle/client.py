@@ -45,7 +45,7 @@ class OracleClient:
         is_vision = False
         if isinstance(prompt_input, list):
             for item in prompt_input:
-                if hasattr(item, "save"): # PIL Image detection
+                if hasattr(item, "save") or (isinstance(item, dict) and item.get("type") == "image_url"): 
                     is_vision = True
                     break
         
@@ -58,15 +58,22 @@ class OracleClient:
     def _generate_groq(self, prompt_input, is_vision: bool, **kwargs):
         messages = []
         # Helper to execute with fallback
-        primary_model = "llama-3.3-70b-versatile"
-        fallback_model = "llama-3.1-8b-instant"
+        # UPDATED: Check for model override in kwargs
+        primary_model = kwargs.get("model", "llama-3.3-70b-versatile")
         
+        # If user explicitly requested a model, don't use fallback logic normally,
+        # unless it's the default one where we want fallback safety.
+        # For now, let's keep the fallback for reliability.
         models_to_try = [primary_model]
-        if not is_vision:
-            models_to_try.append(fallback_model)
-        else:
-             # Vision Model: Llama 4 Scout (Preview)
-             models_to_try = ["meta-llama/llama-4-scout-17b-16e-instruct"] 
+        
+        # Add fallbacks only if using default and not forced
+        if primary_model == "llama-3.3-70b-versatile" and not is_vision:
+             models_to_try.append("llama-3.1-8b-instant")
+        
+        if is_vision:
+             # Vision Model: Llama 3.2 11B / or 90B
+             # Current Groq Vision model identifier:
+             models_to_try = ["llama-3.2-11b-vision-preview"]  
 
         # 1. Buid Messages (Once, as they don't depend on model usually, unless Vision specific logic needed)
         # However, Vision model is specific.
@@ -80,7 +87,10 @@ class OracleClient:
             input_list = prompt_input if isinstance(prompt_input, list) else [prompt_input]
             
             for item in input_list:
-                if isinstance(item, str):
+                if isinstance(item, dict):
+                    # Direct payload pass-through (e.g. for image_url with base64)
+                    content_payload.append(item)
+                elif isinstance(item, str):
                     content_payload.append({"type": "text", "text": item})
                 elif hasattr(item, "save"): # Is PIL Image
                     import io

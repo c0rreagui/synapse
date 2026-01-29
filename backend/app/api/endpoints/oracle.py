@@ -275,6 +275,9 @@ class GenerateCaptionRequest(BaseModel):
     length: str = "short" # short, medium, long
     video_context: str = "" # Filename or visual description
     output_type: str = "caption" # caption, hashtags
+    model: str = "llama-3.3-70b-versatile" # AI Model to use
+    visual_frames: List[str] = [] # List of base64 image strings
+    niche_context: str = "" # [SYN-50] Niche awareness
 
 @router.post("/generate_caption")
 async def generate_caption(request: GenerateCaptionRequest):
@@ -282,23 +285,69 @@ async def generate_caption(request: GenerateCaptionRequest):
     Generates a caption OR hashtags based on instructions.
     """
     real_trends = []
+    
+    # 🧠 DETERMINE TOPIC FOR RESEARCH
+    # Priority: User Instruction > Niche > Visual Context > Generic Fallback
+    research_topic = request.instruction.strip()
+    if not research_topic:
+        if request.niche_context:
+            research_topic = f"{request.niche_context} trends"
+        elif request.video_context and not request.video_context.endswith(('.mp4', '.mov')):
+             research_topic = request.video_context
+        else:
+             research_topic = "Viral TikTok Trends"
+
     if request.include_hashtags or request.output_type == "hashtags":
         try:
             # [SYN-44] Use Tavily to get REAL-TIME viral tags
             from core.oracle.tavily_client import tavily_client
-            # Use user instruction as topic if available, otherwise context, otherwise fallback
-            topic = request.instruction.strip() if request.instruction else (request.video_context if request.video_context else "Viral TikTok Trends")
-            # If topic looks like a filename, fallback to generic
-            if topic.endswith(('.mp4', '.mov', '.avi')):
-                topic = "Viral TikTok Trends" 
-                
-            real_trends = await tavily_client.search_hashtags(topic=topic, platform="TikTok")
+            print(f"🤖 Tavily Researching: {research_topic} Brasil...") 
+            real_trends = await tavily_client.search_hashtags(topic=f"{research_topic} Brasil", platform="TikTok")
         except Exception as e:
             print(f"⚠️ Tavily hashtag fetch failed: {e}")
+            
+    # ... (rest of vision logic) ...
+
+    
+    # 👁️ VISUAL CONTEXT ANALYSIS (Hybrid Mode)
+    visual_description = ""
+    if request.visual_frames:
+        try:
+            print(f"👁️ Oracle Eye: Analysing {len(request.visual_frames)} frames...")
+            vision_payload = []
+            
+            # Add frames to payload
+            for frame_b64 in request.visual_frames:
+                # Ensure header is present (frontend sends it usually, but clean just in case)
+                if "," in frame_b64:
+                    frame_b64 = frame_b64.split(",")[1]
+                    
+                vision_payload.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{frame_b64}"}
+                })
+            
+            # Add instruction for the Vision Model
+            vision_payload.append({
+                "type": "text", 
+                "text": "Describe the visual sequence in these frames in extreme detail. Focus on: Scenery, Actions, Emotions, Objects, Text on Screen, and Lighting. Be purely descriptive."
+            })
+            
+            # Invoke Vision Model (Llama 3.2 11B)
+            vision_response = oracle_client.generate_content(
+                vision_payload, 
+                model="llama-3.2-11b-vision-preview" 
+            )
+            visual_description = vision_response.text.strip()
+            print(f"👁️ Visual Insight: {visual_description[:100]}...")
+            
+        except Exception as e:
+            print(f"⚠️ Visual Analysis Failed: {e}")
 
     trends_context = f"REAL-TIME TRENDING TAGS (Use these if relevant): {', '.join(real_trends)}" if real_trends else ""
 
     if request.output_type == "hashtags":
+        # ... hashtags logic ...
         prompt = f"""
         Generate exactly 3-5 highly relevant, high-impact hashtags for a TikTok video.
         
@@ -318,30 +367,54 @@ async def generate_caption(request: GenerateCaptionRequest):
         
         # Determine Primary Source
         user_intent = request.instruction.strip()
-        if not user_intent:
-             primary_directive = f"Create a viral caption relevant to the topic: '{request.video_context}'."
-        else:
-             primary_directive = f"The user wrote: '{user_intent}'. ELABORATE on this idea."
+
+        # 🎭 TONE AMPLIFIER: Explicit Style Guides
+        TONE_STYLES = {
+            "Viral": "Use short sentences. Create loops. Speak like a Gen-Z creator. Use trending hook formats.",
+            "Polêmico": "Be opinionated. Challenge common beliefs. Use capitalization for emphasis. Be risky.",
+            "Engraçado": "Use irony, sarcasm, and slang. Be self-deprecating. Use laughing emojis (😂, 💀). Don't be formal.",
+            "Profissional": "Be clean, authoritative, and educational. Use proper grammar but keep it engaging. No sludge."
+        }
+        active_style = TONE_STYLES.get(request.tone, "Be engaging and authentic.")
 
         prompt = f"""
         You are a World-Class UX Writer and Viral TikTok Copywriter.
-        Your job is NOT to describe the video. Your job is to SELL the click/watch time using psychology.
         
-        CONTEXT:
-        - Tone: {request.tone}
-        - Topic: "{request.video_context}"
+        🎯 GOAL: Write a caption that executes the USER STRATEGY below. 
+        
+        --- INPUT DATA ---
+        
+        1. 🧠 USER STRATEGY (THE BOSS): 
+        "{user_intent if user_intent else 'Maximize engagement using the visual context.'}"
+        (You MUST follow this mental angle/behavior above all else.)
+        
+        2. 👁️ VIDEO VISUALS (THE CONTEXT): 
+        "{visual_description if visual_description else '(Not available)'}"
+        (Use these details to ground your caption in reality, but DO NOT just describe them. Use them to prove the point of the strategy.)
+
+        3. 🎨 PARAMETERS:
+        - Niche/Identity: {request.niche_context if request.niche_context else "General Content Creator"}
+        - Tone: {request.tone} -> STYLE GUIDE: {active_style}
+        - Language: PORTUGUESE (BRAZIL) - PT-BR (MANDATORY)
         - Length: {length_instruction}
-        - User Directive: "{user_intent if user_intent else '(None - Use Topic)'}"
         - {trends_context}
 
-        🔥 PRIMARY DIRECTIVE:
-        {primary_directive}
-        
-        🧠 UX WRITING RULES:
-        1. **KILL THE ROBOT**: No "Neste vídeo", "Confira", "Estou aqui". Be direct.
-        2. **THE HOOK IS GOD**: First line must be a thumb-stopper.
-        3. **CONVERSATIONAL**: Lowercase aesthetic, minimal punctuation. Gen Z vibe.
-        
+        --- INSTRUCTIONS ---
+
+        ❌ WHAT NOT TO DO:
+        - Do NOT make the caption about "Growing on TikTok" or "Marketing" just because the User Strategy mentions followers.
+        - Do NOT ignore the Visual Content. If the video is about Boxing, talk about Boxing!
+        - Do NOT start with "In this video" or "Check this out".
+
+        ✅ WHAT TO DO:
+        1. **IDENTIFY THE TOPIC**: Read the [VIDEO VISUALS] carefully. That is your subject. (e.g. If visuals show boxing, the topic is BOXING. If visuals show gaming, topic is GAMING).
+        2. **APPLY THE ANGLE**: Read the [USER STRATEGY]. That is your lens. (e.g. If strategy is "Provocative", be a provocative commentator on the Boxing match).
+        3. **EXECUTE THE GOAL**: Make the text viral/engaging according to the goal, but KEEP THE TOPIC FIXED ON THE VISUALS.
+
+        The Visuals are the "WHAT".
+        The Strategy is the "HOW".
+        The Niche is just the "AUDIENCE".
+
         #️⃣ SMART HASHTAG STRATEGY (CRITICAL):
         {'If hashtags are allowed:' if request.include_hashtags else 'SKIP THIS SECTION (No Hashtags).'}
         1. **Quantity**: EXACTLY 3-5 tags.
@@ -350,27 +423,50 @@ async def generate_caption(request: GenerateCaptionRequest):
            - 2x Niche (e.g. #marketingdigital, #dicas)
            - 1x Specific Context (e.g. #copywritingtips)
         3. **Integration**: Place them at the very end, separated by spaces.
-        4. **Real-Time**: If specific tags were provided in Context, USE THEM if relevant.
+        4. **Real-Time (MANDATORY)**: If specific tags are listed in 'REAL-TIME TRENDING TAGS' above, YOU MUST INCLUDE AT LEAST 2 OF THEM. Do not ignore the research data.
 
-        🎨 TONE ADJUSTMENT:
-        - "Viral": High dopamine. Short. Punchy.
-        - "Polêmico": Divisive.
-        - "Engraçado": Self-deprecating or ironic.
-        - "Profissional": Clean, direct benefit.
-
-        OUTPUT FORMAT (PT-BR):
-        [Hook / Reaction]
-        
-        [Context / Twist]
-        
-        [Hashtags]
+        OUTPUT FORMAT (JSON ONLY):
+        {{
+            "caption": "Your final caption here...",
+            "hashtags": ["#tag1", "#tag2", "#tag3"]
+        }}
         """
     
     try:
-        response = oracle_client.generate_content(prompt)
+        response = oracle_client.generate_content(prompt, model=request.model)
         text = response.text.strip()
         
-        # 🧹 STRICT FILTERING (Remove LLM Meta-Talk)
+        # 🧹 CLEAN VIA JSON PARSING (The only way to kill the yapping)
+        import json
+        
+        # Try to find JSON block if mixed with text
+        json_start = text.find('{')
+        json_end = text.rfind('}') + 1
+        
+        if json_start != -1 and json_end != -1:
+            clean_json = text[json_start:json_end]
+            try:
+                data = json.loads(clean_json)
+                final_caption = data.get("caption", text)
+                
+                # Check for hashtags in JSON if requested
+                if request.include_hashtags and "hashtags" in data:
+                     # Remove hashtags from caption if they are also in the list, to avoid duplication ? 
+                     # Actually, let's just trust the caption if the model did its job.
+                     # But we must append tags if they are separate.
+                     
+                     # If the caption doesn't end with hashtags, append them
+                     tags_list = data["hashtags"]
+                     if tags_list:
+                         tags_str = " ".join(tags_list[:5])
+                         if not final_caption.strip().endswith(tags_list[0]):
+                             final_caption += f"\n\n{tags_str}"
+                         
+                return {"caption": final_caption}
+            except:
+                pass # Fallback to regex cleaning if JSON fails
+
+        # 🧹 STRICT FILTERING (Fallback)
         import re
         # Remove common prefixes like "Here is...", "Based on...", "Given..."
         text = re.sub(r"^(Here is|Based on|Given|Sure|Okay|No problem|Anotação|Note|Obviamente|Claro).*?(\n|$)", "", text, flags=re.IGNORECASE | re.MULTILINE).strip()
@@ -378,42 +474,7 @@ async def generate_caption(request: GenerateCaptionRequest):
         text = re.sub(r"\*\*(Legenda|Caption|Resultado|Output|Hook):\*\*\s*", "", text, flags=re.IGNORECASE)
         # Remove surrounding quotes
         text = re.sub(r"^[\"']|[\"']$", "", text)
-        # Remove lines that are just "Instruction:" or similar
-        text = re.sub(r"^(Instruction|Directive):.*", "", text, flags=re.IGNORECASE | re.MULTILINE).strip()
         
-        # ✂️ HASHTAG ENFORCER (Rule: Max 5)
-        # 1. Identify all hashtags in the text
-        tags_found = re.findall(r"#\w+", text)
-        
-        if len(tags_found) > 5:
-            # Keep only the first 5
-            allowed_tags = tags_found[:5]
-            
-            # Remove ALL hashtags from the text to start clean
-            # Note: This regex removes #word. careful not to break text like "eu amo #brasil". 
-            # But usually hashtags are at the end. 
-            # Strategy: Split text into Body and Tags parts based on the first group of hashtags at the end
-            
-            # Simple approach: Replace the detected spam tags with empty, then append allowed
-            text_no_tags = re.sub(r"#\w+(?:\s+#\w+)*$", "", text).strip() 
-            # If standard regex fails to catch scattered tags, we just force append.
-            # But to be safe, let's just use the text as is if regex is too complex, 
-            # BUT usually the LLM puts them at the end.
-            
-            # Let's try aggressive cleanup of the END of the string
-            lines = text.split('\n')
-            new_lines = []
-            captured_tags = []
-            
-            for line in lines:
-                # If line is mostly hashtags, ignore it
-                if line.strip().startswith('#') and len(re.findall(r"#\w+", line)) > 0:
-                    continue
-                new_lines.append(line)
-            
-            text = "\n".join(new_lines).strip()
-            text += f"\n\n{' '.join(allowed_tags)}"
-            
         return {"caption": text}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Generation failed: {e}")

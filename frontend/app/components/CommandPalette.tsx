@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { MagnifyingGlassIcon, DocumentIcon } from '@heroicons/react/24/outline';
+import { Search, FileText } from 'lucide-react';
 
 interface CommandItem {
     id: string;
@@ -129,7 +129,7 @@ export default function CommandPalette({ isOpen, onClose, commands }: CommandPal
                     padding: '14px 16px',
                     borderBottom: '1px solid #30363d',
                 }}>
-                    <MagnifyingGlassIcon style={{ width: '20px', height: '20px', color: '#8b949e' }} />
+                    <Search style={{ width: '20px', height: '20px', color: '#8b949e' }} />
                     <input
                         ref={inputRef}
                         type="text"
@@ -179,7 +179,7 @@ export default function CommandPalette({ isOpen, onClose, commands }: CommandPal
                                         }}
                                     >
                                         <div style={{ color: '#8b949e', flexShrink: 0 }}>
-                                            {cmd.icon || <DocumentIcon style={{ width: '18px', height: '18px' }} />}
+                                            {cmd.icon || <FileText style={{ width: '18px', height: '18px' }} />}
                                         </div>
                                         <div style={{ flex: 1 }}>
                                             <div style={{ fontSize: '14px', color: '#c9d1d9' }}>{cmd.title}</div>

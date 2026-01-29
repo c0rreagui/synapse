@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { useBatch } from './BatchContext';
 import { useDropzone } from 'react-dropzone';
-import { MusicalNoteIcon, SparklesIcon, XMarkIcon, PlayIcon } from '@heroicons/react/24/solid';
+import { Music, Sparkles, X, Play } from 'lucide-react';
 import clsx from 'clsx';
 
 export function BatchMain() {
@@ -47,7 +47,7 @@ export function BatchMain() {
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-synapse-purple to-cyan-500 flex items-center justify-center shadow-lg shadow-purple-500/20">
-                                    <SparklesIcon className="w-5 h-5 text-white" />
+                                    <Sparkles className="w-5 h-5 text-white" />
                                 </div>
                                 <div>
                                     <h3 className="text-sm font-bold text-white">Synapse Estúdio</h3>
@@ -80,7 +80,7 @@ export function BatchMain() {
                                 <div className="p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
-                                            <MusicalNoteIcon className="w-4 h-4 text-cyan-400" />
+                                            <Music className="w-4 h-4 text-cyan-400" />
                                         </div>
                                         <div>
                                             <p className="text-xs font-medium text-white">Mixar Trends</p>
@@ -177,7 +177,7 @@ export function BatchMain() {
                                     onClick={(e) => { e.stopPropagation(); removeFile(file.id); }}
                                     className="absolute top-2 right-2 w-6 h-6 rounded-lg bg-red-500/20 hover:bg-red-500 text-red-500 hover:text-white flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
                                 >
-                                    <XMarkIcon className="w-3 h-3" />
+                                    <X className="w-3 h-3" />
                                 </button>
                             </div>
                         ))}

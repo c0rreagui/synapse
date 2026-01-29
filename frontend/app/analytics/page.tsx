@@ -7,7 +7,7 @@ import { StatCard } from '../components/analytics/StatCard';
 import Sidebar from '../components/Sidebar';
 import { PerformanceChart } from '../components/analytics/PerformanceChart';
 import axios from 'axios';
-import { SparklesIcon, ChartBarIcon, EyeIcon, HeartIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/solid';
+import { Sparkles, BarChart3, Eye, Heart, MessageSquare } from 'lucide-react';
 
 // Define Data Type based on backend response
 interface AnalyticsData {
@@ -89,7 +89,7 @@ export default function AnalyticsPage() {
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                             <h1 className="text-4xl font-extrabold tracking-tight flex items-center gap-3">
-                                <ChartBarIcon className="w-8 h-8 text-synapse-purple" />
+                                <BarChart3 className="w-8 h-8 text-synapse-purple" />
                                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500">
                                     Deep Analytics
                                 </span>
@@ -116,7 +116,7 @@ export default function AnalyticsPage() {
 
                     {loading ? (
                         <div className="h-96 flex flex-col items-center justify-center text-synapse-purple animate-pulse">
-                            <SparklesIcon className="w-12 h-12 mb-4" />
+                            <Sparkles className="w-12 h-12 mb-4" />
                             <p>Crunching Data...</p>
                         </div>
                     ) : data ? (
@@ -126,7 +126,7 @@ export default function AnalyticsPage() {
                                 <StatCard
                                     label="Total Views"
                                     value={formatNumber(data.summary.total_views)}
-                                    icon={<EyeIcon className="w-6 h-6 text-white" />}
+                                    icon={<Eye className="w-6 h-6 text-white" />}
                                     color="purple"
                                     trend="up"
                                     trendValue="12%"
@@ -134,20 +134,20 @@ export default function AnalyticsPage() {
                                 <StatCard
                                     label="Avg Engagement"
                                     value={data.summary.avg_engagement.toFixed(1)}
-                                    icon={<HeartIcon className="w-6 h-6 text-white" />}
+                                    icon={<Heart className="w-6 h-6 text-white" />}
                                     color="pink"
                                     subValue="Likes + Comments per View"
                                 />
                                 <StatCard
                                     label="Followers"
                                     value={formatNumber(data.summary.followers)}
-                                    icon={<SparklesIcon className="w-6 h-6 text-white" />}
+                                    icon={<Sparkles className="w-6 h-6 text-white" />}
                                     color="blue"
                                 />
                                 <StatCard
                                     label="Analyzed Posts"
                                     value={data.summary.posts_analyzed}
-                                    icon={<ChatBubbleLeftIcon className="w-6 h-6 text-white" />}
+                                    icon={<MessageSquare className="w-6 h-6 text-white" />}
                                     color="green"
                                 />
                             </div>

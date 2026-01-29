@@ -3,7 +3,7 @@ import StatCard from '../app/components/StatCard';
 import { ArrowTrendingUpIcon, UserGroupIcon, CurrencyDollarIcon, EyeIcon } from '@heroicons/react/24/outline';
 
 const meta: Meta<typeof StatCard> = {
-    title: 'App/Molecules/StatCard',
+    title: 'App/Molecules/StatCard (Aurora)',
     component: StatCard,
     tags: ['autodocs'],
     argTypes: {

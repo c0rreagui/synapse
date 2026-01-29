@@ -1,40 +1,48 @@
-import type { Meta, StoryObj } from '@storybook/nextjs';
+import type { Meta, StoryObj } from '@storybook/react';
 import ScrollProgress from '../app/components/ScrollProgress';
 
 const meta: Meta<typeof ScrollProgress> = {
-    title: 'App/Utilities/ScrollProgress',
+    title: 'App/Molecules/ScrollProgress',
     component: ScrollProgress,
     tags: ['autodocs'],
     parameters: {
         layout: 'fullscreen',
         backgrounds: { default: 'dark' },
     },
-    decorators: [
-        (Story) => (
-            <div className="h-[300vh] w-full bg-gray-900 text-white p-8">
-                <Story />
-                <h1 className="text-4xl mb-8">Long Content Page</h1>
-                <p className="text-lg opacity-50">Scroll down to see the progress bar at the top moving.</p>
-            </div>
-        ),
-    ],
+    argTypes: {
+        position: { control: 'radio', options: ['top', 'bottom'] },
+        color: { control: 'color' },
+        height: { control: { type: 'range', min: 1, max: 10 } },
+    }
 };
 
 export default meta;
 type Story = StoryObj<typeof ScrollProgress>;
 
-export const Cyan: Story = {
-    args: {
-        color: '#00f3ff',
-        height: 4,
-        position: 'top',
-    },
-};
+export const Default: Story = {
+    render: (args) => (
+        <div className="min-h-screen">
+            <ScrollProgress {...args} />
 
-export const PurpleBottom: Story = {
+            <div className="max-w-2xl mx-auto py-20 px-8 space-y-8">
+                <h1 className="text-4xl font-bold text-white mb-8">Scroll Down</h1>
+
+                {Array.from({ length: 20 }).map((_, i) => (
+                    <div key={i} className="p-6 rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm">
+                        <h3 className="text-xl font-semibold text-white mb-2">Section {i + 1}</h3>
+                        <p className="text-white/60">
+                            Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+                            Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+                            Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.
+                        </p>
+                    </div>
+                ))}
+            </div>
+        </div>
+    ),
     args: {
-        color: '#8b5cf6',
-        height: 6,
-        position: 'bottom',
-    },
+        color: '#06b6d4', // Cyan
+        height: 3,
+        position: 'top'
+    }
 };

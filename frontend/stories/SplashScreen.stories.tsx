@@ -60,58 +60,55 @@ const meta: Meta<typeof SplashScreen> = {
 export default meta;
 type Story = StoryObj<typeof SplashScreen>;
 
-const MockDashboard = () => (
-    <div className="h-full w-full flex items-center justify-center p-10 animate-in fade-in duration-1000">
-        <div className="text-center space-y-4">
-            <div className="text-6xl mb-4">✨</div>
-            <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-cyan-400">
-                System Initialized
-            </h1>
-            <p className="text-gray-400">Welcome to Synapse Command Center</p>
-            <div className="grid grid-cols-3 gap-4 mt-8 max-w-2xl mx-auto">
-                {[1, 2, 3].map(i => (
-                    <div key={i} className="h-32 bg-white/5 rounded-xl border border-white/10" />
-                ))}
-            </div>
+const AppContentPlaceholder = () => (
+    <div className="h-full w-full bg-[#0a0a0f] text-white flex flex-col items-center justify-center p-8 animate-in fade-in duration-500">
+        <div className="p-6 rounded-xl bg-white/5 border border-white/10 text-center max-w-md">
+            <div className="text-4xl mb-4">🏠</div>
+            <h2 className="text-xl font-bold text-gray-200 mb-2">Application Content</h2>
+            <p className="text-sm text-gray-500">
+                This screen appears after the Splash Screen animation completes.
+            </p>
         </div>
     </div>
 );
 
-export const Default: Story = {
+export const Integration_Flow: Story = {
     args: {
-        children: <MockDashboard />
+        children: <AppContentPlaceholder />
     },
     parameters: {
         docs: {
             description: {
-                story: 'Simulates a successful boot sequence. After the progress bar completes (approx 2s in mock), the "Mock Dashboard" is revealed.'
+                story: 'Demonstrates the full flow: Animation -> Completion -> App Content. Clears session storage to force replay.'
             }
         }
     }
 };
 
-export const LoadingIndefinitely: Story = {
+export const Visual_Animation_Loop: Story = {
     decorators: [
         (Story) => {
-            // Never resolve fetch to keep it loading
+            // Never resolve fetch to keep it loading forever
             // @ts-ignore
             global.fetch = () => new Promise(() => { });
             return <Story />
         }
     ],
     args: {
-        children: <MockDashboard />
+        children: <AppContentPlaceholder />
     },
     parameters: {
         docs: {
             description: {
-                story: 'Simulates a scenario where backend or network is slow/hanging. Useful for inspecting the loading animations and "floating orbs" effects.'
+                story: 'Stays in the "Loading" phase indefinitely. **Use this to inspect the Splash Screen design, animations, and typography.**'
             }
         }
     }
 };
 
-export const ErrorState: Story = {
+
+
+export const Backend_Offline: Story = {
     decorators: [
         (Story) => {
             // Force error on health check
@@ -121,12 +118,12 @@ export const ErrorState: Story = {
         }
     ],
     args: {
-        children: <MockDashboard />
+        children: <AppContentPlaceholder />
     },
     parameters: {
         docs: {
             description: {
-                story: 'Triggered when the initial `/health` check fails. Shows a "System Offline" red alert state with a retry button.'
+                story: 'Triggered when the initial `/health` check fails (Backend down). Shows "SYSTEM OFFLINE" alert.'
             }
         }
     }

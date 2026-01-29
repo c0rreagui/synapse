@@ -7,7 +7,7 @@ import { BatchMain } from './BatchMain';
 import { BatchFooter } from './BatchFooter';
 import { BatchCaptionEditor } from './BatchCaptionEditor';
 import { BatchModalCloseButton } from './BatchModalCloseButton';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { X } from 'lucide-react';
 
 interface BatchUploadModalProps {
     isOpen: boolean;

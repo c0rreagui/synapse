@@ -88,7 +88,7 @@ app.add_middleware(
 
 from fastapi.staticfiles import StaticFiles
 import os
-from .api.endpoints import content, ingestion, profiles, logs, queue, videos, status, scheduler, oracle, analytics, viral_sounds, audio, logic, batch
+from .api.endpoints import content, ingestion, profiles, logs, queue, videos, status, scheduler, oracle, analytics, viral_sounds, audio, logic, batch, templates
 from .api import debug_router
 from .api import websocket as ws_router
 
@@ -112,6 +112,7 @@ app.include_router(viral_sounds.router, prefix="/api/v1/viral-sounds", tags=["vi
 app.include_router(audio.router, prefix="/api/v1/audio", tags=["audio"])
 app.include_router(logic.router, prefix="/api/v1/logic", tags=["smart-logic"])
 app.include_router(batch.router, prefix="/api/v1/batch", tags=["batch-manager"])
+app.include_router(templates.router, prefix="/api/v1/templates", tags=["templates"])
 app.include_router(debug_router.router, prefix="/api/v1", tags=["debug"])
 app.include_router(ws_router.router, tags=["websocket"])
 

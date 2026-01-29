@@ -3,14 +3,14 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    MusicalNoteIcon,
-    PlayIcon,
-    PauseIcon,
-    SparklesIcon,
-    FireIcon,
-    CheckIcon,
-    XMarkIcon
-} from '@heroicons/react/24/solid';
+    Music,
+    Play,
+    Pause,
+    Sparkles,
+    Flame,
+    Check,
+    X
+} from 'lucide-react';
 
 export interface AudioSuggestion {
     sound_id: string;
@@ -36,27 +36,27 @@ interface AudioSuggestionCardProps {
 const reasonLabels: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
     exploding: {
         label: 'EXPLODINDO 🚀',
-        icon: <FireIcon className="w-3 h-3" />,
+        icon: <Flame className="w-3 h-3" />,
         color: 'bg-gradient-to-r from-orange-500 to-red-500'
     },
     niche_match: {
         label: 'MATCH DE NICHO',
-        icon: <SparklesIcon className="w-3 h-3" />,
+        icon: <Sparkles className="w-3 h-3" />,
         color: 'bg-gradient-to-r from-purple-500 to-pink-500'
     },
     high_score: {
         label: 'ALTO POTENCIAL',
-        icon: <SparklesIcon className="w-3 h-3" />,
+        icon: <Sparkles className="w-3 h-3" />,
         color: 'bg-gradient-to-r from-cyan-500 to-blue-500'
     },
     trending: {
         label: 'TRENDING',
-        icon: <MusicalNoteIcon className="w-3 h-3" />,
+        icon: <Music className="w-3 h-3" />,
         color: 'bg-gradient-to-r from-green-500 to-emerald-500'
     },
     content_match: {
         label: 'MATCH CONTEÚDO',
-        icon: <SparklesIcon className="w-3 h-3" />,
+        icon: <Sparkles className="w-3 h-3" />,
         color: 'bg-gradient-to-r from-violet-500 to-purple-500'
     }
 };
@@ -97,7 +97,7 @@ export default function AudioSuggestionCard({
                     {suggestion.cover_url ? (
                         <img src={suggestion.cover_url} alt="" className="w-full h-full object-cover" />
                     ) : (
-                        <MusicalNoteIcon className="w-5 h-5 text-purple-400" />
+                        <Music className="w-5 h-5 text-purple-400" />
                     )}
                 </div>
 
@@ -118,13 +118,13 @@ export default function AudioSuggestionCard({
                         onClick={() => onSelect(suggestion)}
                         className="p-1.5 rounded-full bg-purple-500 text-white hover:bg-purple-400 transition-colors"
                     >
-                        <CheckIcon className="w-4 h-4" />
+                        <Check className="w-4 h-4" />
                     </button>
                     <button
                         onClick={onDismiss}
                         className="p-1.5 rounded-full bg-gray-700 text-gray-400 hover:bg-gray-600 transition-colors"
                     >
-                        <XMarkIcon className="w-4 h-4" />
+                        <X className="w-4 h-4" />
                     </button>
                 </div>
             </motion.div>
@@ -171,7 +171,7 @@ export default function AudioSuggestionCard({
                     {suggestion.cover_url ? (
                         <img src={suggestion.cover_url} alt="" className="w-full h-full object-cover" />
                     ) : (
-                        <MusicalNoteIcon className="w-8 h-8 text-purple-400" />
+                        <Music className="w-8 h-8 text-purple-400" />
                     )}
 
                     {/* Play Overlay */}
@@ -183,9 +183,9 @@ export default function AudioSuggestionCard({
                             className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm"
                         >
                             {isPlaying ? (
-                                <PauseIcon className="w-8 h-8 text-white" />
+                                <Pause className="w-8 h-8 text-white" />
                             ) : (
-                                <PlayIcon className="w-8 h-8 text-white" />
+                                <Play className="w-8 h-8 text-white" />
                             )}
                         </motion.button>
                     )}
@@ -256,14 +256,14 @@ export default function AudioSuggestionCard({
                     onClick={() => onSelect(suggestion)}
                     className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white font-medium rounded-xl transition-all shadow-lg shadow-purple-500/20"
                 >
-                    <CheckIcon className="w-5 h-5" />
+                    <Check className="w-5 h-5" />
                     Usar Esta Música
                 </button>
                 <button
                     onClick={onDismiss}
                     className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-400 font-medium rounded-xl transition-colors"
                 >
-                    <XMarkIcon className="w-5 h-5" />
+                    <X className="w-5 h-5" />
                 </button>
             </div>
         </motion.div>

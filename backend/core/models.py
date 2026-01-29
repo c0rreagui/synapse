@@ -73,4 +73,15 @@ class Trend(Base):
     score = Column(Integer, default=0) # Confidence score (0-100)
     
     cached_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    expires_at = Column(DateTime) # Explicit expiration for cache logic    
+    expires_at = Column(DateTime) # Explicit expiration for cache logic
+
+class PromptTemplate(Base):
+    __tablename__ = "prompt_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True) # User defined name
+    content = Column(String) # The actual prompt text
+    category = Column(String, default="General") # Viral, Professional, etc.
+    is_favorite = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+

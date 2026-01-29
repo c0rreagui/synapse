@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, ReactNode } from 'react';
-import { ChevronUpIcon, ChevronDownIcon, MagnifyingGlassIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { ChevronUp, ChevronDown, Search, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import clsx from 'clsx';
+import { NeoButton } from '../../components/design-system/NeoButton';
 
 interface Column<T> {
     key: keyof T;
@@ -9,6 +11,7 @@ interface Column<T> {
     sortable?: boolean;
     render?: (value: T[keyof T], row: T) => ReactNode;
     width?: string;
+    align?: 'left' | 'center' | 'right';
 }
 
 interface DataTableProps<T> {
@@ -18,6 +21,7 @@ interface DataTableProps<T> {
     exportable?: boolean;
     onRowClick?: (row: T) => void;
     emptyMessage?: string;
+    rowsPerPage?: number;
 }
 
 export default function DataTable<T extends { id: string }>({
@@ -27,11 +31,13 @@ export default function DataTable<T extends { id: string }>({
     exportable = true,
     onRowClick,
     emptyMessage = 'Nenhum dado encontrado',
+    rowsPerPage = 10,
 }: DataTableProps<T>) {
     const [sortKey, setSortKey] = useState<keyof T | null>(null);
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [currentPage, setCurrentPage] = useState(1);
 
     // Filter data
     const filteredData = data.filter(row =>
@@ -47,6 +53,13 @@ export default function DataTable<T extends { id: string }>({
         const bVal = String(b[sortKey]);
         return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
     });
+
+    // Pagination
+    const totalPages = Math.ceil(sortedData.length / rowsPerPage);
+    const paginatedData = sortedData.slice(
+        (currentPage - 1) * rowsPerPage,
+        currentPage * rowsPerPage
+    );
 
     const handleSort = (key: keyof T) => {
         if (sortKey === key) {
@@ -69,10 +82,10 @@ export default function DataTable<T extends { id: string }>({
     };
 
     const toggleSelectAll = () => {
-        if (selectedIds.size === sortedData.length) {
+        if (selectedIds.size === paginatedData.length) {
             setSelectedIds(new Set());
         } else {
-            setSelectedIds(new Set(sortedData.map(r => r.id)));
+            setSelectedIds(new Set(paginatedData.map(r => r.id)));
         }
     };
 
@@ -91,161 +104,158 @@ export default function DataTable<T extends { id: string }>({
     };
 
     return (
-        <div>
+        <div className="w-full flex flex-col gap-4">
             {/* Toolbar */}
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'center' }}>
+            <div className="flex items-center gap-4">
                 {searchable && (
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        flex: 1,
-                        maxWidth: '300px',
-                        padding: '8px 12px',
-                        backgroundColor: '#0d1117',
-                        border: '1px solid #30363d',
-                        borderRadius: '8px',
-                    }}>
-                        <MagnifyingGlassIcon style={{ width: '16px', height: '16px', color: '#8b949e' }} />
+                    <div className="flex items-center gap-3 px-4 py-2 bg-white/5 border border-white/10 rounded-xl focus-within:border-white/20 focus-within:bg-white/10 transition-all flex-1 max-w-sm">
+                        <Search className="w-4 h-4 text-gray-500" />
                         <input
                             type="text"
-                            placeholder="Buscar..."
+                            placeholder="Buscar registros..."
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            style={{
-                                flex: 1,
-                                background: 'none',
-                                border: 'none',
-                                outline: 'none',
-                                color: '#c9d1d9',
-                                fontSize: '13px',
-                            }}
+                            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }} // Reset to page 1 on search
+                            className="bg-transparent border-none outline-none text-sm text-gray-200 placeholder-gray-500 w-full"
                         />
                     </div>
                 )}
 
-                <div style={{ flex: 1 }} />
+                <div className="flex-1" />
 
-                <span style={{ fontSize: '12px', color: '#8b949e' }}>
-                    {sortedData.length} item{sortedData.length !== 1 ? 's' : ''}
-                    {selectedIds.size > 0 && ` (${selectedIds.size} selecionado${selectedIds.size > 1 ? 's' : ''})`}
+                <span className="text-xs text-gray-500 font-mono">
+                    {sortedData.length} registro{sortedData.length !== 1 ? 's' : ''}
+                    {selectedIds.size > 0 && ` • ${selectedIds.size} selecionado${selectedIds.size > 1 ? 's' : ''}`}
                 </span>
 
                 {exportable && (
-                    <button
-                        onClick={exportCSV}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '8px 12px',
-                            backgroundColor: '#21262d',
-                            border: '1px solid #30363d',
-                            borderRadius: '6px',
-                            color: '#c9d1d9',
-                            fontSize: '12px',
-                            cursor: 'pointer',
-                        }}
-                    >
-                        <ArrowDownTrayIcon style={{ width: '14px', height: '14px' }} />
-                        Export CSV
-                    </button>
+                    <NeoButton variant="secondary" size="sm" onClick={exportCSV} className="gap-2">
+                        <Download className="w-3 h-3" />
+                        CSV
+                    </NeoButton>
                 )}
             </div>
 
-            {/* Table */}
-            <div style={{
-                borderRadius: '10px',
-                border: '1px solid #30363d',
-                overflow: 'hidden',
-                backgroundColor: '#0d1117',
-            }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                        <tr style={{ backgroundColor: '#161b22' }}>
-                            <th style={{ width: '40px', padding: '12px' }}>
-                                <input
-                                    type="checkbox"
-                                    title="Selecionar todos"
-                                    aria-label="Selecionar todos os itens"
-                                    checked={selectedIds.size === sortedData.length && sortedData.length > 0}
-                                    onChange={toggleSelectAll}
-                                    style={{ cursor: 'pointer' }}
-                                />
-                            </th>
-                            {columns.map(col => (
-                                <th
-                                    key={String(col.key)}
-                                    onClick={() => col.sortable && handleSort(col.key)}
-                                    style={{
-                                        padding: '12px 16px',
-                                        textAlign: 'left',
-                                        fontSize: '12px',
-                                        fontWeight: 600,
-                                        color: '#8b949e',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.5px',
-                                        cursor: col.sortable ? 'pointer' : 'default',
-                                        userSelect: 'none',
-                                        width: col.width,
-                                    }}
-                                >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        {col.header}
-                                        {col.sortable && sortKey === col.key && (
-                                            sortDir === 'asc'
-                                                ? <ChevronUpIcon style={{ width: '14px', height: '14px' }} />
-                                                : <ChevronDownIcon style={{ width: '14px', height: '14px' }} />
-                                        )}
-                                    </div>
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {sortedData.length > 0 ? sortedData.map((row, i) => (
-                            <tr
-                                key={row.id}
-                                onClick={() => onRowClick?.(row)}
-                                style={{
-                                    backgroundColor: selectedIds.has(row.id) ? 'rgba(88,166,255,0.1)' : i % 2 === 0 ? '#0d1117' : '#161b22',
-                                    cursor: onRowClick ? 'pointer' : 'default',
-                                    transition: 'background-color 0.15s',
-                                }}
-                            >
-                                <td style={{ padding: '12px', textAlign: 'center' }}>
+            {/* Table Container */}
+            <div className="rounded-2xl border border-white/10 bg-[#0d1117]/50 backdrop-blur-md overflow-hidden relative">
+                {/* Glow Effect */}
+                <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-synapse-purple/50 to-transparent opacity-50" />
+
+                <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                        <thead>
+                            <tr className="bg-white/5 border-b border-white/10">
+                                <th className="p-4 w-12 text-center text-gray-400">
                                     <input
                                         type="checkbox"
-                                        title="Selecionar item"
-                                        aria-label="Selecionar este item"
-                                        checked={selectedIds.has(row.id)}
-                                        onChange={(e) => toggleSelect(row.id, e as unknown as React.MouseEvent)}
-                                        style={{ cursor: 'pointer' }}
+                                        checked={selectedIds.size === paginatedData.length && paginatedData.length > 0}
+                                        onChange={toggleSelectAll}
+                                        className="rounded border-gray-600 bg-transparent text-synapse-purple focus:ring-0 focus:ring-offset-0 w-4 h-4 cursor-pointer accent-synapse-purple"
                                     />
-                                </td>
+                                </th>
                                 {columns.map(col => (
-                                    <td
+                                    <th
                                         key={String(col.key)}
-                                        style={{
-                                            padding: '12px 16px',
-                                            fontSize: '13px',
-                                            color: '#c9d1d9',
-                                            borderTop: '1px solid #21262d',
-                                        }}
+                                        onClick={() => col.sortable && handleSort(col.key)}
+                                        className={clsx(
+                                            "p-4 text-xs font-bold text-gray-400 uppercase tracking-wider select-none transition-colors",
+                                            col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left',
+                                            col.sortable && "cursor-pointer hover:text-white group"
+                                        )}
+                                        style={{ width: col.width }}
                                     >
-                                        {col.render ? col.render(row[col.key], row) : String(row[col.key])}
-                                    </td>
+                                        <div className={clsx(
+                                            "flex items-center gap-1",
+                                            col.align === 'center' && "justify-center",
+                                            col.align === 'right' && "justify-end"
+                                        )}>
+                                            {col.header}
+                                            {col.sortable && (
+                                                <div className="flex flex-col text-gray-600 group-hover:text-synapse-purple transition-colors">
+                                                    {sortKey === col.key ? (
+                                                        sortDir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                                                    ) : (
+                                                        <div className="h-3 w-3 opacity-0 group-hover:opacity-50"><ChevronDown className="w-3 h-3" /></div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </th>
                                 ))}
                             </tr>
-                        )) : (
-                            <tr>
-                                <td colSpan={columns.length + 1} style={{ padding: '40px', textAlign: 'center', color: '#8b949e' }}>
-                                    {emptyMessage}
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {paginatedData.length > 0 ? paginatedData.map((row, i) => (
+                                <tr
+                                    key={row.id}
+                                    onClick={() => onRowClick?.(row)}
+                                    className={clsx(
+                                        "group border-b border-white/5 transition-all duration-200",
+                                        selectedIds.has(row.id) ? "bg-synapse-purple/10" : "hover:bg-white/5",
+                                        onRowClick && "cursor-pointer"
+                                    )}
+                                >
+                                    <td className="p-4 text-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedIds.has(row.id)}
+                                            onChange={(e) => toggleSelect(row.id, e as unknown as React.MouseEvent)}
+                                            className="rounded border-gray-600 bg-transparent text-synapse-purple focus:ring-0 focus:ring-offset-0 w-4 h-4 cursor-pointer accent-synapse-purple opacity-50 group-hover:opacity-100 transition-opacity"
+                                        />
+                                    </td>
+                                    {columns.map(col => (
+                                        <td
+                                            key={String(col.key)}
+                                            className={clsx(
+                                                "p-4 text-sm text-gray-300 group-hover:text-white transition-colors",
+                                                col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'
+                                            )}
+                                        >
+                                            {col.render ? col.render(row[col.key], row) : (row[col.key] as ReactNode)}
+                                        </td>
+                                    ))}
+                                </tr>
+                            )) : (
+                                <tr>
+                                    <td colSpan={columns.length + 1} className="py-12 text-center text-gray-500">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <Search className="w-8 h-8 opacity-20" />
+                                            <p className="text-sm">{emptyMessage}</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-between p-4 border-t border-white/10 bg-white/[0.02]">
+                        <span className="text-xs text-gray-500">
+                            Página {currentPage} de {totalPages}
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <NeoButton
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                                className="w-8 h-8"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                            </NeoButton>
+                            <NeoButton
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                                className="w-8 h-8"
+                            >
+                                <ChevronRight className="w-4 h-4" />
+                            </NeoButton>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

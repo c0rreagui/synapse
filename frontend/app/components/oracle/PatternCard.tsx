@@ -1,6 +1,6 @@
 import { StitchCard } from '../StitchCard';
 import clsx from 'clsx';
-import { SparklesIcon, ExclamationCircleIcon, CheckBadgeIcon } from '@heroicons/react/24/solid';
+import { Sparkles, CircleAlert, BadgeCheck } from 'lucide-react';
 
 export type PatternType = 'VIRAL_HOOK' | 'TIMING' | 'FORMAT' | 'KEYWORD' | 'ANOMALY';
 
@@ -16,9 +16,9 @@ export function PatternCard({ type, title, description, confidence, impact }: Pa
     // Icons based on type
     const getIcon = () => {
         switch (type) {
-            case 'VIRAL_HOOK': return <SparklesIcon className="w-5 h-5 text-yellow-400" />;
-            case 'ANOMALY': return <ExclamationCircleIcon className="w-5 h-5 text-red-400" />;
-            default: return <CheckBadgeIcon className="w-5 h-5 text-synapse-primary" />;
+            case 'VIRAL_HOOK': return <Sparkles className="w-5 h-5 text-yellow-400" />;
+            case 'ANOMALY': return <CircleAlert className="w-5 h-5 text-red-400" />;
+            default: return <BadgeCheck className="w-5 h-5 text-synapse-primary" />;
         }
     };
 

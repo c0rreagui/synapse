@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CheckIcon } from '@heroicons/react/24/outline';
+import { Check } from 'lucide-react';
 
 interface AnimatedCheckboxProps {
     checked: boolean;
@@ -49,7 +49,7 @@ export default function AnimatedCheckbox({
                 }}
             >
                 {checked && (
-                    <CheckIcon style={{
+                    <Check style={{
                         width: '14px',
                         height: '14px',
                         color: '#fff',

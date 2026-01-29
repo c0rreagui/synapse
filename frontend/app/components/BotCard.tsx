@@ -1,6 +1,6 @@
 'use client';
 
-import { CpuChipIcon, BoltIcon, ExclamationTriangleIcon, PauseIcon } from '@heroicons/react/24/outline';
+import { Cpu, Zap, TriangleAlert, Pause } from 'lucide-react';
 import clsx from 'clsx';
 // Removing StitchCard dependency for this specific component to have full control over the aesthetic
 // import { StitchCard } from './StitchCard'; 
@@ -53,10 +53,10 @@ export default function BotCard({ name, role, status, currentTask, uptime, ...ot
                             <img src={others.avatar} alt={name} className="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-110" />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                                {role === 'UPLOADER' && <BoltIcon className="w-8 h-8 text-synapse-primary drop-shadow-[0_0_8px_rgba(139,92,246,1)]" />}
-                                {role === 'FACTORY' && <CpuChipIcon className="w-8 h-8 text-synapse-cyan drop-shadow-[0_0_8px_rgba(6,182,212,1)]" />}
-                                {role === 'MONITOR' && <ExclamationTriangleIcon className="w-8 h-8 text-synapse-amber drop-shadow-[0_0_8px_rgba(245,158,11,1)]" />}
-                                {role === 'SCHEDULER' && <PauseIcon className="w-8 h-8 text-synapse-emerald drop-shadow-[0_0_8px_rgba(16,185,129,1)]" />}
+                                {role === 'UPLOADER' && <Zap className="w-8 h-8 text-synapse-primary drop-shadow-[0_0_8px_rgba(139,92,246,1)]" />}
+                                {role === 'FACTORY' && <Cpu className="w-8 h-8 text-synapse-cyan drop-shadow-[0_0_8px_rgba(6,182,212,1)]" />}
+                                {role === 'MONITOR' && <TriangleAlert className="w-8 h-8 text-synapse-amber drop-shadow-[0_0_8px_rgba(245,158,11,1)]" />}
+                                {role === 'SCHEDULER' && <Pause className="w-8 h-8 text-synapse-emerald drop-shadow-[0_0_8px_rgba(16,185,129,1)]" />}
                             </div>
                         )}
 

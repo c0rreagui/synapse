@@ -1,6 +1,6 @@
 
 import { clsx } from 'clsx';
-import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/solid';
+import { ArrowUp, ArrowDown } from 'lucide-react';
 
 interface StatCardProps {
     label: string;
@@ -41,9 +41,9 @@ export function StatCard({ label, value, subValue, trend, trendValue, icon, colo
             {(trend && trendValue) && (
                 <div className="mt-4 flex items-center gap-1 text-xs font-medium">
                     {trend === 'up' ? (
-                        <ArrowUpIcon className="w-3 h-3 text-green-400" />
+                        <ArrowUp className="w-3 h-3 text-green-400" />
                     ) : (
-                        <ArrowDownIcon className="w-3 h-3 text-red-400" />
+                        <ArrowDown className="w-3 h-3 text-red-400" />
                     )}
                     <span className={trend === 'up' ? 'text-green-400' : 'text-red-400'}>
                         {trendValue}

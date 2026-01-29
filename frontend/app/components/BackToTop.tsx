@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowUpIcon } from '@heroicons/react/24/outline';
+import { ArrowUp } from 'lucide-react';
 
 interface BackToTopProps {
     threshold?: number; // pixels before showing
@@ -54,7 +54,7 @@ export default function BackToTop({ threshold = 300, smooth = true }: BackToTopP
             aria-label="Voltar ao topo"
             title="Voltar ao topo"
         >
-            <ArrowUpIcon style={{ width: '20px', height: '20px' }} />
+            <ArrowUp style={{ width: '20px', height: '20px' }} />
         </button>
     );
 }

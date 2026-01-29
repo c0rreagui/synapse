@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useBatch } from './BatchContext';
-import { ClockIcon, CalendarIcon, AdjustmentsHorizontalIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
+import { Clock, Calendar, SlidersHorizontal, ChevronUp, Sparkles } from 'lucide-react';
 import clsx from 'clsx';
 import { format } from 'date-fns';
 import { NeonButton } from '../NeonButton';
+import { TikTokTimePicker } from '../TikTokTimePicker';
 
 export function BatchFooter({ onClose }: { onClose: () => void }) {
     const {
@@ -49,13 +50,13 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
                     className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 transition-all group"
                 >
                     <div className="p-1.5 rounded-lg bg-synapse-purple/20 text-synapse-purple group-hover:text-white transition-colors">
-                        <AdjustmentsHorizontalIcon className="w-4 h-4" />
+                        <SlidersHorizontal className="w-4 h-4" />
                     </div>
                     <div className="text-left">
                         <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Frequência</p>
                         <p className="text-xs font-medium text-white">{strategy === 'ORACLE' ? 'Oracle AI (Smart)' : frequencyDisplay}</p>
                     </div>
-                    <ChevronUpIcon className={clsx("w-3 h-3 text-gray-500 transition-transform", showStrategyMenu && "rotate-180")} />
+                    <ChevronUp className={clsx("w-3 h-3 text-gray-500 transition-transform", showStrategyMenu && "rotate-180")} />
                 </button>
 
                 {/* Strategy Popover */}
@@ -92,7 +93,7 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
                                 className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-synapse-purple/20 transition-colors text-left group"
                             >
                                 <div className="flex items-center gap-2">
-                                    <SparklesIcon className="w-4 h-4 text-purple-400 group-hover:text-purple-300" />
+                                    <Sparkles className="w-4 h-4 text-purple-400 group-hover:text-purple-300" />
                                     <span className="text-xs text-gray-300 group-hover:text-white">Oracle AI (Smart)</span>
                                 </div>
                                 {strategy === 'ORACLE' && (
@@ -111,7 +112,7 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
                     onClick={() => (document.getElementById('date-input') as HTMLInputElement)?.showPicker()}
                     className="flex items-center gap-3 px-4 py-2 bg-black/40 border border-white/5 rounded-full cursor-pointer hover:bg-white/5 transition-colors group"
                 >
-                    <CalendarIcon className="w-4 h-4 text-gray-500 group-hover:text-white transition-colors" />
+                    <Calendar className="w-4 h-4 text-gray-500 group-hover:text-white transition-colors" />
                     <input
                         id="date-input"
                         type="date"
@@ -123,20 +124,10 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
 
                 <div className="h-8 w-px bg-white/5" />
 
-                {/* Time Picker */}
-                <div
-                    onClick={() => (document.getElementById('time-input') as HTMLInputElement)?.showPicker()}
-                    className="flex items-center gap-3 px-4 py-2 bg-black/40 border border-white/5 rounded-full cursor-pointer hover:bg-white/5 transition-colors group"
-                >
-                    <ClockIcon className="w-4 h-4 text-gray-500 group-hover:text-white transition-colors" />
-                    <input
-                        id="time-input"
-                        type="time"
-                        value={startTime}
-                        onChange={(e) => setStartTime(e.target.value)}
-                        className="bg-transparent border-none text-xs text-white focus:ring-0 p-0 font-mono cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden"
-                    />
-                </div>
+                <TikTokTimePicker
+                    value={startTime}
+                    onChange={setStartTime}
+                />
             </div>
 
             {/* Right: Action */}
@@ -170,11 +161,4 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
     );
 }
 
-// Helper for icon
-function SparklesIcon(props: any) {
-    return (
-        <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-        </svg>
-    )
-}
+// Helper for icon removed (using Lucide)

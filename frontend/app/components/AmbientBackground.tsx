@@ -46,10 +46,10 @@ export default function AmbientBackground() {
         <div className="fixed inset-0 pointer-events-none -z-50 overflow-hidden">
             <AnimatePresence mode="wait">
                 <motion.div
-                    key={mood}
+                    // key={mood} // Removed to prevent unmounting/remounting flicker
                     initial={{ opacity: 0 }}
                     animate={variants[mood as keyof typeof variants] || variants.IDLE}
-                    exit={{ opacity: 0 }}
+                    // exit={{ opacity: 0 }} // Not needed if we don't unmount
                     className="absolute inset-0 w-full h-full"
                 />
             </AnimatePresence>
