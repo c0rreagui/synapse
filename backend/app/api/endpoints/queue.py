@@ -41,6 +41,7 @@ class ApprovalRequest(BaseModel):
     target_profile_id: Optional[str] = None  # Override profile for this video
     viral_music_enabled: bool = False  # Feature: Add viral music (muted)
     privacy_level: str = "public_to_everyone"  # Feature: Privacy (public_to_everyone, mutual_follow_friends, self_only)
+    caption: Optional[str] = None  # Feature: Edit caption during approval
 
 
 @router.get("/pending", response_model=List[PendingVideo])
@@ -123,6 +124,10 @@ async def approve_video(request: ApprovalRequest, background_tasks: BackgroundTa
         metadata['viral_music_enabled'] = request.viral_music_enabled
         metadata['privacy_level'] = request.privacy_level
         
+        # Update caption if provided
+        if request.caption:
+            metadata['caption'] = request.caption
+        
         # Override profile if provided
         if request.target_profile_id:
             metadata['profile_id'] = request.target_profile_id
@@ -139,7 +144,6 @@ async def approve_video(request: ApprovalRequest, background_tasks: BackgroundTa
             os.remove(pending_metadata)
         
         # Execution is now handled by the Queue Worker (core/queue_worker.py)
-        # which monitors the 'approved' directory and processes sequentially.
         # which monitors the 'approved' directory and processes sequentially.
         pass
         

@@ -10,7 +10,9 @@ import { StitchCard } from '../components/StitchCard';
 import clsx from 'clsx';
 import { ComputerDesktopIcon } from '@heroicons/react/24/outline';
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1') + '/api/v1';
+import { getApiUrl } from '../utils/apiClient';
+
+const API_BASE = `${getApiUrl()}/api/v1`;
 
 // Componente simples para Status dos Bots
 const BotStatusCompact = ({ bots }: { bots?: BotStatus[] }) => {

@@ -4,8 +4,11 @@
 import { useState, useEffect } from 'react';
 import { getSavedProfiles, SavedProfile } from '../../services/profileService';
 import { StatCard } from '../components/analytics/StatCard';
-import Sidebar from '../components/Sidebar';
+import { NeoSidebar as Sidebar } from '../../components/design-system/NeoSidebar';
 import { PerformanceChart } from '../components/analytics/PerformanceChart';
+import { RetentionChart } from '../components/oracle/RetentionChart';
+import { EngagementHeatmap } from '../components/oracle/EngagementHeatmap';
+import { getApiUrl } from '../utils/apiClient';
 import axios from 'axios';
 import { Sparkles, BarChart3, Eye, Heart, MessageSquare } from 'lucide-react';
 
@@ -55,7 +58,7 @@ export default function AnalyticsPage() {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+                const API_URL = getApiUrl();
                 const response = await axios.get(`${API_URL}/api/v1/analytics/${selectedProfileId}`);
                 setData(response.data);
             } catch (error) {
@@ -160,7 +163,7 @@ export default function AnalyticsPage() {
                                     <PerformanceChart data={data.history} />
                                 </div>
 
-                                {/* Best Times / Insights (Placeholder for now) */}
+                                {/* Insights Column */}
                                 <div className="bg-[#0f0a15] border border-white/5 rounded-2xl p-6">
                                     <h3 className="text-lg font-bold mb-6 text-gray-200">Oracle Insights</h3>
                                     <div className="space-y-4">
@@ -178,6 +181,12 @@ export default function AnalyticsPage() {
                                             </p>
                                         </div>
                                     </div>
+                                </div>
+
+                                {/* New Deep Analytics Row */}
+                                <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <RetentionChart data={[]} /> {/* Passing empty to trigger mock for now, or real if available later */}
+                                    <EngagementHeatmap data={[]} />
                                 </div>
                             </div>
                         </>

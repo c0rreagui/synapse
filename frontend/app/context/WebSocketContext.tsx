@@ -1,6 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { BackendStatus, TikTokProfile, ScheduleEvent, PendingVideo } from '../types';
+import { getApiUrl } from '../utils/apiClient';
 
 interface LogEntry {
     id: string;
@@ -56,7 +57,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         }
 
         isConnectingRef.current = true;
-        const apiBase = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace('http', 'ws').replace('https', 'wss').replace('localhost', '127.0.0.1');
+        const apiBase = getApiUrl().replace('http', 'ws').replace('https', 'wss');
         const ws = new WebSocket(`${apiBase}/ws/updates`);
 
         ws.onopen = () => {

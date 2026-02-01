@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useMood } from '../context/MoodContext';
+import { getApiUrl } from '../utils/apiClient';
 import useWebSocket from '../hooks/useWebSocket';
 import { BackendStatus, LogEntry, ScheduleEvent } from '../types';
 import { StitchCard } from './StitchCard';
@@ -54,7 +55,7 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
 
     useEffect(() => {
         const fetchStatus = async () => {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const API_URL = getApiUrl();
             try {
                 const res = await fetch(`${API_URL}/api/v1/status`);
                 if (res.ok) {

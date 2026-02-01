@@ -13,6 +13,8 @@ function cnLocal(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
+import { useWebSocketContext } from '../../app/context/WebSocketContext';
+
 interface NavItem {
     icon: React.ElementType;
     label: string;
@@ -88,22 +90,42 @@ export const NeoSidebar = React.forwardRef<HTMLDivElement, NeoSidebarProps>(
                 </nav>
 
                 {/* Footer / Status */}
-                <div className="mt-auto px-4 py-4 bg-black/20 rounded-xl border border-white/5">
-                    <div className="flex items-center gap-3">
-                        <div className="relative">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <div className="absolute inset-0 w-2 h-2 rounded-full bg-emerald-500 blur-sm animate-pulse" />
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-xs text-white/80 font-medium">System Online</span>
-                            <span className="text-[10px] text-gray-500">v2.1.0-NEO</span>
-                        </div>
-                    </div>
-                </div>
-
+                <StatusFooter />
             </GlassPanel>
         );
     }
 );
 
 NeoSidebar.displayName = "NeoSidebar";
+
+// ⚡ Dynamic Component to avoid hydration mismatch if possible, or just standard hook usage
+
+function StatusFooter() {
+    const { isConnected } = useWebSocketContext();
+
+    return (
+        <div className="mt-auto px-4 py-4 bg-black/20 rounded-xl border border-white/5">
+            <div className="flex items-center gap-3">
+                <div className="relative">
+                    <div className={clsx(
+                        "w-2 h-2 rounded-full transition-colors duration-500",
+                        isConnected ? "bg-emerald-500" : "bg-red-500"
+                    )} />
+                    <div className={clsx(
+                        "absolute inset-0 w-2 h-2 rounded-full blur-sm transition-colors duration-500",
+                        isConnected ? "bg-emerald-500 animate-pulse" : "bg-red-500 animate-none opacity-50"
+                    )} />
+                </div>
+                <div className="flex flex-col">
+                    <span className={clsx(
+                        "text-xs font-medium transition-colors duration-500",
+                        isConnected ? "text-white/80" : "text-red-400"
+                    )}>
+                        {isConnected ? "System Online" : "System Offline"}
+                    </span>
+                    <span className="text-[10px] text-gray-500">v2.1.0-NEO</span>
+                </div>
+            </div>
+        </div>
+    );
+}

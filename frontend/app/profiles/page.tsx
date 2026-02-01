@@ -12,7 +12,9 @@ import { StitchCard } from '../components/StitchCard';
 import { NeonButton } from '../components/NeonButton';
 import clsx from 'clsx';
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1') + '/api/v1';
+import { getApiUrl } from '../utils/apiClient';
+
+const API_BASE = `${getApiUrl()}/api/v1`;
 
 export default function ProfilesPage() {
     const [profiles, setProfiles] = useState<TikTokProfile[]>([]);

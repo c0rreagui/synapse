@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from typing import List, Union, Optional
 from core.oracle import oracle_client
 from core.oracle import oracle  # Unified Oracle
 
@@ -270,7 +271,7 @@ async def rewrite_caption(request: RewriteRequest):
 
 class GenerateCaptionRequest(BaseModel):
     instruction: str
-    tone: str = "Viral"
+    tone: Union[str, List[str]] = "Viral"
     include_hashtags: bool = True
     length: str = "short" # short, medium, long
     video_context: str = "" # Filename or visual description
@@ -330,7 +331,7 @@ async def generate_caption(request: GenerateCaptionRequest):
             # Add instruction for the Vision Model
             vision_payload.append({
                 "type": "text", 
-                "text": "Describe the visual sequence in these frames in extreme detail. Focus on: Scenery, Actions, Emotions, Objects, Text on Screen, and Lighting. Be purely descriptive."
+                "text": "Analyze this 30-frame sequence properly. 1. Narrative Arc: Hook (Start) -> Climax (Middle) -> Resolution (End). 2. OCR TRANSCRIPT: Transcribe ALL on-screen text/overlays exactly as they appear (e.g. 'POV:', 'Tips:', subtitles). Format: [Narrative] ... [OCR] ..."
             })
             
             # Invoke Vision Model (Llama 3.2 11B)
@@ -375,7 +376,17 @@ async def generate_caption(request: GenerateCaptionRequest):
             "Engraçado": "Use irony, sarcasm, and slang. Be self-deprecating. Use laughing emojis (😂, 💀). Don't be formal.",
             "Profissional": "Be clean, authoritative, and educational. Use proper grammar but keep it engaging. No sludge."
         }
-        active_style = TONE_STYLES.get(request.tone, "Be engaging and authentic.")
+
+        
+        # [SYN-55] Multi-Tone Mixer
+        if isinstance(request.tone, list):
+             # Mixing multiple styles
+             active_style = " + ".join([TONE_STYLES.get(t, "Be engaging") for t in request.tone])
+             tone_display = ", ".join(request.tone)
+        else:
+             # Single style
+             active_style = TONE_STYLES.get(request.tone, "Be engaging and authentic.")
+             tone_display = request.tone
 
         prompt = f"""
         You are a World-Class UX Writer and Viral TikTok Copywriter.
@@ -394,7 +405,7 @@ async def generate_caption(request: GenerateCaptionRequest):
 
         3. 🎨 PARAMETERS:
         - Niche/Identity: {request.niche_context if request.niche_context else "General Content Creator"}
-        - Tone: {request.tone} -> STYLE GUIDE: {active_style}
+        - Tone: {tone_display} -> STYLE MIX: {active_style}
         - Language: PORTUGUESE (BRAZIL) - PT-BR (MANDATORY)
         - Length: {length_instruction}
         - {trends_context}
@@ -450,17 +461,18 @@ async def generate_caption(request: GenerateCaptionRequest):
                 final_caption = data.get("caption", text)
                 
                 # Check for hashtags in JSON if requested
+                # Check for hashtags in JSON if requested
                 if request.include_hashtags and "hashtags" in data:
-                     # Remove hashtags from caption if they are also in the list, to avoid duplication ? 
-                     # Actually, let's just trust the caption if the model did its job.
-                     # But we must append tags if they are separate.
+                     import re
+                     # 1. Strip ANY hashtag-like patterns from the end of the caption to ensure a clean slate
+                     # Matches space + #tag repeated at the end of string
+                     final_caption = re.sub(r"(\s*#\w+)+$", "", final_caption.strip())
                      
-                     # If the caption doesn't end with hashtags, append them
+                     # 2. Append the canonical list from the JSON
                      tags_list = data["hashtags"]
                      if tags_list:
                          tags_str = " ".join(tags_list[:5])
-                         if not final_caption.strip().endswith(tags_list[0]):
-                             final_caption += f"\n\n{tags_str}"
+                         final_caption += f"\n\n{tags_str}"
                          
                 return {"caption": final_caption}
             except:

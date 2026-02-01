@@ -19,17 +19,25 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
     const [events, setEvents] = useState<ScheduleEvent[]>([]);
     const [loading, setLoading] = useState(false);
 
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+    // Use centralized API Client for robust local connections
+    // Note: requires import { getApiUrl } from '../utils/apiClient'; - please ensure import is added.
+    const API_URL = (typeof window !== 'undefined' && window.location.hostname === 'localhost')
+        ? 'http://127.0.0.1:8000'
+        : (process.env.NEXT_PUBLIC_API_URL || '');
 
     const fetchEvents = async () => {
         setLoading(true);
         try {
+            // Direct fetch to backend to avoid proxy 500s
             const res = await fetch(`${API_URL}/api/v1/scheduler/list`);
 
             if (res.ok) {
                 const data = await res.json();
                 const sorted = data.sort((a: any, b: any) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime());
                 setEvents(sorted);
+            } else {
+                console.error("Failed to load events:", res.status);
+                toast.error("Erro de conexão com servidor (500)");
             }
         } catch (error) {
             console.error("Failed to load schedule", error);

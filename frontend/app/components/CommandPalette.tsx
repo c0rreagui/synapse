@@ -88,114 +88,62 @@ export default function CommandPalette({ isOpen, onClose, commands }: CommandPal
 
     return (
         <div
-            style={{
-                position: 'fixed',
-                inset: 0,
-                display: 'flex',
-                justifyContent: 'center',
-                paddingTop: '15vh',
-                backgroundColor: 'rgba(0,0,0,0.7)',
-                backdropFilter: 'blur(4px)',
-                zIndex: 10000,
-            }}
+            className="fixed inset-0 flex justify-center pt-[15vh] bg-black/70 backdrop-blur-sm z-[10000]"
             onClick={onClose}
         >
             <div
-                style={{
-                    width: '100%',
-                    maxWidth: '560px',
-                    maxHeight: '400px',
-                    backgroundColor: '#161b22',
-                    borderRadius: '12px',
-                    border: '1px solid #30363d',
-                    boxShadow: '0 16px 48px rgba(0,0,0,0.5)',
-                    overflow: 'hidden',
-                    animation: 'slideDown 0.15s ease-out',
-                }}
+                className="w-full max-w-[560px] max-h-[400px] bg-[#161b22] rounded-xl border border-[#30363d] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-150"
                 onClick={(e) => e.stopPropagation()}
             >
-                <style jsx>{`
-          @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-        `}</style>
-
                 {/* Search input */}
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    padding: '14px 16px',
-                    borderBottom: '1px solid #30363d',
-                }}>
-                    <Search style={{ width: '20px', height: '20px', color: '#8b949e' }} />
+                <div className="flex items-center gap-3 px-4 py-3.5 border-b border-[#30363d]">
+                    <Search className="w-5 h-5 text-[#8b949e]" />
                     <input
                         ref={inputRef}
                         type="text"
                         value={query}
                         onChange={(e) => { setQuery(e.target.value); setSelectedIndex(0); }}
                         placeholder="Digite um comando..."
-                        style={{
-                            flex: 1,
-                            background: 'none',
-                            border: 'none',
-                            outline: 'none',
-                            fontSize: '15px',
-                            color: '#c9d1d9',
-                        }}
+                        className="flex-1 bg-transparent border-none outline-none text-[15px] text-[#c9d1d9] placeholder-[#484f58]"
+                        autoFocus
                     />
-                    <span style={{ fontSize: '11px', color: '#6e7681', padding: '2px 6px', backgroundColor: '#21262d', borderRadius: '4px' }}>ESC</span>
+                    <kbd className="text-[11px] text-[#8b949e] px-1.5 py-0.5 bg-[#21262d] rounded border border-[#30363d] font-mono">
+                        ESC
+                    </kbd>
                 </div>
 
                 {/* Results */}
-                <div style={{ maxHeight: '320px', overflowY: 'auto', padding: '8px' }}>
+                <div className="max-h-[320px] overflow-y-auto p-2 custom-scrollbar">
                     {Object.entries(grouped).map(([category, items]) => (
                         <div key={category}>
-                            <div style={{
-                                fontSize: '11px',
-                                color: '#8b949e',
-                                padding: '8px 8px 6px',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.5px',
-                            }}>
+                            <div className="text-[11px] text-[#8b949e] px-2 py-1.5 uppercase tracking-wider font-semibold">
                                 {category}
                             </div>
                             {items.map((cmd) => {
                                 const globalIndex = filteredCommands.indexOf(cmd);
+                                const isSelected = globalIndex === selectedIndex;
                                 return (
                                     <div
                                         key={cmd.id}
                                         onClick={() => { cmd.action(); onClose(); }}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '12px',
-                                            padding: '10px 12px',
-                                            borderRadius: '8px',
-                                            cursor: 'pointer',
-                                            backgroundColor: globalIndex === selectedIndex ? '#21262d' : 'transparent',
-                                            border: globalIndex === selectedIndex ? '1px solid #30363d' : '1px solid transparent',
-                                        }}
+                                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${isSelected
+                                                ? 'bg-[#21262d] text-white'
+                                                : 'text-[#c9d1d9] hover:bg-[#21262d]/50'
+                                            }`}
                                     >
-                                        <div style={{ color: '#8b949e', flexShrink: 0 }}>
-                                            {cmd.icon || <FileText style={{ width: '18px', height: '18px' }} />}
+                                        <div className={`flex-shrink-0 ${isSelected ? 'text-white' : 'text-[#8b949e]'}`}>
+                                            {cmd.icon || <FileText className="w-4.5 h-4.5" />}
                                         </div>
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ fontSize: '14px', color: '#c9d1d9' }}>{cmd.title}</div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-sm font-medium">{cmd.title}</div>
                                             {cmd.description && (
-                                                <div style={{ fontSize: '12px', color: '#8b949e' }}>{cmd.description}</div>
+                                                <div className={`text-xs truncate ${isSelected ? 'text-[#8b949e]' : 'text-[#8b949e]/80'}`}>
+                                                    {cmd.description}
+                                                </div>
                                             )}
                                         </div>
                                         {cmd.shortcut && (
-                                            <span style={{
-                                                fontSize: '11px',
-                                                color: '#6e7681',
-                                                padding: '2px 6px',
-                                                backgroundColor: '#21262d',
-                                                borderRadius: '4px',
-                                                fontFamily: 'monospace',
-                                            }}>
+                                            <span className="text-[11px] text-[#8b949e] px-1.5 py-0.5 bg-[#21262d] rounded border border-[#30363d] font-mono">
                                                 {cmd.shortcut}
                                             </span>
                                         )}
@@ -205,8 +153,8 @@ export default function CommandPalette({ isOpen, onClose, commands }: CommandPal
                         </div>
                     ))}
                     {filteredCommands.length === 0 && (
-                        <div style={{ padding: '24px', textAlign: 'center', color: '#8b949e' }}>
-                            Nenhum comando encontrado
+                        <div className="py-8 text-center text-[#8b949e]">
+                            <p>Nenhum comando encontrado</p>
                         </div>
                     )}
                 </div>

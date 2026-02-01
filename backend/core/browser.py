@@ -7,7 +7,7 @@ from playwright.async_api import async_playwright, Browser, BrowserContext, Page
 
 # CRITICAL: Windows event loop fix is handled in main.py
 # if sys.platform == 'win32':
-#     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+#     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 logger = logging.getLogger(__name__)
 

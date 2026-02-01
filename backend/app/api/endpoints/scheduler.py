@@ -229,7 +229,18 @@ async def batch_schedule(request: BatchScheduleRequest):
             return dt.replace(hour=START_HOUR, minute=0, second=0, microsecond=0)
         return dt
 
-    for i, video_path in enumerate(request.files):
+    # [SYN-FIX] Define PENDING_DIR to resolve absolute paths
+    import os
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    PENDING_DIR = os.path.join(BASE_DIR, "data", "pending")
+
+    for i, filename in enumerate(request.files):
+        # [SYN-FIX] Ensure we store absolute path in DB so Scheduler can find it
+        if not os.path.isabs(filename):
+             video_path = os.path.join(PENDING_DIR, filename)
+        else:
+             video_path = filename
+
         # Determine sound for this video index
         current_sound_id = request.sound_id
         current_sound_title = request.sound_title

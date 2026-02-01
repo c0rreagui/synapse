@@ -15,7 +15,7 @@ export function BatchCaptionEditor() {
     const [prompt, setPrompt] = useState('');
     const [generatedText, setGeneratedText] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
-    const [tone, setTone] = useState<string>('Viral'); // Default tone
+    const [selectedTones, setSelectedTones] = useState<string[]>(['Viral']); // Default tones
     const [length, setLength] = useState<string>('short'); // short, medium
     const [hashtags, setHashtags] = useState(true);
     const [model, setModel] = useState<string>('llama-3.3-70b-versatile');
@@ -51,9 +51,29 @@ export function BatchCaptionEditor() {
         if (file) {
             setGeneratedText(file.metadata?.caption || '');
             setPrompt(file.metadata?.aiRequest?.prompt || '');
-            setTone(file.metadata?.aiRequest?.tone || 'Viral');
+
+            // Handle legacy single tone vs new array tone
+            const initialTone = file.metadata?.aiRequest?.tone;
+            if (Array.isArray(initialTone)) {
+                setSelectedTones(initialTone);
+            } else if (typeof initialTone === 'string') {
+                setSelectedTones([initialTone]);
+            } else {
+                setSelectedTones(['Viral']);
+            }
         }
     }, [file]);
+
+    const toggleTone = (t: string) => {
+        if (selectedTones.includes(t)) {
+            // Don't allow empty selection? Optionally enforce at least one.
+            if (selectedTones.length > 1) {
+                setSelectedTones(selectedTones.filter(i => i !== t));
+            }
+        } else {
+            setSelectedTones([...selectedTones, t]);
+        }
+    };
 
     if (!file) return null;
 
@@ -105,8 +125,8 @@ export function BatchCaptionEditor() {
             { start: Math.max(0, duration - 5), end: duration }
         ];
 
-        // Capture 6 frames per window = 18 frames total
-        const framesPerWindow = 6;
+        // Capture 10 frames per window = 30 frames total
+        const framesPerWindow = 10;
 
         for (const win of windows) {
             const step = (win.end - win.start) / (framesPerWindow + 1);
@@ -152,15 +172,17 @@ export function BatchCaptionEditor() {
                 : "General Content Creator";
 
             // 3. API Call
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const API_URL = (typeof window !== 'undefined' && window.location.hostname === 'localhost')
+                ? 'http://127.0.0.1:8000'
+                : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
             const res = await fetch(`${API_URL}/api/v1/oracle/generate_caption`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     instruction: prompt,
-                    tone: tone,
+                    tone: selectedTones,
                     length: length,
-                    video_context: file.file.name,
+                    video_context: file.filename,
                     include_hashtags: hashtags,
                     output_type: 'caption',
                     model: model,
@@ -191,7 +213,7 @@ export function BatchCaptionEditor() {
             caption: generatedText,
             aiRequest: {
                 prompt,
-                tone,
+                tone: selectedTones,
                 hashtags
             }
         });
@@ -214,7 +236,7 @@ export function BatchCaptionEditor() {
                     {/* Video Player - With Ref for Capture */}
                     <video
                         ref={videoRef}
-                        src={file.preview}
+                        src={file.preview || undefined}
                         className="w-full h-full object-cover"
                         controls
                         crossOrigin="anonymous" // Important for canvas
@@ -231,7 +253,7 @@ export function BatchCaptionEditor() {
                     </div>
                 </div>
                 <p className="mt-4 text-xs text-gray-500 font-mono text-center">
-                    Preview: {file.file.name}
+                    Preview: {file.filename}
                 </p>
             </div>
 
@@ -302,10 +324,10 @@ export function BatchCaptionEditor() {
                                     {['Viral', 'Polêmico', 'Engraçado', 'Profissional'].map(t => (
                                         <button
                                             key={t}
-                                            onClick={() => setTone(t)}
+                                            onClick={() => toggleTone(t)}
                                             className={clsx(
                                                 "px-4 py-2 rounded-full text-xs font-medium transition-all border",
-                                                tone === t
+                                                selectedTones.includes(t)
                                                     ? "bg-synapse-purple/20 border-synapse-purple text-white shadow-[0_0_10px_rgba(139,92,246,0.2)]"
                                                     : "bg-white/5 border-white/10 text-gray-400 hover:border-white/20"
                                             )}
@@ -360,6 +382,32 @@ export function BatchCaptionEditor() {
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>
+                                    </div>
+
+                                    {/* Length Selector */}
+                                    <div className="flex bg-white/5 rounded-full p-1 border border-white/10">
+                                        <button
+                                            onClick={() => setLength('short')}
+                                            className={clsx(
+                                                "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                                                length === 'short'
+                                                    ? "bg-emerald-500/20 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                                                    : "text-gray-500 hover:text-gray-300"
+                                            )}
+                                        >
+                                            Curto ⚡
+                                        </button>
+                                        <button
+                                            onClick={() => setLength('medium')}
+                                            className={clsx(
+                                                "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                                                length === 'medium'
+                                                    ? "bg-amber-500/20 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.2)]"
+                                                    : "text-gray-500 hover:text-gray-300"
+                                            )}
+                                        >
+                                            Story 📖
+                                        </button>
                                     </div>
 
                                     <button

@@ -1,4 +1,5 @@
 // API Error Classes
+import { getApiUrl } from "../utils/apiClient";
 export class ApiError extends Error {
     constructor(
         message: string,
@@ -147,7 +148,7 @@ class ApiClient {
 
 // Create singleton instance
 export const apiClient = new ApiClient(
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+    getApiUrl()
 );
 
 // Error Handler Utility

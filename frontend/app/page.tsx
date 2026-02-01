@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 // import Sidebar from './components/Sidebar'; // Legacy Sidebar removed
 import CommandCenter from './components/CommandCenter';
 import ConnectionStatus from './components/ConnectionStatus';
@@ -8,6 +8,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { TikTokProfile, ScheduleEvent } from './types';
 import { toast } from 'sonner';
 import axios from 'axios';
+import { getApiUrl } from './utils/apiClient';
 import {
   PlayCircleIcon, CpuChipIcon, CheckCircleIcon,
   ClockIcon, XCircleIcon, XMarkIcon,
@@ -20,8 +21,9 @@ import { NeonButton } from './components/NeonButton';
 import clsx from 'clsx';
 import BatchUploadModal from './components/BatchUploadModal';
 import AudioSuggestionCard, { AudioSuggestion } from './components/AudioSuggestionCard';
+import { SchedulingData } from './components/SchedulerForm';
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1') + '/api/v1';
+const API_BASE = getApiUrl() + '/api/v1';
 
 interface IngestionStatus { queued: number; processing: number; completed: number; failed: number; }
 interface PendingVideo {
@@ -79,13 +81,8 @@ export default function Home() {
   });
 
   // Modal State
-  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  // Modal State
   const [selectedVideo, setSelectedVideo] = useState<PendingVideo | null>(null);
-  const [postType, setPostType] = useState<'immediate' | 'scheduled'>('immediate');
-  const [selectedDate, setSelectedDate] = useState('');
-  const [selectedTime, setSelectedTime] = useState('12:00');
-  const [viralMusicEnabled, setViralMusicEnabled] = useState(false);
-  const [privacyLevel, setPrivacyLevel] = useState('public_to_everyone'); // public_to_everyone, mutual_follow_friends, self_only
 
   // System State
   const [backendOnline, setBackendOnline] = useState(false);
@@ -96,7 +93,7 @@ export default function Home() {
   const fetchAllData = useCallback(async () => {
     try {
       setLastUpdate(new Date().toLocaleTimeString());
-      const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1');
+      const apiUrl = getApiUrl();
       const healthRes = await fetch(`${apiUrl}/`);
       setBackendOnline(healthRes.ok);
       // Se backend offline, não tenta o resto para evitar spam de erros
@@ -132,6 +129,13 @@ export default function Home() {
     fetchAllData();
     const interval = setInterval(fetchAllData, 5000);
     return () => clearInterval(interval);
+  }, [fetchAllData]);
+
+  // Post-Approval Handler (Refreshes Queue)
+  const handlePostApprovalSuccess = useCallback(() => {
+    toast.success("Vídeo agendado e aprovado com sucesso!");
+    fetchAllData();
+    setShowBatchModal(false);
   }, [fetchAllData]);
 
   const commands = [
@@ -199,30 +203,28 @@ export default function Home() {
 
   const handleApprove = (video: PendingVideo) => {
     setSelectedVideo(video);
-    setShowApprovalModal(true);
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    setSelectedDate(tomorrow.toISOString().split('T')[0]);
+    setShowBatchModal(true);
   };
 
-  const handleConfirmApproval = async () => {
+  const handleSchedulingSubmit = async (data: SchedulingData) => {
     if (!selectedVideo) return;
     try {
-      const scheduleTime = postType === 'scheduled' ? `${selectedDate}T${selectedTime}:00` : null;
       const response = await fetch(`${API_BASE}/queue/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: selectedVideo.id,
-          action: postType,
-          schedule_time: scheduleTime,
-          viral_music_enabled: viralMusicEnabled,
-          privacy_level: privacyLevel
+          action: data.scheduled_time ? 'scheduled' : 'immediate',
+          schedule_time: data.scheduled_time || null,
+          target_profile_id: data.profile_ids[0],
+          viral_music_enabled: data.viral_music_enabled,
+          privacy_level: 'public_to_everyone',
+          caption: data.description
         })
       });
 
       if (response.ok) {
-        setShowApprovalModal(false);
+        setShowBatchModal(false);
         setSelectedVideo(null);
         fetchAllData();
         toast.success('Processado com sucesso!');
@@ -317,6 +319,17 @@ export default function Home() {
     const d = new Date(dateStr);
     return isNaN(d.getTime()) ? 'Recente' : d.toLocaleTimeString();
   };
+
+  const approvalPreload = useMemo(() => {
+    if (!selectedVideo) return [];
+    return [{
+      filename: selectedVideo.filename,
+      url: selectedVideo.metadata?.original_filename, // Use simple path or metadata if available
+      caption: selectedVideo.metadata?.caption,
+      profileId: selectedVideo.metadata?.profile_id,
+      isRemote: true as const
+    }];
+  }, [selectedVideo]);
 
   return (
     <>
@@ -709,102 +722,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* APPROVAL MODAL */}
-      {
-        showApprovalModal && selectedVideo && (
-          <div className="fixed inset-0 bg-[#05040a]/80 backdrop-blur-md z-[100] flex items-center justify-center fade-in p-4">
-            <StitchCard className="w-full max-w-md bg-[#161b22] border-synapse-primary/30 p-6 shadow-2xl relative overflow-hidden">
-              {/* Top Border Gradient */}
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-synapse-primary to-synapse-secondary"></div>
-              <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                <span>🚀 Aprovar Publicação</span>
-              </h2>
-
-              <div className="p-4 bg-black/30 rounded-lg mb-6 flex items-center gap-3 border border-white/5">
-                <div className="text-2xl">📄</div>
-                <div className="overflow-hidden">
-                  <p className="text-sm text-white font-medium truncate">{selectedVideo.metadata.original_filename}</p>
-                  <p className="text-xs text-gray-500">{selectedVideo.profile}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <button onClick={() => setPostType('immediate')} className={`p-4 rounded-xl border transition-all relative overflow-hidden group ${postType === 'immediate' ? 'border-synapse-emerald bg-synapse-emerald/5' : 'border-gray-700 bg-gray-800/50 hover:border-gray-500'}`}>
-                  {postType === 'immediate' && <div className="absolute top-2 right-2 text-synapse-emerald"><CheckCircleIcon className="w-5 h-5" /></div>}
-                  <div className={`font-bold mb-1 ${postType === 'immediate' ? 'text-synapse-emerald' : 'text-gray-300'}`}>Imediato</div>
-                  <div className="text-xs text-gray-500">Publicar agora</div>
-                </button>
-
-                <button onClick={() => setPostType('scheduled')} className={`p-4 rounded-xl border transition-all relative overflow-hidden group ${postType === 'scheduled' ? 'border-synapse-primary bg-synapse-primary/5' : 'border-gray-700 bg-gray-800/50 hover:border-gray-500'}`}>
-                  {postType === 'scheduled' && <div className="absolute top-2 right-2 text-synapse-primary"><CheckCircleIcon className="w-5 h-5" /></div>}
-                  <div className={`font-bold mb-1 ${postType === 'scheduled' ? 'text-synapse-primary' : 'text-gray-300'}`}>Agendar</div>
-                  <div className="text-xs text-gray-500">Escolher data/hora</div>
-                </button>
-              </div>
-
-              {/* Viral Music Toggle */}
-              <div className={`p-4 rounded-xl border mb-6 transition-all cursor-pointer select-none ${viralMusicEnabled ? 'bg-synapse-purple/10 border-synapse-purple' : 'bg-black/40 border-gray-700 hover:border-gray-500'}`} onClick={() => setViralMusicEnabled(!viralMusicEnabled)}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${viralMusicEnabled ? 'bg-synapse-purple text-white shadow-[0_0_15px_rgba(192,132,252,0.5)]' : 'bg-gray-800 text-gray-400'}`}>
-                      🎵
-                    </div>
-                    <div>
-                      <h4 className={`text-sm font-bold ${viralMusicEnabled ? 'text-white' : 'text-gray-400'}`}>Viral Boost</h4>
-                      <p className="text-xs text-gray-500">Adicionar música em alta (Mudo)</p>
-                    </div>
-                  </div>
-                  <div className={`w-6 h-6 rounded border flex items-center justify-center transition-colors ${viralMusicEnabled ? 'bg-synapse-purple border-synapse-purple' : 'border-gray-600'}`}>
-                    {viralMusicEnabled && <CheckCircleIcon className="w-4 h-4 text-white" />}
-                  </div>
-                </div>
-              </div>
-
-              {/* Privacy Selector */}
-              <div className="mb-6">
-                <label className="text-xs text-gray-500 font-bold mb-2 block uppercase tracking-wider">Privacidade</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: 'public_to_everyone', label: 'Todos', icon: '🌍' },
-                    { id: 'mutual_follow_friends', label: 'Amigos', icon: '👥' },
-                    { id: 'self_only', label: 'Somente Eu', icon: '🔒' }
-                  ].map(opt => (
-                    <button
-                      key={opt.id}
-                      onClick={() => setPrivacyLevel(opt.id)}
-                      className={`p-2 rounded-lg border text-xs font-bold flex flex-col items-center gap-1 transition-all ${privacyLevel === opt.id ? 'bg-synapse-primary/20 border-synapse-primary text-synapse-primary' : 'bg-black/40 border-gray-700 text-gray-400 hover:border-gray-500'}`}
-                    >
-                      <span className="text-lg">{opt.icon}</span>
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {postType === 'scheduled' && (
-                <div className="space-y-3 mb-6 animate-pulse-slow bg-white/5 p-4 rounded-xl border border-white/10">
-                  <div>
-                    <label className="text-xs text-gray-500 font-bold mb-1 block">DATA</label>
-                    <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="w-full bg-black/50 border border-gray-600 rounded-lg p-2.5 text-white outline-none focus:border-synapse-primary transition-colors" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 font-bold mb-1 block">HORÁRIO</label>
-                    <input type="time" value={selectedTime} onChange={e => setSelectedTime(e.target.value)} className="w-full bg-black/50 border border-gray-600 rounded-lg p-2.5 text-white outline-none focus:border-synapse-primary transition-colors" />
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-3 mt-8">
-                <NeonButton variant="ghost" onClick={() => setShowApprovalModal(false)} className="flex-1">Cancelar</NeonButton>
-                <NeonButton onClick={handleConfirmApproval} className="flex-1 shadow-lg shadow-purple-500/20">
-                  {postType === 'immediate' ? 'Publicar Agora' : 'Confirmar Agendamento'}
-                </NeonButton>
-              </div>
-            </StitchCard>
-          </div>
-        )
-      }
-
       {/* CONFIRM MODAL */}
       {
         confirmModal.isOpen && (
@@ -832,13 +749,31 @@ export default function Home() {
         isOpen={isMetricsModalOpen}
         onClose={() => setIsMetricsModalOpen(false)}
         initialTab={metricsModalTab}
+        onViewDetails={(file) => {
+          const pending = pendingVideos.find(v => v.metadata?.original_filename === file.name || v.filename === file.name);
+          if (pending) {
+            handleApprove(pending);
+            setIsMetricsModalOpen(false);
+          } else {
+            toast.info(`Arquivo: ${file.name}\n${file.path}`);
+          }
+        }}
       />
+
+      {/* Memoized Preload to prevent BatchProvider loop */}
       <BatchUploadModal
+        key={selectedVideo?.id || 'batch-session'}
         isOpen={showBatchModal}
-        onClose={() => { setShowBatchModal(false); setBatchFiles([]); }}
-        onSuccess={() => { toast.success("Campanha agendada com sucesso!"); fetchAllData(); }}
+        onClose={() => {
+          setShowBatchModal(false);
+          setBatchFiles([]);
+          setSelectedVideo(null);
+        }}
+        onSuccess={handlePostApprovalSuccess}
         profiles={profiles}
         initialFiles={batchFiles}
+        mode="batch"
+        initialPreload={approvalPreload}
       />
 
     </>

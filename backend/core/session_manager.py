@@ -90,6 +90,44 @@ def list_available_sessions() -> List[Dict[str, str]]:
         db.close()
             
     # Sort by ID or Label? ID for consistency with old behavior
+    # 2. Scan Files for sessions missing in DB (Legacy/Sync fallback)
+    try:
+        json_files = glob.glob(os.path.join(SESSIONS_DIR, "*.json"))
+        for file_path in json_files:
+            try:
+                slug = os.path.splitext(os.path.basename(file_path))[0]
+                
+                # Skip if already in DB results
+                if any(s['id'] == slug for s in sessions):
+                    continue
+
+                # Read file to get metadata
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                # Extract meta or fallback. Ensure data is a dict.
+                if not isinstance(data, dict):
+                     print(f"Warning: Session file {slug} is not a valid JSON object")
+                     data = {}
+
+                meta = data.get("synapse_meta", {})
+                if not isinstance(meta, dict):
+                    meta = {}
+                
+                sessions.append({
+                    "id": slug,
+                    "label": meta.get("display_name") or slug,
+                    "username": meta.get("username") or "",
+                    "avatar_url": meta.get("avatar_url") or "",
+                    "icon": "👤",
+                    "status": "active" # If file exists, treat as potentially active
+                })
+            except Exception as e:
+                print(f"Error processing session file {file_path}: {str(e)}")
+                
+    except Exception as e:
+        print(f"Critical Error scanning session files: {str(e)}")
+
     sessions.sort(key=lambda x: x['id'])
     return sessions
 

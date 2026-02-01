@@ -4,6 +4,7 @@ import { Fragment, useState, useEffect, useRef } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon, MagnifyingGlassIcon, PlayIcon, PauseIcon, MusicalNoteIcon, SparklesIcon, FireIcon, ArrowTrendingUpIcon, FunnelIcon } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
+import { getApiUrl } from '../utils/apiClient';
 
 export interface ViralSound {
     id: string;
@@ -125,6 +126,11 @@ export default function ViralSoundPicker({
     const [showFilters, setShowFilters] = useState(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
+    // Sync initialCategory
+    useEffect(() => {
+        if (initialCategory) setCategory(initialCategory);
+    }, [initialCategory]);
+
     // Fetch sounds when category/niche changes
     useEffect(() => {
         if (!isOpen) return;
@@ -132,7 +138,7 @@ export default function ViralSoundPicker({
         const fetchSounds = async () => {
             setLoading(true);
             try {
-                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+                const API_URL = getApiUrl();
                 let endpoint: string;
 
                 if (searchQuery) {

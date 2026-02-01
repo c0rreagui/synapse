@@ -10,10 +10,11 @@ import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import useWebSocket from '../hooks/useWebSocket';
 import { PendingVideo } from '../types';
+import { getApiUrl } from '../utils/apiClient';
 
 // Interface moved to types/index.ts
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1');
+const API_URL = getApiUrl();
 
 export default function QueuePage() {
     const [pendingVideos, setPendingVideos] = useState<PendingVideo[]>([]);

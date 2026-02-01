@@ -1,13 +1,16 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { TikTokProfile as Profile } from '@/app/types';
 import { toast } from 'sonner';
+import { getApiUrl } from '../../utils/apiClient';
 
 // Types
 export interface FileUpload {
-    file: File;
+    file?: File; // Optional for remote files
+    filename: string; // Unified name
     preview: string;
     duration: number;
     status: 'pending' | 'uploading' | 'done' | 'error';
+    isRemote?: boolean; // New flag for pre-existing files
     progress: number;
     id: string;
     metadata?: {
@@ -20,7 +23,7 @@ export interface FileUpload {
     };
 }
 
-export type ScheduleStrategy = 'INTERVAL' | 'ORACLE';
+export type ScheduleStrategy = 'INTERVAL' | 'ORACLE' | 'QUEUE';
 
 interface BatchContextType {
     // State
@@ -61,32 +64,74 @@ interface BatchContextType {
 
 export const BatchContext = createContext<BatchContextType | undefined>(undefined);
 
+export interface InitialFilePreload {
+    filename: string;
+    url?: string;
+    caption?: string;
+    profileId?: string;
+    isRemote: true;
+}
+
 interface BatchProviderProps {
     children: ReactNode;
     existingProfiles: Profile[];
     initialFiles?: File[];
+    initialPreload?: InitialFilePreload[]; // New Prop
     onClose: () => void;
     onSuccess: () => void;
 }
 
-export function BatchProvider({ children, existingProfiles, initialFiles = [], onClose, onSuccess }: BatchProviderProps) {
+export function BatchProvider({ children, existingProfiles, initialFiles = [], initialPreload = [], onClose, onSuccess }: BatchProviderProps) {
     // --- State ---
     const [files, setFiles] = useState<FileUpload[]>([]);
 
     // Load initial files on mount
     useEffect(() => {
+        let newFiles: FileUpload[] = [];
+
+        // 1. Handle Local Files (Drag n Drop)
         if (initialFiles.length > 0) {
-            const newFiles = initialFiles.map(file => ({
+            newFiles = [...newFiles, ...initialFiles.map(file => ({
                 file,
+                filename: file.name,
                 preview: URL.createObjectURL(file),
                 duration: 0,
                 status: 'pending' as const,
                 progress: 0,
                 id: Math.random().toString(36).substr(2, 9)
-            }));
+            }))];
+        }
+
+        // 2. Handle Remote Files (Approval Queue / Edit Mode)
+        if (initialPreload.length > 0) {
+            newFiles = [...newFiles, ...initialPreload.map(preload => ({
+                filename: preload.filename,
+                preview: preload.url || '', // Should ideally be a thumbnail URL
+                duration: 0,
+                status: 'done' as const, // Already on server
+                progress: 100,
+                id: Math.random().toString(36).substr(2, 9),
+                isRemote: true,
+                metadata: {
+                    caption: preload.caption
+                }
+            }))];
+
+            // Auto-select profile if provided in preload
+            if (initialPreload[0]?.profileId) {
+                setSelectedProfiles([initialPreload[0].profileId]);
+            }
+            // Auto-open editor if single file
+            if (initialPreload.length === 1) {
+                // We need to wait for state to settle, but we can set editingFileId in next tick
+                setTimeout(() => setEditingFileId(newFiles[0].id), 100);
+            }
+        }
+
+        if (newFiles.length > 0) {
             setFiles(newFiles);
         }
-    }, [initialFiles]);
+    }, [initialFiles, initialPreload]);
     const [selectedProfiles, setSelectedProfiles] = useState<string[]>([]);
 
     // Time Defaults
@@ -121,7 +166,8 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], o
 
     // 🧠 Validar batch com dry_run
     const validateBatch = async () => {
-        const filePaths = files.map(f => `C:\\Videos\\${f.file.name}`); // Simulating path for now as per legacy logic
+        // Handle both local (File object) and remote (filename only)
+        const filePaths = files.map(f => f.isRemote ? f.filename : `C:\\Videos\\${f.filename}`);
         const startDateTime = new Date(`${startDate}T${startTime}`);
 
         const payload = {
@@ -133,7 +179,7 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], o
             dry_run: true
         };
 
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const API_URL = getApiUrl();
         const res = await fetch(`${API_URL}/api/v1/scheduler/batch`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -146,70 +192,148 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], o
     const handleUpload = async () => {
         if (files.length === 0 || selectedProfiles.length === 0) return;
 
+        // 1. Upload Phase
+        setIsUploading(true);
+        const uploadedPaths: string[] = [];
+
+        try {
+            // Upload each file sequentially (or parallelLimit if needed)
+            for (let i = 0; i < files.length; i++) {
+                const fileObj = files[i];
+
+                // Skip if already done (future proofing) or Remote
+                if (fileObj.status === 'done' || fileObj.isRemote) {
+                    uploadedPaths.push(fileObj.filename); // stored name
+                    continue;
+                }
+
+                // Update status to uploading
+                setFiles(prev => prev.map(f => f.id === fileObj.id ? { ...f, status: 'uploading', progress: 0 } : f));
+
+                const formData = new FormData();
+                if (fileObj.file) {
+                    formData.append("file", fileObj.file);
+                } else {
+                    // Should not happen if logic is correct
+                    continue;
+                }
+                // Use first profile for "owner" tag, though batch is multi-profile. 
+                formData.append("profile_id", selectedProfiles[0] || "batch_upload");
+
+                try {
+                    const API_URL = getApiUrl();
+                    const uploadRes = await fetch(`${API_URL}/api/v1/ingest/upload`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!uploadRes.ok) throw new Error(`Failed to upload ${fileObj.filename}`);
+
+                    const data = await uploadRes.json();
+                    const serverFilename = data.filename; // Real filename from server
+                    uploadedPaths.push(serverFilename);
+
+                    // Update status to done
+                    setFiles(prev => prev.map(f => f.id === fileObj.id ? { ...f, status: 'done', progress: 100 } : f));
+
+                } catch (e) {
+                    console.error(e);
+                    setFiles(prev => prev.map(f => f.id === fileObj.id ? { ...f, status: 'error' } : f));
+                    toast.error(`Falha ao enviar ${fileObj.filename}`);
+                    setIsUploading(false); // Stop chain
+                    return;
+                }
+            }
+        } catch (e) {
+            toast.error("Erro fatal no upload");
+            setIsUploading(false);
+            return;
+        }
+
+        // --- QUEUE ONLY MODE ---
+        // If strategy is QUEUE, we stop here. Use the uploads as "done".
+        if (strategy === 'QUEUE') {
+            toast.success(`🚀 ${files.length} vídeos enviados para a fila!`);
+            onSuccess();
+            onClose();
+            setFiles([]);
+            setSelectedProfiles([]);
+            setIsUploading(false);
+            return;
+        }
+
         setIsValidating(true);
         try {
-            // 1. Validation Phase
-            const validation = await validateBatch();
+            // 2. Validation Phase (using REAL paths now)
+            // Note: serverFilename usually is just the basename in 'inputs' or 'pending'.
+            // The scheduler expects absolute paths? Or relative?
+            // The backend 'upload' puts files in 'inputs'. 
+            // The legacy 'C:\Videos' verification implies the backend might expect absolute paths.
+            // Let's assume the backend 'scheduler/batch' can handle filenames if they are in a known location,
+            // OR we need to construct the path. 
+            // Based on 'run_backend.py' searching 'inputs', let's guess the path structure or fix backend.
+            // For now, let's send what the upload returned, but usually it returns just filename.
+            // Let's prepend the likely backend path if needed, but safer to let backend resolve.
+            // However, the previous mock was `C:\Videos\name`.
 
-            // [SYN-FIX] Check for backend execution error (e.g. 500)
+            // Let's check `scheduler.py` or similar if I could.
+            // But strict "upload then validation" flow:
+
+            const payloadStub = {
+                files: uploadedPaths, // Validated filenames on server
+                profile_ids: selectedProfiles,
+                strategy,
+                start_time: new Date(`${startDate}T${startTime}`).toISOString(),
+                interval_minutes: intervalMinutes,
+                dry_run: true
+            };
+
+            const API_URL = getApiUrl();
+            const valRes = await fetch(`${API_URL}/api/v1/scheduler/batch`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payloadStub)
+            });
+            const validation = await valRes.json();
+
+            // ... (Validation Logic from before) ...
             if (validation.detail) {
                 toast.error(`Erro no sistema: ${validation.detail}`);
                 setIsValidating(false);
+                setIsUploading(false);
                 return;
             }
 
-            // Store issues for UI
             const issues: any[] = [];
             const validationData = validation.validation || {};
             Object.values(validationData).forEach((v: any) => {
-                if (v.issues) {
-                    v.issues.forEach((issue: any) => {
-                        if (issue.severity === 'error') {
-                            issues.push(issue);
-                        }
-                    });
-                }
+                if (v.issues) v.issues.forEach((issue: any) => { if (issue.severity === 'error') issues.push(issue); });
             });
+            setValidationResult({ canProceed: validation.can_proceed, issues });
 
-            setValidationResult({
-                canProceed: validation.can_proceed,
-                issues
-            });
-
-            // If explicitly blocked by logic and we have errors
             if (validation.can_proceed === false) {
                 const errCount = validation.summary?.errors || 0;
                 if (errCount > 0) {
                     toast.error(`❌ ${errCount} conflitos detectados`);
                     setIsValidating(false);
+                    setIsUploading(false);
                     return;
                 }
-                // If can_proceed is false but 0 errors, it might be a logic glitch, but we proceed cautiously
-                // or might be warnings only if backend logic changed. 
-                // However, per backend, can_proceed=errors==0.
             }
 
-            // 2. Execution Phase
-            setIsUploading(true);
-            const filePaths = files.map(f => `C:\\Videos\\${f.file.name}`);
-            const startDateTime = new Date(`${startDate}T${startTime}`);
-
-            const payload = {
-                files: filePaths,
-                profile_ids: selectedProfiles,
-                strategy: strategy,
-                start_time: startDateTime.toISOString(),
-                interval_minutes: intervalMinutes,
+            // 3. Final Execution Phase
+            const finalPayload = {
+                ...payloadStub,
+                dry_run: false,
                 viral_music_enabled: viralBoost,
                 mix_viral_sounds: viralBoost && mixViralSounds,
-                smart_captions: true // Always true for batch
+                smart_captions: true
             };
 
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
             const res = await fetch(`${API_URL}/api/v1/scheduler/batch`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(finalPayload)
             });
 
             if (!res.ok) throw new Error("Batch scheduling failed");
@@ -217,8 +341,6 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], o
             toast.success(`🚀 ${files.length} vídeos agendados!`);
             onSuccess();
             onClose();
-
-            // Reset
             setFiles([]);
             setSelectedProfiles([]);
             setValidationResult(null);

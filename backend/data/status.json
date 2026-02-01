@@ -1,14 +1,12 @@
 {
-  "state": "busy",
-  "last_updated": "2026-01-26T18:32:59.197718",
-  "timestamp": 1769463179.1977186,
+  "state": "idle",
+  "last_updated": "2026-02-01T03:43:11.331083",
+  "timestamp": 1769917391.3311057,
   "job": {
     "name": "None",
-    "progress": 60,
-    "step": "uploading",
-    "logs": [
-      "Acessando TikTok Studio..."
-    ]
+    "progress": 0,
+    "step": "Aguardando tarefas...",
+    "logs": []
   },
   "bots": [
     {
@@ -17,7 +15,7 @@
       "role": "UPLOADER",
       "status": "online",
       "current_task": "Idle",
-      "uptime": "0h 0m",
+      "uptime": "0h 3m",
       "description": "Unidade de transmissao de alta largura de banda. Garantindo metricas globais de propagacao.",
       "avatar": "/avatars/atlas.png"
     },
@@ -27,7 +25,7 @@
       "role": "FACTORY",
       "status": "online",
       "current_task": "Watching inputs...",
-      "uptime": "0h 0m",
+      "uptime": "0h 3m",
       "description": "Nucleo de sintese neural. Montando dados brutos em construcoes cognitivas.",
       "avatar": "/avatars/forge.png"
     },
@@ -37,7 +35,7 @@
       "role": "MONITOR",
       "status": "online",
       "current_task": "System Check",
-      "uptime": "0h 0m",
+      "uptime": "0h 3m",
       "description": "Sentinela onisciente. Analisando anomalias de telemetria em tempo real.",
       "avatar": "/avatars/watcher.png"
     }

@@ -9,21 +9,43 @@ import { BatchCaptionEditor } from './BatchCaptionEditor';
 import { BatchModalCloseButton } from './BatchModalCloseButton';
 import { X } from 'lucide-react';
 
-interface BatchUploadModalProps {
+import clsx from 'clsx';
+import { InitialFilePreload } from './BatchContext';
+import SchedulerForm, { SchedulingData } from '../SchedulerForm';
+
+interface UniversalModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
     profiles: Profile[];
+
+    // Mode Selection
+    mode?: 'batch' | 'single';
+
+    // Batch Props
     initialFiles?: File[];
+    initialPreload?: InitialFilePreload[];
+
+    // Single/Scheduler Props
+    initialDate?: Date;
+    initialViralBoost?: boolean;
+    initialData?: Partial<SchedulingData>;
+    onSingleSubmit?: (data: SchedulingData) => void;
 }
 
-export default function BatchUploadModal({
+export default function UniversalModal({
     isOpen,
     onClose,
     onSuccess,
     profiles,
-    initialFiles = []
-}: BatchUploadModalProps) {
+    mode = 'batch',
+    initialFiles = [],
+    initialPreload = [],
+    initialDate = new Date(),
+    initialViralBoost = false,
+    initialData,
+    onSingleSubmit
+}: UniversalModalProps) {
 
     return (
         <Transition appear show={isOpen} as={Fragment}>
@@ -51,19 +73,46 @@ export default function BatchUploadModal({
                             leaveFrom="opacity-100 scale-100"
                             leaveTo="opacity-0 scale-95"
                         >
-                            <Dialog.Panel className="w-full max-w-6xl h-[85vh] transform overflow-hidden rounded-[32px] bg-[#0c0c0c] border border-white/10 shadow-[0_0_100px_rgba(139,92,246,0.1)] transition-all flex flex-col relative">
+                            <Dialog.Panel className={clsx(
+                                "transform overflow-hidden rounded-[32px] bg-[#0c0c0c] border border-white/10 shadow-[0_0_100px_rgba(139,92,246,0.1)] transition-all flex flex-col relative",
+                                mode === 'batch' ? "w-full max-w-6xl h-[85vh]" : "w-full max-w-lg p-6"
+                            )}>
 
-                                <BatchProvider existingProfiles={profiles} initialFiles={initialFiles} onClose={onClose} onSuccess={onSuccess}>
-                                    <div className="flex flex-1 h-full overflow-hidden relative">
-                                        <BatchSidebar />
-                                        <BatchMain />
-                                        <BatchCaptionEditor />
+                                {mode === 'batch' ? (
+                                    <BatchProvider existingProfiles={profiles} initialFiles={initialFiles} initialPreload={initialPreload} onClose={onClose} onSuccess={onSuccess}>
+                                        <div className="flex flex-1 h-full overflow-hidden relative">
+                                            <BatchSidebar />
+                                            <BatchMain />
+                                            <BatchCaptionEditor />
+                                        </div>
+                                        <BatchFooter onClose={onClose} />
+
+                                        {/* Smart Close Button (Hidden when Editor is open) */}
+                                        <BatchModalCloseButton onClose={onClose} />
+                                    </BatchProvider>
+                                ) : (
+                                    /* SINGLE MODE - Uses extracted SchedulerForm */
+                                    <div className="h-full flex flex-col">
+                                        <div className="flex justify-between items-center mb-6">
+                                            <h3 className="text-xl font-bold text-white">Editor de Mídia</h3>
+                                            <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+                                                <X className="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                        <SchedulerForm
+                                            onSubmit={async (data) => {
+                                                if (onSingleSubmit) await onSingleSubmit(data);
+                                                onSuccess(); // Optional: Trigger success callback
+                                            }}
+                                            onCancel={onClose}
+                                            initialDate={initialDate}
+                                            profiles={profiles}
+                                            initialViralBoost={initialViralBoost}
+                                            initialData={initialData}
+                                            className="overflow-y-auto custom-scrollbar pr-2"
+                                        />
                                     </div>
-                                    <BatchFooter onClose={onClose} />
-
-                                    {/* Smart Close Button (Hidden when Editor is open) */}
-                                    <BatchModalCloseButton onClose={onClose} />
-                                </BatchProvider>
+                                )}
 
                             </Dialog.Panel>
                         </Transition.Child>

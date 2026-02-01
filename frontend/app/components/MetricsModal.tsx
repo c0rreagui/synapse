@@ -17,11 +17,12 @@ interface MetricsModalProps {
     isOpen: boolean;
     onClose: () => void;
     initialTab?: string;
+    onViewDetails?: (file: FileItem) => void;
 }
 
 const API_BASE = 'http://localhost:8000/api/v1';
 
-export default function MetricsModal({ isOpen, onClose, initialTab = 'processing' }: MetricsModalProps) {
+export default function MetricsModal({ isOpen, onClose, initialTab = 'processing', onViewDetails }: MetricsModalProps) {
     const [files, setFiles] = useState<Record<string, FileItem[]>>({
         queued: [],
         processing: [],
@@ -302,7 +303,7 @@ export default function MetricsModal({ isOpen, onClose, initialTab = 'processing
                                                                     </button>
                                                                 )}
                                                                 <button
-                                                                    onClick={() => toast.info(`Caminho: ${file.path}`)}
+                                                                    onClick={() => onViewDetails ? onViewDetails(file) : toast.info(`Caminho: ${file.path}`)}
                                                                     className="p-2 rounded-lg bg-synapse-cyan/10 text-synapse-cyan border border-synapse-cyan/20 hover:bg-synapse-cyan hover:text-black transition-all"
                                                                     title="Ver Detalhes"
                                                                 >

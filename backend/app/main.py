@@ -1,5 +1,14 @@
 import asyncio
 import sys
+import os
+
+# 🛡️ GLOBAL UTF-8 ENFORCEMENT (Fixes Windows Console Crashing Agent)
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception as e:
+        print(f"Warning: Could not force UTF-8: {e}")
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())

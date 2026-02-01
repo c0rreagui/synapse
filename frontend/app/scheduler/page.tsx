@@ -4,28 +4,30 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSam
 import { ptBR } from 'date-fns/locale';
 import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon, MusicalNoteIcon } from '@heroicons/react/24/outline';
 import { ScheduleEvent, TikTokProfile } from '../types';
+import { getApiUrl } from '../utils/apiClient';
 import useWebSocket from '../hooks/useWebSocket';
 // import Sidebar from '../components/Sidebar';
 import { StitchCard } from '../components/StitchCard';
 import { NeonButton } from '../components/NeonButton';
-import SchedulingModal, { SchedulingData } from '../components/SchedulingModal';
+import { SchedulingData } from '../components/SchedulerForm';
 import BatchUploadModal from '../components/BatchUploadModal';
 import ScheduledVideosModal from '../components/ScheduledVideosModal';
 import DayDetailsModal from '../components/DayDetailsModal';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || '');
+
 
 export default function SchedulerPage() {
+    const API_URL = getApiUrl();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [events, setEvents] = useState<ScheduleEvent[]>([]);
     const [viralBoost, setViralBoost] = useState(false);
     const [profiles, setProfiles] = useState<TikTokProfile[]>([]);
 
     // Modal State
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+    // Modal State
+    const [uploadModal, setUploadModal] = useState<{ isOpen: boolean; mode: 'single' | 'batch'; date?: Date }>({ isOpen: false, mode: 'batch' });
     const [isScheduledModalOpen, setIsScheduledModalOpen] = useState(false);
     const [isDayDetailsOpen, setIsDayDetailsOpen] = useState(false);
     const [modalDate, setModalDate] = useState(new Date());
@@ -33,13 +35,27 @@ export default function SchedulerPage() {
     // Load Events & Profiles
     const fetchData = async () => {
         try {
-            const [eventsRes, profilesRes] = await Promise.all([
-                fetch(`${API_URL}/api/v1/scheduler/list`),
-                fetch(`${API_URL}/api/v1/profiles/list`)
-            ]);
+            // Fetch Events - Robust Localhost Bypass
+            // Fetch Events - Robust Localhost Bypass
 
-            if (eventsRes.ok) setEvents(await eventsRes.json());
-            if (profilesRes.ok) setProfiles(await profilesRes.json());
+            const eventsRes = await fetch(`${API_URL}/api/v1/scheduler/list`);
+            if (eventsRes.ok) {
+                setEvents(await eventsRes.json());
+            } else {
+                console.error("Failed to fetch events", eventsRes.status);
+            }
+
+            // Fetch Profiles - Robust Localhost Bypass
+            // (Re-using the same URL logic)
+            const profilesRes = await fetch(`${API_URL}/api/v1/profiles/list`);
+            if (profilesRes.ok) {
+                setProfiles(await profilesRes.json());
+            } else {
+                console.error("Failed to fetch profiles:", profilesRes.status, await profilesRes.text());
+                // Fallback attempt if 500 and we are on localhost but didn't use direct?
+                // Already tried direct above.
+            }
+
         } catch (err) {
             console.error("Erro ao carregar dados:", err);
             toast.error("Erro ao carregar dados do servidor");
@@ -188,7 +204,7 @@ export default function SchedulerPage() {
                     </button>
 
                     <button
-                        onClick={() => setIsBatchModalOpen(true)}
+                        onClick={() => setUploadModal({ isOpen: true, mode: 'batch' })}
                         className="flex items-center gap-2 px-6 py-2.5 bg-synapse-purple/10 border border-synapse-purple/30 hover:bg-synapse-purple/20 rounded-xl text-synapse-purple text-sm font-bold transition-all shadow-[0_0_15px_rgba(139,92,246,0.1)] hover:shadow-[0_0_20px_rgba(139,92,246,0.3)]"
                     >
                         <span>📦 Bulk Upload</span>
@@ -285,23 +301,20 @@ export default function SchedulerPage() {
             </StitchCard>
 
             {/* Modals */}
-            <SchedulingModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                onSubmit={handleScheduleSubmit}
-                initialDate={modalDate}
-                initialViralBoost={viralBoost}
-                profiles={profiles}
-            />
-
+            {/* Modals */}
             <BatchUploadModal
-                isOpen={isBatchModalOpen}
-                onClose={() => setIsBatchModalOpen(false)}
+                key={`${uploadModal.mode}-${uploadModal.date?.toISOString()}`}
+                isOpen={uploadModal.isOpen}
+                onClose={() => setUploadModal(prev => ({ ...prev, isOpen: false }))}
+                onSingleSubmit={handleScheduleSubmit}
                 onSuccess={() => {
                     fetchData();
-                    setIsBatchModalOpen(false);
-                    toast.success("Campanha iniciada com sucesso!");
+                    setUploadModal(prev => ({ ...prev, isOpen: false }));
+                    if (uploadModal.mode === 'batch') toast.success("Campanha iniciada com sucesso!");
                 }}
+                mode={uploadModal.mode}
+                initialDate={uploadModal.date}
+                initialViralBoost={viralBoost}
                 profiles={profiles}
             />
 
@@ -325,7 +338,7 @@ export default function SchedulerPage() {
                 onEditEvent={handleEditEvent}
                 onAddEvent={() => {
                     setIsDayDetailsOpen(false);
-                    setIsModalOpen(true);
+                    setUploadModal({ isOpen: true, mode: 'single', date: modalDate });
                 }}
             />
         </>

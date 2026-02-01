@@ -171,7 +171,7 @@ async def start_watcher():
 if __name__ == "__main__":
     try:
         if sys.platform == 'win32':
-            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+            asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
         
         # Standalone run wrapper
         async def standalone_main():

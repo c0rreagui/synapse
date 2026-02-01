@@ -66,9 +66,11 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
                     } else {
                         throw new Error('API not healthy');
                     }
-                } catch {
-                    // API might be slow, continue anyway
-                    updateStep('api', 'done');
+                } catch (e) {
+                    console.error("API Health Check Failed:", e);
+                    updateStep('api', 'error');
+                    clearInterval(timer); // Stop timer immediately
+                    return; // ⛔ STOP LOADING. FAIL CLOSED.
                 }
                 setProgress(25);
 
@@ -82,13 +84,13 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
                 updateStep('routes', 'done');
                 setProgress(55);
 
-                // Step 3: Load Profiles
+                // Step 3: Load Profiles (Optional - proceed even if fails, but log it)
                 updateStep('profiles', 'loading');
                 try {
                     await fetch('http://127.0.0.1:8000/api/v1/profiles', {
                         signal: AbortSignal.timeout(5000)
                     });
-                } catch { /* ignore */ }
+                } catch { /* ignore non-critical */ }
                 updateStep('profiles', 'done');
                 setProgress(80);
 
@@ -98,7 +100,7 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
                     await fetch('http://127.0.0.1:8000/api/v1/oracle/status', {
                         signal: AbortSignal.timeout(3000)
                     });
-                } catch { /* ignore */ }
+                } catch { /* ignore non-critical */ }
                 updateStep('final', 'done');
                 setProgress(100);
 
@@ -111,20 +113,8 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
                 setIsReady(true);
 
             } catch (error) {
-                console.error('Splash init error:', error);
-
-                // If API failed, show error state instead of proceeding
-                const isApiError = steps.find(s => s.id === 'api')?.status !== 'done';
-
-                if (isApiError) {
-                    updateStep('api', 'error');
-                    // Stop everything
-                    clearInterval(timer);
-                    return; // Stays on Splash with Error
-                }
-
-                // Non-critical errors (e.g. profile fetch), proceed logic
-                clearInterval(timer);
+                console.error('Splash init error details:', error);
+                // Catch-all for other unexpected errors
                 setIsReady(true);
             }
         };

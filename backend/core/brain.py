@@ -41,7 +41,7 @@ NICHE_CONFIG = {
 async def generate_smart_caption(filename: str, profile_prefix: str = None) -> dict:
     """
     Gera legenda e hashtags inteligentes baseadas no arquivo.
-    Ex: @p1_gato_engracado.mp4 -> "O final e surpreendente! Gato Engracado #humor #gato"
+    Usa o Oracle SEO Engine (IA Real) para análise.
     """
     try:
         # 1. Detectar Perfil se nao fornecido
@@ -50,48 +50,51 @@ async def generate_smart_caption(filename: str, profile_prefix: str = None) -> d
             match = re.match(r"^@?([a-zA-Z0-9]+)_", filename)
             profile_prefix = match.group(1) if match else "default"
         
-        # Normaliza chave (caso venha vazia ou errada)
-        profile_key = profile_prefix if profile_prefix in NICHE_CONFIG else "default"
-        config = NICHE_CONFIG[profile_key]
+        # Determine Niche based on profile prefix (Generic mapping for now, or fetch from DB)
+        # For speed, we just map prefix -> simple niche, 
+        # but seo_engine.generate_content_metadata accepts niche string.
+        niche_map = {
+            "p1": "Cortes e Humor",
+            "p2": "Curiosidades e Fatos",
+            "default": "General Viral Content"
+        }
+        niche = niche_map.get(profile_prefix, "General Viral Content")
+
+        logger.info(f"[BRAIN] Solicitando ao Oracle (SEO Engine) para: {filename} (Nicho: {niche})")
         
-        # 2. Limpar Nome do Arquivo para Titulo
-        # Remove extensao e prefixo @pX_
-        clean_name = re.sub(r"^@?p\d+_", "", filename) # Remove prefixo
-        clean_name = os.path.splitext(clean_name)[0]   # Remove .mp4
-        clean_name = clean_name.replace("_", " ").replace("-", " ") # _ para espaco
-        clean_title = clean_name.title() # Title Case
+        # 2. Call Real Oracle
+        from core.oracle.seo_engine import seo_engine
         
-        # 3. Escolher Gancho
-        hook = random.choice(config["hooks"])
+        # Call synchronous or async? verify seo_engine. 
+        # seo_engine methods are synchronous (requests based) but defined as async in some places? 
+        # Let's check view_file output. Line 730: `async def generate_content_metadata`
+        # YES, it is async.
         
-        # 4. Montar Legenda
-        caption = f"{hook} {clean_title}"
+        metadata = await seo_engine.generate_content_metadata(filename, niche=niche)
         
-        # 5. Selecionar Hashtags
-        # Mistura as do nicho com algumas gerais
-        niche_tags = config["hashtags"]
-        general_tags = NICHE_CONFIG["default"]["hashtags"]
+        caption = metadata.get("suggested_caption")
+        hashtags = metadata.get("hashtags", [])
         
-        # Seleciona 3-5 tags do nicho e 1-2 gerais
-        selected_tags = random.sample(niche_tags, min(len(niche_tags), 4)) + \
-                        random.sample(general_tags, 1)
-        
-        logger.info(f"[BRAIN] Brain gerou para {filename}: {caption}")
+        logger.info(f"[BRAIN] Oracle retornou: {caption[:30]}...")
         
         return {
             "caption": caption,
-            "hashtags": selected_tags,
-            "profile": profile_key,
-            "derived_title": clean_title
+            "hashtags": hashtags,
+            "profile": profile_prefix,
+            "derived_title": filename,
+            "viral_score": metadata.get("viral_score", 0),
+            "viral_reason": metadata.get("viral_reason", "")
         }
         
     except Exception as e:
-        logger.error(f"[BRAIN] Erro no Brain: {e}")
-        # Fallback seguro
+        logger.error(f"[BRAIN] Erro no Brain (Fallback para Mock): {e}")
+        # Fallback Mock (Legacy logic)
+        clean_name = os.path.splitext(os.path.basename(filename))[0].replace("_", " ").title()
         return {
-            "caption": f"Video novo! {filename}",
-            "hashtags": ["fyp", "viral"],
-            "profile": "default"
+            "caption": f"Confira esse vídeo! {clean_name} 👇",
+            "hashtags": ["#fyp", "#viral", "#foryou"],
+            "profile": profile_prefix or "default",
+            "derived_title": clean_name
         }
 
 import os # Necessário para splitext

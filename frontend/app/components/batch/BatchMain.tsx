@@ -17,6 +17,7 @@ export function BatchMain() {
     const onDrop = (acceptedFiles: File[]) => {
         const newFiles = acceptedFiles.map(file => ({
             file,
+            filename: file.name,
             preview: URL.createObjectURL(file), // Basic preview
             duration: 0, // Placeholder
             status: 'pending' as const,
@@ -163,8 +164,10 @@ export function BatchMain() {
 
                                 {/* Overlay Info */}
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-3 flex flex-col justify-end">
-                                    <p className="text-xs font-medium text-white line-clamp-2 leading-tight mb-1">{file.file.name}</p>
-                                    <p className="text-[10px] text-gray-500">{(file.file.size / 1024 / 1024).toFixed(1)} MB</p>
+                                    <p className="text-xs font-medium text-white line-clamp-2 leading-tight mb-1">{file.filename}</p>
+                                    <p className="text-[10px] text-gray-500">
+                                        {file.file ? (file.file.size / 1024 / 1024).toFixed(1) + ' MB' : 'Remote'}
+                                    </p>
                                 </div>
 
                                 {/* Order Badge */}

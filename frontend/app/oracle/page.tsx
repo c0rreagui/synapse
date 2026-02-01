@@ -28,7 +28,9 @@ import { PatternCard, PatternType } from '../components/oracle/PatternCard';
 import { MetricComparisonChart } from '../components/oracle/MetricComparisonChart';
 import axios from 'axios';
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1');
+import { getApiUrl } from '../utils/apiClient';
+
+const API_URL = getApiUrl();
 
 // Terminal loading lines
 const TERMINAL_LINES = [
@@ -616,7 +618,7 @@ export default function OraclePage() {
                                         <p>Processando Dados...</p>
                                     </div>
                                 ) : analyticsData ? (
-                                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+                                    <div key={selectedProfileId} className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
                                         {/* KPI Grid */}
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                             <StatCard
