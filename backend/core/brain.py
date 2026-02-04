@@ -6,6 +6,7 @@ baseado no nome do arquivo e perfil detectado.
 import random
 import re
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +39,11 @@ NICHE_CONFIG = {
     }
 }
 
-async def generate_smart_caption(filename: str, profile_prefix: str = None) -> dict:
+async def generate_smart_caption(filename: str, profile_prefix: str = None, video_path: str = None) -> dict:
     """
     Gera legenda e hashtags inteligentes baseadas no arquivo.
-    Usa o Oracle SEO Engine (IA Real) para análise.
+    Usa o Oracle SEO Engine (IA Real) para analise.
+    Se video_path fornecido, usa Vision AI para analisar o conteudo visual.
     """
     try:
         # 1. Detectar Perfil se nao fornecido
@@ -50,6 +52,15 @@ async def generate_smart_caption(filename: str, profile_prefix: str = None) -> d
             match = re.match(r"^@?([a-zA-Z0-9]+)_", filename)
             profile_prefix = match.group(1) if match else "default"
         
+        # Standardize prefix for niche lookup
+        # Convert 'tiktok_profile_01' -> 'p1'
+        if profile_prefix and profile_prefix.startswith('tiktok_profile_'):
+            try:
+                parts = profile_prefix.split('_')
+                if len(parts) >= 3:
+                     profile_prefix = f"p{int(parts[2])}"
+            except: pass
+
         # Determine Niche based on profile prefix (Generic mapping for now, or fetch from DB)
         # For speed, we just map prefix -> simple niche, 
         # but seo_engine.generate_content_metadata accepts niche string.
@@ -65,12 +76,7 @@ async def generate_smart_caption(filename: str, profile_prefix: str = None) -> d
         # 2. Call Real Oracle
         from core.oracle.seo_engine import seo_engine
         
-        # Call synchronous or async? verify seo_engine. 
-        # seo_engine methods are synchronous (requests based) but defined as async in some places? 
-        # Let's check view_file output. Line 730: `async def generate_content_metadata`
-        # YES, it is async.
-        
-        metadata = await seo_engine.generate_content_metadata(filename, niche=niche)
+        metadata = await seo_engine.generate_content_metadata(filename, niche=niche, video_path=video_path)
         
         caption = metadata.get("suggested_caption")
         hashtags = metadata.get("hashtags", [])
@@ -89,7 +95,18 @@ async def generate_smart_caption(filename: str, profile_prefix: str = None) -> d
     except Exception as e:
         logger.error(f"[BRAIN] Erro no Brain (Fallback para Mock): {e}")
         # Fallback Mock (Legacy logic)
-        clean_name = os.path.splitext(os.path.basename(filename))[0].replace("_", " ").title()
+        # [SYN-FIX] Clean filename garbage (uptake from ingestion system names)
+        base = os.path.basename(filename)
+        base = os.path.splitext(base)[0]
+        # Remove prefixes like p1_, ptiktok_profile_..._
+        base = re.sub(r'^(p\d+|ptiktok_profile_[a-zA-Z0-9]+)_', '', base)
+        # Remove UUID suffix (8 chars) if present
+        base = re.sub(r'_[a-f0-9]{8}$', '', base)
+        
+        clean_name = base.replace("_", " ").title().strip()
+        if not clean_name:
+            clean_name = "Video Incrível"
+
         return {
             "caption": f"Confira esse vídeo! {clean_name} 👇",
             "hashtags": ["#fyp", "#viral", "#foryou"],

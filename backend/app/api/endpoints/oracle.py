@@ -310,61 +310,32 @@ async def generate_caption(request: GenerateCaptionRequest):
     # ... (rest of vision logic) ...
 
     
-    # 👁️ VISUAL CONTEXT ANALYSIS (Hybrid Mode)
+    # [SYN-VISION] VISUAL CONTEXT ANALYSIS via Unified VisionFaculty
     visual_description = ""
-    # [EMERGENCY DISABLE] Groq decommissioned Vision Models (11b/90b). Bypassing to unblock uploads.
-    if request.visual_frames and False:
+    if request.visual_frames:
         try:
-            print(f"👁️ Oracle Eye: Analysing {len(request.visual_frames)} frames...")
-            vision_payload = []
+            from core.oracle.faculties.vision import VisionFaculty
+            from core.oracle import oracle_client
             
-            # Add frames to payload
-            for frame_b64 in request.visual_frames:
-                # Ensure header is present (frontend sends it usually, but clean just in case)
-                if "," in frame_b64:
-                    frame_b64 = frame_b64.split(",")[1]
-                    
-                vision_payload.append({
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/jpeg;base64,{frame_b64}"}
-                })
+            vision = VisionFaculty(oracle_client)
+            print(f"[VISION] Analyzing {len(request.visual_frames)} frames via unified VisionFaculty...")
             
-            # Add instruction for the Vision Model - ULTRA ENHANCED ("1000x Better")
-            vision_payload.append({
-                "type": "text", 
-                "text": """
-                ACT AS AN ELITE FORENSIC VIDEO ANALYST.
-                Construct a frame-by-frame psychological and visual reconstruction of this video.
-                
-                YOUR MANDATE:
-                1. 🌍 SCENE & ATMOSPHERE: Where is this? Lighting (Day/Night)? Professional studio or amateur bedroom? Chaos or Calm?
-                2. 👥 PROFILING (Crucial): Detect EVERY person. Estimate Age, Gender, Role (Influencer, Interviewer, Victim).
-                   - 🔥 MICRO-EXPRESSIONS: Are they truly happy or faking it? Angry? Sarcastic? Desperate? (Look at eyes and mouth).
-                3. 🎬 ACTION SCRIPT: What is happening? Who hits who? Who laughs? Who falls? Document the PHYSICALITY.
-                4. 🔠 OCR & TEXT LAYER: Transcribe EVERY WORD onscreen (Captions, Banners, T-Shirts). Contextualize them.
-                5. 🔮 THE SUBTEXT (The "Vibe"): Is this satire? Cringe? Motivational? Rage-bait? Wholesome?
-                
-                OUTPUT FORMAT:
-                [SCENE]: ...
-                [PEOPLE]: ...
-                [ACTION]: ...
-                [OCR]: ...
-                [VIBE]: ...
-                
-                BE MERCILESSLY DETAILED. DO NOT MISS A BLINK.
-                """
-            })
-            
-            # Invoke Vision Model (Llama 3.2 90B - Updated)
-            vision_response = oracle_client.generate_content(
-                vision_payload, 
-                model="llama-3.2-11b-vision-preview" 
+            # Use unified method with cache and intelligent frame selection
+            vision_result = await vision.analyze_unified(
+                source=request.visual_frames,
+                use_cache=True
             )
-            visual_description = vision_response.text.strip()
-            print(f"👁️ Visual Insight: {visual_description[:100]}...")
+            
+            visual_description = vision_result.get("visual_description", "")
+            frames_analyzed = vision_result.get("frames_analyzed", 0)
+            
+            if visual_description:
+                print(f"[VISION] Visual context obtained ({frames_analyzed} frames): {visual_description[:100]}...")
+            else:
+                print(f"[VISION] Analysis returned empty (error: {vision_result.get('error', 'unknown')})")
             
         except Exception as e:
-            print(f"⚠️ Visual Analysis Failed: {e}")
+            print(f"[VISION] Visual Analysis Failed: {e}")
 
     trends_context = f"REAL-TIME TRENDING TAGS (Use these if relevant): {', '.join(real_trends)}" if real_trends else ""
 
@@ -546,22 +517,54 @@ async def audit_profile(profile_id: str):
     if not metadata:
         raise HTTPException(status_code=404, detail="Profile not found")
     
-    # 📸 Visual Audit: Capture Full Page Screenshot
+    # Visual Audit: Capture Full Page Screenshot
     username = metadata.get("username") or metadata.get("unique_id")
+    avatar_analysis = {}
+    
     if username:
         try:
-            print(f"📸 Starting Visual Audit Scan for @{username}...")
+            print(f"[AUDIT] Starting Visual Audit Scan for @{username}...")
             # oracle.sense is already async, keep as is
             screenshot_path = await oracle.sense.capture_profile_screenshot(username)
             if screenshot_path:
                 metadata["screenshot_path"] = screenshot_path
                 # Persist screenshot path (sync DB write)
                 await run_in_threadpool(session_manager.update_profile_metadata, profile_id, {"screenshot_path": screenshot_path})
+                
+                # [SYN-VISION] Analyze avatar if available
+                import os
+                avatar_path = metadata.get("avatar_path") or metadata.get("profile_pic_path")
+                if avatar_path and os.path.exists(avatar_path):
+                    try:
+                        from core.oracle.faculties.vision import VisionFaculty
+                        from core.oracle import oracle_client
+                        
+                        vision = VisionFaculty(oracle_client)
+                        print(f"[VISION] Analyzing avatar for SEO audit...")
+                        avatar_analysis = await vision.analyze_avatar_for_audit(avatar_path)
+                        print(f"[VISION] Avatar score: {avatar_analysis.get('avatar_score', 'N/A')}")
+                    except Exception as ve:
+                        print(f"[VISION] Avatar analysis failed: {ve}")
+                        
         except Exception as e:
-            print(f"⚠️ Visual Audit Scan Failed: {e}")
+            print(f"[AUDIT] Visual Audit Scan Failed: {e}")
 
     # Run blocking analysis engine
     result = await run_in_threadpool(seo_engine.audit_profile, metadata)
+    
+    # Merge avatar analysis into result
+    if avatar_analysis:
+        result["avatar_analysis"] = avatar_analysis
+        # Add to recommendations if score is low
+        if avatar_analysis.get("avatar_score", 10) < 6:
+            if "recommendations" not in result:
+                result["recommendations"] = []
+            result["recommendations"].insert(0, {
+                "type": "avatar",
+                "priority": "high",
+                "message": "Melhore sua foto de perfil",
+                "suggestions": avatar_analysis.get("avatar_suggestions", [])
+            })
     
     # Auto-save last audit (sync DB write)
     await run_in_threadpool(session_manager.update_profile_metadata, profile_id, {"last_seo_audit": result})

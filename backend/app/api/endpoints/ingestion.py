@@ -38,7 +38,8 @@ async def upload_video(
     profile_id: str = Form(...),
     caption: Optional[str] = Form(None),
     schedule_time: Optional[str] = Form(None),
-    viral_music_enabled: bool = Form(False)
+    viral_music_enabled: bool = Form(False),
+    privacy_level: str = Form("public_to_everyone")  # [SYN-FIX] Added privacy_level
 ):
     """
     Upload a video file for automated processing.
@@ -139,6 +140,7 @@ async def upload_video(
             "viral_music_enabled": viral_music_enabled,
             "original_filename": file.filename,
             "profile_id": profile_id,
+            "privacy_level": privacy_level, # [SYN-FIX] Save privacy_level
             "uploaded_at": str(uuid.uuid1()),
             "oracle_status": "pending"
         }
@@ -185,7 +187,7 @@ async def upload_video(
         )
 
 # Background Task for Oracle
-def process_oracle_enrichment(metadata_path: str, original_filename: str, profile_id: str):
+async def process_oracle_enrichment(metadata_path: str, original_filename: str, profile_id: str):
     try:
         from core.oracle.seo_engine import seo_engine
         import json
@@ -194,7 +196,7 @@ def process_oracle_enrichment(metadata_path: str, original_filename: str, profil
         
         # 1. Generate Content Metadata
         # TODO: Get actual profile niche from Profile Metadata (omitted for speed, defaulting to 'General')
-        analysis = seo_engine.generate_content_metadata(original_filename, niche="General")
+        analysis = await seo_engine.generate_content_metadata(original_filename, niche="General")
         
         # 2. Update JSON
         if os.path.exists(metadata_path):

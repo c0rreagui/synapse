@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from core.scheduler import scheduler_service
-from typing import List
+from typing import List, Dict
 from .. import websocket
 
 router = APIRouter()
@@ -172,6 +172,7 @@ class BatchScheduleRequest(BaseModel):
     privacy_level: str = "public"  # 🔒 [SYN-NEW] Visibility (public/private)
     dry_run: bool = False  # 🧠 Se True, apenas valida sem agendar
     force: bool = False  # 🧠 Se True, ignora warnings e agenda mesmo assim
+    file_metadata: Dict[str, Dict] = {} # [SYN-FIX] Per-file metadata (captions, etc.)
 
 @router.post("/batch")
 async def batch_schedule(request: BatchScheduleRequest):
@@ -188,11 +189,21 @@ async def batch_schedule(request: BatchScheduleRequest):
     from core.smart_logic import smart_logic
     
     try:
+        from zoneinfo import ZoneInfo
         # [SYN-FIX] Handle 'Z' suffix for Python < 3.11 compatibility
         clean_time = request.start_time.replace("Z", "+00:00")
         start_dt = datetime.fromisoformat(clean_time)
-    except:
-        raise HTTPException(status_code=400, detail=f"Invalid start_time format. Use ISO 8601. Received: {request.start_time}")
+        
+        # [SYN-TIMEZONE] Force conversion to America/Sao_Paulo for consistency
+        # This ensures that even if frontend sends UTC, we store and process in Local Time
+        local_tz = ZoneInfo("America/Sao_Paulo")
+        if start_dt.tzinfo is None:
+             start_dt = start_dt.replace(tzinfo=local_tz)
+        else:
+             start_dt = start_dt.astimezone(local_tz)
+             
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid start_time format. Use ISO 8601. Received: {request.start_time}. Error: {e}")
 
     # 🧠 1. Construir lista de eventos para validação
     validation_events = []
@@ -323,7 +334,8 @@ async def batch_schedule(request: BatchScheduleRequest):
                 sound_id=current_sound_id,
                 sound_title=current_sound_title,
                 smart_captions=request.smart_captions,
-                privacy_level=request.privacy_level
+                privacy_level=request.privacy_level,
+                caption=request.file_metadata.get(filename, {}).get("caption") if request.file_metadata else None
             )
             events.append(event)
             

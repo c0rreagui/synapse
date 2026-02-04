@@ -240,7 +240,6 @@ export function BatchCaptionEditor() {
                         src={file.preview || undefined}
                         className="w-full h-full object-cover"
                         controls
-                        crossOrigin="anonymous" // Important for canvas
                         autoPlay
                         loop
                         muted

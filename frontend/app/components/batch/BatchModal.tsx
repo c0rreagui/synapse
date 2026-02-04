@@ -79,7 +79,7 @@ export default function UniversalModal({
                             )}>
 
                                 {mode === 'batch' ? (
-                                    <BatchProvider existingProfiles={profiles} initialFiles={initialFiles} initialPreload={initialPreload} onClose={onClose} onSuccess={onSuccess}>
+                                    <BatchProvider existingProfiles={profiles} initialFiles={initialFiles} initialPreload={initialPreload} initialDate={initialDate} onClose={onClose} onSuccess={onSuccess}>
                                         <div className="flex flex-1 h-full overflow-hidden relative">
                                             <BatchSidebar />
                                             <BatchMain />

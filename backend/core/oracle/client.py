@@ -20,7 +20,7 @@ class OracleClient:
             
         try:
             self.client = Groq(api_key=self.api_key)
-            print("OracleClient: Connected to Groq (Llama 3.3 & 3.2 Vision)")
+            print("OracleClient: Connected to Groq (Llama 3.3 & Llama 4 Maverick Vision)")
         except Exception as e:
             print(f"Groq Init Failed: {e}")
             self.client = None
@@ -71,9 +71,8 @@ class OracleClient:
              models_to_try.append("llama-3.1-8b-instant")
         
         if is_vision:
-             # Vision Model: Llama 3.2 11B / or 90B
-             # Current Groq Vision model identifier (Updated: 2026-02-04):
-             models_to_try = ["llama-3.2-11b-vision-preview"]
+             # Vision Model: Llama 4 Maverick (Updated: 2026-02-04)
+             models_to_try = ["meta-llama/llama-4-maverick-17b-128e-instruct"]
 
              # [SYN-SMART] Respect User Choice if it's a known Vision Model
              req_model = kwargs.get("model", "").lower()
@@ -158,9 +157,19 @@ class OracleClient:
                 if "rate_limit" in error_str or "429" in error_str:
                     print(f"⚠️ Rate Limit hit on {model}. Retrying with fallback (if avail)...")
                     last_error = e
+                    time.sleep(1) # Backoff
                     continue # Try next model
+                elif any(x in error_str for x in ["500", "502", "503", "504", "connection", "timeout"]):
+                     print(f"⚠️ Transient Error ({e}) on {model}. Retrying...")
+                     last_error = e
+                     time.sleep(2)
+                     # Retry same model once? or continue?
+                     # Simple logic: If we have multiple models, switching is safer. 
+                     # If we are on the last model, we might want to retry it.
+                     # For now, continue to next fallback if available.
+                     continue
                 else:
-                    raise e # Other errors override fallback
+                    raise e # Client errors (400, 401) fail immediately
                     
         # If loop finishes without return
         if last_error:

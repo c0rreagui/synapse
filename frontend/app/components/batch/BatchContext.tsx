@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import { TikTokProfile as Profile } from '@/app/types';
 import { toast } from 'sonner';
 import { getApiUrl } from '../../utils/apiClient';
+import { format } from 'date-fns';
 
 // Types
 export interface FileUpload {
@@ -82,11 +83,12 @@ interface BatchProviderProps {
     existingProfiles: Profile[];
     initialFiles?: File[];
     initialPreload?: InitialFilePreload[]; // New Prop
+    initialDate?: Date; // [SYN-FIX] Accept initial date for calendar context
     onClose: () => void;
     onSuccess: () => void;
 }
 
-export function BatchProvider({ children, existingProfiles, initialFiles = [], initialPreload = [], onClose, onSuccess }: BatchProviderProps) {
+export function BatchProvider({ children, existingProfiles, initialFiles = [], initialPreload = [], initialDate, onClose, onSuccess }: BatchProviderProps) {
     // --- State ---
     const [files, setFiles] = useState<FileUpload[]>([]);
 
@@ -148,7 +150,7 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
         if (newFiles.length > 0) {
             setFiles(newFiles);
         }
-    }, [initialFiles, initialPreload]);
+    }, [initialFiles, initialPreload, existingProfiles]);
     const [selectedProfiles, setSelectedProfiles] = useState<string[]>([]);
 
     // Time Defaults
@@ -157,7 +159,12 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
     const defaultDate = now.toISOString().split('T')[0];
     const defaultTime = now.toTimeString().slice(0, 5); // HH:MM
 
-    const [startDate, setStartDate] = useState(defaultDate);
+    // [SYN-FIX] Use initialDate if provided (e.g. from Calendar click)
+    const initDateStr = initialDate ? format(initialDate, 'yyyy-MM-dd') : defaultDate;
+    // Keep default time logic (now + 30) unless we want to enforce time too. 
+    // Usually calendar click is just for the Day.
+
+    const [startDate, setStartDate] = useState(initDateStr);
     const [startTime, setStartTime] = useState(defaultTime);
     const [strategy, setStrategy] = useState<ScheduleStrategy>('INTERVAL');
     const [intervalMinutes, setIntervalMinutes] = useState(60);
@@ -189,11 +196,16 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
         const filePaths = files.map(f => f.isRemote ? f.filename : `C:\\Videos\\${f.filename}`);
         const startDateTime = new Date(`${startDate}T${startTime}`);
 
+        // [SYN-FIX] Send Local ISO string (no 'Z') to ensure Backend treats it as Local Time (Sao Paulo)
+        // toISOString() converts to UTC (e.g. 15:00 -> 18:00Z), which creates offset confusion.
+        // We want 15:00 Input -> 15:00 Saved.
+        const startIsoLocal = format(startDateTime, "yyyy-MM-dd'T'HH:mm:ss");
+
         const payload = {
             files: filePaths,
             profile_ids: selectedProfiles,
             strategy: strategy,
-            start_time: startDateTime.toISOString(),
+            start_time: startIsoLocal,
             interval_minutes: intervalMinutes,
             dry_run: true
         };
@@ -238,6 +250,8 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
                 }
                 // Use first profile for "owner" tag, though batch is multi-profile. 
                 formData.append("profile_id", selectedProfiles[0] || "batch_upload");
+                // [SYN-FIX] Pass privacy_level to Ingestion
+                formData.append("privacy_level", privacyLevel || "public_to_everyone");
 
                 try {
                     const API_URL = getApiUrl();
@@ -298,11 +312,15 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
             // Let's check `scheduler.py` or similar if I could.
             // But strict "upload then validation" flow:
 
+            // [SYN-FIX] Send Local ISO string (no 'Z')
+            const startDateTime = new Date(`${startDate}T${startTime}`);
+            const startIsoLocal = format(startDateTime, "yyyy-MM-dd'T'HH:mm:ss");
+
             const payloadStub = {
                 files: uploadedPaths, // Validated filenames on server
                 profile_ids: selectedProfiles,
                 strategy,
-                start_time: new Date(`${startDate}T${startTime}`).toISOString(),
+                start_time: startIsoLocal,
                 interval_minutes: intervalMinutes,
                 dry_run: true
             };
@@ -341,6 +359,14 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
             }
 
             // 3. Final Execution Phase
+            // [SYN-FIX] Build file metadata map for captions
+            const fileMetadata: Record<string, any> = {};
+            uploadedPaths.forEach((path, idx) => {
+                fileMetadata[path] = {
+                    caption: files[idx]?.metadata?.caption // Extract manual caption if present
+                };
+            });
+
             const finalPayload = {
                 ...payloadStub,
                 dry_run: false,
@@ -348,7 +374,8 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
                 viral_music_enabled: viralBoost,
                 mix_viral_sounds: viralBoost && mixViralSounds,
                 smart_captions: true,
-                privacy_level: privacyLevel
+                privacy_level: privacyLevel,
+                file_metadata: fileMetadata
             };
 
             const res = await fetch(`${API_URL}/api/v1/scheduler/batch`, {

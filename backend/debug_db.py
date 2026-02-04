@@ -10,7 +10,7 @@ def list_items():
         items = db.query(ScheduleItem).all()
         print(f"Found {len(items)} items:")
         for i in items:
-            print(f"ID: {i.id} | Slug: {i.profile_slug} | Path: {i.video_path} | Time: {i.scheduled_time}")
+            print(f"ID: {i.id} | Slug: {i.profile_slug} | Path: {i.video_path} | Time: {i.scheduled_time} | Status: {i.status}")
     except Exception as e:
         print(e)
     finally:

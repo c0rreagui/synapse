@@ -50,9 +50,12 @@ class Scheduler:
                 meta = item.metadata_info if item.metadata_info else {}
                 
                 # Ensure we return UTC-aware string so frontend converts to Local correctly
+                # Ensure we return Aware string (Sao Paulo)
                 s_time = item.scheduled_time
                 if s_time and s_time.tzinfo is None:
-                    s_time = s_time.replace(tzinfo=timezone.utc)
+                    # [SYN-FIX] Naive in DB = Sao Paulo Time (User Local)
+                    # Previously was timezone.utc, which caused 15:00 -> 12:00 shift
+                    s_time = s_time.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
 
                 event = {
                     "id": str(item.id),
@@ -76,7 +79,7 @@ class Scheduler:
         finally:
             db.close()
 
-    def add_event(self, profile_id: str, video_path: str, scheduled_time: str, viral_music_enabled: bool = False, music_volume: float = 0.0, sound_id: str = None, sound_title: str = None, smart_captions: bool = False, privacy_level: str = "public") -> Dict:
+    def add_event(self, profile_id: str, video_path: str, scheduled_time: str, viral_music_enabled: bool = False, music_volume: float = 0.0, sound_id: str = None, sound_title: str = None, smart_captions: bool = False, privacy_level: str = "public", caption: str = None) -> Dict:
         """Schedules a new video upload."""
         
         # [SYN-FIX] Auto-move from Pending -> Approved
@@ -126,7 +129,8 @@ class Scheduler:
                 "sound_id": sound_id,
                 "sound_title": sound_title,
                 "smart_captions": smart_captions,
-                "privacy_level": privacy_level
+                "privacy_level": privacy_level,
+                "caption": caption
             }
             
             # Race Condition Check: Prevent duplicate scheduling for same video/time
@@ -166,7 +170,7 @@ class Scheduler:
                 "id": str(new_item.id),
                 "profile_id": new_item.profile_slug,
                 "video_path": new_item.video_path,
-                "scheduled_time": new_item.scheduled_time.replace(tzinfo=timezone.utc).isoformat() if new_item.scheduled_time.tzinfo is None else new_item.scheduled_time.isoformat(),
+                "scheduled_time": new_item.scheduled_time.replace(tzinfo=ZoneInfo("America/Sao_Paulo")).isoformat() if new_item.scheduled_time.tzinfo is None else new_item.scheduled_time.isoformat(),
                 "viral_music_enabled": viral_music_enabled,
                 "music_volume": music_volume,
                 "sound_id": sound_id,

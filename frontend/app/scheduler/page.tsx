@@ -338,7 +338,7 @@ export default function SchedulerPage() {
                 onEditEvent={handleEditEvent}
                 onAddEvent={() => {
                     setIsDayDetailsOpen(false);
-                    setUploadModal({ isOpen: true, mode: 'single', date: modalDate });
+                    setUploadModal({ isOpen: true, mode: 'batch', date: modalDate });
                 }}
             />
         </>

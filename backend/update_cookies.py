@@ -1,0 +1,448 @@
+
+import json
+import datetime
+import sys
+import os
+
+# Ensure core is found
+sys.path.append('/app')
+
+from core.database import SessionLocal
+from core.models import Profile, ScheduleItem
+
+cookies_str = r"""[
+  {
+    "domain": ".www.tiktok.com",
+    "expirationDate": 1796090282,
+    "hostOnly": false,
+    "httpOnly": false,
+    "name": "tiktok_webapp_theme_source",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "auto"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1773970907.163119,
+    "hostOnly": false,
+    "httpOnly": false,
+    "name": "passport_csrf_token",
+    "path": "/",
+    "sameSite": "no_restriction",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "235e95926a8429254b92fe63ce8cca3f"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1773970907.163252,
+    "hostOnly": false,
+    "httpOnly": false,
+    "name": "passport_csrf_token_default",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "235e95926a8429254b92fe63ce8cca3f"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1773970944.381454,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "multi_sids",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "6927399291040711686%3Ad278273e2131c1e7f108d3f91a16c1b3"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1773970944.38157,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "cmpl_token",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "AgQYAPNk_hfkTtKwHf5UT_SdP_MMEuVmVL-X72CiS5I"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1799890944.381597,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "sid_guard",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "d278273e2131c1e7f108d3f91a16c1b3%7C1768786946%7C15552000%7CSat%2C+18-Jul-2026+01%3A42%3A26+GMT"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1784338944.381626,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "uid_tt",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "4d290c7b24eed8dec0c92c24fa6665b8132618728fe3da4f892f099fab568686"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1784338944.381652,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "uid_tt_ss",
+    "path": "/",
+    "sameSite": "no_restriction",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "4d290c7b24eed8dec0c92c24fa6665b8132618728fe3da4f892f099fab568686"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1784338944.381677,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "sid_tt",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "d278273e2131c1e7f108d3f91a16c1b3"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1784338944.381703,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "sessionid",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "d278273e2131c1e7f108d3f91a16c1b3"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1784338944.381728,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "sessionid_ss",
+    "path": "/",
+    "sameSite": "no_restriction",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "d278273e2131c1e7f108d3f91a16c1b3"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1784338944.381754,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "tt_session_tlb_tag",
+    "path": "/",
+    "sameSite": "no_restriction",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "sttt%7C1%7C0ngnPiExwefxCNP5GhbBs_________-m5msZMRreWjBctyUE2GyHQbjT-ZHWAkewifPnUHc8dnk%3D"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1784338944.38178,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "sid_ucp_v1",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "1.0.1-KGU4YjhmNDY5YmJhN2EyZWZiM2I1OTZiYzQ3Njg2ZDIyYWNkOTZlNWMKIgiGiJm-vJ7EkWAQgpi2ywYYswsgDDCY3Z3GBjgHQPQHSAQQAxoGbWFsaXZhIiBkMjc4MjczZTIxMzFjMWU3ZjEwOGQzZjkxYTE2YzFiMzJOCiAl_we2A5fpAvCFV_V7zgVP-0tBHua9w7bWHW1im4dKaRIgO7sUazpXHMwU1cw-rC7JhgfYlilkj8Dn9HTHeoSE688YAiIGdGlrdG9r"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1784338944.38181,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "ssid_ucp_v1",
+    "path": "/",
+    "sameSite": "no_restriction",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "1.0.1-KGU4YjhmNDY5YmJhN2EyZWZiM2I1OTZiYzQ3Njg2ZDIyYWNkOTZlNWMKIgiGiJm-vJ7EkWAQgpi2ywYYswsgDDCY3Z3GBjgHQPQHSAQQAxoGbWFsaXZhIiBkMjc4MjczZTIxMzFjMWU3ZjEwOGQzZjkxYTE2YzFiMzJOCiAl_we2A5fpAvCFV_V7zgVP-0tBHua9w7bWHW1im4dKaRIgO7sUazpXHMwU1cw-rC7JhgfYlilkj8Dn9HTHeoSE688YAiIGdGlrdG9r"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1801703755.861572,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "store-idc",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": false,
+    "session": false,
+    "storeId": "0",
+    "value": "alisg"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1801703755.861704,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "store-country-code",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": false,
+    "session": false,
+    "storeId": "0",
+    "value": "br"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1801703755.861747,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "store-country-code-src",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": false,
+    "session": false,
+    "storeId": "0",
+    "value": "uid"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1801703755.861789,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "tt-target-idc",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": false,
+    "session": false,
+    "storeId": "0",
+    "value": "alisg"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1801703755.86183,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "tt-target-idc-sign",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": false,
+    "session": false,
+    "storeId": "0",
+    "value": "NINW4YGjjLe8aIAcVXDZ1IWrGXpQGSMXs4bwKKbta6HG6PqHvLXv86ZtEr8ZqBwcgjX9cFMQ6BdEqu4ZVMSfaF_Wn1nJPaRARlxbb9Ix0WdlbhFD0sypufKoN0IIIb6R-QizfPvGrNloGjS4TkujoCsbB-LCu3eSIiMGmz0oyuTRqll5TDelOK-P8l6-udtHMrWUw5mMz6BxFTLHZmDu8mRfwBD-h_ifChUeDafuzOaeLP70kLpPO4HfWRCTZR7cN5EZL12TGG_gDimKycKipoo1UJyfP89o1LZfm46RfMV1JgJA-ywDrw9VABKyZxaSgoI3F7o8uoR99SHEjs6GyIJ1QWA6Y7DPB3GwSGGk_ekc86ErYuCPE4H23kmGaY9r-5adnMUrfX9gdkVLPt0fSl8FUMXFQLOvcLmFcArId13_rrpOB0sncL5AZH2y4ZbrUbsfhH2Bbm04ka9IW6J6E2h-8cvLAJ6aDi3PPv-Uem1a-shA8UvvgH17NlW8ywzp"
+  },
+  {
+    "domain": "www.tiktok.com",
+    "expirationDate": 1776562944,
+    "hostOnly": true,
+    "httpOnly": false,
+    "name": "last_login_method",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": false,
+    "session": false,
+    "storeId": "0",
+    "value": "QRcode"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1785719751.407237,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "tt_chain_token",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "bHh6h72jeRMaYzs0Ji7UDA=="
+  },
+  {
+    "domain": ".www.tiktok.com",
+    "expirationDate": 1794706949,
+    "hostOnly": false,
+    "httpOnly": false,
+    "name": "delay_guest_mode_vid",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "5"
+  },
+  {
+    "domain": ".tiktok.com",
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "tt_csrf_token",
+    "path": "/",
+    "sameSite": "lax",
+    "secure": true,
+    "session": true,
+    "storeId": "0",
+    "value": "r7xdAtP7-GYHf2-A43f3t-yfy2mCGDgV5x0o"
+  },
+  {
+    "domain": ".tiktok.com",
+    "hostOnly": false,
+    "httpOnly": false,
+    "name": "s_v_web_id",
+    "path": "/",
+    "sameSite": "no_restriction",
+    "secure": true,
+    "session": true,
+    "storeId": "0",
+    "value": "verify_ml41z3zp_UBayqVNX_bnEM_4FiE_8SwE_p2CRZPXSiEWd"
+  },
+  {
+    "domain": ".www.tiktok.com",
+    "expirationDate": 1796090282,
+    "hostOnly": false,
+    "httpOnly": false,
+    "name": "tiktok_webapp_theme",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "dark"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1801703754.829858,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "ttwid",
+    "path": "/",
+    "sameSite": "no_restriction",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "1%7CsSOKjApc9Gb0hlQxTey7UiOWHFX5-V7OgNBIagPCqmw%7C1770167754%7C0b210da862d6cc4a4e7e33033ef13bfdd05106febde30839611432d785e59eed"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1801703755.861651,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "store-country-sign",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": false,
+    "session": false,
+    "storeId": "0",
+    "value": "MEIEDBfcN7mVckv5h460ugQgxizwsbS5gxz66ItjG04anFLQfu5UY45IM_UlNQ-w2qoEEF44AWmtZie2VhRdZUq1EAA"
+  },
+  {
+    "domain": ".www.tiktok.com",
+    "expirationDate": 1770781088,
+    "hostOnly": false,
+    "httpOnly": false,
+    "name": "perf_feed_cache",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "{%22expireTimestamp%22:1770346800000%2C%22itemIds%22:[%227596169338734873874%22%2C%227595479631466089746%22%2C%227600154047051468050%22]}"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1801713369.691502,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "odin_tt",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure":false,
+    "session":false,
+    "storeId":"0",
+    "value":"93d472e2155559c989eab8dfd5bdc552995286245791764531ef56e8aa8c85728e2cd9a7347fd4f13c40bc4e2c69fed6c2a91d13b726d71365bc2a88a23910787ea1d91ad7aac5c2d4ea72a36a6a93d7"
+  },
+  {
+    "domain": "www.tiktok.com",
+    "expirationDate": 1777953430,
+    "hostOnly": true,
+    "httpOnly": false,
+    "name": "msToken",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": false,
+    "session": false,
+    "storeId": "0",
+    "value": "cNj0KDIbV2Uy4k3T100fwi40Vs4rQ8Q_oLIiXyRcPL1IikIFY4sHBzP0Mj3qTLixbdANIVFMpc12mPOL5uYbcYgaYDP6KFR79bohw9KWrxx87HtxVxIEzrHclfgyj_--TupofcSTavJeq2E="
+  },
+  {
+    "domain": ".www.tiktok.com",
+    "hostOnly": false,
+    "httpOnly": false,
+    "name": "passport_fe_beating_status",
+    "path": "/",
+    "sameSite": "unspecified",
+    "secure": false,
+    "session": true,
+    "storeId": "0",
+    "value": "false"
+  },
+  {
+    "domain": ".tiktok.com",
+    "expirationDate": 1771041511.544793,
+    "hostOnly": false,
+    "httpOnly": false,
+    "name": "msToken",
+    "path": "/",
+    "sameSite": "no_restriction",
+    "secure": true,
+    "session": false,
+    "storeId": "0",
+    "value": "O7lrTRkb07R69eNMhwylVKVr-TVXTdfVQGD5Eqt_PMcv9bekr1NXAy59CyrclPYYGA2uNoo8yEtS5tHgc_j89SgL9dJ5hTwZG3Pe0DbCpvIBBRAA8kXwD3Erk4JJTu_vlDWdfqFEfMN9dH4="
+  }
+]"""
+
+db = SessionLocal()
+# Correct ID found in DB is '1'
+p = db.query(Profile).filter_by(id='1').first()
+
+
+if p:
+    p.cookies = json.loads(cookies_str)
+    p.is_active = True
+    print("Profile cookies updated & activated.")
+else:
+    print("Profile not found.")
+
+item = db.query(ScheduleItem).order_by(ScheduleItem.id.desc()).first()
+if item:
+    item.profile_slug = '1' # Fix broken reference
+    item.status = 'pending'
+    item.scheduled_time = datetime.datetime.now()
+    print("Schedule item and slug reset to pending (now).")
+
+db.commit()

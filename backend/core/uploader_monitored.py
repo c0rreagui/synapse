@@ -323,8 +323,185 @@ async def upload_video_monitored(
             await monitor.capture_full_state(page, "pos_dom_nuker",
                                             "DOM Nuker executado - Overlays e tutoriais removidos")
 
+        # ========== PRIVACY SETTINGS (FIRST PRIORITY) ==========
+        # [SYN-FIX] Set Privacy First per user request to ensure correct status during analysis
+        logger.info(f"🔒 Configurando privacidade PRIORITÁRIA para: {privacy_level}")
+        try:
+            await nuke_modals(page)
+            
+            # 1. Scroll to Bottom to find Configs/Privacy
+            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            await page.wait_for_timeout(1000)
+            
+            # 2. Find Privacy Trigger (Combobox or Radio)
+            privacy_found = False
+            
+            # Map internal keys to UI labels (Regex)
+            # [SYN-FIX] Expanded Regex for PT-BR / EN
+            privacy_map = {
+                "public_to_everyone": [re.compile(r"Todos|Everyone|Public|Público", re.I)],
+                "mutual_follow_friends": [re.compile(r"Amigos|Friends|Seguidores|Followers", re.I)],
+                "self_only": [re.compile(r"Somente (eu|você|voce)|Only me|Private|Privado|Apenas eu", re.I)]
+            }
+            
+            target_patterns = privacy_map.get(privacy_level, privacy_map["public_to_everyone"])
+            
+            # [SYN-FIX] Iterative Strategy with contenteditable check
+            candidates = page.locator('.tiktok-select-selector, [role="combobox"], .tux-select-selector')
+            count = await candidates.count()
+            
+            logger.info(f"🔒 Encontrados {count} comboboxes candidatos para privacidade.")
+            
+            for i in range(count):
+                el = candidates.nth(i)
+                if not await el.is_visible(): continue
+                
+                # [SYN-FIX] Avoid Description Box (role=combobox for mentions)
+                if await el.get_attribute("contenteditable") == "true":
+                     continue
+                
+                txt = await el.text_content() or ""
+                # Check if this element looks like Privacy Selector
+                if re.search(r"Quem pode|Who can|Todos|Everyone|Amigos|Friends|Somente|Only|Privado|Private|Apenas", txt, re.I):
+                    logger.info(f"🔒 Clicando candidato {i} com texto: '{txt.strip()}'")
+                    await el.scroll_into_view_if_needed()
+                    try:
+                        await el.click(timeout=2000)
+                    except:
+                        await el.click(force=True)
+                    
+                    await page.wait_for_timeout(1000)
+                    if monitor:
+                         await monitor.capture_full_state(page, f"debug_menu_open_{i}", f"Menu aberto? {txt.strip()}")
+                    
+                    # Try to find target option in the OPEN menu
+                    option_clicked = False
+                    for pattern in target_patterns:
+                        # [SYN-FIX] Broader Option Search using Playwright text regex
+                        pat_source = pattern.pattern.replace('(?i)', '')
+                        
+                        # Search visible text matching pattern
+                        opt = page.locator(f"text=/{pat_source}/i")
+                        
+                        opt_count = await opt.count()
+                        if opt_count > 0:
+                            o = opt.last
+                            if await o.is_visible():
+                                await o.click(force=True)
+                                logger.info(f"✅ Opção '{pat_source}' selecionada (via text locator)!")
+                                option_clicked = True
+                                privacy_found = True
+                                break
+                                
+                    if option_clicked:
+                        break
+                    if option_clicked:
+                        break
+                    else:
+                        # [SYN-FIX] Option click failed. Try Keyboard Navigation.
+                        logger.info("⚠️ Opção não encontrada via clique. Tentando Teclado (Arrow Keys)...")
+                        try:
+                            await el.focus()
+                            found_via_keys = False
+                            # Try navigating down (Public -> Friends -> Private)
+                            for _ in range(3):
+                                await page.keyboard.press("ArrowDown")
+                                await page.wait_for_timeout(300)
+                                
+                                curr_txt = await el.text_content() or ""
+                                # Check if text matches current privacy level target
+                                for pattern in target_patterns:
+                                    if pattern.search(curr_txt):
+                                        found_via_keys = True
+                                        privacy_found = True
+                                        logger.info(f"✅ Privacidade definida via Teclado: {curr_txt}")
+                                        await page.keyboard.press("Enter")
+                                        break
+                                if found_via_keys: break
+                            
+                            if found_via_keys:
+                                 break
+                            else:
+                                 await page.keyboard.press("Escape")
+                        except Exception as e:
+                            logger.warning(f"Erro no fallback de teclado: {e}") 
+                            await page.keyboard.press("Escape")
+            
+            # B. Radio Group Approach (Older UI)
+            if not privacy_found:
+                logger.info("🔒 Tentando Radio Group de privacidade...")
+                for pattern in target_patterns:
+                    radio = page.locator('label, div').filter(has_text=pattern).last
+                    if await radio.count() > 0 and await radio.is_visible():
+                        await radio.click()
+                        privacy_found = True
+                        logger.info(f"✅ Privacidade definida via Radio Group: {privacy_level}")
+                        break
+
+            # C. JavaScript Label Search (Robustest Fallback)
+            if not privacy_found:
+                logger.info("🔒 Tentando Estratégia JS baseada em Texto...")
+                js_success = await page.evaluate(f"""(target_pattern_str) => {{
+                    const labels = Array.from(document.querySelectorAll('div, h3, h4, span, label')).filter(el => 
+                        /Quem pode|Who can/i.test(el.innerText) && el.innerText.length < 50
+                    );
+                    if (labels.length > 0) {{
+                        const label = labels[labels.length - 1];
+                        console.log("Found privacy label:", label.innerText);
+                        let sibling = label.nextElementSibling;
+                        while(sibling) {{
+                            if (sibling.matches('[role="combobox"], .tiktok-select-selector') || sibling.querySelector('[role="combobox"]')) {{
+                                const target = sibling.matches('[role="combobox"]') ? sibling : sibling.querySelector('[role="combobox"]');
+                                target.click();
+                                return "clicked_combo";
+                            }}
+                            sibling = sibling.nextElementSibling;
+                        }}
+                    }}
+                    return "not_found";
+                }}""", "")
+                
+                if js_success == "clicked_combo":
+                    await page.wait_for_timeout(500)
+                    for pattern in target_patterns:
+                         pat_str = pattern.pattern.replace("(?i)", "")
+                         await page.evaluate(f"""(pat) => {{
+                            const options = Array.from(document.querySelectorAll('[role="option"], li, div'));
+                            const target = options.find(el => new RegExp(pat, 'i').test(el.innerText));
+                            if (target) {{
+                                target.click();
+                                return true;
+                            }}
+                            return false;
+                         }}""", pat_str)
+                         privacy_found = True
+                         logger.info(f"✅ Privacidade definida via JS Search: {privacy_level}")
+                         break
+
+            if not privacy_found:
+                logger.warning(f"⚠️ Não foi possível definir privacidade para {privacy_level}. Usando padrão.")
+            
+            if monitor:
+                await monitor.capture_full_state(page, "pos_privacidade_priority", f"Privacidade Prioritária: {privacy_level}")
+                
+            # Scroll Back to Top for Caption
+            await page.evaluate("window.scrollTo(0, 0)")
+            await page.wait_for_timeout(500)
+
+        except Exception as e:
+            logger.error(f"❌ Erro ao configurar privacidade (Prioridade): {e}")
+
         # ========== PREENCHIMENTO DA LEGENDA (FOCO ALVO) ==========
-        full_caption = f"{caption} " + " ".join([f"#{h}" for h in hashtags]) if hashtags else caption
+        # Normalize hashtags: ensure each has exactly one # prefix (avoid ##)
+        if hashtags:
+            normalized_tags = []
+            for h in hashtags:
+                tag = h.lstrip('#')  # Remove any leading #
+                if tag:  # Avoid empty tags
+                    normalized_tags.append(f"#{tag}")
+            full_caption = f"{caption} " + " ".join(normalized_tags)
+        else:
+            full_caption = caption
         
         logger.info("📝 Preenchendo legenda...")
         editor = page.locator('.public-DraftEditor-content')
@@ -456,115 +633,7 @@ async def upload_video_monitored(
 
 
 
-        # ========== PRIVACY SETTINGS (QUEM PODE ASSISTIR) ==========
-        await nuke_modals(page)
-        logger.info(f"🔒 Configurando privacidade para: {privacy_level}")
-        try:
-            # 1. Scroll to visibility
-            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await page.wait_for_timeout(500)
 
-            # 2. Find Privacy Trigger (Combobox or Radio)
-            # TikTok Studio often uses a Combobox or a Radio Group
-            privacy_found = False
-            
-            # Map internal keys to UI labels (Regex)
-            privacy_map = {
-                "public_to_everyone": [re.compile(r"Todos|Everyone|Public|Público", re.I)],
-                "mutual_follow_friends": [re.compile(r"Amigos|Friends|Seguidores|Followers", re.I)],
-                "self_only": [re.compile(r"Somente eu|Only me|Private|Privado", re.I)]
-            }
-            
-            target_patterns = privacy_map.get(privacy_level, privacy_map["public_to_everyone"])
-            
-            # Try finding the mechanism
-            # A. Combobox Approach (Newer UI) - Expanded Selectors
-            privacy_trigger = page.locator('.tiktok-select-selector, [role="combobox"], .tux-select-selector').filter(has_text=re.compile(r"Quem pode|Who can|Todos|Everyone|Amigos|Friends|Somente|Only", re.I)).last
-            
-            if await privacy_trigger.count() > 0 and await privacy_trigger.is_visible():
-                logger.info("🔒 Combobox de privacidade detectado (CSS).")
-                await privacy_trigger.click()
-                await page.wait_for_timeout(500)
-                
-                # Select option
-                for pattern in target_patterns:
-                    option = page.locator('div[role="option"], li, .tux-select-option').filter(has_text=pattern).last
-                    if await option.count() > 0:
-                        await option.click()
-                        privacy_found = True
-                        logger.info(f"✅ Privacidade definida via Combobox: {privacy_level}")
-                        break
-            
-            # B. Radio Group Approach (Older UI)
-            if not privacy_found:
-                logger.info("🔒 Tentando Radio Group de privacidade...")
-                for pattern in target_patterns:
-                    radio = page.locator('label, div').filter(has_text=pattern).last
-                    # Check if it has a radio input near it or is clickable
-                    if await radio.count() > 0 and await radio.is_visible():
-                        await radio.click()
-                        privacy_found = True
-                        logger.info(f"✅ Privacidade definida via Radio Group: {privacy_level}")
-                        break
-
-            # C. JavaScript Label Search (Robustest Fallback)
-            if not privacy_found:
-                logger.info("🔒 Tentando Estratégia JS baseada em Texto...")
-                js_success = await page.evaluate(f"""(target_pattern_str) => {{
-                    // 1. Encontrar Label "Quem pode..."
-                    const labels = Array.from(document.querySelectorAll('div, h3, h4, span, label')).filter(el => 
-                        /Quem pode|Who can/i.test(el.innerText) && el.innerText.length < 50
-                    );
-                    
-                    if (labels.length > 0) {{
-                        const label = labels[labels.length - 1]; // O último costuma ser o do form visível
-                        console.log("Found privacy label:", label.innerText);
-                        
-                        // Busca o próximo elemento clicável (combobox)
-                        let sibling = label.nextElementSibling;
-                        while(sibling) {{
-                            if (sibling.matches('[role="combobox"], .tiktok-select-selector') || sibling.querySelector('[role="combobox"]')) {{
-                                const target = sibling.matches('[role="combobox"]') ? sibling : sibling.querySelector('[role="combobox"]');
-                                target.click();
-                                return "clicked_combo";
-                            }}
-                            sibling = sibling.nextElementSibling;
-                        }}
-                    }}
-                    return "not_found";
-                }}""", "")
-                
-                if js_success == "clicked_combo":
-                    await page.wait_for_timeout(500)
-                    # Agora tenta clicar na opção via JS também
-                    for pattern in target_patterns:
-                         # Extrai string do regex para JS (simplificado)
-                         # Regex python não passa direto, usamos string aproximada do pattern
-                         pat_str = pattern.pattern.replace("(?i)", "")
-                         
-                         await page.evaluate(f"""(pat) => {{
-                            const options = Array.from(document.querySelectorAll('[role="option"], li, div'));
-                            const target = options.find(el => new RegExp(pat, 'i').test(el.innerText));
-                            if (target) {{
-                                target.click();
-                                return true;
-                            }}
-                            return false;
-                         }}""", pat_str)
-                         
-                         # Assume sucesso se não crashou, pois verificamos visualmente depois
-                         privacy_found = True
-                         logger.info(f"✅ Privacidade definida via JS Search: {privacy_level}")
-                         break
-
-            if not privacy_found:
-                logger.warning(f"⚠️ Não foi possível definir privacidade para {privacy_level}. Usando padrão.")
-            
-            if monitor:
-                await monitor.capture_full_state(page, "pos_privacidade", f"Privacidade: {privacy_level}")
-
-        except Exception as e:
-            logger.error(f"❌ Erro ao configurar privacidade: {e}")
 
         # ========== AGENDAMENTO (VISUAL HUMANO - CLIQUE) ==========
         if schedule_time:

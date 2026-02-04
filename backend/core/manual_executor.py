@@ -162,8 +162,17 @@ async def execute_approved_video(
             step="Gerando Legenda (Brain AI)...", 
             logs=["Analisando video com IA..."]
         )
-        logger.info("[BRAIN] Brain gerando caption...")
-        brain_data = await brain.generate_smart_caption(video_filename)
+        logger.info("[BRAIN] Brain gerando caption (com Vision)...")
+        
+        # [SYN-FIX] Use Original Filename for better context/fallback
+        # If unavailable, fall back to video_filename (which might be p1_uuid.mp4)
+        target_name = metadata.get('original_filename', video_filename)
+        
+        brain_data = await brain.generate_smart_caption(
+            target_name, 
+            profile_prefix=profile_id, 
+            video_path=proc_path
+        )
         caption = brain_data["caption"]
         hashtags = brain_data["hashtags"]
     else:
@@ -205,7 +214,39 @@ async def execute_approved_video(
         # ... logic continues ...
         if result["status"] == "ready":
              # Success handled by queue worker mostly, but we can update logs
-             pass
+             
+             # [SYN-FIX] Idempotency: Create .completed marker in processing folder
+             # This prevents Zombie Recovery from reprocessing successful uploads if moving to done fails or server crashes.
+             marker_path = proc_path + ".completed"
+             try:
+                 with open(marker_path, 'w', encoding='utf-8') as f:
+                     f.write("success")
+                 logger.info(f"✅ Created idempotency marker: {marker_path}")
+                 
+                 # [SYN-FIX] Completion Move: Move to DONE to avoid becoming a Zombie
+                 dest_path = os.path.join(DONE_DIR, video_filename)
+                 # Handle overwrite in done if exists
+                 if os.path.exists(dest_path):
+                     os.remove(dest_path)
+                 shutil.move(proc_path, dest_path)
+                 logger.info(f"✅ Moved to DONE: {dest_path}")
+                 
+                 # Move sidecar JSON if exists
+                 proc_json = proc_path + ".json"
+                 if not os.path.exists(proc_json): # Try no-ext
+                     proc_json = os.path.splitext(proc_path)[0] + ".json"
+                     
+                 if os.path.exists(proc_json):
+                     dest_json = os.path.join(DONE_DIR, os.path.basename(proc_json))
+                     if os.path.exists(dest_json): os.remove(dest_json)
+                     shutil.move(proc_json, dest_json)
+                 
+                 # Clean marker after successful move (we don't need it if file is gone from processing)
+                 if os.path.exists(marker_path):
+                     os.remove(marker_path)
+                     
+             except Exception as e:
+                 logger.warning(f"Failed to finalize/move file {video_filename}: {e}")
         else:
              pass
              

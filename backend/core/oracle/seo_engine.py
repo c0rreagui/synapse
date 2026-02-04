@@ -3,6 +3,7 @@ from PIL import Image
 from io import BytesIO
 from core.oracle.client import oracle_client
 import json
+import os
 
 class SEOEngine:
     def __init__(self):
@@ -727,13 +728,57 @@ class SEOEngine:
         except Exception as e:
             return {"error": str(e)}
 
-    async def generate_content_metadata(self, filename: str, niche: str = "General", duration: int = 0) -> dict:
+    async def generate_content_metadata(
+        self, 
+        filename: str, 
+        niche: str = "General", 
+        duration: int = 0,
+        video_path: str = None,  # Path to video for Vision analysis
+        use_vision: bool = True   # Toggle Vision analysis
+    ) -> dict:
         """
-        Generates Viral Caption and Hashtags based on Filename context.
-        Used by Ingestion to pre-populate metadata.
+        Generates Viral Caption and Hashtags based on Filename AND video visual context.
+        Uses Vision AI to analyze actual video content when video_path is provided.
         """
+        import PIL.Image
+        import logging
+        logger = logging.getLogger(__name__)
+        
         # Clean filename
         clean_name = filename.replace("_", " ").replace("-", " ").replace(".mp4", "")
+        
+        # [SYN-VISION] Analyze video frames for context
+        visual_context = ""
+        if video_path and use_vision and os.path.exists(video_path):
+            try:
+                from core.oracle.faculties.vision import VisionFaculty
+                vision = VisionFaculty(self.client)
+                
+                # Extrair 1 frame central do video
+                logger.info(f"[VISION] Analisando video para contexto visual: {video_path}")
+                frames = vision.extract_frames(video_path, num_frames=1)
+                
+                if frames and os.path.exists(frames[0]):
+                    img = PIL.Image.open(frames[0])
+                    # Pedir descricao curta e objetiva
+                    vision_prompt = [
+                        "Descreva esta cena de video em 2-3 frases CURTAS.",
+                        "Foque em: QUEM esta no video, O QUE estao fazendo, ONDE estao.",
+                        "Seja objetivo e descritivo, sem interpretar emocoes.",
+                        "Responda em portugues.",
+                        img
+                    ]
+                    vision_res = self.client.generate_content(vision_prompt)
+                    visual_context = vision_res.text.strip()
+                    logger.info(f"[VISION] Contexto visual obtido: {visual_context[:100]}...")
+                    
+                    # Limpar frame temporario
+                    try:
+                        os.remove(frames[0])
+                    except:
+                        pass
+            except Exception as e:
+                logger.warning(f"[VISION] Analise visual falhou (usando apenas filename): {e}")
         
         # [SYN-40] Fetch Real Trending Hashtags
         from core.oracle.trend_checker import trend_checker
@@ -748,32 +793,43 @@ class SEOEngine:
         
         trend_context = f"Trending Now: {', '.join(trend_tags)}" if trend_tags else "No specific live trends, use evergreen viral tags."
 
+        # Build visual context line if available
+        visual_line = f"Descricao Visual do Video (analise de frame): {visual_context}" if visual_context else "Descricao Visual: Nao disponivel - use o nome do arquivo como referencia"
+
         prompt = f"""
-        Atue como um Estrategista de Conteúdo Viral (TikTok/Reels).
-        Analise este arquivo de vídeo que acabou de ser enviado:
+        Atue como um Estrategista de Conteudo Viral (TikTok/Reels).
+        Analise este arquivo de video que acabou de ser enviado:
         
         Nome do Arquivo: "{clean_name}"
         Nicho do Perfil: "{niche}"
+        {visual_line}
         Contexto Viral: {trend_context}
         
+        IMPORTANTE: Se a Descricao Visual estiver disponivel, BASEIE a legenda no conteudo REAL do video!
+        
         Tarefa:
-        1. Crie uma LEGENDA (Caption) altamente engajadora. 
-           - OBRIGATÓRIO: Terminar com um CTA de Crescimento (Ex: "Siga para mais", "Curte se concorda").
+        1. Crie uma LEGENDA (Caption) altamente engajadora.
+           - OBRIGATORIO: Terminar com um CTA de Crescimento (Ex: "Siga para mais", "Curte se concorda").
            - Use ganchos de curiosidade.
-        2. Selecione 15 HASHTAGS otimizadas:
-           - 5 Tags de Nicho (Específicas)
-           - 5 Tags Virais (Gerais/Broad)
-           - 5 Tags de Tendência (Oportunidade)
-           - Tente incluir tags do Contexto Viral se fizerem sentido.
+           - IMPORTANTE: NAO inclua hashtags na legenda! As hashtags vao em campo separado.
+        2. Selecione 5-7 HASHTAGS otimizadas (MAXIMO 7):
+           - 2-3 Tags de Nicho (Especificas do conteudo)
+           - 2-3 Tags Virais (fyp, viral, foryou)
+           - 1-2 Tags de Tendencia (se relevante do Contexto Viral)
         3. Estime um "Potencial Viral" (0-100).
         
         Responda APENAS JSON:
         {{
-            "suggested_caption": "Legenda aqui (incluindo emojis e CTA)",
-            "hashtags": ["#tag1", "#tag2", ...],
+            "suggested_caption": "Legenda aqui SEM hashtags (incluindo emojis e CTA)",
+            "hashtags": ["tag1", "tag2", "tag3"],
             "viral_score": 85,
             "viral_reason": "Explica por que este tema funciona"
         }}
+        
+        REGRAS IMPORTANTES:
+        - A legenda NAO deve conter nenhuma hashtag (elas serao adicionadas automaticamente)
+        - Os hashtags na lista NAO devem ter o simbolo # (sera adicionado automaticamente)
+        - MAXIMO 7 hashtags para evitar parecer spam
         """
         
         try:

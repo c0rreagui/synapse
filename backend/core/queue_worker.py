@@ -62,6 +62,31 @@ def recover_zombie_tasks():
     for filename in os.listdir(PROCESSING_DIR):
         if filename.endswith(".mp4"):
             src = os.path.join(PROCESSING_DIR, filename)
+            
+            # [SYN-FIX] Idempotency Check
+            # Check if this file was actually completed but process crashed before move
+            marker = src + ".completed"
+            if os.path.exists(marker):
+                logger.info(f"✅ Recovering COMPLETED Zombie directly to DONE: {filename}")
+                dst = os.path.join(DONE_DIR, filename)
+                try:
+                    if os.path.exists(dst): os.remove(dst)
+                    shutil.move(src, dst)
+                    
+                    # Move sidecar json
+                    meta_src = src + ".json"
+                    meta_dst = os.path.join(DONE_DIR, filename + ".json")
+                    if os.path.exists(meta_src):
+                        if os.path.exists(meta_dst): os.remove(meta_dst)
+                        shutil.move(meta_src, meta_dst)
+                    
+                    # Clean marker
+                    os.remove(marker)
+                    continue # Skip moving to approved
+                except Exception as e:
+                     logger.error(f"❌ Failed to move completed zombie to done: {e}")
+            
+            # Default: Move back to approved (Retry)
             dst = os.path.join(APPROVED_DIR, filename)
             
             try:
