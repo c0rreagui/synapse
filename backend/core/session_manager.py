@@ -58,7 +58,9 @@ def get_profile_metadata(profile_id: str) -> Dict[str, Any]:
             "oracle_best_times": profile.oracle_best_times,
             "last_seo_audit": profile.last_seo_audit,
             "stats": profile.last_seo_audit.get("stats", {}) if profile.last_seo_audit else {},
-            "latest_videos": profile.last_seo_audit.get("latest_videos", []) if profile.last_seo_audit else []
+            "stats": profile.last_seo_audit.get("stats", {}) if profile.last_seo_audit else {},
+            "latest_videos": profile.last_seo_audit.get("latest_videos", []) if profile.last_seo_audit else [],
+            "last_error_screenshot": profile.last_seo_audit.get("last_error_screenshot") if profile.last_seo_audit else None
         }
     except Exception as e:
         print(f"DB Error getting metadata: {e}")
@@ -66,30 +68,83 @@ def get_profile_metadata(profile_id: str) -> Dict[str, Any]:
     finally:
         db.close()
 
+
+
+def check_cookies_validity(cookies: List[Dict[str, Any]]) -> bool:
+    """
+    Checks if the cookies contain valid (non-expired) session identifiers.
+    """
+    try:
+        required_cookies = ["sessionid"] # sessionid_ss is optional/redundant often
+        found_cookies = {}
+        
+        current_time = time.time()
+        
+        for p in cookies:
+            name = p.get("name")
+            if name in required_cookies:
+                # Check expiration
+                expiry = p.get("expirationDate")
+                if expiry:
+                     # Check if expired
+                     if expiry < current_time:
+                         return False # Expired
+                
+                found_cookies[name] = True
+
+        # Check if all required are found
+        return all(found_cookies.get(name) for name in required_cookies)
+        
+    except Exception:
+        return False
+
 def list_available_sessions() -> List[Dict[str, str]]:
     """
     Returns a list of available profiles from SQLite.
+    Also checks file validity for session_valid status.
     """
     db = SessionLocal()
     sessions = []
+    
+    # Pre-fetch all profiles from DB
+    db_profiles = []
     try:
-        profiles = db.query(Profile).all()
-        for p in profiles:
-            # Basic info for the list
-            sessions.append({
-                "id": p.slug,
-                "label": p.label or p.slug,
-                "username": p.username or "",
-                "avatar_url": p.avatar_url or "",
-                "icon": p.icon or "",
-                "status": "active" if p.active else "inactive"
-            })
+        db_profiles = db.query(Profile).all()
     except Exception as e:
         print(f"DB Error listing sessions: {e}")
     finally:
         db.close()
+
+    # Iterate DB profiles and enrich with session status from file
+    for p in db_profiles:
+        profile_data = {
+            "id": p.slug,
+            "label": p.label or p.slug,
+            "username": p.username or "",
+            "avatar_url": p.avatar_url or "",
+            "icon": p.icon or "",
+            "status": "active" if p.active else "inactive",
+            "session_valid": False # Default
+        }
+        
+        # Check actual file for validity
+        try:
+             session_path = get_session_path(p.slug)
+             if os.path.exists(session_path):
+                 with open(session_path, 'r', encoding='utf-8') as f:
+                     data = json.load(f)
+                     cookies = data.get("cookies", []) if isinstance(data, dict) else data
+                     if isinstance(cookies, list):
+                         profile_data["session_valid"] = check_cookies_validity(cookies)
+        except Exception:
+            pass # Keep as False
+        
+        # Add error screenshot if available
+        if p.last_seo_audit:
+            profile_data["last_error_screenshot"] = p.last_seo_audit.get("last_error_screenshot")
             
-    # Sort by ID or Label? ID for consistency with old behavior
+        sessions.append(profile_data)
+            
     # 2. Scan Files for sessions missing in DB (Legacy/Sync fallback)
     try:
         json_files = glob.glob(os.path.join(SESSIONS_DIR, "*.json"))
@@ -105,14 +160,20 @@ def list_available_sessions() -> List[Dict[str, str]]:
                 with open(file_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                 
-                # Extract meta or fallback. Ensure data is a dict.
                 if not isinstance(data, dict):
-                     print(f"Warning: Session file {slug} is not a valid JSON object")
-                     data = {}
+                     # Could be raw list
+                     if isinstance(data, list):
+                         # Wrap it implicitly for logic below or normalize
+                         data = {"cookies": data}
+                     else:
+                        data = {}
 
                 meta = data.get("synapse_meta", {})
-                if not isinstance(meta, dict):
-                    meta = {}
+                cookies = data.get("cookies", []) if "cookies" in data else (data if isinstance(data, list) else [])
+
+                is_valid = False
+                if isinstance(cookies, list):
+                    is_valid = check_cookies_validity(cookies)
                 
                 sessions.append({
                     "id": slug,
@@ -120,7 +181,8 @@ def list_available_sessions() -> List[Dict[str, str]]:
                     "username": meta.get("username") or "",
                     "avatar_url": meta.get("avatar_url") or "",
                     "icon": "👤",
-                    "status": "active" # If file exists, treat as potentially active
+                    "status": "active",
+                    "session_valid": is_valid
                 })
             except Exception as e:
                 print(f"Error processing session file {file_path}: {str(e)}")
@@ -131,17 +193,53 @@ def list_available_sessions() -> List[Dict[str, str]]:
     sessions.sort(key=lambda x: x['id'])
     return sessions
 
-def import_session(label: str, cookies_json: str) -> str:
+def import_session(label: str | None, cookies_json: str, username: str | None = None, avatar_url: str | None = None) -> str:
     """
     Imports a new session from a cookies JSON string.
     Generates a unique profile ID and creates DB entry.
     """
     # Generate ID based on timestamp
-    profile_id = f"tiktok_profile_{int(time.time())}"
+    time.sleep(0.01) # Ensure uniqueness if called in rapid succession
+    profile_id = f"tiktok_profile_{int(time.time() * 1000)}" # Use ms for better resolution
     
+    # Handle empty strings from frontend
+    if username == "": username = None
+    if avatar_url == "": avatar_url = None
+    if label == "": label = None
+
     # 1. Save Cookies File (unchanged)
     try:
         cookies_data = json.loads(cookies_json)
+        
+        # Sanitize cookies for Playwright compatibility
+        # Playwright only accepts sameSite values: "Strict", "Lax", "None"
+        if isinstance(cookies_data, list):
+            for cookie in cookies_data:
+                if isinstance(cookie, dict):
+                    # Normalize sameSite
+                    same_site = cookie.get("sameSite", "")
+                    if isinstance(same_site, str):
+                        same_site_lower = same_site.lower()
+                        if same_site_lower in ("strict",):
+                            cookie["sameSite"] = "Strict"
+                        elif same_site_lower in ("lax",):
+                            cookie["sameSite"] = "Lax"
+                        elif same_site_lower in ("none", "no_restriction"):
+                            cookie["sameSite"] = "None"
+                        else:
+                            # Default unspecified/unknown to Lax
+                            cookie["sameSite"] = "Lax"
+                    else:
+                        cookie["sameSite"] = "Lax"
+                        
+                    # Remove unsupported properties
+                    for key in list(cookie.keys()):
+                        if key not in ("name", "value", "domain", "path", "expires", "httpOnly", "secure", "sameSite"):
+                            del cookie[key]
+                    
+                    # Rename expirationDate to expires if present
+                    if "expirationDate" in cookie:
+                        cookie["expires"] = cookie.pop("expirationDate")
         
         session_path = get_session_path(profile_id)
         # Heuristic for wrapping
@@ -161,10 +259,16 @@ def import_session(label: str, cookies_json: str) -> str:
     # 2. Create DB Entry
     db = SessionLocal()
     try:
+        # Determine final label
+        final_label = label
+        if not final_label or not final_label.strip():
+            final_label = username if username else f"Novo Perfil {int(time.time())}"
+        
         new_profile = Profile(
             slug=profile_id,
-            label=label,
-            username=None, # Will be fetched later by validator
+            label=final_label,
+            username=username, # Use provided username or None
+            avatar_url=avatar_url, # Use provided avatar or None
             icon="👤",
             type="imported",
             active=True,
@@ -175,19 +279,88 @@ def import_session(label: str, cookies_json: str) -> str:
         db.commit()
     except Exception as e:
         db.rollback()
-        print(f"DB Error creating profile: {e}")
+        # Safe print for Windows console
+        import traceback
+        traceback.print_exc()
+        print(f"DB Error creating profile: {repr(e)}")
         raise ValueError(f"Database error: {e}")
     finally:
         db.close()
         
     return profile_id
 
-def update_profile_info(profile_id: str, info: Dict[str, Any]) -> bool:
+def update_profile_metadata_async(profile_id: str):
     """
-    Updates existing profile metadata (avatar, label, etc) in SQLite.
+    Background task to fetch metadata from TikTok using requests.
+    Updates the profile in DB if successful.
     """
-    db = SessionLocal()
+    import requests
+    from fake_useragent import UserAgent
+    
+    print(f"Starting metadata fetch for {profile_id}...")
+    
+    # helper to find cookie value
+    def get_cookie_value(name, cookies):
+        for c in cookies:
+             if c.get("name") == name:
+                 return c.get("value")
+        return None
+
+    try:
+        session_path = get_session_path(profile_id)
+        if not os.path.exists(session_path):
+            return
+
+        with open(session_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            raw_cookies = data.get("cookies", []) if isinstance(data, dict) else data
+
+        # Prepare requests session
+        s = requests.Session()
+        # reconstruct cookies for requests
+        for c in raw_cookies:
+            s.cookies.set(c.get("name"), c.get("value"), domain=c.get("domain", ".tiktok.com"))
+            
+        # Headers
+        ua = UserAgent()
+        headers = {
+            "User-Agent": ua.random,
+            "Referer": "https://www.tiktok.com/",
+            "Origin": "https://www.tiktok.com"
+        }
+        
+        # We attempt to fetch the main page or upload page to scraping bits
+        # BUT SCRAPING TIKTOK IS HARD due to hydration.
+        # Check if we can find 'username' in cookies first?
+        # Typically 'sid_guard' or others don't have username.
+        # Let's try to hit an API endpoint if possible, or just the main page.
+        
+        r = s.get("https://www.tiktok.com/passport/web/account/info/", headers=headers, timeout=10)
+        
+        username = None
+        avatar_url = None
+        
+        if r.status_code == 200:
+             json_data = r.json()
+             if "data" in json_data and "username" in json_data["data"]:
+                 username = json_data["data"]["username"]
+                 avatar_url = json_data["data"].get("avatar_url")
+                 
+        if username:
+            print(f"Metadata found: {username}")
+            update_profile_info(profile_id, {
+                "username": username,
+                "label": username, # Auto-update label to username
+                "avatar_url": avatar_url
+            })
+        else:
+            print("Could not fetch metadata via API.")
+            
+    except Exception as e:
+        print(f"Error fetching metadata for {profile_id}: {e}")
+
 from datetime import datetime
+
 
 def update_profile_info(profile_id: str, info: Dict[str, Any]) -> bool:
     """
@@ -204,6 +377,8 @@ def update_profile_info(profile_id: str, info: Dict[str, Any]) -> bool:
             profile.avatar_url = info["avatar_url"]
         if "nickname" in info:
             profile.label = info["nickname"]
+        if "label" in info:
+            profile.label = info["label"]
         if "username" in info:
             profile.username = info["username"]
         if "bio" in info:
@@ -265,6 +440,11 @@ def update_profile_metadata(profile_id: str, updates: Dict[str, Any]) -> bool:
              current_audit["latest_videos"] = updates["latest_videos"]
              profile.last_seo_audit = current_audit
 
+        if "last_error_screenshot" in updates:
+             current_audit = dict(profile.last_seo_audit) if profile.last_seo_audit else {}
+             current_audit["last_error_screenshot"] = updates["last_error_screenshot"]
+             profile.last_seo_audit = current_audit
+
         profile.updated_at = datetime.utcnow()
 
         db.commit()
@@ -284,21 +464,21 @@ def delete_session(profile_id: str) -> bool:
     try:
         # 1. Find Profile
         profile = db.query(Profile).filter(Profile.slug == profile_id).first()
-        if not profile:
-            return False
-
-        # 2. Delete related Audits (FK constraint)
-        # Imports inside function to avoid circular imports if any, though model import is top level
-        from core.models import Audit, ScheduleItem
         
-        db.query(Audit).filter(Audit.profile_id == profile.id).delete()
-        
-        # 3. Delete related Schedule Items (Loose slug link)
-        db.query(ScheduleItem).filter(ScheduleItem.profile_slug == profile_id).delete()
+        if profile:
+            # 2. Delete related Audits (FK constraint)
+            from core.models import Audit, ScheduleItem
+            
+            db.query(Audit).filter(Audit.profile_id == profile.id).delete()
+            
+            # 3. Delete related Schedule Items (Loose slug link)
+            db.query(ScheduleItem).filter(ScheduleItem.profile_slug == profile_id).delete()
 
-        # 4. Delete Profile
-        db.delete(profile)
-        db.commit()
+            # 4. Delete Profile
+            db.delete(profile)
+            db.commit()
+        else:
+             print(f"Warning: Profile {profile_id} not found in DB, proceeding to check file.")
         
         # 5. Delete File
         session_path = get_session_path(profile_id)
@@ -311,7 +491,30 @@ def delete_session(profile_id: str) -> bool:
         return True
     except Exception as e:
         db.rollback()
-        print(f"DB Error deleting profile: {e}")
+        # Safe print
+        import traceback
+        traceback.print_exc()
+        print(f"DB Error deleting session: {repr(e)}")
+        return False
+    finally:
+        db.close()
+
+def update_profile_status(profile_id: str, active: bool) -> bool:
+    """
+    Updates just the active status of a profile.
+    """
+    db = SessionLocal()
+    try:
+        profile = db.query(Profile).filter(Profile.slug == profile_id).first()
+        if not profile: return False
+        
+        profile.active = active
+        profile.updated_at = datetime.utcnow()
+        db.commit()
+        return True
+    except Exception as e:
+        db.rollback()
+        print(f"Error updating status: {e}")
         return False
     finally:
         db.close()

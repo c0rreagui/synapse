@@ -22,6 +22,7 @@ import clsx from 'clsx';
 import BatchUploadModal from './components/BatchUploadModal';
 import AudioSuggestionCard, { AudioSuggestion } from './components/AudioSuggestionCard';
 import { SchedulingData } from './components/SchedulerForm';
+import ScheduledVideosModal from './components/ScheduledVideosModal';
 
 const API_BASE = getApiUrl() + '/api/v1';
 
@@ -50,6 +51,9 @@ export default function Home() {
   // Metrics Modal State
   const [isMetricsModalOpen, setIsMetricsModalOpen] = useState(false);
   const [metricsModalTab, setMetricsModalTab] = useState('processing');
+
+  // Scheduler Modal State
+  const [isSchedulerModalOpen, setIsSchedulerModalOpen] = useState(false);
 
   // UI State
   const [selectedProfile, setSelectedProfile] = useState<string>('');
@@ -93,8 +97,7 @@ export default function Home() {
   const fetchAllData = useCallback(async () => {
     try {
       setLastUpdate(new Date().toLocaleTimeString());
-      const apiUrl = getApiUrl();
-      const healthRes = await fetch(`${apiUrl}/`);
+      const healthRes = await fetch(`${API_BASE}/ingest/status`);
       setBackendOnline(healthRes.ok);
       // Se backend offline, não tenta o resto para evitar spam de erros
       if (!healthRes.ok) return;
@@ -323,13 +326,14 @@ export default function Home() {
   const approvalPreload = useMemo(() => {
     if (!selectedVideo) return [];
     return [{
-      filename: selectedVideo.filename,
-      url: selectedVideo.metadata?.original_filename, // Use simple path or metadata if available
+      filename: selectedVideo.metadata?.original_filename || selectedVideo.filename,
+      url: `${getApiUrl()}/api/v1/videos/stream/${selectedVideo.filename}`,
       caption: selectedVideo.metadata?.caption,
       profileId: selectedVideo.metadata?.profile_id,
       isRemote: true as const
     }];
   }, [selectedVideo]);
+
 
   return (
     <>
@@ -407,8 +411,12 @@ export default function Home() {
               key={i}
               className="p-6 flex flex-col justify-between h-32 relative group cursor-pointer hover:border-white/20 active:scale-[0.98] transition-all"
               onClick={() => {
-                setMetricsModalTab(card.key);
-                setIsMetricsModalOpen(true);
+                if (card.key === 'scheduled') {
+                  setIsSchedulerModalOpen(true);
+                } else {
+                  setMetricsModalTab(card.key);
+                  setIsMetricsModalOpen(true);
+                }
               }}
             >
               <div className="flex justify-between items-start relative z-10">
@@ -426,10 +434,10 @@ export default function Home() {
       </section>
 
       {/* MAIN SPLIT */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* LEFT COLUMN: UPLOAD & PENDING */}
-        <div className="xl:col-span-2 flex flex-col gap-6">
+        <div className="lg:col-span-2 flex flex-col gap-6">
 
           {/* UPLOAD CARD */}
           <StitchCard className="p-8 group">
@@ -620,7 +628,7 @@ export default function Home() {
         </div>
 
         {/* RIGHT COLUMN: PROFILES */}
-        <div className="xl:col-span-1 flex flex-col gap-4">
+        <div className="lg:col-span-1 flex flex-col gap-4">
           <StitchCard className="p-5">
             <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
               <span className="w-1.5 h-4 bg-gradient-to-b from-synapse-cyan to-synapse-emerald rounded-full"></span>
@@ -758,6 +766,12 @@ export default function Home() {
             toast.info(`Arquivo: ${file.name}\n${file.path}`);
           }
         }}
+      />
+
+      <ScheduledVideosModal
+        isOpen={isSchedulerModalOpen}
+        onClose={() => setIsSchedulerModalOpen(false)}
+        profiles={profiles}
       />
 
       {/* Memoized Preload to prevent BatchProvider loop */}

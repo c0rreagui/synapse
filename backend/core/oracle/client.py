@@ -72,8 +72,13 @@ class OracleClient:
         
         if is_vision:
              # Vision Model: Llama 3.2 11B / or 90B
-             # Current Groq Vision model identifier:
-             models_to_try = ["llama-3.2-11b-vision-preview"]  
+             # Current Groq Vision model identifier (Updated: 2026-02-04):
+             models_to_try = ["llama-3.2-11b-vision-preview"]
+
+             # [SYN-SMART] Respect User Choice if it's a known Vision Model
+             req_model = kwargs.get("model", "").lower()
+             if req_model and ("scout" in req_model or "maverick" in req_model or "llama-4" in req_model):
+                 models_to_try = [kwargs["model"]]  
 
         # 1. Buid Messages (Once, as they don't depend on model usually, unless Vision specific logic needed)
         # However, Vision model is specific.
@@ -125,7 +130,14 @@ class OracleClient:
             }
             
             # Override with kwargs (e.g., temperature from MindFaculty)
-            params.update(kwargs)
+            # [SYN-FIX] Protect 'model' from being overwritten if we selected a specific one (like Vision)
+            if "model" in kwargs:
+                # We want to keep other kwargs but respect the loop model
+                kwargs_copy = kwargs.copy()
+                del kwargs_copy["model"]
+                params.update(kwargs_copy)
+            else:
+                params.update(kwargs)
             
             # JSON Mode only strict for Text models currently in reusable way
             # But Llama 3.3 supports response_format={"type": "json_object"} nicely

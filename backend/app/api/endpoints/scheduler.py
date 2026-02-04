@@ -14,10 +14,59 @@ class ScheduleRequest(BaseModel):
     music_volume: float = 0.0
     sound_id: str = None
     sound_title: str = None
+    privacy_level: str = "public"
 
 @router.get("/list")
 async def list_schedule():
+    # [SYN-42] Auto-cleanup expired items before listing
+    scheduler_service.cleanup_missed_schedules()
     return scheduler_service.load_schedule()
+
+@router.get("/debug")
+def debug_pending_items():
+    """Inspect raw DB items to debug timezone issues."""
+    from core.database import SessionLocal
+    from core.models import ScheduleItem
+    from datetime import datetime, timezone
+    
+    db = SessionLocal()
+    try:
+        pending = db.query(ScheduleItem).filter(ScheduleItem.status == 'pending').all()
+        now_utc = datetime.now(timezone.utc)
+        results = []
+        for p in pending:
+            try:
+                # Defensive check: ensure scheduled_time is datetime
+                s_time = p.scheduled_time
+                tz_info = "Unknown"
+                
+                # Normalize for comparison
+                is_due = False
+                if isinstance(s_time, datetime):
+                    if s_time.tzinfo is None:
+                        s_time_aware = s_time.replace(tzinfo=timezone.utc)
+                    else:
+                        s_time_aware = s_time
+                    is_due = (s_time_aware <= now_utc)
+                    tz_info = str(s_time.tzinfo) if s_time.tzinfo else "Naive (Assumed UTC)"
+
+                results.append({
+                    "id": p.id,
+                    "scheduled_time_raw": str(s_time),
+                    "scheduled_time_type": str(type(s_time)),
+                    "tzinfo": tz_info,
+                    "video_path": p.video_path,
+                    "is_due_utc": is_due,
+                    "now_utc": str(now_utc)
+                })
+            except Exception as e:
+                 results.append({"id": p.id, "error": str(e)})
+                 
+        return {"count": len(results), "items": results, "server_utc": str(now_utc)}
+    except Exception as e:
+        return {"fatal_error": str(e)}
+    finally:
+        db.close()
 
 @router.post("/create")
 async def create_event(request: ScheduleRequest):
@@ -59,7 +108,8 @@ async def create_event(request: ScheduleRequest):
             request.viral_music_enabled,
             request.music_volume,
             sound_id=request.sound_id,
-            sound_title=request.sound_title
+            sound_title=request.sound_title,
+            privacy_level=request.privacy_level
         )
         
         # Incluir warnings/info na resposta
@@ -119,6 +169,7 @@ class BatchScheduleRequest(BaseModel):
     sound_id: str = None  # 🎵 ID da música viral selecionada (se mix_viral_sounds for False)
     sound_title: str = None  # 🎵 Título da música para busca
     smart_captions: bool = False  # ✍️ [SYN-40] Generate AI descriptions
+    privacy_level: str = "public"  # 🔒 [SYN-NEW] Visibility (public/private)
     dry_run: bool = False  # 🧠 Se True, apenas valida sem agendar
     force: bool = False  # 🧠 Se True, ignora warnings e agenda mesmo assim
 
@@ -253,7 +304,8 @@ async def batch_schedule(request: BatchScheduleRequest):
         
         for profile_id in request.profile_ids:
             # 1. Enforce Window Strategy FIRST
-            current_cursor = adjust_to_window(current_cursor)
+            if not request.force:
+                current_cursor = adjust_to_window(current_cursor)
             
             # 2. Smart Logic: Find next available slot if conflicted (but staying in window?)
             # safe_time_iso = scheduler_service.find_next_available_slot(profile_id, current_cursor)
@@ -270,20 +322,22 @@ async def batch_schedule(request: BatchScheduleRequest):
                 viral_music_enabled=request.viral_music_enabled,
                 sound_id=current_sound_id,
                 sound_title=current_sound_title,
-                smart_captions=request.smart_captions  # Pass to core
+                smart_captions=request.smart_captions,
+                privacy_level=request.privacy_level
             )
             events.append(event)
             
         # Increment for next video
         current_cursor = current_cursor + timedelta(minutes=request.interval_minutes)
         # Check window again for next loop? (Will be checked at start of loop)
-        current_cursor = adjust_to_window(current_cursor)
+        if not request.force:
+            current_cursor = adjust_to_window(current_cursor)
             
     await websocket.notify_schedule_update(scheduler_service.load_schedule())
 
     return {
         "success": True,
-        "message": f"Successfully scheduled {len(events)} events (Window 08h-22h enforced).",
+        "message": f"Successfully scheduled {len(events)} events" + (" (Window enforced)" if not request.force else " (Conflicts ignored)"),
         "summary": {
             "total_events": len(events),
             "warnings_ignored": warnings_count if request.force else 0

@@ -99,6 +99,20 @@ class StatusManager:
         """
         self._update_uptimes()
 
+        # [SYN-FIX] Preserve logs if not provided
+        current_logs = []
+        if logs is None:
+            # Try to read existing logs from file to preserve them
+            try:
+                if os.path.exists(self.file_path):
+                    with open(self.file_path, 'r', encoding='utf-8') as f:
+                        old_data = json.load(f)
+                        current_logs = old_data.get("job", {}).get("logs", [])
+            except:
+                pass
+        else:
+            current_logs = logs
+
         data = {
             "state": state,
             "last_updated": datetime.now().isoformat(),
@@ -107,7 +121,7 @@ class StatusManager:
                 "name": current_task or "None",
                 "progress": progress,
                 "step": step or "Waiting...",
-                "logs": logs or []
+                "logs": current_logs
             },
             "bots": list(self.bots_status.values())
         }

@@ -14,14 +14,15 @@ services:
       - ./processing:/app/processing
       - ./done:/app/done
       - ./errors:/app/errors
-      - ./synapse.db:/synapse.db # Persistência do Banco de Dados
+      - ./backend/synapse.db:/app/synapse.db # Persistencia do Banco de Dados
     environment:
       - ENVIRONMENT=development
+      - TZ=America/Sao_Paulo
 
   # 👁️ Interface (UI)
   frontend:
     build: ./frontend
-    container_name: synapse-frontend-v2
+    container_name: synapse-frontend-v3-fix
     ports:
       - "3000:3000"
     volumes:

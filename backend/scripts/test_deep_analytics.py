@@ -44,15 +44,17 @@ def setup_test_data():
     videos = []
     for i in range(10):
         # Video i
+        is_short = i < 5
         videos.append({
             "createTime": (base_time - timedelta(days=i)).timestamp(), # One per day at 18:00
             "stats": {
-                "playCount": 10000,
-                "diggCount": 2000, # 20% engagement (High)
+                "playCount": 10000 if is_short else 5000, # Shorts get more views to trigger pattern
+                "diggCount": 2000, 
                 "commentCount": 100
             },
-            "description": "Short desc" if i < 5 else "Long description that is definitely more than fifty characters to test the pattern detector logic",
-            "link": f"http://tiktok.com/@vibe/{i}"
+            "description": "Short desc" if is_short else "Long description that is definitely more than fifty characters to test the pattern detector logic",
+            "link": f"http://tiktok.com/@vibe/{i}",
+            "duration": 10 if is_short else 60 # 5 shorts (10s), 5 longs (60s)
         })
         
     updates = {
@@ -62,7 +64,7 @@ def setup_test_data():
             "videoCount": 10
         },
         "latest_videos": videos,
-        "oracle_best_times": [{"day": 1, "hour": 18}]
+        "oracle_best_times": [] # Clear this to test calculation
     }
     
     # Write to DB
@@ -91,21 +93,21 @@ def verify_analytics():
         
     # 1. Check Heatmap
     heatmap = result.get("heatmap_data", [])
-    peak_hour = max(heatmap, key=lambda x: x['intensity'])
-    print(f"🔥 Heatmap Peak Hour: {peak_hour['hour']} (Expected: 18)")
-    
-    if peak_hour['hour'] == 18:
-        print("✅ Heatmap Logic: PASS")
+    if not heatmap:
+        print("❌ Heatmap Empty")
     else:
-        print(f"❌ Heatmap Logic: FAIL (Got {peak_hour['hour']})")
+        peak_hour = max(heatmap, key=lambda x: x['intensity'])
+        print(f"🔥 Heatmap Peak Hour: {peak_hour['hour']} (Expected: 18)")
+        
+        if peak_hour['hour'] == 18:
+            print("✅ Heatmap Logic: PASS")
+        else:
+            print(f"❌ Heatmap Logic: FAIL (Got {peak_hour['hour']})")
         
     # 2. Check Retention Curve
-    # We injected 20% engagement (2000 likes / 10000 views).
-    # Logic: decay = 0.9 + (0.2 * 0.2) = 0.94
-    # Curve at t=10 should be roughly 100 * (0.94 ^ 2) = 88%
     curve = result.get("retention_curve", [])
     val_10s = next((x['retention'] for x in curve if x['time'] == 10), 0)
-    print(f"📉 Retention at 10s: {val_10s}% (Expected ~high due to 20% eng)")
+    print(f"📉 Retention at 10s: {val_10s}%")
     
     if val_10s > 80:
          print("✅ Retention Logic: PASS")
@@ -114,18 +116,31 @@ def verify_analytics():
 
     # 3. Check Patterns
     patterns = result.get("patterns", [])
-    print(f"🧩 Patterns Found: {[p['title'] for p in patterns]}")
+    titles = [p['title'] for p in patterns]
+    print(f"🧩 Patterns Found: {titles}")
     
-    # We had 5 short videos with same stats, 5 long. 
-    # Logic might not distinguish performance difference since stats were identical.
-    # But it should verify code runs without error.
-    if patterns:
-        print("✅ Pattern Detector: PASS")
+    # We made Shorts perform better (10k views vs 5k).
+    if "Vídeos Curtos (<15s)" in titles:
+        print("✅ Pattern Detector (Duration): PASS")
     else:
-        print("⚠️ Pattern Detector: NO PATTERNS (Expected if data is uniform)")
-        
-    # 4. UTF-8 Check
-    # Print a character to console
+        print("❌ Pattern Detector (Duration): FAIL")
+
+    if "Descrições Curtas" in titles:
+        print("✅ Pattern Detector (Hooks): PASS")
+    else:
+        print("❌ Pattern Detector (Hooks): FAIL")
+
+    # 4. Check Best Times
+    best_times = result.get("best_times", [])
+    formatted_times = [f"{x['day']}-{x['hour']}" for x in best_times]
+    print(f"⏰ Best Times: {formatted_times}")
+    
+    if any(x['hour'] == 18 for x in best_times):
+        print("✅ Best Times: PASS")
+    else:
+        print("❌ Best Times: FAIL (Hour 18 not found)")
+
+    # 5. UTF-8 Check
     print("🔣 Encoding Check: Acurácia (UTF-8)")
 
 if __name__ == "__main__":

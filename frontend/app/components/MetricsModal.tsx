@@ -34,8 +34,8 @@ export default function MetricsModal({ isOpen, onClose, initialTab = 'processing
 
     // Map initialTab (e.g. 'queued') to index? Or use Tab.Group controlled?
     // Let's use controlled index.
-    const tabs = ['scheduled', 'queued', 'processing', 'completed', 'failed'];
-    const [selectedIndex, setSelectedIndex] = useState(tabs.indexOf(initialTab));
+    const tabs = ['queued', 'processing', 'completed', 'failed'];
+    const [selectedIndex, setSelectedIndex] = useState(tabs.indexOf(initialTab) !== -1 ? tabs.indexOf(initialTab) : 0);
 
     useEffect(() => {
         if (isOpen) {
@@ -44,6 +44,8 @@ export default function MetricsModal({ isOpen, onClose, initialTab = 'processing
             if (idx !== -1) setSelectedIndex(idx);
         }
     }, [isOpen, initialTab]);
+
+    const [deletingConfirm, setDeletingConfirm] = useState<{ id: string, type: string } | null>(null);
 
     const fetchFiles = async () => {
         console.log("DEBUG: API_BASE is", API_BASE);
@@ -68,19 +70,25 @@ export default function MetricsModal({ isOpen, onClose, initialTab = 'processing
     };
 
     const handleDelete = async (filename: string, status: string) => {
-        try {
-            const res = await fetch(`${API_BASE}/ingest/files/${encodeURIComponent(filename)}?status=${status}`, {
-                method: 'DELETE'
-            });
-            if (res.ok) {
-                toast.success(`Removido: ${filename}`);
-                fetchFiles(); // Refresh list
-            } else {
-                const error = await res.json();
-                toast.error(error.detail || 'Erro ao remover');
+        if (deletingConfirm?.id === filename && deletingConfirm?.type === status) {
+            try {
+                const res = await fetch(`${API_BASE}/ingest/files/${encodeURIComponent(filename)}?status=${status}`, {
+                    method: 'DELETE'
+                });
+                if (res.ok) {
+                    toast.success(`Removido: ${filename}`);
+                    fetchFiles(); // Refresh list
+                    setDeletingConfirm(null);
+                } else {
+                    const error = await res.json();
+                    toast.error(error.detail || 'Erro ao remover');
+                }
+            } catch (e) {
+                toast.error('Erro de conexão');
             }
-        } catch (e) {
-            toast.error('Erro de conexão');
+        } else {
+            setDeletingConfirm({ id: filename, type: status });
+            setTimeout(() => setDeletingConfirm(curr => (curr?.id === filename && curr?.type === status) ? null : curr), 3000);
         }
     };
 
@@ -132,16 +140,22 @@ export default function MetricsModal({ isOpen, onClose, initialTab = 'processing
     };
 
     const handleDeleteEvent = async (eventId: string) => {
-        try {
-            const res = await fetch(`${API_BASE}/scheduler/${eventId}`, { method: 'DELETE' });
-            if (res.ok) {
-                toast.success('Evento removido');
-                fetchFiles();
-            } else {
-                toast.error('Erro ao remover evento');
+        if (deletingConfirm?.id === eventId && deletingConfirm?.type === 'event') {
+            try {
+                const res = await fetch(`${API_BASE}/scheduler/${eventId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    toast.success('Evento removido');
+                    fetchFiles();
+                    setDeletingConfirm(null);
+                } else {
+                    toast.error('Erro ao remover evento');
+                }
+            } catch (e) {
+                toast.error('Erro de conexão');
             }
-        } catch (e) {
-            toast.error('Erro de conexão');
+        } else {
+            setDeletingConfirm({ id: eventId, type: 'event' });
+            setTimeout(() => setDeletingConfirm(curr => (curr?.id === eventId) ? null : curr), 3000);
         }
     };
 
@@ -184,22 +198,31 @@ export default function MetricsModal({ isOpen, onClose, initialTab = 'processing
 
                             <Tab.Group selectedIndex={selectedIndex} onChange={setSelectedIndex}>
                                 <Tab.List className="flex space-x-1 bg-black/20 p-1 border-b border-white/5">
-                                    {tabs.map((tab) => (
-                                        <Tab
-                                            key={tab}
-                                            className={({ selected }) =>
-                                                clsx(
-                                                    'w-full rounded-lg py-2.5 text-sm font-medium leading-5 uppercase tracking-wider',
-                                                    'focus:outline-none focus:ring-0 transition-all',
-                                                    selected
-                                                        ? 'bg-white/10 text-white shadow'
-                                                        : 'text-gray-500 hover:bg-white/[0.05] hover:text-gray-300'
-                                                )
-                                            }
-                                        >
-                                            {tab} ({tab === 'scheduled' ? scheduledEvents.length : (files[tab]?.length || 0)})
-                                        </Tab>
-                                    ))}
+                                    {tabs.map((tab) => {
+                                        const tabNames: Record<string, string> = {
+                                            scheduled: 'Agendados',
+                                            queued: 'Na Fila',
+                                            processing: 'Processando',
+                                            completed: 'Concluídos',
+                                            failed: 'Falhas'
+                                        };
+                                        return (
+                                            <Tab
+                                                key={tab}
+                                                className={({ selected }) =>
+                                                    clsx(
+                                                        'w-full rounded-lg py-2.5 text-sm font-medium leading-5 uppercase tracking-wider',
+                                                        'focus:outline-none focus:ring-0 transition-all',
+                                                        selected
+                                                            ? 'bg-white/10 text-white shadow'
+                                                            : 'text-gray-500 hover:bg-white/[0.05] hover:text-gray-300'
+                                                    )
+                                                }
+                                            >
+                                                {tabNames[tab]} ({tab === 'scheduled' ? scheduledEvents.length : (files[tab]?.length || 0)})
+                                            </Tab>
+                                        )
+                                    })}
                                 </Tab.List>
                                 <Tab.Panels className="flex-1 overflow-y-auto p-6 bg-grid-pattern">
                                     {tabs.map((tab) => {
@@ -242,10 +265,19 @@ export default function MetricsModal({ isOpen, onClose, initialTab = 'processing
                                                                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                     <button
                                                                         onClick={() => handleDeleteEvent(event.id)}
-                                                                        className="p-2 rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all"
+                                                                        className={clsx(
+                                                                            "p-2 rounded-lg transition-all border",
+                                                                            deletingConfirm?.id === event.id && deletingConfirm?.type === 'event'
+                                                                                ? "bg-red-500 text-white border-red-500"
+                                                                                : "bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500 hover:text-white"
+                                                                        )}
                                                                         title="Remover"
                                                                     >
-                                                                        <TrashIcon className="w-4 h-4" />
+                                                                        {deletingConfirm?.id === event.id && deletingConfirm?.type === 'event' ? (
+                                                                            <span className="text-xs font-bold px-1">Confirmar?</span>
+                                                                        ) : (
+                                                                            <TrashIcon className="w-4 h-4" />
+                                                                        )}
                                                                     </button>
                                                                 </div>
                                                             </div>
@@ -312,10 +344,19 @@ export default function MetricsModal({ isOpen, onClose, initialTab = 'processing
                                                                 {(tab === 'queued' || tab === 'failed') && (
                                                                     <button
                                                                         onClick={() => handleDelete(file.name, tab)}
-                                                                        className="p-2 rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all"
+                                                                        className={clsx(
+                                                                            "p-2 rounded-lg transition-all border",
+                                                                            deletingConfirm?.id === file.name && deletingConfirm?.type === tab
+                                                                                ? "bg-red-500 text-white border-red-500"
+                                                                                : "bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500 hover:text-white"
+                                                                        )}
                                                                         title="Remover"
                                                                     >
-                                                                        <TrashIcon className="w-4 h-4" />
+                                                                        {deletingConfirm?.id === file.name && deletingConfirm?.type === tab ? (
+                                                                            <span className="text-xs font-bold px-1">Confirmar?</span>
+                                                                        ) : (
+                                                                            <TrashIcon className="w-4 h-4" />
+                                                                        )}
                                                                     </button>
                                                                 )}
                                                             </div>

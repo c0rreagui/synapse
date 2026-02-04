@@ -11,19 +11,23 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "synapse.db")
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 
+# Create engine
+# [SYN-FIX] Enable WAL Mode for Concurrency
+# SQLite standard mode locks the whole file for writing, causing "disk I/O error" or "db locked"
+# when API and Scheduler try to write simultaneously. WAL allows concurrent readers and writers.
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    SQLALCHEMY_DATABASE_URL, 
+    connect_args={"check_same_thread": False},
+    pool_pre_ping=True
 )
 
-# ⚡ Enable WAL Mode (Write-Ahead Logging) for Concurrency
-# This prevents "database is locked" errors when multiple threads write/read.
 from sqlalchemy import event
 @event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA synchronous=NORMAL")
-    cursor.execute("PRAGMA foreign_keys=ON") # Enforce Foreign Key Constraints
+    cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

@@ -49,6 +49,11 @@ interface BatchContextType {
     mixViralSounds: boolean;
     setMixViralSounds: (b: boolean) => void;
     aiCaptions: boolean;
+    bypassConflicts: boolean;
+    setBypassConflicts: (b: boolean) => void;
+
+    privacyLevel: string;
+    setPrivacyLevel: (p: string) => void;
 
     // Actions
     handleUpload: () => Promise<void>;
@@ -117,9 +122,21 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
                 }
             }))];
 
-            // Auto-select profile if provided in preload
+            // Auto-select profile if provided in preload AND exists in known profiles
             if (initialPreload[0]?.profileId) {
-                setSelectedProfiles([initialPreload[0].profileId]);
+                const targetId = initialPreload[0].profileId;
+                const isValidProfile = existingProfiles.some(p => p.id === targetId);
+
+                if (isValidProfile) {
+                    setSelectedProfiles([targetId]);
+                } else {
+                    // [SYN-FIX] If ID is phantom (e.g. ptiktok_...), do NOT select it. 
+                    // Fallback to first available real profile or empty.
+                    console.warn(`[BatchContext] Ignored phantom profile ID: ${targetId}`);
+                    if (existingProfiles.length > 0) {
+                        setSelectedProfiles([existingProfiles[0].id]);
+                    }
+                }
             }
             // Auto-open editor if single file
             if (initialPreload.length === 1) {
@@ -150,6 +167,8 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
     const [mixViralSounds, setMixViralSounds] = useState(false);
     const [isValidating, setIsValidating] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [bypassConflicts, setBypassConflicts] = useState(false);
+    const [privacyLevel, setPrivacyLevel] = useState('public'); // 'public' | 'private'
     const [validationResult, setValidationResult] = useState<any>(null);
     const [editingFileId, setEditingFileId] = useState<string | null>(null);
 
@@ -313,8 +332,8 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
 
             if (validation.can_proceed === false) {
                 const errCount = validation.summary?.errors || 0;
-                if (errCount > 0) {
-                    toast.error(`❌ ${errCount} conflitos detectados`);
+                if (errCount > 0 && !bypassConflicts) {
+                    toast.error(`❌ ${errCount} conflitos detectados. Ative 'Ignorar Conflitos' para prosseguir.`);
                     setIsValidating(false);
                     setIsUploading(false);
                     return;
@@ -325,9 +344,11 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
             const finalPayload = {
                 ...payloadStub,
                 dry_run: false,
+                force: bypassConflicts,
                 viral_music_enabled: viralBoost,
                 mix_viral_sounds: viralBoost && mixViralSounds,
-                smart_captions: true
+                smart_captions: true,
+                privacy_level: privacyLevel
             };
 
             const res = await fetch(`${API_URL}/api/v1/scheduler/batch`, {
@@ -365,6 +386,8 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
         viralBoost, setViralBoost,
         mixViralSounds, setMixViralSounds,
         aiCaptions: true,
+        bypassConflicts, setBypassConflicts,
+        privacyLevel, setPrivacyLevel,
         handleUpload,
         isValidating,
         isUploading,

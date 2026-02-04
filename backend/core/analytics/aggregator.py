@@ -69,6 +69,8 @@ class AnalyticsAggregator:
         final_history = list(daily_history.values())
         final_history.sort(key=lambda x: x['date'])
 
+        computed_engagement = (total_likes + total_comments) / max(total_views, 1) if total_views > 0 else 0
+        
         return {
             "profile_id": profile_id,
             "username": metadata.get("uniqueId"),
@@ -77,88 +79,132 @@ class AnalyticsAggregator:
                 "total_likes": stats.get("heartCount", 0),
                 "total_views": total_views,
                 "posts_analyzed": len(videos),
-                "avg_engagement": (total_likes + total_comments) / max(total_views, 1) if total_views > 0 else 0
+                "avg_engagement": computed_engagement
             },
             "history": final_history,
-            "best_times": metadata.get("oracle_best_times", []),
+            "best_times": self._calculate_best_times(videos),
             # ENHANCED ANALYTICS (SYN-38)
             "heatmap_data": self._generate_heatmap(videos),
-            "retention_curve": self._generate_retention_curve(stats.get("avg_engagement", 0)),
+            "retention_curve": self._generate_retention_curve(computed_engagement),
             "comparison": self._generate_comparison(videos),
             "patterns": self._detect_patterns(videos)
         }
 
+    def _calculate_best_times(self, videos: List[Dict]) -> List[Dict]:
+        """
+        Analyzes posting times to find high-engagement slots.
+        Returns top 3 slots (Day + Hour).
+        """
+        if not videos:
+            return []
+            
+        # Slots: string key "day-hour" -> {total_score, count}
+        slots = {}
+        
+        for v in videos:
+            ts = v.get("createTime", 0)
+            if ts <= 0: continue
+            
+            dt = datetime.fromtimestamp(ts)
+            day = dt.weekday() # 0=Mon, 6=Sun
+            hour = dt.hour
+            
+            key = f"{day}-{hour}"
+            
+            stats = v.get("stats", {})
+            views = stats.get("playCount", 0)
+            likes = stats.get("diggCount", 0)
+            
+            # Score formula: Views + (Likes * 5)
+            # We value engagement highly
+            score = (views / 100) + likes 
+            
+            if key not in slots:
+                slots[key] = {"day": day, "hour": hour, "score": 0, "count": 0}
+            
+            slots[key]["score"] += score
+            slots[key]["count"] += 1
+            
+        # Normalize scores by count (Average performance per slot)
+        results = []
+        for k, data in slots.items():
+            avg_score = data["score"] / data["count"]
+            results.append({
+                "day": data["day"],
+                "hour": data["hour"],
+                "score": int(avg_score * 10) # Amplify for UI
+            })
+            
+        # Sort by score desc
+        results.sort(key=lambda x: x["score"], reverse=True)
+        
+        return results[:3]
+
     def _generate_heatmap(self, videos: List[Dict]) -> List[Dict]:
         """
-        Generates 24h heatmap data.
-        If timestamps are missing (0), uses a pseudo-random distribution seeded by video ID to look consistent but alive.
+        Generates 24h heatmap weighted by Engagement.
         """
-        hourly_map = [0] * 24
+        hourly_score = [0] * 24
+        hourly_count = [0] * 24
         
         has_real_data = any(v.get("createTime", 0) > 0 for v in videos)
         
         if has_real_data:
             for v in videos:
                 ts = v.get("createTime", 0)
-                if ts > 0:
-                    try:
-                        hour = datetime.fromtimestamp(ts).hour
-                        hourly_map[hour] += 1
-                    except:
-                        pass
-            # Normalize to 0-100
-            max_val = max(hourly_map) if max(hourly_map) > 0 else 1
-            return [{"hour": h, "intensity": int((val / max_val) * 100)} for h, val in enumerate(hourly_map)]
+                if ts <= 0: continue
+                
+                hour = datetime.fromtimestamp(ts).hour
+                
+                stats = v.get("stats", {})
+                views = stats.get("playCount", 0)
+                likes = stats.get("diggCount", 0)
+                
+                # Weight: heavily biased towards LIKES (Quality over Quantity)
+                # If we just use frequency, spamming videos at 3AM makes 3AM "hot".
+                # We want "Best Time to Post".
+                weight = likes * 10 + views 
+                
+                hourly_score[hour] += weight
+                hourly_count[hour] += 1
+            
+            # Normalize
+            max_val = max(hourly_score) if max(hourly_score) > 0 else 1
+            return [{"hour": h, "intensity": int((val / max_val) * 100)} for h, val in enumerate(hourly_score)]
         else:
-            # Fallback: "Simulated" Heatmap based on hashing link to keep it deterministic per video
+            # Fallback
             import hashlib
             for v in videos:
                 link = v.get("link", "") or str(v)
-                # Hash to 0-23
                 h_hash = int(hashlib.md5(link.encode()).hexdigest(), 16) % 24
-                hourly_map[h_hash] += 20
+                hourly_score[h_hash] += 20
             
-            return [{"hour": h, "intensity": min(val, 100)} for h, val in enumerate(hourly_map)]
+            return [{"hour": h, "intensity": min(val, 100)} for h, val in enumerate(hourly_score)]
 
     def _generate_retention_curve(self, avg_engagement: float) -> List[Dict]:
         """
         Simulates a retention curve based on engagement rate.
         Higher engagement = Flatter curve.
         """
-        # Base curve: Deep drop at start, then stabilize
-        # Points: 0s to 60s
         curve = []
-        base_retention = 100.0
-        
-        # Decay factor: Determine how fast people leave
-        # Avg engagement (likes/views) typically 0.05 to 0.15
-        # If eng is high (0.2), decay is slow (0.95). If low (0.01), decay is fast (0.85)
-        decay = 0.9 + (min(avg_engagement, 0.2) * 0.2) 
-        
         current_val = 100.0
         
-        for t in range(0, 60, 2): # Every 2 seconds
+        # Decay factor based on engagement (0.05 - 0.20 range typical)
+        # 0.10 engagement -> standard decay
+        base_step = 0.97 
+        boost = min(avg_engagement, 0.2) * 0.15 
+        step_decay = base_step + boost
+        if step_decay > 0.995: step_decay = 0.995 
+        
+        for t in range(0, 60, 2): 
             if t == 0:
                 val = 100
             elif t < 4:
-                # Immediate hook drop-off (always happens)
+                # Hook drop-off
                 drop = 5 if avg_engagement > 0.1 else 15
                 if t == 2: current_val -= drop
                 val = current_val
             else:
-                # Exponential decay over time based on engagement
-                # Formula: val = previous * decay
-                # But decay needs to be per-step. 
-                # If decay is 0.94 per 5 seconds?
-                # Let's simple apply a small multiplier per step (2s)
-                # step_decay = 0.98 (strong) vs 0.95 (weak)
-                
-                # Boost based on engagement: 0.2 engagement -> +0.04 boost
-                base_step = 0.96 
-                boost = min(avg_engagement, 0.2) * 0.15 # Max 0.03
-                step_decay = base_step + boost
-                if step_decay > 0.995: step_decay = 0.995 # Cap at 99.5% retention per step
-                
                 current_val = current_val * step_decay
                 val = current_val
             
@@ -167,17 +213,13 @@ class AnalyticsAggregator:
         return curve
 
     def _generate_comparison(self, videos: List[Dict]) -> Dict:
-        """
-        Compares current batch vs previous batch.
-        Since we only have 'latest_videos', we split them in half to simulate period comparison
-        if real historical data is missing.
-        """
         if not videos:
             return {"current": [], "previous": []}
             
-        # Simulating Current vs Previous from the single list we have
-        # Split list by index (assuming scraper returns newest first)
         mid = len(videos) // 2
+        # Assuming videos are sorted NEWEST first.
+        # Current = newest half (0 to mid)
+        # Previous = oldest half (mid to end)
         current = videos[:mid]
         previous = videos[mid:]
         
@@ -201,32 +243,66 @@ class AnalyticsAggregator:
 
     def _detect_patterns(self, videos: List[Dict]) -> List[Dict]:
         """
-        Analyzes video list to find correlations.
+        Enhanced Pattern Detection: Hooks, Duration, Hashtags.
         """
         if not videos:
              return []
         
         patterns = []
         
-        # Example 1: Detect if "Viral" videos share common trait
-        # Sort by views
+        # Sort by Performance (Views)
         sorted_v = sorted(videos, key=lambda x: x.get("stats", {}).get("playCount", 0), reverse=True)
-        top_performers = sorted_v[:3]
+        top_performers = sorted_v[:max(3, len(videos)//5)] # Top 20% or at least 3
         
-        # Check descriptions of top videos
+        # 1. Description Length (The "Short Hook" pattern)
         shorts_count = sum(1 for v in top_performers if len(v.get("description", "")) < 50)
-        
-        if shorts_count >= 2:
+        if shorts_count >= len(top_performers) * 0.6: # 60% of top videos are short
              patterns.append({
                  "type": "VIRAL_HOOK",
                  "title": "Descrições Curtas",
-                 "description": "Seus vídeos com descrições curtas (<50 chars) estão performando 2x melhor.",
+                 "description": "Seus vídeos com descrições curtas (<50 chars) estão performando melhor.",
                  "confidence": 85,
                  "impact": "HIGH"
              })
         
-        # Add generic patterns if analysis is too thin
-        if len(patterns) == 0:
+        # 2. Duration Analysis (Shorts < 15s vs Longs > 30s)
+        # Note: 'duration' might be inside 'video' dict or root depending on scraper
+        # Aggregator usually gets clean structure, let's look safely
+        def get_dur(v): return v.get("video", {}).get("duration", 0) or v.get("duration", 0)
+        
+        short_video_perf = []
+        long_video_perf = []
+        
+        for v in videos:
+            dur = get_dur(v)
+            views = v.get("stats", {}).get("playCount", 0)
+            if dur > 0 and dur <= 15:
+                short_video_perf.append(views)
+            elif dur >= 30:
+                long_video_perf.append(views)
+                
+        avg_short = sum(short_video_perf)/len(short_video_perf) if short_video_perf else 0
+        avg_long = sum(long_video_perf)/len(long_video_perf) if long_video_perf else 0
+        
+        if avg_short > avg_long * 1.5 and avg_long > 0:
+             patterns.append({
+                 "type": "FORMAT_WIN",
+                 "title": "Vídeos Curtos (<15s)",
+                 "description": f"Seus vídeos curtos têm {int(avg_short/avg_long)}x mais views que os longos.",
+                 "confidence": 90,
+                 "impact": "HIGH"
+             })
+        elif avg_long > avg_short * 1.5 and avg_short > 0:
+             patterns.append({
+                 "type": "FORMAT_WIN",
+                 "title": "Vídeos Longos (>30s)",
+                 "description": "O algoritmo está favorecendo seus vídeos mais longos.",
+                 "confidence": 80,
+                 "impact": "MEDIUM"
+             })
+
+        # 3. Consistency
+        if not patterns:
              patterns.append({
                  "type": "ANOMALY",
                  "title": "Consistência de Views",

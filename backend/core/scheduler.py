@@ -1,11 +1,37 @@
-import uuid
-import json
+import shutil
 import os
 import asyncio
+import uuid
+import json
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from typing import List, Dict, Optional
 from core.database import SessionLocal
 from core.models import ScheduleItem
+from core.logger import logger
+
+# [SYN-FIX] Path Normalization: Docker <-> Windows
+# When running locally on Windows, video_paths stored as Docker paths won't work.
+# This function translates them to the correct local path.
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # backend/
+DATA_DIR = os.path.join(BASE_DIR, "data")
+
+def normalize_video_path(docker_path: str) -> str:
+    """
+    Converts Docker-style paths (/app/data/...) to Windows paths.
+    If already a Windows path, returns as-is.
+    """
+    if docker_path.startswith("/app/data/"):
+        # Extract relative path after /app/data/
+        relative = docker_path.replace("/app/data/", "")
+        return os.path.join(DATA_DIR, relative)
+    elif docker_path.startswith("/app/"):
+        # Other /app/ paths
+        relative = docker_path.replace("/app/", "")
+        return os.path.join(BASE_DIR, relative)
+    else:
+        # Already a Windows path or other
+        return docker_path
 
 class Scheduler:
     def __init__(self):
@@ -50,8 +76,43 @@ class Scheduler:
         finally:
             db.close()
 
-    def add_event(self, profile_id: str, video_path: str, scheduled_time: str, viral_music_enabled: bool = False, music_volume: float = 0.0, sound_id: str = None, sound_title: str = None, smart_captions: bool = False) -> Dict:
+    def add_event(self, profile_id: str, video_path: str, scheduled_time: str, viral_music_enabled: bool = False, music_volume: float = 0.0, sound_id: str = None, sound_title: str = None, smart_captions: bool = False, privacy_level: str = "public") -> Dict:
         """Schedules a new video upload."""
+        
+        # [SYN-FIX] Auto-move from Pending -> Approved
+        # If the video is in 'pending', we must move it to 'approved' so it leaves the Approval Queue.
+        try:
+            BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            PENDING_DIR = os.path.join(BASE_DIR, "data", "pending")
+            APPROVED_DIR = os.path.join(BASE_DIR, "data", "approved")
+            os.makedirs(APPROVED_DIR, exist_ok=True)
+            
+            # Normalize paths for comparison
+            abs_video_path = os.path.abspath(video_path)
+            abs_pending_dir = os.path.abspath(PENDING_DIR)
+            
+            # Check if file is inside PENDING_DIR
+            if os.path.commonpath([abs_video_path, abs_pending_dir]) == abs_pending_dir and os.path.exists(abs_video_path):
+                filename = os.path.basename(video_path)
+                new_path = os.path.join(APPROVED_DIR, filename)
+                
+                # Move file
+                shutil.move(abs_video_path, new_path)
+                print(f"[SCHEDULER] Moved scheduled file to approved: {filename}")
+                
+                # Update path variable for DB
+                video_path = new_path
+                
+                # Also move metadata if exists
+                meta_src = os.path.join(PENDING_DIR, f"{filename}.json")
+                if os.path.exists(meta_src):
+                    meta_dst = os.path.join(APPROVED_DIR, f"{filename}.json")
+                    shutil.move(meta_src, meta_dst)
+                    
+        except Exception as e:
+            print(f"[SCHEDULER] Warning during file move: {e}")
+            # Continue anyway, don't block scheduling
+            
         db = SessionLocal()
         try:
             # Parse time (Safe Z handle)
@@ -64,7 +125,8 @@ class Scheduler:
                 "music_volume": music_volume,
                 "sound_id": sound_id,
                 "sound_title": sound_title,
-                "smart_captions": smart_captions
+                "smart_captions": smart_captions,
+                "privacy_level": privacy_level
             }
             
             # Race Condition Check: Prevent duplicate scheduling for same video/time
@@ -140,6 +202,61 @@ class Scheduler:
             db.rollback()
             print(f"DB Error deleting event: {e}")
             return False
+        finally:
+            db.close()
+            
+    def cleanup_missed_schedules(self):
+        """
+        [SYN-42] Lifecycle Management:
+        Checks for 'pending' events that are significantly past their due date (e.g. > 1h).
+        Marks them as 'failed' or 'expired' so they don't clog the 'Up Next' list.
+        """
+        db = SessionLocal()
+        try:
+            # Threshold: 1 hour past due
+            threshold = datetime.utcnow() - timedelta(hours=1)
+            
+            # Find expired pending items (using loose slug match or status)
+            expired_items = db.query(ScheduleItem).filter(
+                ScheduleItem.status == "pending",
+                ScheduleItem.scheduled_time < threshold
+            ).all()
+            
+            if expired_items:
+                count = 0
+                for item in expired_items:
+                    print(f"[SCHEDULER] Expired item detected: {item.id} (Due: {item.scheduled_time})")
+                    item.status = "failed"
+                    # Add metadata explanation
+                    current_meta = item.metadata_info or {}
+                    current_meta["error"] = "Schedule expired (Missed window by >1h)"
+                    item.metadata_info = current_meta
+                    count += 1
+                
+                db.commit()
+                if count > 0:
+                    print(f"[SCHEDULER] Cleaned up {count} expired schedule items.")
+                    
+        except Exception as e:
+            print(f"[SCHEDULER] Error cleaning up missed schedules: {e}")
+            db.rollback()
+        finally:
+            db.close()
+
+    def cleanup_phantom_events(self):
+        """Removes any events associated with phantom/temporary profile IDs."""
+        db = SessionLocal()
+        try:
+            deleted = db.query(ScheduleItem).filter(
+                ScheduleItem.profile_slug.like("ptiktok_%")
+            ).delete(synchronize_session=False)
+            
+            if deleted > 0:
+                print(f"[SCHEDULER] Cleaned up {deleted} phantom events")
+                db.commit()
+        except Exception as e:
+            print(f"[SCHEDULER] Cleanup error: {e}")
+            db.rollback()
         finally:
             db.close()
 
@@ -220,9 +337,35 @@ class Scheduler:
         finally:
             db.close()
 
+    def update_video_path(self, old_path: str, new_path: str) -> int:
+        """Updates the video path for all pending/scheduled items."""
+        db = SessionLocal()
+        try:
+            # Find items with old path
+            items = db.query(ScheduleItem).filter(ScheduleItem.video_path == old_path).all()
+            count = 0
+            for item in items:
+                item.video_path = new_path
+                count += 1
+            
+            if count > 0:
+                print(f"[SCHEDULER] Updated path for {count} items: {old_path} -> {new_path}")
+                db.commit()
+            return count
+        except Exception as e:
+            db.rollback()
+            print(f"DB Error updating video path: {e}")
+            return 0
+        finally:
+            db.close()
+
     async def start_loop(self):
         """Starts the background scheduler loop."""
         print("[SCHEDULER] Loop Started...")
+        
+        # [SYN-FIX] Run cleanup on startup
+        self.cleanup_phantom_events()
+        
         while True:
             try:
                 await self.check_due_items()
@@ -234,23 +377,38 @@ class Scheduler:
         """Checks DB for pending items that are due."""
         db = SessionLocal()
         try:
-            now = datetime.now(timezone.utc)
+            # [SYN-FIX] Standardize on America/Sao_Paulo (User Request)
+            sp_tz = ZoneInfo("America/Sao_Paulo")
+            now = datetime.now(sp_tz)
             
-            # Find due items
-            # SQLite stores dates as naive strings mostly, or we handled it.
-            # If we used timezone.utc in add_event, it stored ISO string with +00:00.
-            # SQLAlchemy with SQLite might need careful comparison.
-            # Let's fetch all pending and filter in python to be safe against SQLite timezone quirks, 
-            # or rely on simple comparison if formats align.
-            
-            # Optimization: Filter roughly in SQL
-            items = db.query(ScheduleItem).filter(
-                ScheduleItem.status == 'pending',
-                ScheduleItem.scheduled_time <= now
+            # Fetching pending items to handle TZ normalization in Python for SQLite safety
+            pending_items = db.query(ScheduleItem).filter(
+                ScheduleItem.status == 'pending'
             ).all()
             
-            for item in items:
-                print(f"[SCHEDULER] Triggering due item {item.id} - {item.video_path}")
+            due_items = []
+            for item in pending_items:
+                s_time = item.scheduled_time
+                if not s_time:
+                    continue
+                
+                # Normalize item time to SP
+                if s_time.tzinfo is None:
+                    # If naive, assume SP (Standardized)
+                    s_time = s_time.replace(tzinfo=sp_tz)
+                else:
+                    # Convert to SP
+                    s_time = s_time.astimezone(sp_tz)
+                
+                if s_time <= now:
+                    due_items.append(item)
+                    print(f"[SCHEDULER] Found Due Item {item.id}: {s_time} <= {now}")
+
+            if due_items:
+                logger.log("info", f"Found {len(due_items)} due items. Processing...", "scheduler")
+            
+            for item in due_items:
+                logger.log("info", f"Triggering item {item.id} - {os.path.basename(item.video_path)}", "scheduler")
                 # Execute Logic
                 await self.execute_due_item(item, db)
                 
@@ -277,34 +435,39 @@ class Scheduler:
             
             # 2. Execute
             # execute_approved_video expects a FILE PATH.
-            # It usually moves file from approved/ -> processing/ -> done/
-            # Here the file is likely in inputs/ or already in done/ if it was processed?
-            # Wait, `video_path` in DB usually points to the file.
-            # If it was uploaded via `scheduler/create`, where is the file?
-            # It might be in `data/pending` or `data/library`.
-            # We pass the absolute path.
+            # [SYN-FIX] Normalize Docker paths to Windows paths
+            video_path = normalize_video_path(item.video_path)
             
-            print(f"[SCHEDULER] Executing Video: {item.video_path}")
+            print(f"[SCHEDULER] Executing Video: {video_path}")
             
             # Need to ensure file exists
-            if not os.path.exists(item.video_path):
-                 print(f"[SCHEDULER] File not found: {item.video_path}")
+            if not os.path.exists(video_path):
+                 print(f"[SCHEDULER] File not found: {video_path}")
                  item.status = 'failed'
-                 # item.error_log = "File not found on disk" (No column)
                  print(f"Error Log: File not found on disk")
                  db.commit()
                  return
 
             # Call manual executor (which handles upload logic)
             # execute_approved_video is async
-            result = await execute_approved_video(item.video_path, is_scheduled=True, metadata=item.metadata_info)
+            
+            # [SYN-FIX] Inject profile info into metadata so executor knows who to use
+            exec_metadata = dict(item.metadata_info or {})
+            exec_metadata['profile_slug'] = item.profile_slug
+            exec_metadata['profile_id'] = item.profile_slug
+            
+            result = await execute_approved_video(video_path, is_scheduled=True, metadata=exec_metadata)
             
             if result.get('status') == 'success':
                 item.status = 'completed'
                 item.published_url = result.get('url')
             else:
                 item.status = 'failed'
-                # item.error_log = result.get('message')
+                # Save error to metadata for frontend display
+                meta = dict(item.metadata_info or {})
+                meta['error'] = result.get('message')
+                item.metadata_info = meta
+                
                 print(f"Error Log: {result.get('message')}")
             
             db.commit()
@@ -312,7 +475,11 @@ class Scheduler:
         except Exception as e:
             print(f"[SCHEDULER] Execution Failed: {e}")
             item.status = 'failed'
-            # item.error_log = str(e)
+            
+            meta = dict(item.metadata_info or {})
+            meta['error'] = str(e)
+            item.metadata_info = meta
+            
             print(f"Error Log: {str(e)}")
             db.commit()
 

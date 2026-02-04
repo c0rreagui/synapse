@@ -5,6 +5,7 @@ import { XMarkIcon, CalendarIcon, MusicalNoteIcon, PlayCircleIcon, TrashIcon } f
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import clsx from 'clsx';
 import { ScheduleEvent, TikTokProfile } from '../types';
 
 interface ScheduledVideosModalProps {
@@ -50,24 +51,32 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
     useEffect(() => {
         if (isOpen) {
             fetchEvents();
+            setEditingId(null);
         }
     }, [isOpen]);
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Tem certeza que deseja cancelar este agendamento?")) return;
+    const [deletingConfirmationId, setDeletingConfirmationId] = useState<string | null>(null);
 
-        try {
-            const res = await fetch(`${API_URL}/api/v1/scheduler/${id}`, { method: 'DELETE' });
-            if (res.ok) {
-                setEvents(prev => prev.filter(e => e.id !== id));
-                toast.success("Agendamento cancelado");
-                if (onDelete) onDelete(id);
-                if (onUpdate) onUpdate(); // Trigger parent refresh
-            } else {
-                toast.error("Erro ao cancelar");
+    const handleDelete = async (id: string) => {
+        if (deletingConfirmationId === id) {
+            try {
+                const res = await fetch(`${API_URL}/api/v1/scheduler/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    setEvents(prev => prev.filter(e => e.id !== id));
+                    toast.success("Agendamento cancelado");
+                    if (onDelete) onDelete(id);
+                    if (onUpdate) onUpdate();
+                    setDeletingConfirmationId(null);
+                } else {
+                    toast.error("Erro ao cancelar");
+                }
+            } catch (e) {
+                toast.error("Erro ao conectar");
             }
-        } catch (e) {
-            toast.error("Erro ao conectar");
+        } else {
+            setDeletingConfirmationId(id);
+            // Reset after 3s
+            setTimeout(() => setDeletingConfirmationId(curr => curr === id ? null : curr), 3000);
         }
     };
 
@@ -130,6 +139,37 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
     };
 
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<'upcoming' | 'history'>('upcoming');
+
+    // Filter events based on active tab
+    const filteredEvents = events.filter(event => {
+        const scheduledDate = new Date(event.scheduled_time);
+        const now = new Date();
+        const isPast = scheduledDate < now;
+        // Also consider status: 'pending' is usually upcoming, others are history
+        // BUT strict time split is often better for "History".
+        // Let's use: 
+        // Upcoming = Future OR (Past < 1h AND Pending) -> basically "Active"
+        // History = (Past > 1h) OR (Status != Pending)
+
+        if (activeTab === 'upcoming') {
+            // Show if it's in the future OR if it's pending and not too old (tolerance)
+            // But cleanup_missed_schedules handles the "too old" part on backend.
+            // So we can simpler: Status == 'pending' AND (Time > now - 1h)
+            // Or just check if status is pending.
+            return event.status === 'pending';
+        } else {
+            // History: Completed, Failed, or Expired
+            return event.status !== 'pending';
+        }
+    });
+
+    // Sort logic: Upcoming = Ascending (Next first), History = Descending (Recent first)
+    const displayEvents = [...filteredEvents].sort((a, b) => {
+        const timeA = new Date(a.scheduled_time).getTime();
+        const timeB = new Date(b.scheduled_time).getTime();
+        return activeTab === 'upcoming' ? timeA - timeB : timeB - timeA;
+    });
 
     return (
         <Transition appear show={isOpen} as={Fragment}>
@@ -163,7 +203,6 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                                         <Dialog.Title as="h3" className="text-xl font-bold text-white flex items-center gap-3">
                                             <CalendarIcon className="w-6 h-6 text-synapse-purple" />
                                             Fila de Agendamentos
-                                            <span className="px-2 py-0.5 rounded-full bg-white/10 text-xs font-mono">{events.length}</span>
                                         </Dialog.Title>
                                         <p className="text-sm text-gray-500 mt-1">Gerenciamento inteligente da Grade de Conteúdo.</p>
                                     </div>
@@ -175,25 +214,62 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                                     </button>
                                 </div>
 
+                                {/* Tabs */}
+                                <div className="flex border-b border-white/5 px-6">
+                                    <button
+                                        onClick={() => setActiveTab('upcoming')}
+                                        className={clsx(
+                                            "px-6 py-3 text-sm font-medium border-b-2 transition-colors",
+                                            activeTab === 'upcoming'
+                                                ? "border-synapse-purple text-synapse-purple"
+                                                : "border-transparent text-gray-400 hover:text-white"
+                                        )}
+                                    >
+                                        Próximos Posts
+                                        <span className={clsx("ml-2 px-2 py-0.5 rounded-full text-xs", activeTab === 'upcoming' ? "bg-synapse-purple/20" : "bg-white/5")}>
+                                            {events.filter(e => e.status === 'pending').length}
+                                        </span>
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('history')}
+                                        className={clsx(
+                                            "px-6 py-3 text-sm font-medium border-b-2 transition-colors",
+                                            activeTab === 'history'
+                                                ? "border-synapse-purple text-synapse-purple"
+                                                : "border-transparent text-gray-400 hover:text-white"
+                                        )}
+                                    >
+                                        Histórico
+                                    </button>
+                                </div>
+
                                 {/* Content */}
-                                <div className="h-[600px] overflow-y-auto custom-scrollbar p-6 space-y-3 bg-[#0c0c0e]">
+                                <div className="h-[550px] overflow-y-auto custom-scrollbar p-6 space-y-3 bg-[#0c0c0e]">
                                     {loading ? (
                                         <div className="flex items-center justify-center h-full text-gray-500">
                                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-synapse-purple mr-3"></div>
                                             Carregando...
                                         </div>
-                                    ) : events.length === 0 ? (
+                                    ) : displayEvents.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center h-full text-gray-500 gap-4">
                                             <CalendarIcon className="w-16 h-16 opacity-20" />
-                                            <p>Nenhum vídeo agendado.</p>
+                                            <p>{activeTab === 'upcoming' ? "Nenhum post agendado." : "Histórico vazio."}</p>
                                         </div>
                                     ) : (
-                                        events.map((event) => {
+                                        displayEvents.map((event) => {
                                             const isEditing = editingId === event.id;
+                                            const isFailed = event.status === 'failed' || event.status === 'error';
+                                            const isDone = event.status === 'completed' || event.status === 'done';
+
                                             return (
                                                 <div
                                                     key={event.id}
-                                                    className="group relative flex items-center gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-synapse-purple/20 transition-all hover:shadow-lg hover:shadow-black/50"
+                                                    className={clsx(
+                                                        "group relative flex items-center gap-4 p-4 rounded-xl border transition-all hover:shadow-lg hover:shadow-black/50",
+                                                        isFailed ? "bg-red-500/5 border-red-500/20 hover:bg-red-500/10" :
+                                                            isDone ? "bg-green-500/5 border-green-500/20 hover:bg-green-500/10" :
+                                                                "bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-synapse-purple/20"
+                                                    )}
                                                 >
                                                     {/* Simulated Thumbnail / File Icon */}
                                                     <div className="w-20 h-28 bg-black/40 rounded-lg flex items-center justify-center border border-white/5 shrink-0 overflow-hidden relative">
@@ -213,6 +289,11 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                                                                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-synapse-purple/20 text-synapse-purple border border-synapse-purple/20 uppercase tracking-wider flex items-center gap-1 shadow-[0_0_10px_rgba(139,92,246,0.2)]">
                                                                             <MusicalNoteIcon className="w-3 h-3" />
                                                                             Viral Boost
+                                                                        </span>
+                                                                    )}
+                                                                    {isFailed && (
+                                                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/20 uppercase tracking-wider">
+                                                                            FALHA
                                                                         </span>
                                                                     )}
                                                                 </div>
@@ -246,11 +327,15 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                                                                 </div>
                                                             ) : (
                                                                 <div
-                                                                    className="text-right cursor-pointer group/time"
-                                                                    onClick={() => setEditingId(event.id)}
-                                                                    title="Clique para editar"
+                                                                    className={clsx(
+                                                                        "text-right group/time",
+                                                                        activeTab === 'upcoming' ? "cursor-pointer" : "cursor-default opacity-80"
+                                                                    )}
+                                                                    onClick={() => activeTab === 'upcoming' && setEditingId(event.id)}
+                                                                    title={activeTab === 'upcoming' ? "Clique para editar" : ""}
                                                                 >
-                                                                    <div className="text-2xl font-bold text-white font-mono tracking-tight group-hover/time:text-synapse-purple transition-colors">
+                                                                    <div className={clsx("text-2xl font-bold font-mono tracking-tight transition-colors",
+                                                                        isFailed ? "text-red-400" : "text-white group-hover/time:text-synapse-purple")}>
                                                                         {format(new Date(event.scheduled_time), 'HH:mm')}
                                                                     </div>
                                                                     <div className="text-xs text-gray-500 uppercase font-bold tracking-wider group-hover/time:text-gray-300">
@@ -275,18 +360,28 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                                                                 </span>
                                                             </div>
 
-                                                            {/* Actions */}
+                                                            {/* Actions - Only allow deleting in upcoming unless it's just cleanup */}
                                                             <button
                                                                 onClick={() => handleDelete(event.id)}
-                                                                className="p-2 text-gray-600 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                                                                title="Cancelar Agendamento"
+                                                                className={clsx(
+                                                                    "p-2 rounded-lg transition-colors opacity-0 group-hover:opacity-100 flex items-center gap-2",
+                                                                    deletingConfirmationId === event.id
+                                                                        ? "bg-red-500 text-white hover:bg-red-600"
+                                                                        : "text-gray-600 hover:text-red-500 hover:bg-red-500/10"
+                                                                )}
+                                                                title={deletingConfirmationId === event.id ? "Clique para confirmar" : "Remover"}
                                                             >
-                                                                <TrashIcon className="w-5 h-5" />
+                                                                {deletingConfirmationId === event.id ? (
+                                                                    <span className="text-xs font-bold pr-1">Confirmar?</span>
+                                                                ) : (
+                                                                    <TrashIcon className="w-5 h-5" />
+                                                                )}
                                                             </button>
                                                         </div>
 
                                                         {/* Progress bar simulation / Status line */}
-                                                        <div className="absolute bottom-0 left-0 h-[2px] bg-gradient-to-r from-synapse-purple to-transparent w-full opacity-0 group-hover:opacity-50 transition-opacity" />
+                                                        <div className={clsx("absolute bottom-0 left-0 h-[2px] w-full transition-opacity",
+                                                            isFailed ? "bg-red-500 opacity-50" : "bg-gradient-to-r from-synapse-purple to-transparent opacity-0 group-hover:opacity-50")} />
                                                     </div>
                                                 </div>
                                             );

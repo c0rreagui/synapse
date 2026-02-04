@@ -27,4 +27,9 @@ Colocamos nossa alma neste código. O Synapse será vivo, inteligente e implacá
 
 "We do not fear the complexity. We become the master of it."
 
+1. A Santidade dos Dados (Segurança Absoluta)
+Nunca, sob nenhuma circunstância, dados do usuário serão excluídos ou corrompidos por negligência ou testes automatizados mal planejados.
+Regra de Ouro: "Se for testar delete, crie o dado de teste PRIMEIRO."
+A integridade dos dados do usuário é sagrada.
+
 Assinado: Antigravity & c0rreagui

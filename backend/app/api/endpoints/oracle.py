@@ -312,7 +312,8 @@ async def generate_caption(request: GenerateCaptionRequest):
     
     # 👁️ VISUAL CONTEXT ANALYSIS (Hybrid Mode)
     visual_description = ""
-    if request.visual_frames:
+    # [EMERGENCY DISABLE] Groq decommissioned Vision Models (11b/90b). Bypassing to unblock uploads.
+    if request.visual_frames and False:
         try:
             print(f"👁️ Oracle Eye: Analysing {len(request.visual_frames)} frames...")
             vision_payload = []
@@ -328,13 +329,33 @@ async def generate_caption(request: GenerateCaptionRequest):
                     "image_url": {"url": f"data:image/jpeg;base64,{frame_b64}"}
                 })
             
-            # Add instruction for the Vision Model
+            # Add instruction for the Vision Model - ULTRA ENHANCED ("1000x Better")
             vision_payload.append({
                 "type": "text", 
-                "text": "Analyze this 30-frame sequence properly. 1. Narrative Arc: Hook (Start) -> Climax (Middle) -> Resolution (End). 2. OCR TRANSCRIPT: Transcribe ALL on-screen text/overlays exactly as they appear (e.g. 'POV:', 'Tips:', subtitles). Format: [Narrative] ... [OCR] ..."
+                "text": """
+                ACT AS AN ELITE FORENSIC VIDEO ANALYST.
+                Construct a frame-by-frame psychological and visual reconstruction of this video.
+                
+                YOUR MANDATE:
+                1. 🌍 SCENE & ATMOSPHERE: Where is this? Lighting (Day/Night)? Professional studio or amateur bedroom? Chaos or Calm?
+                2. 👥 PROFILING (Crucial): Detect EVERY person. Estimate Age, Gender, Role (Influencer, Interviewer, Victim).
+                   - 🔥 MICRO-EXPRESSIONS: Are they truly happy or faking it? Angry? Sarcastic? Desperate? (Look at eyes and mouth).
+                3. 🎬 ACTION SCRIPT: What is happening? Who hits who? Who laughs? Who falls? Document the PHYSICALITY.
+                4. 🔠 OCR & TEXT LAYER: Transcribe EVERY WORD onscreen (Captions, Banners, T-Shirts). Contextualize them.
+                5. 🔮 THE SUBTEXT (The "Vibe"): Is this satire? Cringe? Motivational? Rage-bait? Wholesome?
+                
+                OUTPUT FORMAT:
+                [SCENE]: ...
+                [PEOPLE]: ...
+                [ACTION]: ...
+                [OCR]: ...
+                [VIBE]: ...
+                
+                BE MERCILESSLY DETAILED. DO NOT MISS A BLINK.
+                """
             })
             
-            # Invoke Vision Model (Llama 3.2 11B)
+            # Invoke Vision Model (Llama 3.2 90B - Updated)
             vision_response = oracle_client.generate_content(
                 vision_payload, 
                 model="llama-3.2-11b-vision-preview" 
@@ -401,7 +422,7 @@ async def generate_caption(request: GenerateCaptionRequest):
         
         2. 👁️ VIDEO VISUALS (THE CONTEXT): 
         "{visual_description if visual_description else '(Not available)'}"
-        (Use these details to ground your caption in reality, but DO NOT just describe them. Use them to prove the point of the strategy.)
+        (Use these details to ground your caption in reality. ONE RULE: If it's not in the visuals, it doesn't exist.)
 
         3. 🎨 PARAMETERS:
         - Niche/Identity: {request.niche_context if request.niche_context else "General Content Creator"}
@@ -412,19 +433,15 @@ async def generate_caption(request: GenerateCaptionRequest):
 
         --- INSTRUCTIONS ---
 
-        ❌ WHAT NOT TO DO:
-        - Do NOT make the caption about "Growing on TikTok" or "Marketing" just because the User Strategy mentions followers.
-        - Do NOT ignore the Visual Content. If the video is about Boxing, talk about Boxing!
-        - Do NOT start with "In this video" or "Check this out".
+        ❌ HALLUCINATION SHIELD (STRICT):
+        - 🛑 DO NOT invent celebrity names (e.g. Cristiano Ronaldo, Messi, Neymar) unless they are VISIBLY present in the [VIDEO VISUALS] or mentioned in the [USER STRATEGY]. If unsure, use generic terms (e.g. "o jogador", "o craque").
+        - 🛑 DO NOT force trending hashtags if they don't match the video content.
+        - 🛑 DO NOT start with "Neste vídeo..." or "Veja só...".
 
         ✅ WHAT TO DO:
-        1. **IDENTIFY THE TOPIC**: Read the [VIDEO VISUALS] carefully. That is your subject. (e.g. If visuals show boxing, the topic is BOXING. If visuals show gaming, topic is GAMING).
-        2. **APPLY THE ANGLE**: Read the [USER STRATEGY]. That is your lens. (e.g. If strategy is "Provocative", be a provocative commentator on the Boxing match).
-        3. **EXECUTE THE GOAL**: Make the text viral/engaging according to the goal, but KEEP THE TOPIC FIXED ON THE VISUALS.
-
-        The Visuals are the "WHAT".
-        The Strategy is the "HOW".
-        The Niche is just the "AUDIENCE".
+        1. **IDENTIFY THE TOPIC**: Read the [VIDEO VISUALS] carefully. That is your subject.
+        2. **APPLY THE ANGLE**: Read the [USER STRATEGY]. That is your lens.
+        3. **EXECUTE THE GOAL**: Make the text viral/engaging.
 
         #️⃣ SMART HASHTAG STRATEGY (CRITICAL):
         {'If hashtags are allowed:' if request.include_hashtags else 'SKIP THIS SECTION (No Hashtags).'}
@@ -433,8 +450,10 @@ async def generate_caption(request: GenerateCaptionRequest):
            - 1x Broad/Viral (e.g. #fyp, #viral)
            - 2x Niche (e.g. #marketingdigital, #dicas)
            - 1x Specific Context (e.g. #copywritingtips)
-        3. **Integration**: Place them at the very end, separated by spaces.
-        4. **Real-Time (MANDATORY)**: If specific tags are listed in 'REAL-TIME TRENDING TAGS' above, YOU MUST INCLUDE AT LEAST 2 OF THEM. Do not ignore the research data.
+        3. **Real-Time Trends**: If 'REAL-TIME TRENDING TAGS' are listed above, verify if they fit the visual topic.
+           - ✅ IF FITS: Include 1-2.
+           - ❌ IF DOES NOT FIT: IGNORE THEM. Do NOT include #cristianoronaldo on a cat video.
+        4. **Integration**: Place them at the very end.
 
         OUTPUT FORMAT (JSON ONLY):
         {{

@@ -97,10 +97,14 @@ export default function SchedulerForm({
             setSelectedDate(format(d, 'yyyy-MM-dd'));
             setSelectedTime(format(d, 'HH:mm'));
         }
-        if (initialData?.profile_ids) setSelectedProfiles(initialData.profile_ids);
+        if (initialData?.profile_ids) {
+            // [SYN-FIX] Filter out ghost IDs
+            const validIds = initialData.profile_ids.filter(id => profiles.some(p => p.id === id));
+            setSelectedProfiles(validIds);
+        }
         if (initialData?.description) setDescription(initialData.description);
         if (initialData?.video_path) setVideoPath(initialData.video_path);
-    }, [initialData]);
+    }, [initialData, profiles]);
 
     const handleFileUpload = async (file: File) => {
         if (!selectedProfiles[0]) {

@@ -1,7 +1,7 @@
 import os
 import glob
-from fastapi import APIRouter
-from typing import List, Dict
+from fastapi import APIRouter, HTTPException, BackgroundTasks
+from typing import List, Dict, Any
 from .. import websocket
 
 router = APIRouter()
@@ -12,7 +12,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 # Adjusting to backend/data/sessions
 SESSIONS_DIR = os.path.join(BASE_DIR, "data", "sessions")
 
-@router.get("/list", response_model=List[Dict[str, str]])
+@router.get("/list", response_model=List[Dict[str, Any]])
 async def get_profiles():
     """
     Lista os arquivos de sessão JSON disponíveis na pasta de dados.
@@ -24,38 +24,41 @@ async def get_profiles():
     return await run_in_threadpool(list_available_sessions)
 
 # Alias root para list
-@router.get("/", response_model=List[Dict[str, str]])
+@router.get("/", response_model=List[Dict[str, Any]])
 async def get_profiles_root():
     return await get_profiles()
 
 from pydantic import BaseModel
 
 class ImportProfileRequest(BaseModel):
-    label: str
+    label: str | None = None
     cookies: str
+    username: str | None = None
+    avatar_url: str | None = None
 
 @router.post("/import")
-async def import_profile_endpoint(request: ImportProfileRequest):
+async def import_profile_endpoint(request: ImportProfileRequest, background_tasks: BackgroundTasks):
     """
     Importa um novo perfil a partir de um JSON de cookies.
+    Se o label não for fornecido, tenta extrair dos cookies.
     """
     from fastapi import HTTPException
     from fastapi.concurrency import run_in_threadpool
-    from core.session_manager import import_session, get_profile_metadata
+    from core.session_manager import import_session, get_profile_metadata, update_profile_metadata_async
     
     try:
-        profile_id = await run_in_threadpool(import_session, request.label, request.cookies)
+        # Se label for None, import_session vai gerar um temporário
+        profile_id = await run_in_threadpool(import_session, request.label, request.cookies, request.username, request.avatar_url)
         
-        # Notify
-        profile_data = await run_in_threadpool(get_profile_metadata, profile_id)
-        if profile_data:
-            await websocket.notify_profile_change(profile_data)
+        # Trigger background metadata fetch
+        background_tasks.add_task(run_in_threadpool, update_profile_metadata_async, profile_id)
 
-        return {"status": "success", "id": profile_id, "message": "Perfil importado com sucesso"}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        # Simplificando erro
         raise HTTPException(status_code=500, detail=str(e))
+        
+    return {"profile_id": profile_id, "status": "imported", "message": "Importação iniciada. Metadados serão atualizados em breve."}
+
 
 @router.post("/validate/{profile_id}")
 async def validate_profile_endpoint(profile_id: str):
@@ -79,18 +82,17 @@ async def validate_profile_endpoint(profile_id: str):
         )
         
         if result_proc.returncode != 0:
-            raise Exception(f"Script Error: {result_proc.stderr}")
-            
-        output = result_proc.stdout.strip()
-        # Extract JSON from output (handle potential log noise)
-        start_idx = output.find("{")
-        end_idx = output.rfind("}")
-        
-        if start_idx != -1 and end_idx != -1:
-            json_str = output[start_idx:end_idx+1]
-            result = json.loads(json_str)
-        else:
-            raise Exception(f"No valid JSON in output: {output}")
+            # Try to parse error from stdout if available, else stderr
+            try:
+               res_err = json.loads(result_proc.stdout)
+               return res_err
+            except:
+               raise HTTPException(status_code=500, detail=f"Validator Script Failed: {result_proc.stderr}")
+
+        try:
+            result = json.loads(result_proc.stdout)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=500, detail=f"Validator Output Invalid: '{result_proc.stdout}' Stderr: {result_proc.stderr}")
 
         if result.get("status") == "error":
             raise HTTPException(status_code=500, detail=result["message"])
@@ -135,21 +137,27 @@ async def refresh_avatar_endpoint(profile_id: str):
         )
         
         if result_proc.returncode != 0:
-             # Log stderr for debug
-             print(f"Validator CLI Error: {result_proc.stderr}")
-             raise Exception(f"Script Error: {result_proc.stderr}")
-            
-        output = result_proc.stdout.strip()
-        
-        # Extract JSON
-        start_idx = output.find("{")
-        end_idx = output.rfind("}")
-        
-        if start_idx != -1 and end_idx != -1:
-            json_str = output[start_idx:end_idx+1]
-            result = json.loads(json_str)
-        else:
-             raise Exception(f"No valid JSON in output: {output}")
+             # Try to parse error from stdout if available
+             try:
+                 res_err = json.loads(result_proc.stdout)
+                 return res_err
+             except:
+                 print(f"Validator CLI Error (Ref): {result_proc.stderr}")
+                 raise HTTPException(status_code=500, detail=f"Validator Script Failed: {result_proc.stderr}")
+
+        try:
+            output = result_proc.stdout.strip()
+            # Extract JSON (sometimes logs sneak in despite redirection if not careful)
+            start_idx = output.find("{")
+            end_idx = output.rfind("}")
+            if start_idx != -1 and end_idx != -1:
+                json_str = output[start_idx:end_idx+1]
+                result = json.loads(json_str)
+            else:
+                 result = json.loads(output) # Try direct
+        except Exception as e:
+             print(f"Validator Output Parse Error: {e} | Output: {result_proc.stdout}")
+             raise HTTPException(status_code=500, detail=f"Validator Output Invalid: {str(e)}")
 
         if result.get("status") == "error":
             raise HTTPException(status_code=500, detail=result["message"])

@@ -227,7 +227,7 @@ export default function CommandCenter({ scheduledVideos = [] }: Props) {
                 <div className="p-4 bg-[#0a0a0a] font-mono text-xs text-gray-300 border-t border-white/10 max-h-[300px] overflow-y-auto custom-scrollbar shadow-inner">
                     {effectiveStatus.job.logs.length > 0 ? (
                         effectiveStatus.job.logs.map((log, i) => (
-                            <div key={i} className="mb-2 flex gap-3 opacity-0 animate-in fade-in slide-in-from-bottom-1 duration-300 fill-mode-forwards" style={{ animationDelay: `${i * 50}ms` }}>
+                            <div key={i} className="mb-2 flex gap-3 text-gray-300">
                                 <span className="text-white/20 text-[10px] select-none shrink-0 w-16">
                                     {new Date(effectiveStatus.last_updated || Date.now()).toLocaleTimeString()}
                                 </span>

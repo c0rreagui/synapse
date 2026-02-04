@@ -223,6 +223,7 @@ export interface TikTokProfile {
     status: 'active' | 'inactive' | 'expired';
     session_valid?: boolean;
     niche?: string;
+    last_error_screenshot?: string;
 }
 
 // --- WEBSOCKET TYPES ---
@@ -243,6 +244,7 @@ export interface ScheduleEvent {
     viral_music_enabled?: boolean;
     music_volume?: number;
     trend_category?: string;
+    metadata?: any;
 }
 
 export interface LogEntry {

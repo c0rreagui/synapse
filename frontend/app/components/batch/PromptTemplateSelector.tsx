@@ -75,15 +75,24 @@ export function PromptTemplateSelector({ onSelect, currentPrompt }: PromptTempla
         }
     };
 
+    const [deletingId, setDeletingId] = useState<number | null>(null);
+
     const handleDelete = async (id: number, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!confirm("Tem certeza que deseja excluir?")) return;
-        try {
-            await templateService.delete(id);
-            toast.success("Template removido");
-            loadTemplates();
-        } catch (error) {
-            toast.error("Erro ao remover");
+
+        if (deletingId === id) {
+            try {
+                await templateService.delete(id);
+                toast.success("Template removido");
+                loadTemplates();
+                setDeletingId(null);
+            } catch (error) {
+                toast.error("Erro ao remover");
+            }
+        } else {
+            setDeletingId(id);
+            // Reset after 3 seconds
+            setTimeout(() => setDeletingId(curr => curr === id ? null : curr), 3000);
         }
     };
 
@@ -176,10 +185,19 @@ export function PromptTemplateSelector({ onSelect, currentPrompt }: PromptTempla
                                                 </button>
                                                 <button
                                                     onClick={(e) => handleDelete(t.id, e)}
-                                                    className="p-1.5 hover:bg-red-500/20 text-red-400 rounded-md transition-colors"
-                                                    title="Excluir"
+                                                    className={clsx(
+                                                        "p-1.5 rounded-md transition-all duration-200",
+                                                        deletingId === t.id
+                                                            ? "bg-red-500 text-white w-auto px-2"
+                                                            : "hover:bg-red-500/20 text-red-400"
+                                                    )}
+                                                    title={deletingId === t.id ? "Clique para confirmar" : "Excluir"}
                                                 >
-                                                    <TrashIcon className="w-3 h-3" />
+                                                    {deletingId === t.id ? (
+                                                        <span className="text-[10px] font-bold whitespace-nowrap">Excluir?</span>
+                                                    ) : (
+                                                        <TrashIcon className="w-3 h-3" />
+                                                    )}
                                                 </button>
                                             </div>
                                         </div>

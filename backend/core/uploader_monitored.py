@@ -32,6 +32,36 @@ async def upload_video_monitored(
     sound_title: str = None,  # Titulo da musica viral especifica
     privacy_level: str = "public_to_everyone" # public_to_everyone, mutual_follow_friends, self_only
 ) -> dict:
+    # --- HELPER: Nuke Modals ---
+    async def nuke_modals(page_ref):
+        try:
+            # Remove overlays e backdrops comuns
+            await page_ref.evaluate("""
+                () => {
+                    document.querySelectorAll('.TUXModal-overlay, .TUXModal-backdrop, [role="dialog"]').forEach(el => el.remove());
+                    document.querySelectorAll('div[class*="overlay"], div[class*="backdrop"]').forEach(el => {
+                        if(window.getComputedStyle(el).position === 'fixed') el.remove();
+                    });
+                }
+            """)
+            await page_ref.wait_for_timeout(200)
+        except: pass
+    
+    # --- HELPER: Nuke Modals ---
+    async def nuke_modals(page_ref):
+        try:
+            # Remove overlays e backdrops comuns
+            await page_ref.evaluate("""
+                () => {
+                    document.querySelectorAll('.TUXModal-overlay, .TUXModal-backdrop, [role="dialog"]').forEach(el => el.remove());
+                    document.querySelectorAll('div[class*="overlay"], div[class*="backdrop"]').forEach(el => {
+                        if(window.getComputedStyle(el).position === 'fixed') el.remove();
+                    });
+                }
+            """)
+            await page_ref.wait_for_timeout(200)
+        except: pass
+
     result = {"status": "error", "message": "", "screenshot_path": None}
     
     # MONITOR ULTRA-DETALHADO (so ativa se solicitado)
@@ -427,6 +457,7 @@ async def upload_video_monitored(
 
 
         # ========== PRIVACY SETTINGS (QUEM PODE ASSISTIR) ==========
+        await nuke_modals(page)
         logger.info(f"🔒 Configurando privacidade para: {privacy_level}")
         try:
             # 1. Scroll to visibility
@@ -934,6 +965,7 @@ async def upload_video_monitored(
             await monitor.capture_full_state(page, "pos_verificacao_final", "Após verificação final")
         
         # ========== CLICK FINAL & MODAL DE CONFIRMAÇÃO ==========
+        await nuke_modals(page)
         logger.info("🚀 Preparando para finalizar...")
         
         # Botão Final

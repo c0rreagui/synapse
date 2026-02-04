@@ -10,7 +10,8 @@ export function BatchMain() {
         viralBoost, setViralBoost,
         mixViralSounds, setMixViralSounds,
         aiCaptions,
-        setEditingFileId // [SYN-44] Added for Editor
+        setEditingFileId, // [SYN-44] Added for Editor
+        privacyLevel, setPrivacyLevel
     } = useBatch();
 
     // Dropzone Logic
@@ -58,12 +59,30 @@ export function BatchMain() {
 
                             {/* Global Toggles */}
                             <div className="flex items-center gap-4">
+                                {/* Privacy Toggle */}
+                                <div className="flex items-center gap-2 cursor-pointer group" onClick={() => setPrivacyLevel(privacyLevel === 'public' ? 'private' : 'public')}>
+                                    <span className="text-[11px] font-mono text-gray-400 group-hover:text-white transition-colors">
+                                        {privacyLevel === 'public' ? 'PÚBLICO' : 'PRIVADO'}
+                                    </span>
+                                    <div className={clsx(
+                                        "w-10 h-6 rounded-full p-1 transition-colors",
+                                        privacyLevel === 'public' ? "bg-cyan-500" : "bg-red-500/50"
+                                    )}>
+                                        <div className={clsx(
+                                            "w-4 h-4 rounded-full bg-white shadow-sm transition-transform",
+                                            privacyLevel === 'public' ? "translate-x-4" : "translate-x-0"
+                                        )} />
+                                    </div>
+                                </div>
+
+                                <div className="w-px h-4 bg-white/10" />
+
                                 {/* Viral Boost */}
                                 <label className="flex items-center gap-2 cursor-pointer group">
                                     <span className="text-[11px] font-mono text-gray-400 group-hover:text-white transition-colors">VIRAL BOOST</span>
                                     <div className={clsx(
                                         "w-10 h-6 rounded-full p-1 transition-colors",
-                                        viralBoost ? "bg-synapse-purple" : "bg-gray-700"
+                                        viralBoost ? "bg-purple-600 shadow-[0_0_10px_rgba(147,51,234,0.5)]" : "bg-gray-700"
                                     )} onClick={() => setViralBoost(!viralBoost)}>
                                         <div className={clsx(
                                             "w-4 h-4 rounded-full bg-white shadow-sm transition-transform",
@@ -166,7 +185,7 @@ export function BatchMain() {
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-3 flex flex-col justify-end">
                                     <p className="text-xs font-medium text-white line-clamp-2 leading-tight mb-1">{file.filename}</p>
                                     <p className="text-[10px] text-gray-500">
-                                        {file.file ? (file.file.size / 1024 / 1024).toFixed(1) + ' MB' : 'Remote'}
+                                        {file.file ? (file.file.size / 1024 / 1024).toFixed(1) + ' MB' : 'Remoto'}
                                     </p>
                                 </div>
 

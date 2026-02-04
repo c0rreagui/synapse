@@ -63,51 +63,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         ws.onopen = () => {
             setIsConnected(true);
             isConnectingRef.current = false;
-        };
-
-        ws.onmessage = (event) => {
-            try {
-                const message: WebSocketMessage = JSON.parse(event.data);
-
-                // Broadcast to all subscribers
-                handlersRef.current.forEach(handler => {
-                    switch (message.type) {
-                        case 'pipeline_update':
-                            handler.onPipelineUpdate?.(message.data as BackendStatus);
-                            break;
-                        case 'log_entry':
-                            handler.onLogEntry?.(message.data as LogEntry);
-                            break;
-                        case 'profile_change':
-                            handler.onProfileChange?.(message.data as TikTokProfile);
-                            break;
-                        case 'schedule_update':
-                            handler.onScheduleUpdate?.(message.data as ScheduleEvent[]);
-                            break;
-                        case 'queue_update':
-                            handler.onQueueUpdate?.(message.data as PendingVideo[]);
-                            break;
-                        case 'ping':
-                            ws.send('pong');
-                            break;
-                    }
-                });
-            } catch (err) {
-                // Silently ignore parse errors to avoid cluttering console
-            }
-        };
-
-
-
-        // ... inside connect ...
-
-        ws.onopen = () => {
-            setIsConnected(true);
-            isConnectingRef.current = false;
             setRetryCount(0); // Reset backoff on success
         };
-
-        // ...
 
         ws.onclose = () => {
             setIsConnected(false);

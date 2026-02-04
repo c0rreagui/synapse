@@ -145,6 +145,12 @@ async def approve_video(request: ApprovalRequest, background_tasks: BackgroundTa
         
         # Execution is now handled by the Queue Worker (core/queue_worker.py)
         # which monitors the 'approved' directory and processes sequentially.
+        
+        # [SYN-FIX] Ensure Scheduler knows the file moved!
+        # When we move pending -> approved, any scheduled items in DB pointing to pending path must be updated.
+        from core.scheduler import scheduler_service
+        scheduler_service.update_video_path(pending_video, approved_video)
+        
         pass
         
         # Notify clients

@@ -1,4 +1,5 @@
 'use client';
+import React from 'react';
 
 import { WebSocketProvider } from '../context/WebSocketContext';
 import { MoodProvider } from '../context/MoodContext';
@@ -8,6 +9,27 @@ import { Toaster } from 'sonner';
 import { NeoSidebar } from '@/components/design-system/NeoSidebar';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
+    // START: Client-side Sidebar Logic
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
+
+    // Auto-collapse on smaller screens
+    React.useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth < 1280) { // xl breakpoint
+                setIsSidebarCollapsed(true);
+            } else {
+                setIsSidebarCollapsed(false);
+            }
+        };
+
+        // Initial check
+        handleResize();
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+    // END: Client-side Sidebar Logic
+
     return (
         <MoodProvider>
             {/* Global Ambient Glow (Reduces harshness of deep black) */}
@@ -20,12 +42,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
                         {/* 1. Global Navigation (Floating HUD) */}
                         <div className="relative z-50">
-                            <NeoSidebar />
+                            <NeoSidebar
+                                collapsed={isSidebarCollapsed}
+                                onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                            />
                         </div>
 
                         {/* 2. Main Content Area (Scrollable) */}
-                        {/* margin-left calculated to clear the floating sidebar (280px + gap) */}
-                        <main className="flex-1 ml-[320px] h-full overflow-y-auto p-8 relative z-10 bg-grid-pattern scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                        {/* margin-left calculated to clear the floating sidebar + gap */}
+                        <main className={`flex-1 h-full overflow-y-auto p-4 md:p-8 relative z-10 bg-grid-pattern scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent transition-all duration-300 ${isSidebarCollapsed ? 'ml-[120px]' : 'ml-[320px]'}`}>
                             {children}
                         </main>
                     </div>

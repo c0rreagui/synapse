@@ -3,9 +3,14 @@ import asyncio
 import os
 import uvicorn
 
-# FORCE PROACTOR ON WINDOWS (REQUIRED FOR PLAYWRIGHT)
+# FORCE UTF-8 & PROACTOR ON WINDOWS
 if sys.platform == "win32":
-    print("SYSTEM: Forcing WindowsProactorEventLoopPolicy for Playwright compatibility...")
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except:
+        pass
+    print("SYSTEM: Forcing Windows UTF-8 and ProactorEventLoopPolicy...")
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 if __name__ == "__main__":

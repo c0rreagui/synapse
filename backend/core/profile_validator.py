@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from typing import Dict, Optional
-from core.session_manager import get_session_path, update_profile_info
+from core.session_manager import get_session_path, update_profile_info, update_profile_metadata, update_profile_status, get_profile_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +93,6 @@ async def validate_profile(profile_id: str) -> Dict:
              
             update_success = update_profile_info(profile_id, result_data)
             
-            from core.session_manager import update_profile_metadata
             update_profile_metadata(profile_id, {
                 "bio": profile_data.get("bio", ""),
                 "stats": {
@@ -103,7 +102,9 @@ async def validate_profile(profile_id: str) -> Dict:
             })
             
             if update_success:
-                logger.info("✅ Profile updated successfully!")
+                # Reactivate profile since validation was successful
+                update_profile_status(profile_id, True)
+                logger.info("Profile updated and reactivated successfully!")
                 return {
                     "status": "success",
                     "profile_id": profile_id,
@@ -150,13 +151,53 @@ async def validate_profile(profile_id: str) -> Dict:
              except:
                  pass
 
+        # === NEW FALLBACK: Main Page Scraping (to find username) ===
+        if not avatar_src:
+            logger.info("Accessing Main Page to recover session/username...")
+            try:
+                await page.goto("https://www.tiktok.com/", timeout=30000, wait_until="networkidle")
+                
+                # Try to find profile link in header
+                # Selectors for profile icon that links to @username
+                header_profile_sel = '[data-e2e="profile-icon"]' 
+                if await page.locator(header_profile_sel).count() > 0:
+                    profile_link = await page.locator(header_profile_sel).xpath('..') # Parent <a>
+                    if await profile_link.count() > 0:
+                         href = await profile_link.first.get_attribute("href")
+                         # href is usually /@username
+                         if href and "/@" in href:
+                             extracted_user = href.split("/@")[1].split("?")[0]
+                             logger.info(f"Found username from header: {extracted_user}")
+                             
+                             # Update local metadata so public fallback can use it
+                             update_profile_info(profile_id, {"username": extracted_user})
+                             
+                             # Also try to grab avatar here
+                             avatar_src = await page.locator(header_profile_sel).first.get_attribute("src")
+                
+                # If still no avatar, check for generic avatar img in header
+                if not avatar_src:
+                     # fallback generic
+                     pass
+                     
+            except Exception as e_main:
+                logger.error(f"Main page recovery failed: {e_main}")
+
         if not avatar_src:
             # === PUBLIC FALLBACK ===
             logger.info("Attempting Public Profile Fallback (/@username)...")
-            from core.session_manager import get_profile_metadata
             meta = get_profile_metadata(profile_id)
             username = meta.get("username")
             
+            # If username was just recovered above, it should be in meta (reload it or use local var?)
+            # update_profile_info writes to DB. get_profile_metadata reads from DB.
+            # It might be cached or slow. Let's just pass it if we found it?
+            # Actually, let's rely on DB or refetch.
+            if not username:
+                # Try one last check of the page URL if we are on a profile page
+                if "/@" in page.url:
+                    username = page.url.split("/@")[1].split("?")[0]
+
             if username:
                 try:
                     await page.goto(f"https://www.tiktok.com/@{username}", timeout=30000, wait_until="domcontentloaded")
@@ -192,7 +233,7 @@ async def validate_profile(profile_id: str) -> Dict:
                         logger.warning(f"Public scrape partial fail: {scrape_err}")
 
                     if avatar_src:
-                         logger.info(f"✅ Public Fallback Success for @{username}")
+                         logger.info(f"Public Fallback Success for @{username}")
                          result_data = {
                             "avatar_url": avatar_src,
                             "nickname": meta.get("label", username), # Keep existing label/nick if public scraping fails to find nick
@@ -203,7 +244,6 @@ async def validate_profile(profile_id: str) -> Dict:
                          
                          update_profile_info(profile_id, result_data)
                          
-                         from core.session_manager import update_profile_metadata
                          # Parse '1.2M' -> 1200000 roughly if needed, or save string. Database expects int for stats usually?
                          # For now saving raw strings or simple integers if possible. 
                          # Let's clean it simply.
@@ -225,6 +265,9 @@ async def validate_profile(profile_id: str) -> Dict:
                             }
                         })
                         
+                         # Reactivate profile since validation was successful
+                         update_profile_status(profile_id, True)
+                         
                          return {
                             "status": "success",
                             "profile_id": profile_id, 
@@ -249,6 +292,8 @@ async def validate_profile(profile_id: str) -> Dict:
         update_success = update_profile_info(profile_id, result_data)
         
         if update_success:
+            # Reactivate profile since validation was successful
+            update_profile_status(profile_id, True)
             return {
                 "status": "success",
                 "profile_id": profile_id, 
@@ -260,12 +305,41 @@ async def validate_profile(profile_id: str) -> Dict:
 
     except Exception as e:
         logger.error(f"Validation failed for {profile_id}: {e}")
+        
+        # Mark session as invalid in DB
+        update_profile_status(profile_id, False) # active=False
+        
+        # Capture Screenshot for Visual Debugging
+        screenshot_url = None
+        try:
+            if page:
+                screenshots_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "debug_screenshots")
+                os.makedirs(screenshots_dir, exist_ok=True)
+                filename = f"{profile_id}_error.png"
+                filepath = os.path.join(screenshots_dir, filename)
+                await page.screenshot(path=filepath, full_page=False)
+                # URL assuming /static mount
+                screenshot_url = f"/static/debug_screenshots/{filename}?t={int(asyncio.get_event_loop().time())}"
+                
+                # Update metadata with screenshot
+                update_profile_metadata(profile_id, {"last_error_screenshot": screenshot_url})
+        except Exception as screen_err:
+            logger.error(f"Failed to capture error screenshot: {screen_err}")
+
         import traceback
         traceback.print_exc()
+        
+        # Log to debug file (keeping existing log logic)
+        try:
+            with open("validator_debug.log", "a", encoding="utf-8") as f:
+                f.write(f"ERROR {profile_id}: {str(e)}\n{traceback.format_exc()}\n")
+        except: pass
+        
         return {
             "status": "error",
             "profile_id": profile_id,
-            "message": str(e)
+            "message": str(e),
+            "error_screenshot": screenshot_url
         }
     finally:
         await close_browser(p, browser)

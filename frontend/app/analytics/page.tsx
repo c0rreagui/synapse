@@ -125,68 +125,71 @@ export default function AnalyticsPage() {
                     ) : data ? (
                         <>
                             {/* KPI Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <StatCard
-                                    label="Total Views"
-                                    value={formatNumber(data.summary.total_views)}
-                                    icon={<Eye className="w-6 h-6 text-white" />}
-                                    color="purple"
-                                    trend="up"
-                                    trendValue="12%"
-                                />
-                                <StatCard
-                                    label="Avg Engagement"
-                                    value={data.summary.avg_engagement.toFixed(1)}
-                                    icon={<Heart className="w-6 h-6 text-white" />}
-                                    color="pink"
-                                    subValue="Likes + Comments per View"
-                                />
-                                <StatCard
-                                    label="Followers"
-                                    value={formatNumber(data.summary.followers)}
-                                    icon={<Sparkles className="w-6 h-6 text-white" />}
-                                    color="blue"
-                                />
-                                <StatCard
-                                    label="Analyzed Posts"
-                                    value={data.summary.posts_analyzed}
-                                    icon={<MessageSquare className="w-6 h-6 text-white" />}
-                                    color="green"
-                                />
-                            </div>
-
-                            {/* Charts Area */}
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                {/* Main Chart */}
-                                <div className="lg:col-span-2 bg-[#0f0a15] border border-white/5 rounded-2xl p-6">
-                                    <h3 className="text-lg font-bold mb-6 text-gray-200">Views Growth</h3>
-                                    <PerformanceChart data={data.history} />
+                            {/* KPI Grid */}
+                            <div key={selectedProfileId} className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                    <StatCard
+                                        label="Total Views"
+                                        value={formatNumber(data.summary.total_views)}
+                                        icon={<Eye className="w-6 h-6 text-white" />}
+                                        color="purple"
+                                        trend="up"
+                                        trendValue="12%"
+                                    />
+                                    <StatCard
+                                        label="Avg Engagement"
+                                        value={data.summary.avg_engagement.toFixed(1)}
+                                        icon={<Heart className="w-6 h-6 text-white" />}
+                                        color="pink"
+                                        subValue="Likes + Comments per View"
+                                    />
+                                    <StatCard
+                                        label="Followers"
+                                        value={formatNumber(data.summary.followers)}
+                                        icon={<Sparkles className="w-6 h-6 text-white" />}
+                                        color="blue"
+                                    />
+                                    <StatCard
+                                        label="Analyzed Posts"
+                                        value={data.summary.posts_analyzed}
+                                        icon={<MessageSquare className="w-6 h-6 text-white" />}
+                                        color="green"
+                                    />
                                 </div>
 
-                                {/* Insights Column */}
-                                <div className="bg-[#0f0a15] border border-white/5 rounded-2xl p-6">
-                                    <h3 className="text-lg font-bold mb-6 text-gray-200">Oracle Insights</h3>
-                                    <div className="space-y-4">
-                                        <div className="p-4 bg-white/5 rounded-xl border border-white/5">
-                                            <div className="text-sm text-gray-400 mb-1">Top Performing Day</div>
-                                            <div className="text-xl font-bold text-white">Friday</div>
-                                        </div>
-                                        <div className="p-4 bg-white/5 rounded-xl border border-white/5">
-                                            <div className="text-sm text-gray-400 mb-1">Viral Potential</div>
-                                            <div className="text-xl font-bold text-synapse-purple">High</div>
-                                        </div>
-                                        <div className="mt-4 p-4 rounded-xl bg-synapse-purple/10 border border-synapse-purple/20">
-                                            <p className="text-xs text-synapse-purple leading-relaxed">
-                                                💡 <strong>Tip:</strong> Your videos posted on Fridays get 2x more views than other days.
-                                            </p>
+                                {/* Charts Area */}
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                    {/* Main Chart */}
+                                    <div className="lg:col-span-2 bg-[#0f0a15] border border-white/5 rounded-2xl p-6">
+                                        <h3 className="text-lg font-bold mb-6 text-gray-200">Views Growth</h3>
+                                        <PerformanceChart data={data.history} />
+                                    </div>
+
+                                    {/* Insights Column */}
+                                    <div className="bg-[#0f0a15] border border-white/5 rounded-2xl p-6">
+                                        <h3 className="text-lg font-bold mb-6 text-gray-200">Oracle Insights</h3>
+                                        <div className="space-y-4">
+                                            <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+                                                <div className="text-sm text-gray-400 mb-1">Top Performing Day</div>
+                                                <div className="text-xl font-bold text-white">Friday</div>
+                                            </div>
+                                            <div className="p-4 bg-white/5 rounded-xl border border-white/5">
+                                                <div className="text-sm text-gray-400 mb-1">Viral Potential</div>
+                                                <div className="text-xl font-bold text-synapse-purple">High</div>
+                                            </div>
+                                            <div className="mt-4 p-4 rounded-xl bg-synapse-purple/10 border border-synapse-purple/20">
+                                                <p className="text-xs text-synapse-purple leading-relaxed">
+                                                    💡 <strong>Tip:</strong> Your videos posted on Fridays get 2x more views than other days.
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                {/* New Deep Analytics Row */}
-                                <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <RetentionChart data={[]} /> {/* Passing empty to trigger mock for now, or real if available later */}
-                                    <EngagementHeatmap data={[]} />
+                                    {/* New Deep Analytics Row */}
+                                    <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <RetentionChart data={[]} /> {/* Passing empty to trigger mock for now, or real if available later */}
+                                        <EngagementHeatmap data={[]} />
+                                    </div>
                                 </div>
                             </div>
                         </>
@@ -196,7 +199,7 @@ export default function AnalyticsPage() {
                         </div>
                     )}
                 </div>
-            </main>
-        </div>
+            </main >
+        </div >
     );
 }

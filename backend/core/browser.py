@@ -11,7 +11,22 @@ from playwright.async_api import async_playwright, Browser, BrowserContext, Page
 
 logger = logging.getLogger(__name__)
 
-# Standard stealth arguments to reduce detection
+# Docker detection - check if running inside container
+def is_running_in_docker() -> bool:
+    """Detect if we're running inside a Docker container."""
+    # Check for .dockerenv file (most reliable)
+    if os.path.exists('/.dockerenv'):
+        return True
+    # Check cgroup (fallback for some container runtimes)
+    try:
+        with open('/proc/1/cgroup', 'rt') as f:
+            return 'docker' in f.read() or 'containerd' in f.read()
+    except:
+        pass
+    return False
+
+IN_DOCKER = is_running_in_docker()
+
 STEALTH_ARGS = [
     "--disable-blink-features=AutomationControlled",
     "--disable-infobars",
@@ -19,10 +34,19 @@ STEALTH_ARGS = [
     "--disable-dev-shm-usage",
     "--disable-extensions",
     "--disable-setuid-sandbox",
-    "--disable-gpu",  # Sometimes helps, sometimes hurts. Keeping for headless stability.
+    "--disable-gpu",  # Required for headless in Docker
     "--no-first-run",
     "--no-default-browser-check",
     "--ignore-certificate-errors",
+]
+
+# Extra args needed for Docker/headless environment
+DOCKER_HEADLESS_ARGS = [
+    "--headless=new",  # New headless mode (Chrome 109+)
+    "--disable-software-rasterizer",
+    "--disable-background-networking",
+    "--single-process",  # Sometimes needed in Docker
+    "--disable-features=VizDisplayCompositor",
 ]
 
 # MAGIC User-Agent - Tested and confirmed to bypass TikTok detection
@@ -54,9 +78,20 @@ async def launch_browser(
     """
     p = await async_playwright().start()
     
+    # Force headless in Docker environment (no display available)
+    if IN_DOCKER and not headless:
+        logger.warning("[DOCKER] Forcing headless=True (no display available in container)")
+        headless = True
+    
+    # Build args list
+    browser_args = STEALTH_ARGS.copy()
+    if IN_DOCKER or headless:
+        browser_args.extend(DOCKER_HEADLESS_ARGS)
+        logger.info(f"[BROWSER] Docker/Headless mode - added {len(DOCKER_HEADLESS_ARGS)} extra args")
+    
     launch_options: Dict[str, Any] = {
         "headless": headless,
-        "args": STEALTH_ARGS,
+        "args": browser_args,
         "ignore_default_args": ["--enable-automation"],  # Key for stealth
     }
 
@@ -69,10 +104,10 @@ async def launch_browser(
         logger.info(f"Launching browser with proxy: {proxy.get('server')}")
 
     try:
-        # SIMPLIFIED LAUNCH - Remove aggressive stealth that triggers detection
+        # LAUNCH with environment-appropriate options
         browser = await p.chromium.launch(
             headless=headless,
-            args=STEALTH_ARGS,
+            args=browser_args,
             ignore_default_args=["--enable-automation"],
         )
         logger.info(f"Browser launched (headless={headless})")

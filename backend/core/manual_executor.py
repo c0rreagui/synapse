@@ -94,7 +94,7 @@ async def execute_approved_video(
 
     
     # Extract profile from metadata or filename
-    profile_id = metadata.get('profile_id', 'p1')
+    profile_id = metadata.get('profile_id') or metadata.get('profile_slug') or metadata.get('tiktok_profile') or 'p1'
     
     # Convert short profile ID to full session name
     # Convert short profile ID to full session name
@@ -213,6 +213,17 @@ async def execute_approved_video(
             
     except Exception as e:
         logger.error(f"💥 Erro fatal: {e}", exc_info=True)
+        # [SYN-FIX] Move to errors so it doesn't get stuck in Processing
+        try:
+            if 'proc_path' in locals() and os.path.exists(proc_path):
+                error_path = os.path.join(ERRORS_DIR, video_filename)
+                if os.path.exists(error_path):
+                     os.remove(error_path)
+                shutil.move(proc_path, error_path)
+                logger.info(f"Moved failed video to errors: {error_path}")
+        except Exception as move_err:
+            logger.error(f"Failed to move to errors: {move_err}")
+            
         return {"status": "error", "message": str(e)}
 
 

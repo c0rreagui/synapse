@@ -1,17 +1,47 @@
 """
-Videos endpoint - Lista vídeos processados, agendados e concluídos
+Videos endpoint - Lista videos processados, agendados e concluidos
 """
 import os
 import json
 from datetime import datetime
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 from typing import List, Dict, Any
 
 router = APIRouter()
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# BASE_DIR = backend/ (4 levels up from app/api/endpoints/videos.py)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 DONE_DIR = os.path.join(BASE_DIR, "done")
 ERRORS_DIR = os.path.join(BASE_DIR, "errors")
+PENDING_DIR = os.path.join(BASE_DIR, "data", "pending")
+
+
+@router.get("/stream/{filename}")
+async def stream_video(filename: str):
+    """Stream a video file for preview. Searches pending, then done."""
+    # Security: prevent path traversal
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    
+    # Search order: pending first (most common for approval), then done
+    search_paths = [
+        os.path.join(PENDING_DIR, filename),
+        os.path.join(DONE_DIR, filename),
+    ]
+    
+    for video_path in search_paths:
+        if os.path.exists(video_path):
+            return FileResponse(
+                video_path,
+                media_type="video/mp4",
+                headers={"Accept-Ranges": "bytes"}
+            )
+    
+    raise HTTPException(status_code=404, detail=f"Video not found: {filename}")
+
+
 
 @router.get("/completed")
 async def get_completed_videos() -> List[Dict[str, Any]]:

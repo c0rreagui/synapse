@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useState } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { ScheduleEvent, TikTokProfile } from '../types';
 import { NeonButton } from './NeonButton';
@@ -148,6 +148,22 @@ function EventRow({ event, profileLabel, onEdit, onDelete }: {
     const [isEditing, setIsEditing] = useState(false);
     const [editTime, setEditTime] = useState(format(new Date(event.scheduled_time), 'HH:mm'));
 
+    useEffect(() => {
+        setEditTime(format(new Date(event.scheduled_time), 'HH:mm'));
+    }, [event.scheduled_time]);
+
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+
+    const handleDeleteClick = () => {
+        if (deletingId === event.id) {
+            onDelete(event.id);
+            setDeletingId(null);
+        } else {
+            setDeletingId(event.id);
+            setTimeout(() => setDeletingId(curr => curr === event.id ? null : curr), 3000);
+        }
+    };
+
     const handleSave = () => {
         onEdit(event.id, editTime);
         setIsEditing(false);
@@ -192,12 +208,21 @@ function EventRow({ event, profileLabel, onEdit, onDelete }: {
                         </div>
                     )}
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <span className={clsx(
-                        "w-2 h-2 rounded-full",
-                        event.status === 'posted' ? "bg-green-500 shadow-[0_0_5px_#22c55e]" : "bg-yellow-500 shadow-[0_0_5px_#eab308]"
-                    )} />
-                    <span className="uppercase tracking-wider font-mono text-[10px]">{event.status || 'AGENDADO'}</span>
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <span className={clsx(
+                            "w-2 h-2 rounded-full",
+                            event.status === 'posted' ? "bg-green-500 shadow-[0_0_5px_#22c55e]" :
+                                (event.status === 'failed' ? "bg-red-500 shadow-[0_0_5px_#ef4444]" :
+                                    "bg-yellow-500 shadow-[0_0_5px_#eab308]")
+                        )} />
+                        <span className="uppercase tracking-wider font-mono text-[10px]">{event.status || 'AGENDADO'}</span>
+                    </div>
+                    {event.status === 'failed' && event.metadata?.error && (
+                        <p className="text-[10px] text-red-400 font-mono bg-red-500/10 px-2 py-1 rounded border border-red-500/20 break-words max-w-[280px]">
+                            {event.metadata.error}
+                        </p>
+                    )}
                 </div>
             </div>
 
@@ -212,11 +237,20 @@ function EventRow({ event, profileLabel, onEdit, onDelete }: {
                         <PencilSquareIcon className="w-4 h-4" />
                     </button>
                     <button
-                        onClick={() => onDelete(event.id)}
-                        className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        onClick={handleDeleteClick}
+                        className={clsx(
+                            "p-2 rounded-lg transition-all flex items-center gap-1",
+                            deletingId === event.id
+                                ? "bg-red-500 text-white w-auto px-3"
+                                : "text-gray-500 hover:text-red-400 hover:bg-red-500/10"
+                        )}
                         title="Remover agendamento"
                     >
-                        <TrashIcon className="w-4 h-4" />
+                        {deletingId === event.id ? (
+                            <span className="text-[10px] font-bold whitespace-nowrap">Confirmar?</span>
+                        ) : (
+                            <TrashIcon className="w-4 h-4" />
+                        )}
                     </button>
                 </div>
             )}

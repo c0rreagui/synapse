@@ -40,10 +40,11 @@ export function BatchCaptionEditor() {
 
     const models = [
         { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 (70B) - Smart' },
-        { id: 'meta-llama/llama-4-scout-17b-16e-instruct', name: 'Llama 4 Scout (17B) - Preview ⚡' },
+        { id: 'meta-llama/llama-4-scout-17b-16e-instruct', name: 'Llama 4 Scout (17B) - New! ⚡' },
         { id: 'qwen/qwen3-32b', name: 'Qwen 3 (32B) - Asian Expert' },
-        { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 (8B) - Fast' },
         { id: 'openai/gpt-oss-120b', name: 'GPT OSS (120B)' },
+        { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 (8B) - Fast' },
+        { id: 'meta-llama/llama-guard-4-12b', name: 'Llama Guard 4 (Safety)' },
     ];
 
     // Load initial data when file opens

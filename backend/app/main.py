@@ -97,7 +97,7 @@ app.add_middleware(
 
 from fastapi.staticfiles import StaticFiles
 import os
-from .api.endpoints import content, ingestion, profiles, logs, queue, videos, status, scheduler, oracle, analytics, viral_sounds, audio, logic, batch, templates
+from .api.endpoints import content, ingestion, profiles, logs, queue, videos, status, scheduler, oracle, analytics, viral_sounds, audio, logic, batch, templates, validate_cookies
 from .api import debug_router
 from .api import websocket as ws_router
 
@@ -110,6 +110,8 @@ app.mount("/static", StaticFiles(directory=static_path), name="static")
 app.include_router(content.router, prefix="/api/v1/content", tags=["content"])
 app.include_router(ingestion.router, prefix="/api/v1/ingest", tags=["ingestion"])
 app.include_router(profiles.router, prefix="/api/v1/profiles", tags=["profiles"])
+app.include_router(validate_cookies.router, prefix="/api/v1/profiles", tags=["profiles"]) # Mounted under profiles
+# app.include_router(stats.router, prefix="/api/v1/stats", tags=["stats"]) # Removed: Not found
 app.include_router(logs.router, prefix="/api/v1/logs", tags=["logs"])
 app.include_router(queue.router, prefix="/api/v1/queue", tags=["queue"])
 app.include_router(videos.router, prefix="/api/v1/videos", tags=["videos"])

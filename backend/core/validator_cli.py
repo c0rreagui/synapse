@@ -14,12 +14,24 @@ async def main():
         return
 
     profile_id = sys.argv[1]
+    
+    # Capture/suppress all other output
+    import io
+    from contextlib import redirect_stdout, redirect_stderr
+    
+    f_out = io.StringIO()
+    f_err = io.StringIO()
+    
+    result = None
     try:
-        result = await validate_profile(profile_id)
-        # Use simple print for stdout capture
-        print(json.dumps(result))
+        with redirect_stdout(f_out), redirect_stderr(f_err):
+            result = await validate_profile(profile_id)
     except Exception as e:
-        print(json.dumps({"status": "error", "message": str(e)}))
+        # If it crashed, we return the error
+        # We can optionally log f_err.getvalue() to a file if needed
+        result = {"status": "error", "message": f"{str(e)} | Stderr: {f_err.getvalue()}"}
+        
+    print(json.dumps(result))
 
 if __name__ == "__main__":
     if sys.platform == "win32":

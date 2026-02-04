@@ -17,7 +17,9 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
         startTime, setStartTime,
         validationResult,
         isValidating,
-        isUploading
+        isUploading,
+        bypassConflicts,
+        setBypassConflicts
     } = useBatch();
 
     const [showStrategyMenu, setShowStrategyMenu] = useState(false);
@@ -47,8 +49,8 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
 
     // Derived state
     const canSchedule = files.length > 0 && selectedProfiles.length > 0 && !isValidating && !isUploading;
-    const totalPosts = files.length * selectedProfiles.length;
     const isApprovalMode = files.some(f => f.isRemote);
+    const totalPosts = isApprovalMode ? files.length : files.length * selectedProfiles.length;
 
     return (
         <div className="absolute bottom-0 left-0 right-0 h-20 bg-[#0c0c0c]/90 backdrop-blur-2xl border-t border-white/5 flex items-center justify-between px-8 z-50">
@@ -160,33 +162,62 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
                 {validationResult && validationResult.issues.length > 0 && (
                     <div className="relative">
                         <button
-                            onMouseEnter={() => setShowConflicts(true)}
-                            onMouseLeave={() => setShowConflicts(false)}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 cursor-help transition-colors hover:bg-red-500/20"
+                            onClick={() => setShowConflicts(!showConflicts)}
+                            className={clsx(
+                                "flex items-center gap-2 px-3 py-1.5 rounded-lg border cursor-help transition-colors",
+                                bypassConflicts
+                                    ? "bg-orange-500/10 border-orange-500/20 hover:bg-orange-500/20"
+                                    : "bg-red-500/10 border-red-500/20 hover:bg-red-500/20"
+                            )}
                         >
-                            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                            <span className="text-[10px] text-red-400 font-medium">
-                                {validationResult.issues.length} conflitos detectados
+                            <div className={clsx(
+                                "w-2 h-2 rounded-full animate-pulse",
+                                bypassConflicts ? "bg-orange-500" : "bg-red-500"
+                            )} />
+                            <span className={clsx(
+                                "text-[10px] font-medium",
+                                bypassConflicts ? "text-orange-400" : "text-red-400"
+                            )}>
+                                {validationResult.issues.length} conflitos {bypassConflicts ? '(Ignorados)' : 'detectados'}
                             </span>
                         </button>
 
                         {/* Conflicts Popover */}
                         {showConflicts && (
-                            <div className="absolute bottom-full mb-2 right-0 w-80 bg-[#1a1a1a] border border-red-500/30 rounded-xl shadow-2xl p-4 animate-in slide-in-from-bottom-2 fade-in z-50">
-                                <h4 className="text-xs font-bold text-white mb-3 flex items-center gap-2">
-                                    <span className="text-red-500">⚠</span> Detalhes do Conflito
+                            <div className={clsx(
+                                "absolute bottom-full mb-2 right-0 w-80 bg-[#1a1a1a] border rounded-xl shadow-2xl p-4 animate-in slide-in-from-bottom-2 fade-in z-50",
+                                bypassConflicts ? "border-orange-500/30" : "border-red-500/30"
+                            )}>
+                                <h4 className={clsx("text-xs font-bold mb-3 flex items-center gap-2", bypassConflicts ? "text-orange-400" : "text-white")}>
+                                    <span className={bypassConflicts ? "text-orange-500" : "text-red-500"}>⚠</span>
+                                    {bypassConflicts ? "Conflitos Ignorados" : "Bloqueio de Horário"}
                                 </h4>
-                                <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar">
+
+                                <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar mb-3">
                                     {validationResult.issues.map((issue: any, idx: number) => (
-                                        <div key={idx} className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/10">
+                                        <div key={idx} className={clsx("p-2.5 rounded-lg border", bypassConflicts ? "bg-orange-500/10 border-orange-500/10" : "bg-red-500/10 border-red-500/10")}>
                                             <p className="text-xs font-medium text-white mb-1">{issue.message}</p>
                                             {issue.suggested_fix && (
-                                                <p className="text-[10px] text-red-300 flex items-center gap-1">
+                                                <p className={clsx("text-[10px] flex items-center gap-1", bypassConflicts ? "text-orange-300" : "text-red-300")}>
                                                     💡 Sugestão: {issue.suggested_fix}
                                                 </p>
                                             )}
                                         </div>
                                     ))}
+                                </div>
+
+                                {/* Bypass Switch */}
+                                <div className="pt-3 border-t border-white/10 flex items-center justify-between group cursor-pointer" onClick={() => setBypassConflicts(!bypassConflicts)}>
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-bold text-white">Forçar Agendamento</span>
+                                        <span className="text-[10px] text-gray-400">Ignorar conflitos de horário</span>
+                                    </div>
+                                    <div className={clsx("w-9 h-5 rounded-full transition-colors relative", bypassConflicts ? "bg-orange-500" : "bg-gray-700")}>
+                                        <div className={clsx(
+                                            "absolute top-1 left-1 w-3 h-3 rounded-full bg-white transition-transform shadow-sm",
+                                            bypassConflicts ? "translate-x-4" : "translate-x-0"
+                                        )} />
+                                    </div>
                                 </div>
                             </div>
                         )}
