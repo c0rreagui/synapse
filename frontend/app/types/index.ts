@@ -240,7 +240,7 @@ export interface ScheduleEvent {
     profile_id: string;
     video_path: string;
     scheduled_time: string;
-    status: 'pending' | 'posted' | 'failed';
+    status: 'pending' | 'posted' | 'failed' | 'completed' | 'processing' | 'ready';
     viral_music_enabled?: boolean;
     music_volume?: number;
     trend_category?: string;

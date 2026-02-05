@@ -10,6 +10,7 @@ from core.oracle.faculties.mind import MindFaculty
 from core.oracle.faculties.vision import VisionFaculty
 from core.oracle.faculties.voice import VoiceFaculty
 from core.oracle.faculties.sense import SenseFaculty
+from core.oracle.faculties.hearing import HearingFaculty
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ class Oracle:
     - Vision: Visual content analysis
     - Voice:  Content generation (captions, hashtags, replies)
     - Sense:  Data collection and scraping
+    - Hearing: Audio transcription and analysis
     """
 
     def __init__(self):
@@ -31,6 +33,7 @@ class Oracle:
         self.vision = VisionFaculty(self.client)
         self.voice = VoiceFaculty(self.client)
         self.sense = SenseFaculty()
+        self.hearing = HearingFaculty(self.client)
         
         logger.info("🔮 Oracle initialized with all faculties active.")
 
@@ -46,7 +49,8 @@ class Oracle:
                 "mind": "active",
                 "vision": "active",
                 "voice": "active",
-                "sense": "active"
+                "sense": "active",
+                "hearing": "active"
             },
             "engine": self.client.get_engine_name() if self.client else "none"
         }
@@ -169,6 +173,12 @@ class Oracle:
         elif action == "audit":
             return await self.voice.audit_profile_seo(**kwargs)
         return {"error": f"Unknown voice action: {action}"}
+
+    async def use_hearing(self, action: str, **kwargs) -> Dict[str, Any]:
+        """Direct access to Hearing faculty."""
+        if action == "transcribe":
+            return await self.hearing.transcribe(**kwargs)
+        return {"error": f"Unknown hearing action: {action}"}
 
     async def use_sense(self, action: str, **kwargs) -> Dict[str, Any]:
         """Direct access to Sense faculty."""

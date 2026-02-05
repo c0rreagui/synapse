@@ -1,11 +1,27 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from typing import List, Union, Optional
+from pydantic import BaseModel
 from core.oracle import oracle_client
 from core.oracle import oracle  # Unified Oracle
 
 router = APIRouter()
 
 # ========== UNIFIED ORACLE ENDPOINTS ==========
+
+@router.post("/transcribe")
+async def transcribe_audio_file(file: UploadFile = File(...)):
+    """
+    Transcribes an uploaded audio/video file using Oracle Hearing.
+    """
+    try:
+        # Pass the spooled file directly to the faculty
+        # Oracle Hearing -> Groq Client handles file-like objects
+        result = await oracle.use_hearing("transcribe", file_source=file.file)
+        if "error" in result:
+             raise HTTPException(status_code=500, detail=result["error"])
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Transcription failed: {e}")
 
 @router.get("/status")
 async def oracle_status():
@@ -279,6 +295,7 @@ class GenerateCaptionRequest(BaseModel):
     model: str = "llama-3.3-70b-versatile" # AI Model to use
     visual_frames: List[str] = [] # List of base64 image strings
     niche_context: str = "" # [SYN-50] Niche awareness
+    transcript: str = "" # [SYN-AUDIO] Audio Transcript
 
 @router.post("/generate_caption")
 async def generate_caption(request: GenerateCaptionRequest):
@@ -400,6 +417,11 @@ async def generate_caption(request: GenerateCaptionRequest):
         - Tone: {tone_display} -> STYLE MIX: {active_style}
         - Language: PORTUGUESE (BRAZIL) - PT-BR (MANDATORY)
         - Length: {length_instruction}
+        
+        4. 🗣️ AUDIO TRANSCRIPT (THE VOICE):
+        "{request.transcript if request.transcript else '(No audio context available)'}"
+        (Use this to understand exactly what is being said in the video. Combine this with visuals for maximum context.)
+
         - {trends_context}
 
         --- INSTRUCTIONS ---

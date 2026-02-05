@@ -137,11 +137,11 @@ class UpdateEventRequest(BaseModel):
 
 @router.patch("/{event_id}")
 async def update_event(event_id: str, request: UpdateEventRequest):
-    success = scheduler_service.update_event(event_id, request.scheduled_time)
-    if not success:
+    updated_item = scheduler_service.update_event(event_id, request.scheduled_time)
+    if not updated_item:
         raise HTTPException(status_code=404, detail="Event not found")
     await websocket.notify_schedule_update(scheduler_service.load_schedule())
-    return {"status": "updated"}
+    return updated_item
 
 @router.get("/suggestion/{profile_id}")
 async def get_schedule_suggestion(profile_id: str):

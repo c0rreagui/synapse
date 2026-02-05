@@ -175,6 +175,40 @@ class OracleClient:
         if last_error:
             raise last_error
 
+    def transcribe_audio(self, file_path_or_buffer, model="whisper-large-v3", language="pt"):
+        """
+        Transcribes audio/video file using Groq Whisper.
+        """
+        if not self.client:
+             raise Exception("Oracle Offline: Groq Client not initialized.")
+        
+        self._enforce_rate_limit()
+
+        try:
+             # Handle file path vs buffer
+             if isinstance(file_path_or_buffer, str):
+                 file_obj = open(file_path_or_buffer, "rb")
+             else:
+                 # Assume it's a file-like object (BytesIO or SpooledTemporaryFile)
+                 file_obj = file_path_or_buffer
+            
+             transcription = self.client.audio.transcriptions.create(
+                 file=(os.path.basename(getattr(file_obj, 'name', 'audio.mp4')), file_obj.read()),
+                 model=model,
+                 response_format="json",
+                 language=language,
+                 temperature=0.0
+             )
+             
+             # Close if we opened it
+             if isinstance(file_path_or_buffer, str):
+                 file_obj.close()
+                 
+             return transcription.text
+        except Exception as e:
+             print(f"Groq Transcription Error: {e}")
+             raise e
+
     def ping(self):
         try:
             response = self.generate_content("Say 'Hello World'")

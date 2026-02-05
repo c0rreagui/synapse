@@ -212,7 +212,7 @@ function EventRow({ event, profileLabel, onEdit, onDelete }: {
                     <div className="flex items-center gap-2 text-xs text-gray-500">
                         <span className={clsx(
                             "w-2 h-2 rounded-full",
-                            event.status === 'posted' ? "bg-green-500 shadow-[0_0_5px_#22c55e]" :
+                            event.status === 'posted' || event.status === 'completed' || event.status === 'ready' ? "bg-green-500 shadow-[0_0_5px_#22c55e]" :
                                 (event.status === 'failed' ? "bg-red-500 shadow-[0_0_5px_#ef4444]" :
                                     "bg-yellow-500 shadow-[0_0_5px_#eab308]")
                         )} />

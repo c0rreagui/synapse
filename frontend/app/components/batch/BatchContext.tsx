@@ -66,6 +66,18 @@ interface BatchContextType {
     editingFileId: string | null;
     setEditingFileId: (id: string | null) => void;
     updateFileMetadata: (id: string, metadata: any) => void;
+
+    // [SYN-UX] Selection & Filtering
+    selectedFileIds: string[];
+    setSelectedFileIds: React.Dispatch<React.SetStateAction<string[]>>;
+    viewFilter: 'all' | 'pending';
+    setViewFilter: React.Dispatch<React.SetStateAction<'all' | 'pending'>>;
+
+    // [SYN-UX] Automation
+    isGeneratingAll: boolean;
+    setIsGeneratingAll: React.Dispatch<React.SetStateAction<boolean>>;
+    generateProgress: { current: number; total: number; statusMessage?: string } | null;
+    setGenerateProgress: React.Dispatch<React.SetStateAction<{ current: number; total: number; statusMessage?: string } | null>>;
 }
 
 export const BatchContext = createContext<BatchContextType | undefined>(undefined);
@@ -178,6 +190,14 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
     const [privacyLevel, setPrivacyLevel] = useState('public'); // 'public' | 'private'
     const [validationResult, setValidationResult] = useState<any>(null);
     const [editingFileId, setEditingFileId] = useState<string | null>(null);
+
+    // [SYN-UX] Selection & Filtering
+    const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
+    const [viewFilter, setViewFilter] = useState<'all' | 'pending'>('all');
+
+    // [SYN-UX] Automation
+    const [isGeneratingAll, setIsGeneratingAll] = useState(false);
+    const [generateProgress, setGenerateProgress] = useState<{ current: number; total: number; statusMessage?: string } | null>(null);
 
     // --- Logic ---
 
@@ -420,7 +440,11 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
         isUploading,
         validationResult,
         editingFileId, setEditingFileId,
-        updateFileMetadata
+        updateFileMetadata,
+        selectedFileIds, setSelectedFileIds,
+        viewFilter, setViewFilter,
+        isGeneratingAll, setIsGeneratingAll,
+        generateProgress, setGenerateProgress
     };
 
     return (

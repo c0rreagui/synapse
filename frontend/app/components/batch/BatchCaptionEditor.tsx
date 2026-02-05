@@ -23,6 +23,8 @@ export function BatchCaptionEditor() {
 
     // Vision Link
     const [analyzeVideo, setAnalyzeVideo] = useState(true);
+    // [SYN-UX] Apply Settings to All
+    const [applyToAll, setApplyToAll] = useState(false);
 
     const modelDropdownRef = useRef<HTMLDivElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -210,12 +212,40 @@ export function BatchCaptionEditor() {
     };
 
     const handleSave = () => {
+        // [SYN-UX] Apply to Others Logic
+        if (applyToAll) {
+            // Update ALL files with current settings
+            // We need a way to batch update. Since we only have `updateFileMetadata`, we loop.
+            // Ideally we'd have `setFiles` here but we only have `updateFileMetadata` exposed from context.
+            // But `updateFileMetadata` uses `setFiles`.
+            // We can iterate.
+            files.forEach(f => {
+                // Skip current (updated below) is redundant but safe.
+                // Apply ONLY if it doesn't have a specific manual caption yet? 
+                // Requirement: "Copy settings". So we overwrite the settings.
+                if (f.id !== file.id) {
+                    updateFileMetadata(f.id, {
+                        aiRequest: {
+                            prompt,
+                            tone: selectedTones,
+                            hashtags,
+                            model, // Include model
+                            length // Include length
+                        }
+                    });
+                }
+            });
+            toast.success("Configurações aplicadas a todos os vídeos! 🎨");
+        }
+
         updateFileMetadata(file.id, {
             caption: generatedText,
             aiRequest: {
                 prompt,
                 tone: selectedTones,
-                hashtags
+                hashtags,
+                model,
+                length
             }
         });
         setEditingFileId(null);
@@ -463,19 +493,41 @@ export function BatchCaptionEditor() {
                 </div>
 
                 {/* Footer Actions (Sticky) */}
-                <div className="p-6 border-t border-white/5 bg-[#0c0c0c] z-[70] flex justify-end gap-3 absolute bottom-0 w-full left-0 right-0 shadow-[0_-20px_40px_rgba(0,0,0,0.5)]">
-                    <button
-                        onClick={() => setEditingFileId(null)}
-                        className="px-6 py-2 text-sm text-gray-400 hover:text-white transition-colors"
-                    >
-                        Cancelar
-                    </button>
-                    <button
-                        onClick={handleSave}
-                        className="px-8 py-2 bg-white text-black font-bold rounded-full hover:bg-gray-200 transition-colors shadow-lg shadow-white/10"
-                    >
-                        Salvar Alterações
-                    </button>
+                <div className="p-6 border-t border-white/5 bg-[#0c0c0c] z-[70] flex items-center justify-between absolute bottom-0 w-full left-0 right-0 shadow-[0_-20px_40px_rgba(0,0,0,0.5)]">
+
+                    {/* [SYN-UX] Apply Checkbox */}
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                        <div className={clsx(
+                            "w-5 h-5 rounded border flex items-center justify-center transition-all",
+                            applyToAll ? "bg-synapse-purple border-synapse-purple" : "border-white/20 group-hover:border-white/40"
+                        )}>
+                            {applyToAll && <Sparkles className="w-3 h-3 text-white" />}
+                        </div>
+                        <span className="text-xs text-gray-400 group-hover:text-white transition-colors select-none">
+                            Aplicar config a todos
+                        </span>
+                        <input
+                            type="checkbox"
+                            checked={applyToAll}
+                            onChange={(e) => setApplyToAll(e.target.checked)}
+                            className="hidden"
+                        />
+                    </label>
+
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setEditingFileId(null)}
+                            className="px-6 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            onClick={handleSave}
+                            className="px-8 py-2 bg-white text-black font-bold rounded-full hover:bg-gray-200 transition-colors shadow-lg shadow-white/10"
+                        >
+                            Salvar Alterações
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

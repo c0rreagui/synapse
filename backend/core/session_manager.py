@@ -360,6 +360,7 @@ def update_profile_metadata_async(profile_id: str):
         print(f"Error fetching metadata for {profile_id}: {e}")
 
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 
 def update_profile_info(profile_id: str, info: Dict[str, Any]) -> bool:
@@ -388,8 +389,8 @@ def update_profile_info(profile_id: str, info: Dict[str, Any]) -> bool:
         if "active" in info:
             profile.active = info["active"]
         
-        # FIX: Use datetime object, not string
-        profile.updated_at = datetime.utcnow()
+        # FIX: Use SP Time, naive for DB consistency
+        profile.updated_at = datetime.now(ZoneInfo("America/Sao_Paulo")).replace(tzinfo=None)
         
         db.commit()
         return True
@@ -445,7 +446,7 @@ def update_profile_metadata(profile_id: str, updates: Dict[str, Any]) -> bool:
              current_audit["last_error_screenshot"] = updates["last_error_screenshot"]
              profile.last_seo_audit = current_audit
 
-        profile.updated_at = datetime.utcnow()
+        profile.updated_at = datetime.now(ZoneInfo("America/Sao_Paulo")).replace(tzinfo=None)
 
         db.commit()
         return True
@@ -509,7 +510,7 @@ def update_profile_status(profile_id: str, active: bool) -> bool:
         if not profile: return False
         
         profile.active = active
-        profile.updated_at = datetime.utcnow()
+        profile.updated_at = datetime.now(ZoneInfo("America/Sao_Paulo")).replace(tzinfo=None)
         db.commit()
         return True
     except Exception as e:

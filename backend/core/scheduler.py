@@ -218,7 +218,10 @@ class Scheduler:
         db = SessionLocal()
         try:
             # Threshold: 1 hour past due
-            threshold = datetime.utcnow() - timedelta(hours=1)
+            # [SYN-FIX] Use SP Time for threshold (DB stores local time)
+            sp_tz = ZoneInfo("America/Sao_Paulo")
+            now_sp = datetime.now(sp_tz).replace(tzinfo=None) # Make naive for comparison with DB
+            threshold = now_sp - timedelta(hours=1)
             
             # Find expired pending items (using loose slug match or status)
             expired_items = db.query(ScheduleItem).filter(
@@ -306,7 +309,7 @@ class Scheduler:
             
         return (start_time + timedelta(days=7)).isoformat()
 
-    def update_event(self, event_id: str, scheduled_time: str) -> bool:
+    def update_event(self, event_id: str, scheduled_time: str) -> Optional[Dict]:
         db = SessionLocal()
         print(f"DEBUG: update_event called for id='{event_id}'")
         try:
@@ -331,10 +334,20 @@ class Scheduler:
                 clean_time = scheduled_time.replace("Z", "+00:00")
                 item.scheduled_time = datetime.fromisoformat(clean_time)
                 db.commit()
-                return True
+                db.refresh(item)
+                
+                return {
+                    "id": str(item.id),
+                    "profile_id": item.profile_slug,
+                    "video_path": item.video_path,
+                    "scheduled_time": item.scheduled_time.replace(tzinfo=ZoneInfo("America/Sao_Paulo")).isoformat() if item.scheduled_time.tzinfo is None else item.scheduled_time.isoformat(),
+                    "viral_music_enabled": bool(item.metadata_info.get('viral_music_enabled', False)) if item.metadata_info else False,
+                    "status": item.status,
+                     # [SYN-FIX] Return all necessary fields for frontend
+                }
             
             print(f"DEBUG: Item not found for id '{event_id}'")
-            return False
+            return None
         except Exception:
             db.rollback()
             raise  # Re-raise exception to be caught by API endpoint (500)
@@ -462,9 +475,10 @@ class Scheduler:
             
             result = await execute_approved_video(video_path, is_scheduled=True, metadata=exec_metadata)
             
-            if result.get('status') == 'success':
+            if result.get('status') in ['success', 'ready', 'completed']:
                 item.status = 'completed'
                 item.published_url = result.get('url')
+                logger.log("success", f"Successfully executed item {item.id} (Scheduled: {item.scheduled_time})", "scheduler")
             else:
                 item.status = 'failed'
                 # Save error to metadata for frontend display
@@ -473,6 +487,7 @@ class Scheduler:
                 item.metadata_info = meta
                 
                 print(f"Error Log: {result.get('message')}")
+                logger.log("error", f"Failed to execute item {item.id}: {result.get('message')}", "scheduler")
             
             db.commit()
             
@@ -485,6 +500,7 @@ class Scheduler:
             item.metadata_info = meta
             
             print(f"Error Log: {str(e)}")
+            logger.log("error", f"Exception executing item {item.id}: {str(e)}", "scheduler")
             db.commit()
 
 scheduler_service = Scheduler()

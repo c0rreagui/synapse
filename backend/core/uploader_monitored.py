@@ -340,8 +340,11 @@ async def upload_video_monitored(
             # [SYN-FIX] Expanded Regex for PT-BR / EN
             privacy_map = {
                 "public_to_everyone": [re.compile(r"Todos|Everyone|Public|Público", re.I)],
+                "public": [re.compile(r"Todos|Everyone|Public|Público", re.I)],
                 "mutual_follow_friends": [re.compile(r"Amigos|Friends|Seguidores|Followers", re.I)],
-                "self_only": [re.compile(r"Somente (eu|você|voce)|Only me|Private|Privado|Apenas eu", re.I)]
+                "friends": [re.compile(r"Amigos|Friends|Seguidores|Followers", re.I)],
+                "self_only": [re.compile(r"Somente (eu|você|voce)|Only me|Private|Privado|Apenas eu", re.I)],
+                "private": [re.compile(r"Somente (eu|você|voce)|Only me|Private|Privado|Apenas eu", re.I)]
             }
             
             target_patterns = privacy_map.get(privacy_level, privacy_map["public_to_everyone"])

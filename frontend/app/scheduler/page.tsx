@@ -68,7 +68,13 @@ export default function SchedulerPage() {
 
     useEffect(() => {
         fetchData();
-        // Set up interval to verify updates if needed, or rely on optimistic updates
+
+        // [SYN-ROBUST] Polling to ensure UI matches Backend (Ghost Item Fix)
+        const interval = setInterval(() => {
+            fetchData();
+        }, 30000); // Check every 30s
+
+        return () => clearInterval(interval);
     }, []);
 
     const openDayDetails = (date: Date) => {
@@ -102,6 +108,7 @@ export default function SchedulerPage() {
         const newDate = new Date(originalDate);
         newDate.setHours(hours, minutes);
 
+        const toastId = toast.loading("Atualizando...");
         try {
             const res = await fetch(`${API_URL}/api/v1/scheduler/${eventId}`, {
                 method: 'PATCH',
@@ -110,14 +117,16 @@ export default function SchedulerPage() {
             });
             if (!res.ok) throw new Error("Falha ao editar");
 
-            // Optimistic Update
+            // [SYN-ROBUST] Use Server Response (Source of Truth)
+            const updatedItem = await res.json();
+
             setEvents(prev => prev.map(e =>
-                e.id === eventId ? { ...e, scheduled_time: newDate.toISOString() } : e
+                e.id === eventId ? updatedItem : e
             ));
-            toast.success("Horário atualizado");
+            toast.success("Horário atualizado", { id: toastId });
         } catch (e) {
             console.error(e);
-            toast.error("Erro ao atualizar horário");
+            toast.error("Erro ao atualizar horário", { id: toastId });
         }
     };
 
@@ -274,9 +283,13 @@ export default function SchedulerPage() {
                                             key={event.id}
                                             className={clsx(
                                                 "text-[10px] px-2 py-1.5 rounded-md truncate border flex items-center gap-1.5",
-                                                event.viral_music_enabled
-                                                    ? "bg-synapse-purple/90 text-white border-transparent shadow-sm"
-                                                    : "bg-synapse-purple/10 text-synapse-purple border-synapse-purple/20"
+                                                (event.status === 'completed' || event.status === 'ready' || event.status === 'posted')
+                                                    ? "bg-green-500/90 text-white border-transparent shadow-sm"
+                                                    : event.status === 'failed'
+                                                        ? "bg-red-500/90 text-white border-transparent shadow-sm"
+                                                        : event.viral_music_enabled
+                                                            ? "bg-synapse-purple/90 text-white border-transparent shadow-sm"
+                                                            : "bg-synapse-purple/10 text-synapse-purple border-synapse-purple/20"
                                             )}
                                         >
                                             <span className="font-bold opacity-80">{format(new Date(event.scheduled_time), 'HH:mm')}</span>

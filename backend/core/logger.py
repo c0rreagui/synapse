@@ -113,7 +113,7 @@ class JsonLogger:
     def get_stats(self) -> Dict:
         return {
             "info": len([l for l in self._mem_buffer if l['level'] == "info"]),
-            "success": len([l for l in self._mem_buffer if l['level'] == "success"]),
+            "success": len([l for l in self._mem_buffer if l['level'] in ("success", "completed", "ready")]),
             "warning": len([l for l in self._mem_buffer if l['level'] == "warning"]),
             "error": len([l for l in self._mem_buffer if l['level'] == "error"]),
             "total": len(self._mem_buffer)
