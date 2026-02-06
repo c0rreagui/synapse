@@ -41,6 +41,24 @@ interface NeoSidebarProps extends React.HTMLAttributes<HTMLDivElement> {
 export const NeoSidebar = React.forwardRef<HTMLDivElement, NeoSidebarProps>(
     ({ className, logo, collapsed = false, onToggle, ...props }, ref) => {
         const pathname = usePathname();
+        const [inactiveCount, setInactiveCount] = React.useState(0);
+
+        React.useEffect(() => {
+            const checkProfileHealth = async () => {
+                try {
+                    const res = await fetch('http://localhost:8000/api/v1/profiles/list');
+                    const data = await res.json();
+                    const count = data.filter((p: any) => !p.active).length;
+                    setInactiveCount(count);
+                } catch (e) {
+                    console.error("Error checking profile health:", e);
+                }
+            };
+
+            checkProfileHealth();
+            const interval = setInterval(checkProfileHealth, 30000); // Check every 30s
+            return () => clearInterval(interval);
+        }, []);
 
         return (
             <GlassPanel
@@ -99,6 +117,12 @@ export const NeoSidebar = React.forwardRef<HTMLDivElement, NeoSidebarProps>(
                                 </span>
 
 
+                                {item.label === 'Perfis' && inactiveCount > 0 && (
+                                    <span className={cnLocal(
+                                        "absolute w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-[0_0_5px_rgba(239,68,68,0.8)]",
+                                        collapsed ? "top-2 right-2" : "top-3 left-8"
+                                    )} title={`${inactiveCount} perfis precisam de login`} />
+                                )}
                             </Link>
                         )
                     })}
@@ -131,7 +155,8 @@ function StatusFooter({ collapsed }: { collapsed?: boolean }) {
     const [lastPulse, setLastPulse] = React.useState<string>('N/A');
 
     React.useEffect(() => {
-        const checkSonar = async () => {
+        const checkStatus = async () => {
+            // Check Sonar
             try {
                 const res = await fetch('http://localhost:8000/api/health/sonar');
                 const data = await res.json();
@@ -145,8 +170,8 @@ function StatusFooter({ collapsed }: { collapsed?: boolean }) {
             }
         };
 
-        checkSonar(); // Initial check
-        const interval = setInterval(checkSonar, 10000); // Check every 10s
+        checkStatus();
+        const interval = setInterval(checkStatus, 15000); // Check every 15s
         return () => clearInterval(interval);
     }, []);
 
@@ -182,27 +207,42 @@ function StatusFooter({ collapsed }: { collapsed?: boolean }) {
             <div className={cnLocal("flex items-center", collapsed ? "justify-center gap-0" : "gap-3")}>
                 {/* Radar Visual */}
                 <div className="relative w-8 h-8 shrink-0 flex items-center justify-center">
-                    {sonarStatus === 'running' ? (
-                        <div className="radar-container w-full h-full scale-[0.8]">
-                            <div className="radar-rings">
-                                <div className="radar-ring w-full h-full opacity-30 border-emerald-500/50" />
-                                <div className="radar-ring w-[60%] h-[60%] opacity-20 border-emerald-500/30" />
-                            </div>
-                            <div className="radar-beam bg-gradient-to-r from-emerald-500/50 to-transparent" />
-                            <div className="absolute inset-0 m-auto w-1.5 h-1.5 bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-                        </div>
-                    ) : (
-                        <div className="relative w-full h-full flex items-center justify-center">
-                            <div className={clsx(
-                                "w-2 h-2 rounded-full",
-                                sonarStatus === 'stalled' ? "bg-yellow-500 animate-pulse" : "bg-red-500"
+                    <div className={cnLocal(
+                        "radar-container w-full h-full scale-[0.8] transition-opacity duration-1000",
+                        sonarStatus === 'running' ? "opacity-100" : "opacity-40 grayscale-[0.5]"
+                    )}>
+                        <div className="radar-rings">
+                            <div className={cnLocal(
+                                "radar-ring w-full h-full border-emerald-500/50",
+                                sonarStatus === 'running' ? "opacity-30" : "opacity-10"
                             )} />
-                            <div className={clsx(
-                                "absolute inset-0 rounded-full blur-md opacity-20",
-                                sonarStatus === 'stalled' ? "bg-yellow-500" : "bg-red-500"
+                            <div className={cnLocal(
+                                "radar-ring w-[60%] h-[60%] border-emerald-500/30",
+                                sonarStatus === 'running' ? "opacity-20" : "opacity-5"
                             )} />
                         </div>
-                    )}
+
+                        {/* Conic Sweep Effect - Dimmed if offline */}
+                        <div className={cnLocal(
+                            "radar-sweep",
+                            sonarStatus === 'running' ? "" : "opacity-30"
+                        )} />
+
+                        {/* Concentric Ping Waves - Only active if running or subtle if offline */}
+                        <div className={cnLocal(
+                            "ping-wave w-[20%] h-[20%]",
+                            sonarStatus === 'running' ? "opacity-100" : "opacity-20"
+                        )} />
+
+                        <div className="radar-beam" />
+
+                        {/* Status Dot at Center */}
+                        <div className={cnLocal(
+                            "absolute inset-0 m-auto w-1.5 h-1.5 rounded-full shadow-[0_0_8px_currentColor] transition-colors duration-500",
+                            sonarStatus === 'running' ? "bg-emerald-400 text-emerald-400" :
+                                sonarStatus === 'stalled' ? "bg-yellow-400 text-yellow-400" : "bg-red-400 text-red-400"
+                        )} />
+                    </div>
                 </div>
 
                 <div className={cnLocal("flex flex-col whitespace-nowrap overflow-hidden transition-all duration-300", collapsed ? "w-0 opacity-0 ml-0" : "w-auto opacity-100")}>

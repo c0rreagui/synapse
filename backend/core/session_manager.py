@@ -63,6 +63,76 @@ def get_profile_metadata(profile_id: str) -> Dict[str, Any]:
         db.close()
 
 
+async def validate_session_for_upload(profile_id: str) -> bool:
+    """
+    Performs a pre-flight check to verify if the session can access TikTok Studio.
+    Used by the scheduler to avoid starting heavy upload processes with dead sessions.
+    """
+    from core.browser import launch_browser, close_browser
+    from core.network_utils import get_upload_url
+    
+    session_path = get_session_path(profile_id)
+    if not os.path.exists(session_path):
+        return False
+        
+    p = None
+    browser = None
+    try:
+        # Headless check is sufficient
+        p, browser, context, page = await launch_browser(headless=True, storage_state=session_path)
+        await page.goto(get_upload_url(), timeout=30000, wait_until="domcontentloaded")
+        
+        current_url = page.url
+        # If redirected to login, the session is definitely not enough for upload
+        if "login" in current_url or "tiktok.com" not in current_url:
+            return False
+            
+        return True
+    except Exception:
+        return False
+    finally:
+        if p:
+            await close_browser(p, browser)
+
+async def check_session_health_lightweight(profile_id: str) -> bool:
+    """
+    Lightweight check for session validity using httpx (no browser).
+    Verifies if a GET to the upload page redirect to login.
+    """
+    import httpx
+    from core.network_utils import get_upload_url, get_scrape_headers
+    
+    session_path = get_session_path(profile_id)
+    if not os.path.exists(session_path):
+        return False
+        
+    try:
+        with open(session_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            cookies_list = data.get("cookies", []) if isinstance(data, dict) else data
+            
+        cookies_dict = {c['name']: c['value'] for c in cookies_list if isinstance(c, dict)}
+        
+        async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as client:
+            headers = get_scrape_headers()
+            response = await client.get(get_upload_url(), cookies=cookies_dict, headers=headers)
+            
+            # If the final URL contains login, it means we don't have access
+            final_url = str(response.url)
+            if "login" in final_url.lower() or "passport" in final_url.lower():
+                return False
+                
+            # If we see 'upload' in the URL and status is 200, we are likely in
+            if response.status_code == 200 and "upload" in final_url.lower():
+                return True
+                
+            return False
+    except Exception:
+        return False
+
+
+
+
 
 def check_cookies_validity(cookies: List[Dict[str, Any]]) -> bool:
     """

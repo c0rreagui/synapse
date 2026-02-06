@@ -5,7 +5,7 @@ Migrated from: collector.py
 """
 import logging
 import asyncio
-from typing import Dict, List, Any
+from typing import Dict, Any, List, Optional
 from playwright.async_api import Page
 from core.browser import launch_browser, close_browser
 
@@ -18,33 +18,45 @@ class SenseFaculty:
     Gathers raw data from external sources (TikTok, etc.) using stealth browser automation.
     """
 
-    async def collect_profile(self, username: str, timeout: int = 25000) -> Dict[str, Any]:
+    async def collect_profile(self, username: str, profile_id: Optional[str] = None, timeout: int = 25000) -> Dict[str, Any]:
         """
         Scrapes a TikTok profile for public stats and latest videos.
         Enhanced with authenticated session to bypass bot detection.
         """
         import os
+        from core.session_manager import get_session_path, list_available_sessions
         
         logger.info(f"🕵️ Oracle.Sense: Targeting @{username}...")
 
         # Centralized Paths
-        from core.config import SESSIONS_DIR
         session_path = None
         
-        # Try finding authenticated session in centralized sessions dir
-        for profile_num in ["01", "02"]:
-            potential_path = os.path.join(SESSIONS_DIR, f"tiktok_profile_{profile_num}.json")
+        # [NEW] Resolve session dynamically
+        if profile_id:
+            potential_path = get_session_path(profile_id)
             if os.path.exists(potential_path):
                 session_path = potential_path
-                logger.info(f"✅ Using authenticated session: {potential_path}")
-                break
+        else:
+            # Try to find a profile in DB that matches this username
+            # or just use the first available active session as fallback for stability
+            all_sessions = list_available_sessions()
+            matching = next((s for s in all_sessions if s.get('username') == username), None)
+            if matching:
+                session_path = get_session_path(matching['id'])
+            elif all_sessions:
+                # Fallback to the first healthy session to ensure some level of authentication
+                healthy = next((s for s in all_sessions if s.get('session_valid')), None)
+                if healthy:
+                    session_path = get_session_path(healthy['id'])
         
-        if not session_path:
-            logger.warning("⚠️ No authenticated session found, using anonymous mode")
+        if session_path:
+             logger.info(f"✅ Using session for scraping: {session_path}")
+        else:
+            logger.warning("⚠️ No authenticated session resolved, using anonymous mode")
         
         p, browser, context, page = await launch_browser(
             headless=True,
-            storage_state=session_path  # Load authenticated cookies
+            storage_state=session_path  # Load authenticated cookies if found
         )
 
         try:
@@ -88,7 +100,7 @@ class SenseFaculty:
                 "faculty": "sense"
             }
 
-            from core.selectors import FOLLOWERS_COUNT, FOLLOWING_COUNT, LIKES_COUNT, USER_BIO
+            from core.ui_selectors import FOLLOWERS_COUNT, FOLLOWING_COUNT, LIKES_COUNT, USER_BIO
             selectors = {
                 "followers": [FOLLOWERS_COUNT],
                 "following": [FOLLOWING_COUNT],
@@ -104,7 +116,7 @@ class SenseFaculty:
 
             # Avatar Extraction & Fix (Download to avoid 403)
             try:
-                from core.selectors import AVATAR_IMG
+                from core.ui_selectors import AVATAR_IMG
                 avatar_sel = AVATAR_IMG
                 if await page.locator(avatar_sel).count() > 0:
                     raw_src = await page.locator(avatar_sel).first.get_attribute("src")
@@ -155,7 +167,7 @@ class SenseFaculty:
 
             for i, video in enumerate(video_elements[:5]):
                 try:
-                    from core.selectors import VIDEO_VIEWS
+                    from core.ui_selectors import VIDEO_VIEWS
                     # Try multiple view count selectors
                     views = "0"
                     view_selectors = [VIDEO_VIEWS, 'strong', '[class*="Count"]']
@@ -209,7 +221,7 @@ class SenseFaculty:
                 await page.keyboard.press("End")
                 await asyncio.sleep(1.5)
 
-            from core.selectors import COMMENT_ITEM, COMMENT_CONTENT, COMMENT_USERNAME
+            from core.ui_selectors import COMMENT_ITEM, COMMENT_CONTENT, COMMENT_USERNAME
             comment_items = await page.locator(COMMENT_ITEM).all()
 
             for item in comment_items[:max_comments]:

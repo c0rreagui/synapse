@@ -6,4 +6,5 @@ class ScheduleStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     READY = "ready" # Intermediate state from uploader
+    PAUSED_LOGIN_REQUIRED = "paused_login_required"
     SUCCESS = "success" # Intermediate state

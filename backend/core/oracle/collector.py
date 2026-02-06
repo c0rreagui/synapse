@@ -48,7 +48,7 @@ class OracleCollector:
                 "videos": []
             }
             
-            from core.selectors import FOLLOWERS_COUNT, FOLLOWING_COUNT, LIKES_COUNT, USER_BIO
+            from core.ui_selectors import FOLLOWERS_COUNT, FOLLOWING_COUNT, LIKES_COUNT, USER_BIO
             # Selectors (TikTok 2024 - these change often)
             selectors = {
                 "followers": [FOLLOWERS_COUNT, 'strong[title="Followers"]'],
@@ -64,7 +64,7 @@ class OracleCollector:
                         break
             
             # 3. Extract Latest Videos (Top 5)
-            from core.selectors import VIDEO_ITEM
+            from core.ui_selectors import VIDEO_ITEM
             video_elements = await page.locator(VIDEO_ITEM).all()
             logger.info(f"📹 Found {len(video_elements)} videos")
             
@@ -127,7 +127,7 @@ class OracleCollector:
             
             for item in comment_items[:max_comments]:
                 try:
-                    from core.selectors import COMMENT_CONTENT, COMMENT_USERNAME
+                    from core.ui_selectors import COMMENT_CONTENT, COMMENT_USERNAME
                     text_el = item.locator(COMMENT_CONTENT)
                     user_el = item.locator(COMMENT_USERNAME)
                     

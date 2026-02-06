@@ -239,14 +239,23 @@ export default function ProfilesPage() {
         setRefreshingProfiles(prev => ({ ...prev, [profileId]: true }));
         try {
             const res = await fetch(`${API_BASE}/profiles/refresh-avatar/${profileId}`, { method: 'POST' });
+            const data = await res.json().catch(() => ({}));
+
             if (res.ok) {
+                // Success - the WebSocket should handle the update, but we refetch to be sure
                 fetchProfiles();
             } else {
-                const err = await res.json().catch(() => ({ detail: "Erro desconhecido" }));
-                alert(`Erro: ${err.detail || "Falha na requisição"}`);
+                // Specific error handling
+                if (data.detail && data.detail.includes("Session Expired")) {
+                    alert(`Sessão Expirada: O perfil "${profiles.find(p => p.id === profileId)?.label}" precisa de novos cookies.`);
+                } else if (data.detail && data.detail.includes("Target page, context or browser has been closed")) {
+                    alert("O navegador fechou inesperadamente. Tentando novamente pode resolver.");
+                } else {
+                    alert(`Erro no Refresh: ${data.detail || "Falha na comunicação com o TikTok"}`);
+                }
             }
         } catch (e) {
-            alert(`Erro de conexão: ${e}`);
+            alert(`Erro de conexão: Não foi possível alcançar o servidor Synapse.`);
         }
         setRefreshingProfiles(prev => ({ ...prev, [profileId]: false }));
     };
@@ -366,11 +375,20 @@ export default function ProfilesPage() {
                                     <div className="flex items-center gap-3">
                                         {/* Avatar Logic */}
                                         <div className="relative">
+                                            {/* REFRESHING OVERLAY */}
+                                            {refreshingProfiles[profile.id] && (
+                                                <div className="absolute inset-0 z-20 bg-black/60 rounded-full flex items-center justify-center">
+                                                    <ArrowPathIcon className="w-6 h-6 text-synapse-primary animate-spin" />
+                                                </div>
+                                            )}
                                             {profile.avatar_url ? (
                                                 <img
                                                     src={profile.avatar_url}
                                                     alt={profile.label}
-                                                    className="w-12 h-12 rounded-full object-cover bg-[#30363d] ring-2 ring-transparent group-hover:ring-synapse-primary/50 transition-all"
+                                                    className={clsx(
+                                                        "w-12 h-12 rounded-full object-cover bg-[#30363d] ring-2 ring-transparent group-hover:ring-synapse-primary/50 transition-all",
+                                                        refreshingProfiles[profile.id] && "blur-[1px]"
+                                                    )}
                                                     onError={(e) => {
                                                         // Fallback on error
                                                         (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${profile.label}&background=random`;

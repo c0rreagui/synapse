@@ -143,7 +143,7 @@ class TrendChecker:
         trends = []
         
         try:
-            from core.selectors import CREATIVE_CENTER_MUSIC_ROW
+            from core.ui_selectors import CREATIVE_CENTER_MUSIC_ROW
             # Navigate to Creative Center
             await page.goto(self.CREATIVE_CENTER_URL, wait_until="networkidle", timeout=30000)
             await asyncio.sleep(3)  # Wait for dynamic content

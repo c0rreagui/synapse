@@ -393,6 +393,18 @@ class Scheduler:
 
     async def check_due_items(self):
         """Checks DB for pending items that are due."""
+        # 💓 [NEW] Post Heartbeat for System Sonar
+        try:
+            hb_path = os.path.join(DATA_DIR, "scheduler_heartbeat.json")
+            with open(hb_path, 'w') as f:
+                json.dump({
+                    "timestamp": time.time(),
+                    "last_beat": datetime.now().isoformat(),
+                    "pid": os.getpid()
+                }, f)
+        except Exception as e:
+            print(f"Error writing heartbeat: {e}")
+
         db = SessionLocal()
         try:
             # [SYN-FIX] Standardize on America/Sao_Paulo (User Request)
@@ -478,8 +490,22 @@ class Scheduler:
     async def execute_due_item(self, item: ScheduleItem, db):
         from core.manual_executor import execute_approved_video
         from core.status_manager import status_manager
+        from core.session_manager import validate_session_for_upload, update_profile_status
         
         try:
+            # 0. Pre-flight Session Check
+            print(f"[SCHEDULER] Running pre-flight session check for {item.profile_slug}...")
+            is_valid = await validate_session_for_upload(item.profile_slug)
+            
+            if not is_valid:
+                print(f"[SCHEDULER] Pre-flight failed: Session expired or login required for {item.profile_slug}")
+                item.status = ScheduleStatus.PAUSED_LOGIN_REQUIRED
+                item.error_message = "Session Expired - Login Required (Pre-flight check)"
+                # Also deactivate profile to alert UI
+                update_profile_status(item.profile_slug, False)
+                db.commit()
+                return
+
             # 1. Update status to processing
             item.status = 'processing'
             db.commit()

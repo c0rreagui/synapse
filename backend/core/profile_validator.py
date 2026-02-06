@@ -32,7 +32,26 @@ async def validate_profile(profile_id: str) -> Dict:
         # This page contains the __Creator_Center_Context__ with full user info
         from core.network_utils import get_upload_url
         logger.info(f"Navigating to TikTok Studio for profile: {profile_id}")
-        await page.goto(get_upload_url(), timeout=60000, wait_until="domcontentloaded")
+        
+        # 🔄 [SYN-FIX] Retry navigation if it fails/crashes
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                await page.goto(get_upload_url(), timeout=60000, wait_until="domcontentloaded")
+                break
+            except Exception as e:
+                if attempt == max_retries:
+                    raise e
+                logger.warning(f"Navigation attempt {attempt+1} failed ({e}), retrying {attempt+2}/{max_retries+1}...")
+                await asyncio.sleep(2)
+        
+        # 🛡️ SECURITY CHECK: Detect Login Redirect (Dead Session/Limited Access)
+        current_url = page.url
+        if "login" in current_url or "tiktok.com" not in current_url:
+            logger.error(f"❌ SESSÃO MORTA DETECTADA EM VALIDAÇÃO! Redirecionado para login: {current_url}")
+            # Mark as inactive immediately
+            update_profile_status(profile_id, False)
+            raise Exception("Session Expired - Login Required")
         
         # Wait for the page to reach a stable state where the context script is likely present
         try:

@@ -143,7 +143,7 @@ async def upload_video_monitored(
         
         # Aguarda elementos indicativos que a página carregou
         try:
-            from core.selectors import STUDIO_SELECT_BUTTON, STUDIO_UPLOAD_INPUT
+            from core.ui_selectors import STUDIO_SELECT_BUTTON, STUDIO_UPLOAD_INPUT
             # Aguarda pelo menos um destes elementos aparecer (indica página carregada)
             await page.wait_for_selector(
                 f'{STUDIO_SELECT_BUTTON}, {STUDIO_UPLOAD_INPUT}, .upload-card',
@@ -164,7 +164,7 @@ async def upload_video_monitored(
         # ESTRATÉGIA 1: Tentar botão visível primeiro
         try:
             logger.info("Tentando Estratégia 1: Botão 'Selecionar vídeo'...")
-            from core.selectors import STUDIO_SELECT_BUTTON
+            from core.ui_selectors import STUDIO_SELECT_BUTTON
             upload_buttons = [
                 'button:has-text("Selecionar vídeo")',
                 'button:has-text("Select video")',
@@ -183,7 +183,7 @@ async def upload_video_monitored(
         # ESTRATÉGIA 2: Usar input file diretamente (pode estar oculto)
         try:
             logger.info("Tentando Estratégia 2: Input file direto...")
-            from core.selectors import STUDIO_UPLOAD_INPUT
+            from core.ui_selectors import STUDIO_UPLOAD_INPUT
             # Procura por input file mesmo que esteja hidden
             file_input_locator = page.locator(STUDIO_UPLOAD_INPUT)
             input_count = await file_input_locator.count()

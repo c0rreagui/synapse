@@ -235,10 +235,21 @@ function EventRow({ event, profileLabel, profileColor, onEdit, onDelete }: {
                             "w-2 h-2 rounded-full",
                             event.status === 'posted' || event.status === 'completed' || event.status === 'ready' ? "bg-green-500 shadow-[0_0_5px_#22c55e]" :
                                 (event.status === 'failed' ? "bg-red-500 shadow-[0_0_5px_#ef4444]" :
-                                    "bg-yellow-500 shadow-[0_0_5px_#eab308]")
+                                    (event.status === 'paused_login_required' ? "bg-orange-500 animate-pulse shadow-[0_0_5px_#f97316]" : "bg-yellow-500 shadow-[0_0_5px_#eab308]"))
                         )} />
-                        <span className="uppercase tracking-wider font-mono text-[10px]">{event.status || 'AGENDADO'}</span>
+                        <span className="uppercase tracking-wider font-mono text-[10px]">
+                            {event.status === 'paused_login_required' ? 'SESSÃO EXPIRADA' : (event.status || 'AGENDADO')}
+                        </span>
                     </div>
+                    {event.status === 'paused_login_required' && (
+                        <div className="mt-1 p-2 rounded bg-orange-500/10 border border-orange-500/20 text-[10px] text-orange-300 font-mono">
+                            <span className="font-bold block mb-0.5 text-orange-400">🚨 ACESSO NEGADO:</span>
+                            A postagem foi pausada porque o login expirou.
+                            <a href="/profiles" className="block mt-1 text-white underline decoration-orange-500/50 hover:text-orange-200 transition-colors">
+                                Sincronizar Perfil no Menu Perfis →
+                            </a>
+                        </div>
+                    )}
                     {(event.status === 'failed' && (event.error_message || event.metadata?.error)) && (
                         <div className="mt-1 p-2 rounded bg-red-500/10 border border-red-500/20 text-[10px] text-red-300 font-mono break-all relative group/error cursor-help">
                             <span className="font-bold block mb-0.5 text-red-400">⚠️ FALHA NO PROCESSO:</span>

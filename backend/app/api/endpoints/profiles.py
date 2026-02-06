@@ -1,7 +1,8 @@
+```python
 import os
 import glob
 from fastapi import APIRouter, HTTPException, BackgroundTasks
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from .. import websocket
 
 router = APIRouter()
@@ -137,13 +138,21 @@ async def refresh_avatar_endpoint(profile_id: str):
         )
         
         if result_proc.returncode != 0:
-             # Try to parse error from stdout if available
-             try:
-                 res_err = json.loads(result_proc.stdout)
-                 return res_err
-             except:
-                 print(f"Validator CLI Error (Ref): {result_proc.stderr}")
-                 raise HTTPException(status_code=500, detail=f"Validator Script Failed: {result_proc.stderr}")
+            # Try to parse error from stdout if available
+            try:
+                # Some logs might be on stdout before JSON
+                output = result_proc.stdout.strip()
+                start_idx = output.find("{")
+                end_idx = output.rfind("}")
+                if start_idx != -1 and end_idx != -1:
+                    json_str = output[start_idx:end_idx+1]
+                    res_err = json.loads(json_str)
+                else:
+                    res_err = json.loads(output)
+                return res_err
+            except:
+                print(f"Validator CLI Error (Ref): {result_proc.stderr}")
+                raise HTTPException(status_code=500, detail=f"Validator Script Failed (Code {result_proc.returncode}): {result_proc.stderr}")
 
         try:
             output = result_proc.stdout.strip()

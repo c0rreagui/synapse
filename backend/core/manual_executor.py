@@ -105,18 +105,23 @@ async def execute_approved_video(
     # 🛡️ SAFETY CHECK: Verify if profile is active in DB
     from core import session_manager
     # We use the session_name (slug) to query status
-    # Standardize slug: if it's p1, convert to tiktok_profile_01. If it's pure slug, used directly.
-    # The session_name variable holds the correct slug for the file, so we use that.
     
     db_meta = session_manager.get_profile_metadata(session_name)
     if db_meta:
         if db_meta.get("active") is False:
             logger.warning(f"🛑 Execução abortada: Perfil {session_name} está INATIVO/BANIDO.")
             status_manager.update_status("error", logs=[f"Perfil {session_name} inativo. Re-autentique."])
-            return {"status": "error", "message": "Profile is inactive (login required)"}
-    else:
-        # If not found in DB, it might be a new import or legacy. We assume active but log warning.
-        logger.warning(f"⚠️ Perfil {session_name} não encontrado no banco. Prosseguindo com risco.")
+            return {"status": "error", "message": "Profile is inactive (disabled in DB)"}
+    
+    # [NEW] Pre-flight Session Validation (Studio Access)
+    # This prevents failures if the session is active in DB but expired in TikTok
+    status_manager.update_status(state="busy", step="Validando Sessão (Pre-flight)...", progress=8)
+    is_session_valid = await session_manager.validate_session_for_upload(session_name)
+    if not is_session_valid:
+        logger.error(f"🛑 Falha na validação de sessão para {session_name}. Marcando como inativo.")
+        session_manager.update_profile_status(session_name, False)
+        status_manager.update_status("error", logs=[f"Sessão de {session_name} expirada. Login necessário."])
+        return {"status": "error", "message": "Session expired (Login required)"}
     
     # 3. Move to processing (Unique Path to avoid Race Conditions)
     status_manager.update_status(
