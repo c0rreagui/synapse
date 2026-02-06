@@ -6,9 +6,10 @@ import clsx from 'clsx';
 interface TikTokTimePickerProps {
     value: string; // HH:mm format
     onChange: (value: string) => void;
+    className?: string; // [SYN-UI] Support for custom classes
 }
 
-export function TikTokTimePicker({ value, onChange }: TikTokTimePickerProps) {
+export function TikTokTimePicker({ value, onChange, className }: TikTokTimePickerProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [inputValue, setInputValue] = useState(value);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -68,7 +69,7 @@ export function TikTokTimePicker({ value, onChange }: TikTokTimePickerProps) {
     };
 
     return (
-        <div className="relative" ref={containerRef}>
+        <div className={clsx("relative", className)} ref={containerRef}>
             {/* Input Trigger */}
             <div
                 className="flex items-center gap-3 px-4 py-2 bg-black/40 border border-white/5 rounded-full cursor-text hover:bg-white/5 transition-colors group focus-within:ring-1 focus-within:ring-synapse-purple/50"

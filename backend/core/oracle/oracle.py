@@ -31,7 +31,7 @@ class Oracle:
         self.client = oracle_client
         self.mind = MindFaculty(self.client)
         self.vision = VisionFaculty(self.client)
-        self.voice = VoiceFaculty(self.client)
+        self.voice = VoiceFaculty(self.client, vision_faculty=self.vision)
         self.sense = SenseFaculty()
         self.hearing = HearingFaculty(self.client)
         
@@ -104,7 +104,7 @@ class Oracle:
         # Step 2: Generate metadata
         import os
         filename = os.path.basename(video_path)
-        metadata_result = await self.voice.generate_metadata(filename)
+        metadata_result = await self.voice.generate_metadata(filename, video_path=video_path)
 
         return {
             "video_path": video_path,
@@ -116,13 +116,7 @@ class Oracle:
             "faculties_used": ["vision", "voice"]
         }
 
-    async def audit_profile(self, profile_id: str, metadata: dict) -> Dict[str, Any]:
-        """
-        SEO audit of a profile.
-        Uses Voice faculty for analysis.
-        """
-        logger.info(f"🔮 Oracle.audit_profile: Auditing {profile_id}")
-        return await self.voice.audit_profile_seo(metadata)
+
 
     async def spy_competitor(self, target_username: str) -> Dict[str, Any]:
         """
@@ -170,8 +164,7 @@ class Oracle:
             return await self.voice.generate_bio(**kwargs)
         elif action == "reply":
             return await self.voice.generate_reply(**kwargs)
-        elif action == "audit":
-            return await self.voice.audit_profile_seo(**kwargs)
+
         return {"error": f"Unknown voice action: {action}"}
 
     async def use_hearing(self, action: str, **kwargs) -> Dict[str, Any]:

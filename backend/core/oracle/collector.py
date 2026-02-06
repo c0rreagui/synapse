@@ -19,9 +19,10 @@ class OracleCollector:
         """
         logger.info(f"🕵️ OracleCollector: Targeting @{username}...")
         
+        from core.network_utils import get_random_user_agent
         p, browser, context, page = await launch_browser(
             headless=True, # TikTok is tough on headless, but let's try.
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            user_agent=get_random_user_agent()
         )
         
         try:
@@ -47,12 +48,13 @@ class OracleCollector:
                 "videos": []
             }
             
+            from core.selectors import FOLLOWERS_COUNT, FOLLOWING_COUNT, LIKES_COUNT, USER_BIO
             # Selectors (TikTok 2024 - these change often)
             selectors = {
-                "followers": ['[data-e2e="followers-count"]', 'strong[title="Followers"]'],
-                "following": ['[data-e2e="following-count"]', 'strong[title="Following"]'],
-                "likes": ['[data-e2e="likes-count"]', 'strong[title="Likes"]'],
-                "bio": ['[data-e2e="user-bio"]', '.share-desc']
+                "followers": [FOLLOWERS_COUNT, 'strong[title="Followers"]'],
+                "following": [FOLLOWING_COUNT, 'strong[title="Following"]'],
+                "likes": [LIKES_COUNT, 'strong[title="Likes"]'],
+                "bio": [USER_BIO, '.share-desc']
             }
             
             for key, selector_list in selectors.items():
@@ -62,7 +64,8 @@ class OracleCollector:
                         break
             
             # 3. Extract Latest Videos (Top 5)
-            video_elements = await page.locator('[data-e2e="user-post-item"]').all()
+            from core.selectors import VIDEO_ITEM
+            video_elements = await page.locator(VIDEO_ITEM).all()
             logger.info(f"📹 Found {len(video_elements)} videos")
             
             for i, video in enumerate(video_elements[:5]):
@@ -124,8 +127,9 @@ class OracleCollector:
             
             for item in comment_items[:max_comments]:
                 try:
-                    text_el = item.locator('[data-e2e="comment-level-1-content"]')
-                    user_el = item.locator('[data-e2e="comment-username"]')
+                    from core.selectors import COMMENT_CONTENT, COMMENT_USERNAME
+                    text_el = item.locator(COMMENT_CONTENT)
+                    user_el = item.locator(COMMENT_USERNAME)
                     
                     if await text_el.count() and await user_el.count():
                         text = await text_el.inner_text()

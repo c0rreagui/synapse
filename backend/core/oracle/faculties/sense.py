@@ -27,26 +27,16 @@ class SenseFaculty:
         
         logger.info(f"🕵️ Oracle.Sense: Targeting @{username}...")
 
-        # Find an authenticated session file
+        # Centralized Paths
+        from core.config import SESSIONS_DIR
         session_path = None
         
-        # Docker path (primary) and local fallback
-        possible_data_dirs = [
-            "/app/data/sessions",  # Docker container path
-            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "data", "sessions")  # Local dev
-        ]
-        
-        for data_dir in possible_data_dirs:
-            if not os.path.exists(data_dir):
-                continue
-            # Try profile_01, then profile_02
-            for profile_num in ["01", "02"]:
-                potential_path = os.path.join(data_dir, f"tiktok_profile_{profile_num}.json")
-                if os.path.exists(potential_path):
-                    session_path = potential_path
-                    logger.info(f"✅ Using authenticated session: {potential_path}")
-                    break
-            if session_path:
+        # Try finding authenticated session in centralized sessions dir
+        for profile_num in ["01", "02"]:
+            potential_path = os.path.join(SESSIONS_DIR, f"tiktok_profile_{profile_num}.json")
+            if os.path.exists(potential_path):
+                session_path = potential_path
+                logger.info(f"✅ Using authenticated session: {potential_path}")
                 break
         
         if not session_path:
@@ -98,11 +88,12 @@ class SenseFaculty:
                 "faculty": "sense"
             }
 
+            from core.selectors import FOLLOWERS_COUNT, FOLLOWING_COUNT, LIKES_COUNT, USER_BIO
             selectors = {
-                "followers": ['[data-e2e="followers-count"]'],
-                "following": ['[data-e2e="following-count"]'],
-                "likes": ['[data-e2e="likes-count"]'],
-                "bio": ['[data-e2e="user-bio"]']
+                "followers": [FOLLOWERS_COUNT],
+                "following": [FOLLOWING_COUNT],
+                "likes": [LIKES_COUNT],
+                "bio": [USER_BIO]
             }
 
             for key, selector_list in selectors.items():
@@ -113,22 +104,22 @@ class SenseFaculty:
 
             # Avatar Extraction & Fix (Download to avoid 403)
             try:
-                avatar_sel = '[data-e2e="user-user-img"]'
+                from core.selectors import AVATAR_IMG
+                avatar_sel = AVATAR_IMG
                 if await page.locator(avatar_sel).count() > 0:
                     raw_src = await page.locator(avatar_sel).first.get_attribute("src")
                     if raw_src:
                         import os
                         import aiohttp
                         
-                        # Prepare local path
-                        static_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "static", "avatars")
-                        os.makedirs(static_dir, exist_ok=True)
+                        from core.config import AVATARS_DIR
                         local_filename = f"{username}.jpg"
-                        local_path = os.path.join(static_dir, local_filename)
+                        local_path = os.path.join(AVATARS_DIR, local_filename)
                         
-                        # Download
+                        # Download with centralized headers
+                        from core.network_utils import get_scrape_headers
                         async with aiohttp.ClientSession() as session:
-                            async with session.get(raw_src) as resp:
+                            async with session.get(raw_src, headers=get_scrape_headers()) as resp:
                                 if resp.status == 200:
                                     with open(local_path, "wb") as f:
                                         f.write(await resp.read())
@@ -164,9 +155,10 @@ class SenseFaculty:
 
             for i, video in enumerate(video_elements[:5]):
                 try:
+                    from core.selectors import VIDEO_VIEWS
                     # Try multiple view count selectors
                     views = "0"
-                    view_selectors = ['[data-e2e="video-views"]', 'strong', '[class*="Count"]']
+                    view_selectors = [VIDEO_VIEWS, 'strong', '[class*="Count"]']
                     for v_sel in view_selectors:
                         try:
                             views_el = video.locator(v_sel)
@@ -217,12 +209,13 @@ class SenseFaculty:
                 await page.keyboard.press("End")
                 await asyncio.sleep(1.5)
 
-            comment_items = await page.locator('[data-e2e="comment-level-1"]').all()
+            from core.selectors import COMMENT_ITEM, COMMENT_CONTENT, COMMENT_USERNAME
+            comment_items = await page.locator(COMMENT_ITEM).all()
 
             for item in comment_items[:max_comments]:
                 try:
-                    text_el = item.locator('[data-e2e="comment-level-1-content"]')
-                    user_el = item.locator('[data-e2e="comment-username"]')
+                    text_el = item.locator(COMMENT_CONTENT)
+                    user_el = item.locator(COMMENT_USERNAME)
 
                     if await text_el.count() and await user_el.count():
                         text = await text_el.inner_text()
@@ -251,17 +244,14 @@ class SenseFaculty:
         """
         logger.info(f"📸 Oracle.Sense: Capturing screenshot for @{username}...")
         
-        import os
-        # Ensure dir exists
-        screenshot_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "data", "screenshots")
-        os.makedirs(screenshot_dir, exist_ok=True)
-        
+        from core.config import SCREENSHOTS_DIR
         filename = f"{username}_audit.png"
-        path = os.path.join(screenshot_dir, filename)
+        path = os.path.join(SCREENSHOTS_DIR, filename)
 
+        from core.network_utils import get_random_user_agent
         p, browser, context, page = await launch_browser(
             headless=True,
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            user_agent=get_random_user_agent()
         )
 
         try:

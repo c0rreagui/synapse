@@ -364,3 +364,67 @@ class VisionFaculty:
                 "avatar_suggestions": []
             }
 
+    async def analyze_profile_aesthetics(self, screenshot_path: str) -> Dict[str, Any]:
+        """
+        Analyzes the full profile screenshot for aesthetic quality and branding.
+        """
+        if not self.client or not os.path.exists(screenshot_path):
+            return {
+                "aesthetics_score": 0,
+                "visual_style": "N/A",
+                "layout_analysis": "Screenshot skipped"
+            }
+
+        try:
+            img = PIL.Image.open(screenshot_path)
+            # Resize if too large to save tokens/latency, but keep readable
+            img.thumbnail((1280, 1280)) 
+            
+            prompt = [
+                """Voce e um Diretor de Arte e Especialista em Branding Digital.
+                Analise este screenshot de um perfil do TikTok.
+                
+                Avalie:
+                1. Coesao Visual (Core, Estilo)
+                2. Clareza do layout
+                3. Profissionalismo
+                
+                Responda APENAS em JSON:
+                {
+                    "aesthetics_score": 1-10,
+                    "visual_style": "Ex: Minimalista, Caotico, Dark, Vibrante",
+                    "color_palette": ["cor1", "cor2"],
+                    "branding_consistency": "Alta/Media/Baixa",
+                    "critique": "Breve analise critica (1 frase)",
+                    "tips": ["Dica visual 1", "Dica visual 2"]
+                }
+                """,
+                img
+            ]
+            
+            response = self.client.generate_content(prompt, model=self.vision_model)
+            
+            import json
+            text = response.text.strip()
+            start = text.find("{")
+            end = text.rfind("}") + 1
+            
+            if start != -1 and end > start:
+                data = json.loads(text[start:end])
+                data["faculty"] = "vision"
+                return data
+                
+            return {
+                "aesthetics_score": 5, 
+                "visual_style": "Unknown", 
+                "critique": text,
+                "faculty": "vision"
+            }
+            
+        except Exception as e:
+            logger.error(f"[VISION] Aesthetics analysis failed: {e}")
+            return {
+                "aesthetics_score": 0,
+                "error": str(e)
+            }
+

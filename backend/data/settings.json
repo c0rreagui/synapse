@@ -1,0 +1,18 @@
+{
+  "system": {
+    "language": "pt-BR",
+    "timezone": "America/Sao_Paulo",
+    "log_level": "DEBUG",
+    "max_concurrent_tasks": 3,
+    "test_timestamp": "verification_run"
+  },
+  "integrations": {
+    "openai_api_key": "",
+    "groq_api_key": "",
+    "tiktok_cookie_path": "cookies.json"
+  },
+  "niche": {
+    "default_niche": "General",
+    "auto_detect": true
+  }
+}

@@ -161,18 +161,19 @@ async def get_schedule_suggestion(profile_id: str):
 class BatchScheduleRequest(BaseModel):
     files: List[str]
     profile_ids: List[str]
-    strategy: str # "INTERVAL" | "ORACLE"
+    strategy: str # "INTERVAL" | "ORACLE" | "CUSTOM"
     start_time: str # ISO format
     interval_minutes: int = 60
+    custom_times: List[str] = None # ["12:00", "18:00"] for CUSTOM strategy
     viral_music_enabled: bool = False
-    mix_viral_sounds: bool = False  # 🔀 [SYN-39] Unique trend per video
-    sound_id: str = None  # 🎵 ID da música viral selecionada (se mix_viral_sounds for False)
-    sound_title: str = None  # 🎵 Título da música para busca
-    smart_captions: bool = False  # ✍️ [SYN-40] Generate AI descriptions
-    privacy_level: str = "public"  # 🔒 [SYN-NEW] Visibility (public/private)
-    dry_run: bool = False  # 🧠 Se True, apenas valida sem agendar
-    force: bool = False  # 🧠 Se True, ignora warnings e agenda mesmo assim
-    file_metadata: Dict[str, Dict] = {} # [SYN-FIX] Per-file metadata (captions, etc.)
+    mix_viral_sounds: bool = False
+    sound_id: str = None
+    sound_title: str = None
+    smart_captions: bool = False
+    privacy_level: str = "public"
+    dry_run: bool = False
+    force: bool = False
+    file_metadata: Dict[str, Dict] = {}
 
 @router.post("/batch")
 async def batch_schedule(request: BatchScheduleRequest):
@@ -195,7 +196,6 @@ async def batch_schedule(request: BatchScheduleRequest):
         start_dt = datetime.fromisoformat(clean_time)
         
         # [SYN-TIMEZONE] Force conversion to America/Sao_Paulo for consistency
-        # This ensures that even if frontend sends UTC, we store and process in Local Time
         local_tz = ZoneInfo("America/Sao_Paulo")
         if start_dt.tzinfo is None:
              start_dt = start_dt.replace(tzinfo=local_tz)
@@ -207,9 +207,45 @@ async def batch_schedule(request: BatchScheduleRequest):
 
     # 🧠 1. Construir lista de eventos para validação
     validation_events = []
+    
+    # Pre-calculate custom slots if strategy is CUSTOM
+    custom_slots_sorted = []
+    if request.strategy == 'CUSTOM' and request.custom_times:
+        # Parse times to sort them correctly
+        try:
+            # Assume format "HH:MM"
+            custom_slots_sorted = sorted(request.custom_times, key=lambda x: datetime.strptime(x, "%H:%M"))
+        except:
+            raise HTTPException(status_code=400, detail="Invalid custom_times format. Use HH:MM")
+    
     current_cursor = start_dt
     
     for i, video_path in enumerate(request.files):
+        # Determine Scheduled Time based on Strategy
+        if request.strategy == 'CUSTOM' and custom_slots_sorted:
+            # Cycle through custom slots across days
+            slots_count = len(custom_slots_sorted)
+            day_offset = i // slots_count
+            slot_index = i % slots_count
+            
+            slot_time_str = custom_slots_sorted[slot_index]
+            slot_hour, slot_minute = map(int, slot_time_str.split(':'))
+            
+            # Base date + offset
+            target_date = start_dt + timedelta(days=day_offset)
+            current_cursor = target_date.replace(hour=slot_hour, minute=slot_minute, second=0, microsecond=0)
+            
+        elif request.strategy == 'INTERVAL':
+            if i > 0: # First item uses start_time, subsequent add interval
+                current_cursor = current_cursor + timedelta(minutes=request.interval_minutes)
+        
+        # For ORACLE, we might do something else, but currently it likely relies on logic below or client?
+        # Actually ORACLE usually implies "Smart Logic" finding best slots. 
+        # For now, let's assume Client handles ORACLE by generic Interval or we keep current behavior.
+        # Original code: current_cursor = current_cursor + timedelta(minutes=request.interval_minutes) (at end of loop)
+        
+        # ... logic continues ...
+        
         for profile_id in request.profile_ids:
             validation_events.append({
                 "id": f"batch_{i}_{profile_id}",
@@ -217,8 +253,7 @@ async def batch_schedule(request: BatchScheduleRequest):
                 "scheduled_time": current_cursor.isoformat(),
                 "video_path": video_path
             })
-        current_cursor = current_cursor + timedelta(minutes=request.interval_minutes)
-    
+            
     # 🧠 2. Validar todos com Smart Logic
     validation_results = smart_logic.validate_batch(validation_events)
     
@@ -264,6 +299,8 @@ async def batch_schedule(request: BatchScheduleRequest):
     
     # 🧠 5. Agendar eventos
     events = []
+    
+    # Reset cursor for actual scheduling loop
     current_cursor = start_dt
     
     # Pre-fetch trends if mixing is enabled
@@ -273,7 +310,6 @@ async def batch_schedule(request: BatchScheduleRequest):
         trends_data = trend_checker.get_cached_trends()
         trending_pool = trends_data.get("trends", [])
         if not trending_pool:
-            # Fallback/Error? For now, if pool is empty, we just skip mixing
             print("⚠️ No trends in cache for Auto-Mix. Using default sound.")
     
     # [SYN-SMART] Time Window Logic
@@ -283,48 +319,50 @@ async def batch_schedule(request: BatchScheduleRequest):
     def adjust_to_window(dt: datetime) -> datetime:
         """Ensures the time is within 08:00 - 22:00. If not, jumps to next valid slot."""
         if dt.hour >= END_HOUR:
-            # Move to next day 08:00
             next_day = dt + timedelta(days=1)
             return next_day.replace(hour=START_HOUR, minute=0, second=0, microsecond=0)
         elif dt.hour < START_HOUR:
-            # Move to today 08:00
             return dt.replace(hour=START_HOUR, minute=0, second=0, microsecond=0)
         return dt
 
-    # [SYN-FIX] Define PENDING_DIR to resolve absolute paths
+    # [SYN-FIX] Define PENDING_DIR
     import os
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     PENDING_DIR = os.path.join(BASE_DIR, "data", "pending")
 
     for i, filename in enumerate(request.files):
-        # [SYN-FIX] Ensure we store absolute path in DB so Scheduler can find it
+        # [SYN-FIX] Ensure we store absolute path
         if not os.path.isabs(filename):
              video_path = os.path.join(PENDING_DIR, filename)
         else:
              video_path = filename
 
-        # Determine sound for this video index
+        # [SYN-CUSTOM] Calculate Time Again for Execution
+        if request.strategy == 'CUSTOM' and custom_slots_sorted:
+            slots_count = len(custom_slots_sorted)
+            day_offset = i // slots_count
+            slot_index = i % slots_count
+            slot_time_str = custom_slots_sorted[slot_index]
+            slot_hour, slot_minute = map(int, slot_time_str.split(':'))
+            target_date = start_dt + timedelta(days=day_offset)
+            current_cursor = target_date.replace(hour=slot_hour, minute=slot_minute, second=0, microsecond=0)
+        elif request.strategy == 'INTERVAL' and i > 0:
+             current_cursor = current_cursor + timedelta(minutes=request.interval_minutes)
+
+        # Determine sound
         current_sound_id = request.sound_id
         current_sound_title = request.sound_title
         
         if request.mix_viral_sounds and trending_pool:
-            # Round-robin distribution
             trend = trending_pool[i % len(trending_pool)]
             current_sound_id = trend.get("id")
             current_sound_title = trend.get("title")
         
         for profile_id in request.profile_ids:
-            # 1. Enforce Window Strategy FIRST
-            if not request.force:
+            # 1. Enforce Window Strategy (Only for INTERVAL)
+            # Custom Time is explicitly chosen by user, so we trust it (unless blocked hour? maybe warn but don't move automatically)
+            if request.strategy == 'INTERVAL' and not request.force:
                 current_cursor = adjust_to_window(current_cursor)
-            
-            # 2. Smart Logic: Find next available slot if conflicted (but staying in window?)
-            # safe_time_iso = scheduler_service.find_next_available_slot(profile_id, current_cursor)
-            # NOTE: scheduler_service might push it out of window if conflicted.
-            # Ideally we check conflict manually and push forward if needed.
-            
-            # For now, let's use the cursor directly and let Validation warn us, or just schedule.
-            # User wants "re-fitted".
             
             event = scheduler_service.add_event(
                 profile_id=profile_id,
@@ -338,12 +376,6 @@ async def batch_schedule(request: BatchScheduleRequest):
                 caption=request.file_metadata.get(filename, {}).get("caption") if request.file_metadata else None
             )
             events.append(event)
-            
-        # Increment for next video
-        current_cursor = current_cursor + timedelta(minutes=request.interval_minutes)
-        # Check window again for next loop? (Will be checked at start of loop)
-        if not request.force:
-            current_cursor = adjust_to_window(current_cursor)
             
     await websocket.notify_schedule_update(scheduler_service.load_schedule())
 

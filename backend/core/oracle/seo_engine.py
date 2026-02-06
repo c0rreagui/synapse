@@ -45,10 +45,8 @@ class SEOEngine:
         if avatar_url:
             try:
                 # Download Image (Mimic Browser to avoid 403)
-                headers = {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                    'Referer': 'https://www.tiktok.com/'
-                }
+                from core.network_utils import get_tiktok_headers
+                headers = get_tiktok_headers()
                 response = requests.get(avatar_url, headers=headers, timeout=10, verify=False)
                 
                 # If download fails (403/404), throw to trigger fallback
@@ -164,10 +162,8 @@ class SEOEngine:
             if cover_url:
                 try:
                     # Download Cover
-                    headers = {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                        'Referer': 'https://www.tiktok.com/'
-                    }
+                    from core.network_utils import get_tiktok_headers
+                    headers = get_tiktok_headers()
                     response = requests.get(cover_url, headers=headers, timeout=10, verify=False)
                     
                     if response.status_code == 200:

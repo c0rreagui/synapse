@@ -24,7 +24,7 @@ export interface FileUpload {
     };
 }
 
-export type ScheduleStrategy = 'INTERVAL' | 'ORACLE' | 'QUEUE';
+export type ScheduleStrategy = 'INTERVAL' | 'ORACLE' | 'QUEUE' | 'CUSTOM';
 
 interface BatchContextType {
     // State
@@ -43,6 +43,8 @@ interface BatchContextType {
     setStrategy: (s: ScheduleStrategy) => void;
     intervalMinutes: number;
     setIntervalMinutes: (n: number) => void;
+    customTimes: string[];
+    setCustomTimes: React.Dispatch<React.SetStateAction<string[]>>;
 
     // Intelligence
     viralBoost: boolean;
@@ -180,6 +182,7 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
     const [startTime, setStartTime] = useState(defaultTime);
     const [strategy, setStrategy] = useState<ScheduleStrategy>('INTERVAL');
     const [intervalMinutes, setIntervalMinutes] = useState(60);
+    const [customTimes, setCustomTimes] = useState<string[]>([]); // [SYN-CUSTOM]
 
     // Features
     const [viralBoost, setViralBoost] = useState(false);
@@ -210,7 +213,6 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
         }));
     };
 
-    // 🧠 Validar batch com dry_run
     const validateBatch = async () => {
         // Handle both local (File object) and remote (filename only)
         const filePaths = files.map(f => f.isRemote ? f.filename : `C:\\Videos\\${f.filename}`);
@@ -227,6 +229,7 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
             strategy: strategy,
             start_time: startIsoLocal,
             interval_minutes: intervalMinutes,
+            custom_times: customTimes, // [SYN-CUSTOM]
             dry_run: true
         };
 
@@ -342,6 +345,7 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
                 strategy,
                 start_time: startIsoLocal,
                 interval_minutes: intervalMinutes,
+                custom_times: customTimes, // [SYN-CUSTOM]
                 dry_run: true
             };
 
@@ -430,6 +434,7 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
         startTime, setStartTime,
         strategy, setStrategy,
         intervalMinutes, setIntervalMinutes,
+        customTimes, setCustomTimes, // [SYN-CUSTOM]
         viralBoost, setViralBoost,
         mixViralSounds, setMixViralSounds,
         aiCaptions: true,

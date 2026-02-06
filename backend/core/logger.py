@@ -4,6 +4,7 @@ import uuid
 import asyncio
 from datetime import datetime
 from typing import List, Dict, Any, Optional
+from core.consts import ScheduleStatus
 
 # Constants
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -113,9 +114,9 @@ class JsonLogger:
     def get_stats(self) -> Dict:
         return {
             "info": len([l for l in self._mem_buffer if l['level'] == "info"]),
-            "success": len([l for l in self._mem_buffer if l['level'] in ("success", "completed", "ready")]),
+            "success": len([l for l in self._mem_buffer if l['level'] in (ScheduleStatus.SUCCESS, ScheduleStatus.COMPLETED, ScheduleStatus.READY)]),
             "warning": len([l for l in self._mem_buffer if l['level'] == "warning"]),
-            "error": len([l for l in self._mem_buffer if l['level'] == "error"]),
+            "error": len([l for l in self._mem_buffer if l['level'] == ScheduleStatus.FAILED or l['level'] == "error"]),
             "total": len(self._mem_buffer)
         }
 

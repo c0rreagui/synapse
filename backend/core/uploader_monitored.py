@@ -108,7 +108,8 @@ async def upload_video_monitored(
         
         # ========== STEP 1: NAVEGAÇÃO ==========
         status_manager.update_status("busy", step="uploading", progress=60, logs=["Acessando TikTok Studio..."])
-        await page.goto("https://www.tiktok.com/tiktokstudio/upload", timeout=120000)
+        from core.network_utils import get_upload_url
+        await page.goto(get_upload_url(), timeout=120000, wait_until='domcontentloaded')
         await page.wait_for_timeout(5000)
         if monitor:
             await monitor.capture_full_state(page, "navegacao_inicial", 
@@ -142,9 +143,10 @@ async def upload_video_monitored(
         
         # Aguarda elementos indicativos que a página carregou
         try:
+            from core.selectors import STUDIO_SELECT_BUTTON, STUDIO_UPLOAD_INPUT
             # Aguarda pelo menos um destes elementos aparecer (indica página carregada)
             await page.wait_for_selector(
-                'button:has-text("Selecionar"), input[type="file"], .upload-card',
+                f'{STUDIO_SELECT_BUTTON}, {STUDIO_UPLOAD_INPUT}, .upload-card',
                 timeout=20000,
                 state="attached"
             )
@@ -162,10 +164,11 @@ async def upload_video_monitored(
         # ESTRATÉGIA 1: Tentar botão visível primeiro
         try:
             logger.info("Tentando Estratégia 1: Botão 'Selecionar vídeo'...")
+            from core.selectors import STUDIO_SELECT_BUTTON
             upload_buttons = [
                 'button:has-text("Selecionar vídeo")',
                 'button:has-text("Select video")',
-                'button:has-text("Selecionar")',
+                STUDIO_SELECT_BUTTON,
                 'button:has-text("Upload")'
             ]
             
@@ -180,8 +183,9 @@ async def upload_video_monitored(
         # ESTRATÉGIA 2: Usar input file diretamente (pode estar oculto)
         try:
             logger.info("Tentando Estratégia 2: Input file direto...")
+            from core.selectors import STUDIO_UPLOAD_INPUT
             # Procura por input file mesmo que esteja hidden
-            file_input_locator = page.locator('input[type="file"]')
+            file_input_locator = page.locator(STUDIO_UPLOAD_INPUT)
             input_count = await file_input_locator.count()
             
             # Verifica se existe

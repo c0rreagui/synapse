@@ -21,15 +21,18 @@ async def validate_profile(profile_id: str) -> Dict:
         # Launch headless browser with stealth
         from core.browser import launch_browser, close_browser
         
+        from core.network_utils import get_random_user_agent
         p, browser, context, page = await launch_browser(
             headless=True, 
-            storage_state=session_path
+            storage_state=session_path,
+            user_agent=get_random_user_agent()
         )
         
         # Navigate to TikTok Studio upload page
         # This page contains the __Creator_Center_Context__ with full user info
+        from core.network_utils import get_upload_url
         logger.info(f"Navigating to TikTok Studio for profile: {profile_id}")
-        await page.goto("https://www.tiktok.com/upload?lang=en", timeout=60000, wait_until="domcontentloaded")
+        await page.goto(get_upload_url(), timeout=60000, wait_until="domcontentloaded")
         
         # Wait for the page to reach a stable state where the context script is likely present
         try:

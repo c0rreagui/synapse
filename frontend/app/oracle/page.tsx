@@ -52,7 +52,7 @@ interface AnalyticsData {
         followers: number;
         total_likes: number;
         total_views: number;
-        posts_analyzed: number;
+        analyzed_videos: number;
         avg_engagement: number;
     };
     history: {
@@ -644,7 +644,7 @@ export default function OraclePage() {
                                             />
                                             <StatCard
                                                 label="Posts Analisados"
-                                                value={analyticsData.summary.posts_analyzed}
+                                                value={analyticsData.summary.analyzed_videos}
                                                 icon={<ChatBubbleLeftIcon className="w-6 h-6 text-white" />}
                                                 color="green"
                                             />

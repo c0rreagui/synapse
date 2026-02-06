@@ -35,36 +35,106 @@ def extract_cookies_dict(session_data):
 
 def fetch_tiktok_user_info(cookies):
     """
-    Busca informações do usuário na API do TikTok usando cookies.
-    Retorna dict com username, display_name, avatar_url ou None se falhar.
+    Busca informações do usuário.
+    Estratégia Híbrida:
+    1. Tenta raspar a página pública de perfil (mais preciso para avatar atual).
+    2. Fallback para API Passport (mais estável, mas pode ter avatar antigo).
     """
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": "https://www.tiktok.com/",
-    }
-    url = "https://www.tiktok.com/passport/web/account/info/?aid=1459&app_language=pt-BR&app_name=tiktok_web"
-
+    import re
+    from core.network_utils import get_tiktok_headers, get_passport_api_url
+    
+    # Passo 1: Consulta Rápida no Passport para pegar o HANDLE correto
+    headers_api = get_tiktok_headers()
+    url_api = get_passport_api_url()
+    
+    passport_data = None
     try:
-        response = requests.get(url, cookies=cookies, headers=headers, timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            user_data = data.get("data", {})
-            
-            if user_data:
-                # Prioridade: screen_name > username (depende da API, varia)
-                # screen_name costuma ser o Display Name, username o @handle ou vice-versa no passport
-                # Testes indicam: username = Display Name (ex: Cortes do João), screen_name = unique_id (com caracteres especiais?)
-                # Vamos pegar ambos
-                
-                return {
-                    "display_name": user_data.get("username", "Unknown"), 
-                    "username": user_data.get("screen_name", "unknown"), # unique_id geralmente
-                    "avatar_url": user_data.get("avatar_url", "")
-                }
+        r = requests.get(url_api, cookies=cookies, headers=headers_api, timeout=5)
+        if r.status_code == 200:
+            wrapper = r.json()
+            passport_data = wrapper.get("data", {})
     except Exception as e:
-        logger.error(f"Falha ao buscar info do TikTok: {e}")
+        logger.warning(f"Passport API falhou: {e}")
+
+    # Se falhou tudo, retorna None
+    if not passport_data:
+        return None
+
+    # Dados base do Passport
+    # NOTA: Na API Passport, 'username' é geralmente o unique_id (handle) e 'screen_name' é o Display Name.
+    handle = passport_data.get("username", "")       # ex: opiniaoviral
+    display_name = passport_data.get("screen_name", "") # ex: Guilherme Corrêa
+    avatar_url = passport_data.get("avatar_url", "")
+    
+    if not handle:
+         # Se não tem handle, retorna o que tem
+         return {
+             "display_name": display_name or handle, 
+             "username": "unknown",
+             "avatar_url": avatar_url
+         }
+
+    # Passo 2: Tentar Enriquecer com Scrape da Página Pública (para Avatar Atualizado)
+    logger.info(f"Tentando enriquecer dados via página pública para @{handle}...")
+    try:
+        ua = UserAgent()
+        headers_scrape = {
+            "User-Agent": ua.random,
+            "Referer": "https://www.tiktok.com/",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+        url_scrape = f"https://www.tiktok.com/@{handle}"
         
-    return None
+        r2 = requests.get(url_scrape, headers=headers_scrape, cookies=cookies, timeout=10)
+        
+        if r2.status_code == 200:
+            html = r2.text
+            
+            # Tenta SIGI_STATE
+            sigi = re.search(r'<script id="SIGI_STATE" type="application/json">(.+?)</script>', html)
+            if sigi:
+                try:
+                    data = json.loads(sigi.group(1))
+                    user_module = data.get("UserModule", {}).get("users", {})
+                    # Tenta pegar pelo handle (as vezes é lower case ou tem chaves diferentes)
+                    user_info = user_module.get(handle)
+                    if not user_info:
+                        # Busca linear
+                        for k, v in user_module.items():
+                            if v.get("uniqueId") == handle:
+                                user_info = v
+                                break
+                    
+                    if user_info:
+                        new_avatar = user_info.get('avatarLarger') or user_info.get('avatarMedium')
+                        if new_avatar:
+                            logger.info(f"Avatar atualizado via SIGI: {new_avatar[:30]}...")
+                            avatar_url = new_avatar
+                except:
+                    pass
+
+            # Tenta UNIVERSAL_DATA (Novo Layout 2024/2025)
+            if "UNIVERSAL_DATA_FOR_REHYDRATION" in html:
+                 univ = re.search(r'<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application/json">(.+?)</script>', html)
+                 if univ:
+                     try:
+                         u_data = json.loads(univ.group(1))
+                         user_detail = u_data.get("__DEFAULT_SCOPE__", {}).get("webapp.user-detail", {}).get("userInfo", {}).get("user", {})
+                         new_avatar = user_detail.get('avatarLarger') or user_detail.get('avatarMedium')
+                         if new_avatar:
+                             logger.info(f"Avatar atualizado via UNIVERSAL: {new_avatar[:30]}...")
+                             avatar_url = new_avatar
+                     except:
+                         pass
+
+    except Exception as e:
+        logger.warning(f"Falha no scrape público (usando fallback passport): {e}")
+
+    return {
+        "display_name": display_name, 
+        "username": handle,       
+        "avatar_url": avatar_url  
+    }
 
 def enrich_session_metadata(session_path):
     """

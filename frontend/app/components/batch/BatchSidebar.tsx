@@ -4,6 +4,13 @@ import clsx from 'clsx';
 
 export function BatchSidebar() {
     const { profiles, selectedProfiles, setSelectedProfiles } = useBatch();
+    const [searchTerm, setSearchTerm] = React.useState(''); // [SYN-UX] Search for High Volume
+
+
+
+
+
+
 
     const toggleProfile = (id: string) => {
         if (selectedProfiles.includes(id)) {
@@ -17,16 +24,23 @@ export function BatchSidebar() {
         if (selectedProfiles.length === profiles.length) {
             setSelectedProfiles([]);
         } else {
+            // Select all currently visible (filtered) or all? 
+            // Standard UX: Select All usually means *All*, but filtered select is also common.
+            // Let's select ALL for now as distinct from "Select Visible".
             setSelectedProfiles(profiles.map(p => p.id));
         }
     };
 
+    const filteredProfiles = profiles.filter(p =>
+        (p.label || p.username).toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     return (
         <div className="w-64 h-full border-r border-white/5 bg-black/20 flex flex-col">
             {/* Header */}
-            <div className="p-5 border-b border-white/5">
-                <h3 className="text-sm font-bold text-white flex items-center justify-between">
-                    Publicar em
+            <div className="p-5 border-b border-white/5 space-y-3">
+                <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-white">Publicar em</h3>
                     {profiles.length > 0 && (
                         <button
                             onClick={toggleAll}
@@ -35,21 +49,41 @@ export function BatchSidebar() {
                             {selectedProfiles.length === profiles.length ? 'Nenhum' : 'Todos'}
                         </button>
                     )}
-                </h3>
+                </div>
+
+                {/* [SYN-UX] Search Bar for High Volume */}
+                <div className="relative group">
+                    <input
+                        type="text"
+                        placeholder="Buscar perfil..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full bg-[#0c0c0e] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:border-synapse-purple/50 outline-none transition-all"
+                    />
+                    <div className="absolute right-2 top-1.5 opacity-30 pointer-events-none">
+                        <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                </div>
             </div>
 
             {/* List */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-1">
-                {profiles.length === 0 ? (
+            <div className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
+                {filteredProfiles.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-48 text-center p-4">
                         <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center mb-3">
                             <span className="text-xl">👻</span>
                         </div>
-                        <p className="text-xs text-gray-400 font-medium mb-1">Nenhuma conta</p>
-                        <p className="text-[10px] text-gray-600">Conecte um perfil TikTok para começar.</p>
+                        <p className="text-xs text-gray-400 font-medium mb-1">
+                            {profiles.length === 0 ? "Nenhuma conta" : "Sem resultados"}
+                        </p>
+                        <p className="text-[10px] text-gray-600">
+                            {profiles.length === 0 ? "Conecte um perfil TikTok para começar." : "Tente outro termo de busca."}
+                        </p>
                     </div>
                 ) : (
-                    profiles.map(profile => {
+                    filteredProfiles.map(profile => {
                         const isSelected = selectedProfiles.includes(profile.id);
                         return (
                             <div
@@ -78,7 +112,7 @@ export function BatchSidebar() {
 
                                 {/* Info */}
                                 <div className="flex items-center gap-2 overflow-hidden">
-                                    <div className="w-6 h-6 rounded-full bg-gray-800 flex items-center justify-center text-xs overflow-hidden border border-white/10">
+                                    <div className="w-6 h-6 rounded-full bg-gray-800 flex items-center justify-center text-xs overflow-hidden border border-white/10 shrink-0">
                                         {profile.avatar_url ? (
                                             <img src={profile.avatar_url} alt={profile.label} className="w-full h-full object-cover" />
                                         ) : (
@@ -98,7 +132,6 @@ export function BatchSidebar() {
                 )}
             </div>
 
-            {/* Footer / Add New */}
             <div className="p-4 border-t border-white/5">
                 <button
                     onClick={() => {

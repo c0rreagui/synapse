@@ -16,10 +16,11 @@ class VoiceFaculty:
     Generates viral captions, hashtags, bio suggestions, and community replies.
     """
 
-    def __init__(self, client):
+    def __init__(self, client, vision_faculty=None):
         self.client = client
+        self.vision = vision_faculty
 
-    async def generate_metadata(self, filename: str, niche: str = "General", duration: int = 0) -> Dict[str, Any]:
+    async def generate_metadata(self, filename: str, niche: str = "General", duration: int = 0, video_path: str = None) -> Dict[str, Any]:
         """
         Generates viral caption and hashtags based on filename context.
         Used by Ingestion to pre-populate metadata.
@@ -28,13 +29,24 @@ class VoiceFaculty:
             return {"error": "Oracle Voice is offline"}
 
         logger.info(f"[VOICE] Oracle.Voice: Generating metadata for {filename}")
+        
+        visual_context = ""
+        if video_path and self.vision:
+            try:
+                logger.info(f"[VOICE] Requesting visual analysis for {video_path}...")
+                vision_result = await self.vision.analyze_unified(video_path)
+                description = vision_result.get("visual_description", "")
+                if description:
+                    visual_context = f"\n        Visual Context: {description}\n"
+            except Exception as e:
+                logger.warning(f"[VOICE] Visual analysis failed, proceeding with text only: {e}")
 
         prompt = f"""
         You are a TikTok SEO expert. Generate VIRAL metadata for this video.
         
         Filename: {filename}
         Niche: {niche}
-        Duration: {duration}s
+        Duration: {duration}s{visual_context}
         
         Output JSON ONLY:
         {{
@@ -56,6 +68,8 @@ class VoiceFaculty:
             raw_text = response.text.strip().replace("```json", "").replace("```", "")
             result = json.loads(raw_text)
             result["faculty"] = "voice"
+            if visual_context:
+                result["vision_enhanced"] = True
             return result
         except Exception as e:
             logger.error(f"[ERROR] Oracle.Voice metadata failed: {e}")
@@ -129,42 +143,4 @@ class VoiceFaculty:
         except Exception as e:
             return {"error": str(e)}
 
-    async def audit_profile_seo(self, metadata: dict) -> Dict[str, Any]:
-        """
-        Multimodal audit of a profile (bio, username, avatar analysis).
-        """
-        if not self.client:
-            return {"error": "Oracle Voice is offline"}
 
-        username = metadata.get("username", "unknown")
-        bio = metadata.get("bio", "")
-        niche = metadata.get("niche", "General")
-
-        prompt = f"""
-        Perform an SEO audit for this TikTok profile.
-        
-        Username: @{username}
-        Bio: {bio}
-        Niche: {niche}
-        
-        Output JSON:
-        {{
-            "username_score": 8,
-            "username_analysis": "Análise do username",
-            "bio_score": 6,
-            "bio_analysis": "Análise da bio",
-            "suggested_bio": "Bio otimizada",
-            "hashtag_strategy": ["#tag1", "#tag2"],
-            "overall_score": 7,
-            "top_recommendations": ["Rec 1", "Rec 2", "Rec 3"]
-        }}
-        """
-
-        try:
-            response = self.client.generate_content(prompt)
-            raw_text = response.text.strip().replace("```json", "").replace("```", "")
-            result = json.loads(raw_text)
-            result["faculty"] = "voice"
-            return result
-        except Exception as e:
-            return {"error": str(e)}

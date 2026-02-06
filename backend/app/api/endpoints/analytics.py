@@ -1,6 +1,6 @@
 
 from fastapi import APIRouter, HTTPException, Body
-from core.analytics.aggregator import analytics_service
+from core.oracle.analytics_aggregator import analytics_aggregator
 from core.oracle.deep_analytics import deep_analytics
 
 router = APIRouter()
@@ -10,10 +10,15 @@ async def get_analytics(profile_id: str):
     """
     Returns deep analytics for a profile.
     """
+    from fastapi.concurrency import run_in_threadpool
     try:
-        data = analytics_service.get_profile_analytics(profile_id)
-        if not data:
-             raise HTTPException(status_code=404, detail="Profile not found or no metadata available.")
+        # Use the new Oracle-powered Aggregator
+        data = await run_in_threadpool(analytics_aggregator.get_dashboard_data, profile_id)
+        
+        if "error" in data:
+             # Return as is (might be empty state)
+             return data
+             
         return data
     except HTTPException:
         raise

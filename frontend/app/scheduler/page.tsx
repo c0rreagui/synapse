@@ -256,14 +256,32 @@ export default function SchedulerPage() {
 
                 <div className="grid grid-cols-7 gap-2 h-[600px] overflow-y-auto custom-scrollbar">
                     {days.map((day) => {
-                        const dayEvents = events.filter(e => isSameDay(new Date(e.scheduled_time), day));
+                        const dayEvents = events.filter(e => isSameDay(new Date(e.scheduled_time), day))
+                            .sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime());
                         const isToday = isSameDay(day, new Date());
+
+                        // [SYN-UX] Profile Color Mapping (Robust Hash)
+                        const getProfileColor = (pid: string) => {
+                            const colors = [
+                                'bg-cyan-400',    // Vibe
+                                'bg-rose-400',    // Opiniao
+                                'bg-emerald-400', // Green
+                                'bg-amber-400',   // Yellow
+                                'bg-violet-400',  // Purple
+                                'bg-fuchsia-400'  // Pink
+                            ];
+                            let hash = 0;
+                            for (let i = 0; i < pid.length; i++) {
+                                hash = pid.charCodeAt(i) + ((hash << 5) - hash);
+                            }
+                            return colors[Math.abs(hash) % colors.length];
+                        };
 
                         return (
                             <div
                                 key={day.toISOString()}
                                 className={clsx(
-                                    "min-h-[120px] rounded-xl border p-3 relative group transition-all duration-300 flex flex-col gap-2 cursor-pointer",
+                                    "min-h-[120px] rounded-xl border p-2 relative group transition-all duration-300 flex flex-col gap-1 cursor-pointer",
                                     isToday
                                         ? "bg-synapse-purple/5 border-synapse-purple/50 shadow-[inset_0_0_20px_rgba(139,92,246,0.05)]"
                                         : "bg-white/[0.02] border-white/5 hover:border-synapse-purple/30 hover:bg-white/5 hover:shadow-lg hover:shadow-synapse-purple/5"
@@ -271,42 +289,42 @@ export default function SchedulerPage() {
                                 onClick={() => openDayDetails(day)}
                             >
                                 <span className={clsx(
-                                    "text-sm font-mono block mb-1 p-1 w-7 h-7 flex items-center justify-center rounded-full transition-colors",
+                                    "text-xs font-mono block mb-1 w-6 h-6 flex items-center justify-center rounded-full transition-colors",
                                     isToday ? "bg-synapse-purple text-white font-bold shadow-lg shadow-synapse-purple/40" : "text-gray-500 group-hover:text-white"
                                 )}>
                                     {format(day, 'd')}
                                 </span>
 
-                                <div className="space-y-1.5 overflow-y-auto max-h-[80px] custom-scrollbar pointer-events-none">
-                                    {dayEvents.map(event => (
+                                {/* [SYN-UX] Compact List View */}
+                                <div className="flex flex-col gap-1">
+                                    {dayEvents.slice(0, 3).map(event => (
                                         <div
                                             key={event.id}
                                             className={clsx(
-                                                "text-[10px] px-2 py-1.5 rounded-md truncate border flex items-center gap-1.5",
-                                                (event.status === 'completed' || event.status === 'ready' || event.status === 'posted')
-                                                    ? "bg-green-500/90 text-white border-transparent shadow-sm"
-                                                    : event.status === 'failed'
-                                                        ? "bg-red-500/90 text-white border-transparent shadow-sm"
-                                                        : event.viral_music_enabled
-                                                            ? "bg-synapse-purple/90 text-white border-transparent shadow-sm"
-                                                            : "bg-synapse-purple/10 text-synapse-purple border-synapse-purple/20"
+                                                "flex items-center gap-2 px-2 py-1 rounded-md text-[10px] font-medium transition-colors",
+                                                event.status === 'failed'
+                                                    ? "bg-red-500/10 text-red-400 border border-red-500/20"
+                                                    : "bg-white/5 text-gray-300 hover:bg-white/10"
                                             )}
                                         >
-                                            <span className="font-bold opacity-80">{format(new Date(event.scheduled_time), 'HH:mm')}</span>
-                                            {event.viral_music_enabled && (
-                                                <MusicalNoteIcon className="w-3 h-3 text-white" />
-                                            )}
+                                            <div className={clsx("w-1.5 h-1.5 rounded-full shadow-[0_0_5px_currentColor]",
+                                                event.status === 'failed' ? 'bg-red-500' : getProfileColor(event.profile_id)
+                                            )} />
+                                            <span className="truncate font-mono tracking-tight">{format(new Date(event.scheduled_time), 'HH:mm')}</span>
+                                            {event.viral_music_enabled && <MusicalNoteIcon className="w-2.5 h-2.5 ml-auto text-synapse-purple" />}
                                         </div>
                                     ))}
+
+                                    {/* More Indicator */}
                                     {dayEvents.length > 3 && (
-                                        <div className="text-[9px] text-center text-gray-500 font-medium">
-                                            +{dayEvents.length - 3} mais
+                                        <div className="mt-0.5 px-2 py-0.5 text-[9px] font-bold text-center text-gray-500 bg-white/5 rounded-md group-hover:bg-white/10 group-hover:text-white transition-colors">
+                                            +{dayEvents.length - 3} posts
                                         </div>
                                     )}
                                 </div>
 
                                 {/* Hover hint */}
-                                <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-b-xl" />
+                                <div className="absolute inset-x-0 bottom-0 h-4 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-b-xl" />
                             </div>
                         );
                     })}

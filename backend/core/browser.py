@@ -49,17 +49,13 @@ DOCKER_HEADLESS_ARGS = [
     "--disable-features=VizDisplayCompositor",
 ]
 
-# MAGIC User-Agent - Tested and confirmed to bypass TikTok detection
-MAGIC_USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/120.0.0.0 Safari/537.36"
-)
+# Identidade Dinâmica centralizada em core.network_utils
+from core.network_utils import get_random_user_agent, DEFAULT_LOCALE, DEFAULT_TIMEZONE
 
 async def launch_browser(
     headless: bool = True,
     proxy: Optional[Dict[str, str]] = None,
-    user_agent: str = MAGIC_USER_AGENT,
+    user_agent: str = None, # Será pegue do network_utils se None
     viewport: Optional[Dict[str, int]] = None,
     storage_state: Optional[str] = None
 ) -> Tuple[Playwright, Browser, BrowserContext, Page]:
@@ -78,7 +74,10 @@ async def launch_browser(
     """
     p = await async_playwright().start()
     
-    # Force headless in Docker environment (no display available)
+    # Resolve User-Agent if not provided
+    if not user_agent:
+        user_agent = get_random_user_agent()
+        logger.info(f"[BROWSER] Dynamic identity assigned: {user_agent[:40]}...")
     if IN_DOCKER and not headless:
         logger.warning("[DOCKER] Forcing headless=True (no display available in container)")
         headless = True
@@ -115,8 +114,8 @@ async def launch_browser(
         context_options: Dict[str, Any] = {
             "viewport": viewport or {"width": 1920, "height": 1080},
             "user_agent": user_agent,  # Re-enable realistic user agent
-            "locale": "pt-BR",
-            "timezone_id": "America/Sao_Paulo",
+            "locale": DEFAULT_LOCALE,
+            "timezone_id": DEFAULT_TIMEZONE,
         }
 
         if storage_state and os.path.exists(storage_state):

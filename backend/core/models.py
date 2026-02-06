@@ -49,7 +49,8 @@ class ScheduleItem(Base):
     profile_slug = Column(String, index=True) # Linking loosely to profile for now to ease migration
     video_path = Column(String)
     scheduled_time = Column(DateTime)
-    status = Column(String, default="pending") # pending, posted, failed
+    status = Column(String, default="pending") # pending, posted, failed, processing
+    error_message = Column(String, nullable=True)
     metadata_info = Column(JSON, default=dict) # Title, caption, tags
 
 class Trend(Base):

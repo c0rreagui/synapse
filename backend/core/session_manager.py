@@ -4,15 +4,9 @@ import json
 import time
 from typing import List, Dict, Any, Optional
 
-# CONSTANTS
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SESSIONS_DIR = os.path.join(BASE_DIR, "data", "sessions")
-# PROFILES_FILE is deprecated but we keep the path just in case we need to reference it for legacy sync
-DATA_DIR = os.path.join(BASE_DIR, "data")
-PROFILES_FILE = os.path.join(DATA_DIR, "profiles.json")
-
-if not os.path.exists(SESSIONS_DIR):
-    os.makedirs(SESSIONS_DIR)
+# Centralized Paths
+from core.config import SESSIONS_DIR, DATA_DIR
+PROFILES_FILE = os.path.join(DATA_DIR, "profiles.json") # Deprecated but kept for legacy sync
 
 # DB Imports
 from core.database import SessionLocal
@@ -294,64 +288,32 @@ def update_profile_metadata_async(profile_id: str):
     Background task to fetch metadata from TikTok using requests.
     Updates the profile in DB if successful.
     """
-    import requests
-    from fake_useragent import UserAgent
+    from core.tiktok_profile import load_session_data, extract_cookies_dict, fetch_tiktok_user_info
     
     print(f"Starting metadata fetch for {profile_id}...")
     
-    # helper to find cookie value
-    def get_cookie_value(name, cookies):
-        for c in cookies:
-             if c.get("name") == name:
-                 return c.get("value")
-        return None
-
     try:
         session_path = get_session_path(profile_id)
         if not os.path.exists(session_path):
             return
 
-        with open(session_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            raw_cookies = data.get("cookies", []) if isinstance(data, dict) else data
+        data = load_session_data(session_path)
+        if not data:
+            return
 
-        # Prepare requests session
-        s = requests.Session()
-        # reconstruct cookies for requests
-        for c in raw_cookies:
-            s.cookies.set(c.get("name"), c.get("value"), domain=c.get("domain", ".tiktok.com"))
+        cookies = extract_cookies_dict(data)
+        if not cookies:
+            print(f"No cookies found for {profile_id}")
+            return
             
-        # Headers
-        ua = UserAgent()
-        headers = {
-            "User-Agent": ua.random,
-            "Referer": "https://www.tiktok.com/",
-            "Origin": "https://www.tiktok.com"
-        }
+        info = fetch_tiktok_user_info(cookies)
         
-        # We attempt to fetch the main page or upload page to scraping bits
-        # BUT SCRAPING TIKTOK IS HARD due to hydration.
-        # Check if we can find 'username' in cookies first?
-        # Typically 'sid_guard' or others don't have username.
-        # Let's try to hit an API endpoint if possible, or just the main page.
-        
-        r = s.get("https://www.tiktok.com/passport/web/account/info/", headers=headers, timeout=10)
-        
-        username = None
-        avatar_url = None
-        
-        if r.status_code == 200:
-             json_data = r.json()
-             if "data" in json_data and "username" in json_data["data"]:
-                 username = json_data["data"]["username"]
-                 avatar_url = json_data["data"].get("avatar_url")
-                 
-        if username:
-            print(f"Metadata found: {username}")
+        if info:
+            print(f"Metadata found: {info.get('display_name')}")
             update_profile_info(profile_id, {
-                "username": username,
-                "label": username, # Auto-update label to username
-                "avatar_url": avatar_url
+                "username": info.get("unique_id") or info.get("username"), # username in endpoints.py is usually unique_id
+                "label": info.get("display_name"), 
+                "avatar_url": info.get("avatar_url")
             })
         else:
             print("Could not fetch metadata via API.")

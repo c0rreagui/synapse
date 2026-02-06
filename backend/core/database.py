@@ -34,9 +34,24 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
-def get_db():
+from contextlib import contextmanager
+
+@contextmanager
+def safe_session():
+    """
+    Context manager for safe DB operations.
+    Ensures session is always closed.
+    """
     db = SessionLocal()
     try:
         yield db
+    except Exception as e:
+        db.rollback()
+        raise e
     finally:
         db.close()
+
+def get_db():
+    """FastAPI Dependency."""
+    with safe_session() as db:
+        yield db

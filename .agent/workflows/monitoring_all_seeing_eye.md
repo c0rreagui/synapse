@@ -2,56 +2,35 @@
 description: Guia para usar o Olho Que Tudo Vê (Sistema de Monitoramento Ultra-Detalhado)
 ---
 
-# 👁️ Olho Que Tudo Vê - Monitoramento
+# 👁️ O OLHO QUE TUDO VÊ (Sonar & Monitoramento)
 
-Este workflow explica como executar e analisar o sistema de monitoramento completo do TikTok Studio.
+Este guia explica como usar o novo sistema de monitoramento de saúde ("Sonar") e as ferramentas de debug visual.
 
-## 1. Executar Teste Monitorado
+## 1. O Sonar (Indicador de Saúde)
 
-Para rodar uma sessão de upload completa com monitoramento ativado (gera screenshots, DOM, traces, logs, etc). Certifique-se de ter o arquivo de teste `@p2_teste_multiconta.mp4` em `backend/media/` ou ajuste o script `backend/test_monitored_upload.py`.
+Localizado no topo da barra lateral esquerda, o Sonar é seu indicador de confiança imediata.
 
-// turbo
-python backend/test_monitored_upload.py
+### Estados do Indicador
 
-## 2. Localização dos Resultados
+- **🟢 Verde (Pulsando):** O sistema está 100% online. O Scheduler está rodando e verificou itens nos últimos 90 segundos.
+- **🟡 Amarelo:** O sistema está "Stalled" (atrasado). O Scheduler está rodando, mas não reporta há 1-3 minutos (possivelmente processando algo pesado).
+- **🔴 Vermelho:** O sistema está OFFLINE ou TRAVADO. O Scheduler não reporta há >3 minutos. Reinicie o backend imediatamente.
 
-Os resultados são salvos automaticamente na pasta `MONITOR/runs/{run_id}`.
+## 2. Monitoramento de Uploads (Olho de Deus)
 
-- **01_capturas/**: Screenshots e Vídeos.
-- **02_codigo/**: HTML, DOM JSON, Scripts, CSS.
-- **03_dados/**: Cookies, Storage, Globals.
-- **04_debug/**: Console Logs, Network, Performance.
-- **05_traces/**: Arquivo de Trace do Playwright.
+Para cada upload, o sistema gera uma pasta de evidências em `backend/MONITOR/runs/`.
 
-O relatório resumido está em: `MONITOR/runs/{run_id}/README.md`
+### O que é salvo
 
-## 3. Visualizar Playwright Trace (Interativo)
+- **🕵️‍♂️ Traces Completos:** Arquivos `.zip` que podem ser abertos no Playwright Trace Viewer (`npx playwright show-trace ...`) para ver exatamente o que o bot viu (cliques, redes, console).
+- **📸 Screenshots:** Capturas passo-a-passo e contínuas (a cada 500ms).
+- **📝 Relatório JSON:** Log estruturado de cada etapa.
 
-Esta é a ferramenta mais poderosa para debug. Permite "viajar no tempo" e ver exatamente o que aconteceu.
-Substitua `{run_id}` pelo ID da pasta gerada em `MONITOR/runs/`.
+## 3. Como Verificar Falhas
 
-Exemplo de comando (ajuste o ID):
+Se um post falhar:
 
-```bash
-npx playwright show-trace MONITOR/runs/SEU_ID_AQUI/05_traces/SEU_ID_AQUI_trace.zip
-```
-
-## 4. Integração em Código
-
-Para usar o monitoramento em novos scripts ou fluxos:
-
-```python
-from core.uploader_monitored import upload_video_monitored
-
-# O uploader monitorado retorna dict com status e caminhos dos relatórios
-result = await upload_video_monitored(
-    session_name="nome_da_sessao",
-    video_path="caminho/do/video.mp4",
-    caption="Sua legenda aqui",
-    schedule_time="2026-01-01T10:00", # Opcional
-    post=False # True para postar/agendar de verdade
-)
-
-print(f"Trace salvo em: {result.get('trace_file')}")
-print(f"Relatório em: {result.get('monitor_report')}")
-```
+1. Vá em `backend/MONITOR/runs/` e ordene por data.
+2. Abra a pasta mais recente.
+3. Abra o `REPORT.json` para ver o erro.
+4. Se precisar ver a tela, use o comando fornecido no log para abrir o Trace Viewer.

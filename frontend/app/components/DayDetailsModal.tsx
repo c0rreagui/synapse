@@ -42,6 +42,23 @@ export default function DayDetailsModal({
         return p ? p.label : id;
     };
 
+    // [SYN-UX] Profile Color Mapping (Robust Hash - Consistent with Scheduler)
+    const getProfileColor = (pid: string) => {
+        const colors = [
+            'bg-cyan-400',    // Vibe
+            'bg-rose-400',    // Opiniao
+            'bg-emerald-400', // Green
+            'bg-amber-400',   // Yellow
+            'bg-violet-400',  // Purple
+            'bg-fuchsia-400'  // Pink
+        ];
+        let hash = 0;
+        for (let i = 0; i < pid.length; i++) {
+            hash = pid.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return colors[Math.abs(hash) % colors.length];
+    };
+
     return (
         <Transition appear show={isOpen} as={Fragment}>
             <Dialog as="div" className="relative z-50" onClose={onClose}>
@@ -109,6 +126,7 @@ export default function DayDetailsModal({
                                                     key={event.id}
                                                     event={event}
                                                     profileLabel={getProfileLabel(event.profile_id)}
+                                                    profileColor={getProfileColor(event.profile_id)} // [SYN-UX] Consistent Color
                                                     onEdit={onEditEvent}
                                                     onDelete={onDeleteEvent}
                                                 />
@@ -139,9 +157,10 @@ export default function DayDetailsModal({
 }
 
 // Sub-component for individual Event Row logic
-function EventRow({ event, profileLabel, onEdit, onDelete }: {
+function EventRow({ event, profileLabel, profileColor, onEdit, onDelete }: {
     event: ScheduleEvent,
     profileLabel: string,
+    profileColor: string,
     onEdit: (id: string, time: string) => void,
     onDelete: (id: string) => void
 }) {
@@ -171,8 +190,10 @@ function EventRow({ event, profileLabel, onEdit, onDelete }: {
 
     return (
         <div
-            className="group flex items-center gap-4 p-4 rounded-xl bg-[#13111a] border border-white/5 hover:border-synapse-purple/30 transition-all shadow-sm hover:shadow-lg hover:shadow-synapse-purple/5"
+            className="group relative flex items-center gap-4 p-4 rounded-xl bg-[#13111a] border border-white/5 hover:border-synapse-purple/30 transition-all shadow-sm hover:shadow-lg hover:shadow-synapse-purple/5 overflow-hidden"
         >
+            {/* [SYN-UX] Profile Color Indicator Bar */}
+            <div className={clsx("absolute left-0 top-0 bottom-0 w-1", profileColor)} />
             {/* Time Badge */}
             {isEditing ? (
                 <div className="flex items-center gap-2">
@@ -218,10 +239,16 @@ function EventRow({ event, profileLabel, onEdit, onDelete }: {
                         )} />
                         <span className="uppercase tracking-wider font-mono text-[10px]">{event.status || 'AGENDADO'}</span>
                     </div>
-                    {event.status === 'failed' && event.metadata?.error && (
-                        <p className="text-[10px] text-red-400 font-mono bg-red-500/10 px-2 py-1 rounded border border-red-500/20 break-words max-w-[280px]">
-                            {event.metadata.error}
-                        </p>
+                    {(event.status === 'failed' && (event.error_message || event.metadata?.error)) && (
+                        <div className="mt-1 p-2 rounded bg-red-500/10 border border-red-500/20 text-[10px] text-red-300 font-mono break-all relative group/error cursor-help">
+                            <span className="font-bold block mb-0.5 text-red-400">⚠️ FALHA NO PROCESSO:</span>
+                            {event.error_message || event.metadata.error}
+
+                            {/* Generic Hint */}
+                            <div className="absolute left-0 bottom-full mb-2 w-48 p-2 bg-black/90 border border-white/10 rounded text-xs text-gray-400 opacity-0 group-hover/error:opacity-100 transition-opacity pointer-events-none z-50">
+                                O sistema tentou processar mas encontrou um erro irrecuperável. Verifique os logs se persistir.
+                            </div>
+                        </div>
                     )}
                 </div>
             </div>

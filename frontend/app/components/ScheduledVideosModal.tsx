@@ -114,7 +114,8 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
             });
 
             if (res.ok) {
-                setEvents(prev => prev.map(e => e.id === id ? { ...e, scheduled_time: date.toISOString() } : e));
+                const updatedEvent = await res.json();
+                setEvents(prev => prev.map(e => e.id === id ? updatedEvent : e));
                 toast.success("Horário atualizado com sucesso!");
                 setEditingId(null);
                 if (onUpdate) onUpdate(); // Trigger parent refresh
@@ -244,7 +245,7 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                                 </div>
 
                                 {/* Content */}
-                                <div className="h-[550px] overflow-y-auto custom-scrollbar p-6 space-y-3 bg-[#0c0c0e]">
+                                <div className="h-[550px] overflow-y-auto custom-scrollbar p-6 space-y-6 bg-[#0c0c0e] scroll-smooth">
                                     {loading ? (
                                         <div className="flex items-center justify-center h-full text-gray-500">
                                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-synapse-purple mr-3"></div>
@@ -256,136 +257,183 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                                             <p>{activeTab === 'upcoming' ? "Nenhum post agendado." : "Histórico vazio."}</p>
                                         </div>
                                     ) : (
-                                        displayEvents.map((event) => {
-                                            const isEditing = editingId === event.id;
-                                            const isFailed = event.status === 'failed' || event.status === 'error';
-                                            const isDone = event.status === 'completed' || event.status === 'done';
+                                        // [SYN-UX] Date Grouping for High Density
+                                        Object.entries(
+                                            displayEvents.reduce((groups, event) => {
+                                                const dateKey = format(new Date(event.scheduled_time), 'yyyy-MM-dd');
+                                                if (!groups[dateKey]) groups[dateKey] = [];
+                                                groups[dateKey].push(event);
+                                                return groups;
+                                            }, {} as Record<string, ScheduleEvent[]>)
+                                        )
+                                            .sort((a, b) => activeTab === 'upcoming'
+                                                ? a[0].localeCompare(b[0])
+                                                : b[0].localeCompare(a[0]) // History: Newest dates first
+                                            )
+                                            .map(([dateKey, groupEvents]) => {
+                                                const dateObj = new Date(dateKey + 'T12:00:00'); // Force noon to avoid timezone shift on simple date parse
+                                                return (
+                                                    <div key={dateKey} className="relative">
+                                                        <div className="sticky top-0 z-10 bg-[#0c0c0e]/95 backdrop-blur-sm border-b border-white/5 py-2 mb-3 flex items-center justify-between">
+                                                            <h4 className="text-sm font-bold text-gray-400 font-mono flex items-center gap-2">
+                                                                <CalendarIcon className="w-4 h-4 text-synapse-purple" />
+                                                                {format(new Date(groupEvents[0].scheduled_time), "EEEE, d 'de' MMMM", { locale: ptBR })}
+                                                            </h4>
+                                                            <span className="text-xs bg-white/5 px-2 py-0.5 rounded text-gray-500 font-mono">
+                                                                {groupEvents.length} posts
+                                                            </span>
+                                                        </div>
 
-                                            return (
-                                                <div
-                                                    key={event.id}
-                                                    className={clsx(
-                                                        "group relative flex items-center gap-4 p-4 rounded-xl border transition-all hover:shadow-lg hover:shadow-black/50",
-                                                        isFailed ? "bg-red-500/5 border-red-500/20 hover:bg-red-500/10" :
-                                                            isDone ? "bg-green-500/5 border-green-500/20 hover:bg-green-500/10" :
-                                                                "bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-synapse-purple/20"
-                                                    )}
-                                                >
-                                                    {/* Simulated Thumbnail / File Icon */}
-                                                    <div className="w-20 h-28 bg-black/40 rounded-lg flex items-center justify-center border border-white/5 shrink-0 overflow-hidden relative">
-                                                        <PlayCircleIcon className="w-8 h-8 text-gray-600 group-hover:text-synapse-purple transition-colors z-10" />
-                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                                                    </div>
+                                                        <div className="grid grid-cols-1 gap-3">
+                                                            {groupEvents.map((event) => {
+                                                                const isEditing = editingId === event.id;
+                                                                const isFailed = event.status === 'failed' || event.status === 'error';
+                                                                const isDone = event.status === 'completed' || event.status === 'done';
+                                                                const isToday = format(new Date(), 'yyyy-MM-dd') === dateKey;
 
-                                                    {/* Info */}
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-start justify-between">
-                                                            <div>
-                                                                <div className="flex items-center gap-2 mb-1">
-                                                                    <span className="text-white font-medium truncate max-w-[300px] text-lg" title={event.video_path}>
-                                                                        {event.video_path.split('\\').pop()?.split('/').pop()}
-                                                                    </span>
-                                                                    {event.viral_music_enabled && (
-                                                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-synapse-purple/20 text-synapse-purple border border-synapse-purple/20 uppercase tracking-wider flex items-center gap-1 shadow-[0_0_10px_rgba(139,92,246,0.2)]">
-                                                                            <MusicalNoteIcon className="w-3 h-3" />
-                                                                            Viral Boost
-                                                                        </span>
-                                                                    )}
-                                                                    {isFailed && (
-                                                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/20 uppercase tracking-wider">
-                                                                            FALHA
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                                <p className="text-xs text-gray-500 font-mono truncate max-w-[400px] opacity-60">
-                                                                    {event.video_path}
-                                                                </p>
-                                                            </div>
-
-                                                            {isEditing ? (
-                                                                <div className="flex items-center gap-2">
-                                                                    <input
-                                                                        type="datetime-local"
-                                                                        // [FIX] Convert UTC ISO to Local time string for input
-                                                                        defaultValue={format(new Date(event.scheduled_time), "yyyy-MM-dd'T'HH:mm")}
-                                                                        className="bg-black/50 border border-synapse-purple rounded-lg px-3 py-1 text-white text-sm outline-none focus:ring-2 ring-synapse-purple/50"
-                                                                        onKeyDown={(e) => {
-                                                                            if (e.key === 'Enter') handleEditTime(event.id, e.currentTarget.value);
-                                                                        }}
-                                                                    />
-                                                                    <button
-                                                                        onClick={(e) => {
-                                                                            // Trigger save on button click too, getting value from sibling input
-                                                                            const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
-                                                                            handleEditTime(event.id, input.value);
-                                                                        }}
-                                                                        className="px-2 py-1 bg-synapse-purple/20 hover:bg-synapse-purple/30 text-synapse-purple rounded text-xs"
+                                                                return (
+                                                                    <div
+                                                                        key={event.id}
+                                                                        className={clsx(
+                                                                            "group relative flex items-center gap-4 p-4 rounded-xl border transition-all hover:shadow-lg hover:shadow-black/50 ml-4",
+                                                                            isFailed ? "bg-red-500/5 border-red-500/20 hover:bg-red-500/10" :
+                                                                                isDone ? "bg-green-500/5 border-green-500/20 hover:bg-green-500/10" :
+                                                                                    "bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-synapse-purple/20"
+                                                                        )}
                                                                     >
-                                                                        Salvar
-                                                                    </button>
-                                                                    <button onClick={() => setEditingId(null)} className="text-xs text-red-400 hover:text-red-300">Cancelar</button>
-                                                                </div>
-                                                            ) : (
-                                                                <div
-                                                                    className={clsx(
-                                                                        "text-right group/time",
-                                                                        activeTab === 'upcoming' ? "cursor-pointer" : "cursor-default opacity-80"
-                                                                    )}
-                                                                    onClick={() => activeTab === 'upcoming' && setEditingId(event.id)}
-                                                                    title={activeTab === 'upcoming' ? "Clique para editar" : ""}
-                                                                >
-                                                                    <div className={clsx("text-2xl font-bold font-mono tracking-tight transition-colors",
-                                                                        isFailed ? "text-red-400" : "text-white group-hover/time:text-synapse-purple")}>
-                                                                        {format(new Date(event.scheduled_time), 'HH:mm')}
+                                                                        {/* Timeline Connector */}
+                                                                        <div className="absolute -left-4 top-1/2 -translate-y-1/2 w-4 h-px bg-white/5" />
+                                                                        <div className={clsx(
+                                                                            "absolute -left-[19px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full border-2 transition-colors z-20",
+                                                                            isFailed ? "bg-[#0c0c0e] border-red-500" :
+                                                                                isDone ? "bg-green-500 border-green-500" :
+                                                                                    "bg-[#0c0c0e] border-white/10 group-hover:border-synapse-purple"
+                                                                        )} />
+
+                                                                        {/* Simulated Thumbnail / File Icon */}
+                                                                        <div className="w-16 h-20 bg-black/40 rounded-lg flex items-center justify-center border border-white/5 shrink-0 overflow-hidden relative">
+                                                                            <PlayCircleIcon className="w-6 h-6 text-gray-600 group-hover:text-synapse-purple transition-colors z-10" />
+                                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                                                                        </div>
+
+                                                                        {/* Info */}
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <div className="flex items-start justify-between">
+                                                                                <div>
+                                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                                        <span className="text-white font-medium truncate max-w-[300px] text-base" title={event.video_path}>
+                                                                                            {event.video_path.split('\\').pop()?.split('/').pop()}
+                                                                                        </span>
+                                                                                        {event.viral_music_enabled && (
+                                                                                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-synapse-purple/20 text-synapse-purple border border-synapse-purple/20 uppercase tracking-wider flex items-center gap-1 shadow-[0_0_10px_rgba(139,92,246,0.2)]">
+                                                                                                <MusicalNoteIcon className="w-2.5 h-2.5" />
+                                                                                                Viral
+                                                                                            </span>
+                                                                                        )}
+                                                                                        {isFailed && (
+                                                                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/20 uppercase tracking-wider">
+                                                                                                FALHA
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        {/* Profile Badge */}
+                                                                                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/40 border border-white/5 w-fit">
+                                                                                            <div className="w-3.5 h-3.5 rounded-full bg-gray-700 overflow-hidden ring-1 ring-white/10">
+                                                                                                {getProfileImage(event.profile_id) ? (
+                                                                                                    <img src={getProfileImage(event.profile_id)!} alt="" className="w-full h-full object-cover" />
+                                                                                                ) : (
+                                                                                                    <div className="w-full h-full bg-gradient-to-br from-gray-600 to-gray-800" />
+                                                                                                )}
+                                                                                            </div>
+                                                                                            <span className="text-[10px] font-bold text-gray-300">
+                                                                                                @{getProfileName(event.profile_id)}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <span className="text-[10px] text-gray-600">•</span>
+                                                                                        <p className="text-[10px] text-gray-500 font-mono truncate max-w-[200px] opacity-60">
+                                                                                            {event.video_path}
+                                                                                        </p>
+                                                                                    </div>
+
+                                                                                    {/* [SYN-UI] Explicit Error Display */}
+                                                                                    {(isFailed && (event.error_message || event.metadata?.error)) && (
+                                                                                        <div className="mt-1.5 p-1.5 rounded bg-red-950/30 border border-red-500/30 text-[11px] text-red-200 font-mono max-w-[400px]">
+                                                                                            <span className="font-bold text-red-400 mr-1">⛔ ERRO:</span>
+                                                                                            {event.error_message || event.metadata?.error}
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+
+                                                                                {isEditing ? (
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <input
+                                                                                            type="datetime-local"
+                                                                                            defaultValue={format(new Date(event.scheduled_time), "yyyy-MM-dd'T'HH:mm")}
+                                                                                            className="bg-black/50 border border-synapse-purple rounded-lg px-2 py-1 text-white text-xs outline-none focus:ring-2 ring-synapse-purple/50 w-40"
+                                                                                            onKeyDown={(e) => {
+                                                                                                if (e.key === 'Enter') handleEditTime(event.id, e.currentTarget.value);
+                                                                                            }}
+                                                                                        />
+                                                                                        <button
+                                                                                            onClick={(e) => {
+                                                                                                const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
+                                                                                                handleEditTime(event.id, input.value);
+                                                                                            }}
+                                                                                            className="px-2 py-1 bg-synapse-purple/20 hover:bg-synapse-purple/30 text-synapse-purple rounded text-xs"
+                                                                                        >
+                                                                                            Salvar
+                                                                                        </button>
+                                                                                        <button onClick={() => setEditingId(null)} className="text-xs text-red-400 hover:text-red-300">Cancelar</button>
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <div
+                                                                                        className={clsx(
+                                                                                            "text-right group/time",
+                                                                                            activeTab === 'upcoming' ? "cursor-pointer" : "cursor-default opacity-80"
+                                                                                        )}
+                                                                                        onClick={() => activeTab === 'upcoming' && setEditingId(event.id)}
+                                                                                        title={activeTab === 'upcoming' ? "Clique para editar" : ""}
+                                                                                    >
+                                                                                        <div className={clsx("text-xl font-bold font-mono tracking-tight transition-colors",
+                                                                                            isFailed ? "text-red-400" : "text-white group-hover/time:text-synapse-purple")}>
+                                                                                            {format(new Date(event.scheduled_time), 'HH:mm')}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+
+                                                                            <div className="mt-3 flex items-center justify-end">
+                                                                                {/* Actions */}
+                                                                                <button
+                                                                                    onClick={() => handleDelete(event.id)}
+                                                                                    className={clsx(
+                                                                                        "p-1.5 rounded-lg transition-colors opacity-0 group-hover:opacity-100 flex items-center gap-2",
+                                                                                        deletingConfirmationId === event.id
+                                                                                            ? "bg-red-500 text-white hover:bg-red-600"
+                                                                                            : "text-gray-600 hover:text-red-500 hover:bg-red-500/10"
+                                                                                    )}
+                                                                                    title={deletingConfirmationId === event.id ? "Clique para confirmar" : "Remover"}
+                                                                                >
+                                                                                    {deletingConfirmationId === event.id ? (
+                                                                                        <span className="text-[10px] font-bold pr-1">Confirmar?</span>
+                                                                                    ) : (
+                                                                                        <TrashIcon className="w-4 h-4" />
+                                                                                    )}
+                                                                                </button>
+                                                                            </div>
+
+                                                                            {/* Progress bar simulation / Status line */}
+                                                                            <div className={clsx("absolute bottom-0 left-0 h-[2px] w-full transition-opacity rounded-b-xl overflow-hidden",
+                                                                                isFailed ? "bg-red-500 opacity-50" : "bg-gradient-to-r from-synapse-purple to-transparent opacity-0 group-hover:opacity-50")} />
+                                                                        </div>
                                                                     </div>
-                                                                    <div className="text-xs text-gray-500 uppercase font-bold tracking-wider group-hover/time:text-gray-300">
-                                                                        {format(new Date(event.scheduled_time), 'dd MMM yyyy', { locale: ptBR })}
-                                                                    </div>
-                                                                </div>
-                                                            )}
+                                                                );
+                                                            })}
                                                         </div>
-
-                                                        <div className="mt-4 flex items-center justify-between">
-                                                            {/* Profile info */}
-                                                            <div className="flex items-center gap-3 p-1.5 pr-4 rounded-full bg-black/40 border border-white/5 w-fit hover:border-white/10 transition-colors">
-                                                                <div className="w-6 h-6 rounded-full bg-gray-700 overflow-hidden ring-1 ring-white/10">
-                                                                    {getProfileImage(event.profile_id) ? (
-                                                                        <img src={getProfileImage(event.profile_id)!} alt="" className="w-full h-full object-cover" />
-                                                                    ) : (
-                                                                        <div className="w-full h-full bg-gradient-to-br from-gray-600 to-gray-800" />
-                                                                    )}
-                                                                </div>
-                                                                <span className="text-xs font-bold text-gray-300">
-                                                                    @{getProfileName(event.profile_id)}
-                                                                </span>
-                                                            </div>
-
-                                                            {/* Actions - Only allow deleting in upcoming unless it's just cleanup */}
-                                                            <button
-                                                                onClick={() => handleDelete(event.id)}
-                                                                className={clsx(
-                                                                    "p-2 rounded-lg transition-colors opacity-0 group-hover:opacity-100 flex items-center gap-2",
-                                                                    deletingConfirmationId === event.id
-                                                                        ? "bg-red-500 text-white hover:bg-red-600"
-                                                                        : "text-gray-600 hover:text-red-500 hover:bg-red-500/10"
-                                                                )}
-                                                                title={deletingConfirmationId === event.id ? "Clique para confirmar" : "Remover"}
-                                                            >
-                                                                {deletingConfirmationId === event.id ? (
-                                                                    <span className="text-xs font-bold pr-1">Confirmar?</span>
-                                                                ) : (
-                                                                    <TrashIcon className="w-5 h-5" />
-                                                                )}
-                                                            </button>
-                                                        </div>
-
-                                                        {/* Progress bar simulation / Status line */}
-                                                        <div className={clsx("absolute bottom-0 left-0 h-[2px] w-full transition-opacity",
-                                                            isFailed ? "bg-red-500 opacity-50" : "bg-gradient-to-r from-synapse-purple to-transparent opacity-0 group-hover:opacity-50")} />
                                                     </div>
-                                                </div>
-                                            );
-                                        })
+                                                );
+                                            })
                                     )}
                                 </div>
                             </Dialog.Panel>
@@ -393,6 +441,6 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                     </div>
                 </div>
             </Dialog>
-        </Transition>
+        </Transition >
     );
 }

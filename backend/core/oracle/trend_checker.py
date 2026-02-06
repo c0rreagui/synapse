@@ -32,7 +32,8 @@ class TrendChecker:
     Scrapes TikTok Creative Center to validate if trends are actually performing.
     """
     
-    CREATIVE_CENTER_URL = "https://ads.tiktok.com/business/creativecenter/inspiration/popular/music/pc/en"
+    from core.network_utils import get_creative_center_url
+    CREATIVE_CENTER_URL = get_creative_center_url()
     DATA_FILE = "/app/data/trends.json"
     
     def __init__(self):
@@ -137,10 +138,12 @@ class TrendChecker:
         """
         logger.info(f"[TRENDS] Fetching trending sounds (category={category}, min_growth={min_growth}%)...")
         
-        p, browser, context, page = await launch_browser(headless=True)
+        from core.network_utils import get_random_user_agent
+        p, browser, context, page = await launch_browser(headless=True, user_agent=get_random_user_agent())
         trends = []
         
         try:
+            from core.selectors import CREATIVE_CENTER_MUSIC_ROW
             # Navigate to Creative Center
             await page.goto(self.CREATIVE_CENTER_URL, wait_until="networkidle", timeout=30000)
             await asyncio.sleep(3)  # Wait for dynamic content
@@ -152,6 +155,7 @@ class TrendChecker:
             
             # Try multiple selectors for sound cards
             sound_selectors = [
+                CREATIVE_CENTER_MUSIC_ROW,
                 '[class*="CardPc_wrapper"]',
                 '[class*="musicCard"]', 
                 '[data-e2e="music-card"]',
@@ -289,7 +293,8 @@ class TrendChecker:
         # Clean hashtag
         hashtag = hashtag.lstrip('#').lower()
         
-        p, browser, context, page = await launch_browser(headless=True)
+        from core.network_utils import get_random_user_agent
+        p, browser, context, page = await launch_browser(headless=True, user_agent=get_random_user_agent())
         
         try:
             url = f"https://www.tiktok.com/tag/{hashtag}"

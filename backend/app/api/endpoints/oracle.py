@@ -126,6 +126,24 @@ async def full_scan(username: str):
 
     return result
 
+@router.get("/analytics/dashboard/{profile_id}")
+async def get_deep_analytics(profile_id: str):
+    """
+    [SYN-38] Aggregated Deep Analytics for Dashboard.
+    Returns KPIs, Retention Curves, and Heatmaps based on stored profile history.
+    """
+    from core.oracle.analytics_aggregator import analytics_aggregator
+    from fastapi.concurrency import run_in_threadpool
+    
+    try:
+        data = await run_in_threadpool(analytics_aggregator.get_dashboard_data, profile_id)
+        if "error" in data:
+             # Non-critical, return empty/error structure but 200 OK for frontend handling
+             return data
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Aggregator failed: {str(e)}")
+
 @router.post("/spy/{target_username}")
 async def spy_competitor_unified(target_username: str):
     """
@@ -567,6 +585,35 @@ async def audit_profile(profile_id: str):
                         print(f"[VISION] Avatar score: {avatar_analysis.get('avatar_score', 'N/A')}")
                     except Exception as ve:
                         print(f"[VISION] Avatar analysis failed: {ve}")
+            
+            # [SYN-62] Analyze FULL PAGE SCREENSHOT (Aesthetics)
+            if screenshot_path and os.path.exists(screenshot_path):
+                try:
+                    from core.oracle.faculties.vision import VisionFaculty
+                    from core.oracle import oracle_client
+                    
+                    # Re-use vision instance if possible, but safe to instantiate
+                    vision = VisionFaculty(oracle_client)
+                    print(f"[VISION] Analyzing Profile Aesthetics...")
+                    
+                    aesthetics = await vision.analyze_profile_aesthetics(screenshot_path)
+                    print(f"[VISION] Aesthetics Score: {aesthetics.get('aesthetics_score', 'N/A')}")
+                    
+                    result["visual_audit"] = aesthetics
+                    
+                    # Add to recommendations if aesthetics are poor
+                    if aesthetics.get("aesthetics_score", 10) < 7:
+                        if "recommendations" not in result:
+                            result["recommendations"] = []
+                        result["recommendations"].append({
+                            "type": "design",
+                            "priority": "medium",
+                            "message": "Melhore a estética do seu perfil",
+                            "suggestions": aesthetics.get("tips", [])
+                        })
+                        
+                except Exception as e:
+                    print(f"[VISION] Aesthetics analysis failed: {e}")
                         
         except Exception as e:
             print(f"[AUDIT] Visual Audit Scan Failed: {e}")

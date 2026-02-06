@@ -3,13 +3,14 @@ import os
 import asyncio
 import uuid
 import json
+import time
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from typing import List, Dict, Optional
 from core.database import SessionLocal
 from core.models import ScheduleItem
 from core.logger import logger
-
+from core.consts import ScheduleStatus
 # [SYN-FIX] Path Normalization: Docker <-> Windows
 # When running locally on Windows, video_paths stored as Docker paths won't work.
 # This function translates them to the correct local path.
@@ -422,17 +423,57 @@ class Scheduler:
                     print(f"[SCHEDULER] Found Due Item {item.id}: {s_time} <= {now}")
 
             if due_items:
-                logger.log("info", f"Found {len(due_items)} due items. Processing...", "scheduler")
+                logger.log("info", f"Found {len(due_items)} due items. Processing concurrently...", "scheduler")
             
-            for item in due_items:
-                logger.log("info", f"Triggering item {item.id} - {os.path.basename(item.video_path)}", "scheduler")
-                # Execute Logic
-                await self.execute_due_item(item, db)
+                # [SYN-FIX] Concurrent Execution (asyncio.gather)
+                # This fixes the bug where items were processed sequentially or loop was broken
+                tasks = []
+                for item in due_items:
+                    logger.log("info", f"Triggering item {item.id} - {os.path.basename(item.video_path)}", "scheduler")
+                    tasks.append(self.execute_due_item(item, db))
+                
+                if tasks:
+                    await asyncio.gather(*tasks)
+            # Since check_due_items runs every minute, we can do a quick check here.
+            zombie_threshold = datetime.now() - timedelta(hours=1)
+            zombies = db.query(ScheduleItem).filter(
+                ScheduleItem.status == 'processing',
+                ScheduleItem.scheduled_time < zombie_threshold
+            ).all()
+            
+            for zombie in zombies:
+                logger.log("warning", f"Zombie detected: Item {zombie.id} stuck in processing. Marking as failed.", "scheduler")
+                zombie.status = 'failed'
+                zombie.error_message = "Zombie Recovery: Pipeline stuck for >1h"
+            
+            if zombies:
+                db.commit()
+
+            # Heartbeat (Sonar)
+            self._update_heartbeat()
                 
         except Exception as e:
             print(f"Error checking due items: {e}")
         finally:
             db.close()
+
+    def _update_heartbeat(self):
+        """Updates the heartbeat file for Sonar monitoring."""
+        try:
+            hb_path = os.path.join(DATA_DIR, "scheduler_heartbeat.json")
+            data = {
+                "status": "running",
+                "last_beat": datetime.now(timezone.utc).isoformat(),
+                "pid": os.getpid(),
+                "timestamp": time.time()
+            }
+            # Atomic write pattern to avoid partial reads
+            tmp_path = hb_path + ".tmp"
+            with open(tmp_path, 'w') as f:
+                json.dump(data, f)
+            os.replace(tmp_path, hb_path)
+        except Exception as e:
+            logger.log("error", f"[SONAR] Failed to update heartbeat: {e}", "scheduler")
 
     async def execute_due_item(self, item: ScheduleItem, db):
         from core.manual_executor import execute_approved_video
@@ -473,15 +514,25 @@ class Scheduler:
             exec_metadata['profile_slug'] = item.profile_slug
             exec_metadata['profile_id'] = item.profile_slug
             
-            result = await execute_approved_video(video_path, is_scheduled=True, metadata=exec_metadata)
+            # [SYN-FIX] Pass item.id as processing_id to isolate file system movements
+            result = await execute_approved_video(
+                video_path, 
+                is_scheduled=True, 
+                metadata=exec_metadata,
+                processing_id=str(item.id)
+            )
             
-            if result.get('status') in ['success', 'ready', 'completed']:
-                item.status = 'completed'
+            if result.get('status') in [ScheduleStatus.SUCCESS, ScheduleStatus.READY, ScheduleStatus.COMPLETED]:
+                item.status = ScheduleStatus.COMPLETED
                 item.published_url = result.get('url')
+                item.error_message = None # Clear any previous errors
                 logger.log("success", f"Successfully executed item {item.id} (Scheduled: {item.scheduled_time})", "scheduler")
             else:
-                item.status = 'failed'
-                # Save error to metadata for frontend display
+                item.status = ScheduleStatus.FAILED
+                # [SYN-FIX] Save to explicit error_message column
+                item.error_message = result.get('message')
+                
+                # Also fallback to metadata for legacy compatibility if needed
                 meta = dict(item.metadata_info or {})
                 meta['error'] = result.get('message')
                 item.metadata_info = meta
@@ -492,8 +543,9 @@ class Scheduler:
             db.commit()
             
         except Exception as e:
-            print(f"[SCHEDULER] Execution Failed: {e}")
-            item.status = 'failed'
+            print(f"[{ScheduleStatus.FAILED.upper()}] Execution Failed: {e}")
+            item.status = ScheduleStatus.FAILED
+            item.error_message = str(e)
             
             meta = dict(item.metadata_info or {})
             meta['error'] = str(e)

@@ -245,6 +245,7 @@ export interface ScheduleEvent {
     music_volume?: number;
     trend_category?: string;
     metadata?: any;
+    error_message?: string;
 }
 
 export interface LogEntry {

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useBatch } from './BatchContext';
-import { Clock, Calendar, SlidersHorizontal, ChevronUp, Sparkles } from 'lucide-react';
+import { Clock, Calendar, SlidersHorizontal, ChevronUp, Sparkles, Plus, Minus, Settings2 } from 'lucide-react';
 import clsx from 'clsx';
 import { format } from 'date-fns';
 import { NeonButton } from '../NeonButton';
@@ -15,6 +15,7 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
         intervalMinutes, setIntervalMinutes,
         startDate, setStartDate,
         startTime, setStartTime,
+        customTimes, setCustomTimes, // [SYN-CUSTOM]
         validationResult,
         isValidating,
         isUploading,
@@ -30,6 +31,29 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
         setMounted(true);
     }, []);
 
+    // [SYN-CUSTOM] Ensure custom times has defaults if empty
+    useEffect(() => {
+        if (strategy === 'CUSTOM' && customTimes.length === 0) {
+            setCustomTimes(['12:00', '18:00']);
+        }
+    }, [strategy]);
+
+    const updateCustomTime = (index: number, val: string) => {
+        const newTimes = [...customTimes];
+        newTimes[index] = val;
+        setCustomTimes(newTimes);
+    };
+
+    const addCustomSlot = () => {
+        if (customTimes.length >= 10) return;
+        setCustomTimes([...customTimes, '12:00']);
+    };
+
+    const removeCustomSlot = () => {
+        if (customTimes.length <= 1) return;
+        setCustomTimes(prev => prev.slice(0, -1));
+    };
+
     // Formatted display
     const dateDisplay = startDate ? format(new Date(startDate), 'dd/MM/yyyy') : 'Data';
     let frequencyDisplay = '';
@@ -38,6 +62,8 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
         frequencyDisplay = 'Oracle AI (Smart)';
     } else if (strategy === 'QUEUE') {
         frequencyDisplay = 'Apenas Fila (Sem Agendar)';
+    } else if (strategy === 'CUSTOM') {
+        frequencyDisplay = `${customTimes.length} Posts / Dia (Fixo)`;
     } else {
         // Interval Strategy
         if (intervalMinutes === 1440) frequencyDisplay = '1x / Dia';
@@ -53,7 +79,7 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
     const totalPosts = isApprovalMode ? files.length : files.length * selectedProfiles.length;
 
     return (
-        <div className="absolute bottom-0 left-0 right-0 h-20 bg-[#0c0c0c]/90 backdrop-blur-2xl border-t border-white/5 flex items-center justify-between px-8 z-50">
+        <div className="absolute bottom-0 left-0 right-0 h-24 bg-[#0c0c0c]/95 backdrop-blur-2xl border-t border-white/5 flex items-center justify-between px-8 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
             {/* Left: Strategy Selector (Opus Style "Pill") */}
             <div className="relative">
                 <button
@@ -97,6 +123,19 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
                                 </button>
                             ))}
 
+                            <button
+                                onClick={() => { setStrategy('CUSTOM'); setShowStrategyMenu(false); }}
+                                className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-white/5 transition-colors text-left group"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Settings2 className="w-4 h-4 text-gray-500 group-hover:text-white" />
+                                    <span className="text-xs text-gray-300 group-hover:text-white">Horários Fixos (Custom)</span>
+                                </div>
+                                {strategy === 'CUSTOM' && (
+                                    <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
+                                )}
+                            </button>
+
                             <div className="h-px bg-white/5 my-1" />
 
                             <button
@@ -129,30 +168,68 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
                 )}
             </div>
 
-            {/* Center: Date/Time Picker (Hidden if QUEUE) */}
+            {/* Center: Date/Time Picker Logic - [SYN-UI] Refactored for spacing */}
             {strategy !== 'QUEUE' && (
-                <div className="flex items-center gap-4 animate-in fade-in zoom-in duration-300">
-                    {/* Date Picker */}
+                <div className="flex items-center gap-6 animate-in fade-in zoom-in duration-300 mx-auto">
+                    {/* Common Date Picker */}
                     <div
                         onClick={() => (document.getElementById('date-input') as HTMLInputElement)?.showPicker()}
-                        className="flex items-center gap-3 px-4 py-2 bg-black/40 border border-white/5 rounded-full cursor-pointer hover:bg-white/5 transition-colors group"
+                        className="flex items-center gap-3 px-5 py-2.5 bg-black/40 border border-white/10 rounded-xl cursor-pointer hover:bg-white/5 transition-colors group"
                     >
-                        <Calendar className="w-4 h-4 text-gray-500 group-hover:text-white transition-colors" />
+                        <Calendar className="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" />
                         <input
                             id="date-input"
                             type="date"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className="bg-transparent border-none text-xs text-white focus:ring-0 p-0 font-mono cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden"
+                            className="bg-transparent border-none text-sm text-gray-200 group-hover:text-white focus:ring-0 p-0 font-mono cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden w-24"
                         />
                     </div>
 
-                    <div className="h-8 w-px bg-white/5" />
+                    <div className="h-10 w-px bg-white/10" />
 
-                    <TikTokTimePicker
-                        value={startTime}
-                        onChange={setStartTime}
-                    />
+                    {/* [SYN-CUSTOM] Custom Time Slots UI */}
+                    {strategy === 'CUSTOM' ? (
+                        <div className="flex items-center gap-4">
+                            {/* Counter */}
+                            <div className="flex flex-col items-center gap-1">
+                                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Quantidade</span>
+                                <div className="flex items-center bg-white/5 rounded-lg border border-white/5 px-1 py-0.5">
+                                    <button onClick={removeCustomSlot} className="p-1.5 hover:text-white text-gray-500 disabled:opacity-30 hover:bg-white/5 rounded-md transition-colors" disabled={customTimes.length <= 1}>
+                                        <Minus className="w-3 h-3" />
+                                    </button>
+                                    <span className="text-sm font-mono w-8 text-center text-white">{customTimes.length}</span>
+                                    <button onClick={addCustomSlot} className="p-1.5 hover:text-white text-gray-500 disabled:opacity-30 hover:bg-white/5 rounded-md transition-colors" disabled={customTimes.length >= 10}>
+                                        <Plus className="w-3 h-3" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Slots List */}
+                            <div className="flex flex-col gap-1">
+                                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider pl-1">Horários</span>
+                                <div className="flex items-center gap-2 max-w-[450px] overflow-x-auto custom-scrollbar pb-2 px-1">
+                                    {customTimes.map((time, idx) => (
+                                        <TikTokTimePicker
+                                            key={idx}
+                                            value={time}
+                                            onChange={(val) => updateCustomTime(idx, val)}
+                                            className="flex-shrink-0"
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        /* Standard Single Time Picker */
+                        <div className="flex items-center gap-3">
+                            <span className="text-xs text-gray-500 font-bold uppercase tracking-wider">Início</span>
+                            <TikTokTimePicker
+                                value={startTime}
+                                onChange={setStartTime}
+                            />
+                        </div>
+                    )}
                 </div>
             )}
 

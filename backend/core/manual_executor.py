@@ -15,6 +15,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.uploader_monitored import upload_video_monitored
 from core import brain
 from core.status_manager import status_manager
+from core.consts import ScheduleStatus
 
 # Configuração de Logger
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
@@ -24,21 +25,15 @@ logger = logging.getLogger(__name__)
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding='utf-8')
 
-# Diretórios
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-APPROVED_DIR = os.path.join(BASE_DIR, "data", "approved")
-PROCESSING_DIR = os.path.join(BASE_DIR, "processing")
-DONE_DIR = os.path.join(BASE_DIR, "done")
-ERRORS_DIR = os.path.join(BASE_DIR, "errors")
-
-for d in [APPROVED_DIR, PROCESSING_DIR, DONE_DIR, ERRORS_DIR]:
-    os.makedirs(d, exist_ok=True)
+# Diretórios centralizados
+from core.config import APPROVED_DIR, PROCESSING_DIR, DONE_DIR, ERRORS_DIR
 
 
 async def execute_approved_video(
     video_input: str, 
     is_scheduled: bool = False, 
-    metadata: Optional[dict] = None
+    metadata: Optional[dict] = None,
+    processing_id: Optional[str] = None
 ) -> dict:
     """
     Execute upload for a single approved video.
@@ -59,7 +54,7 @@ async def execute_approved_video(
         video_filename = os.path.basename(video_input)
         # If absolute, verify it exists
         if not os.path.exists(source_path):
-             return {"status": "error", "message": f"Source file not found: {source_path}"}
+             return {"status": ScheduleStatus.FAILED, "message": f"Source file not found: {source_path}"}
     else:
         # Relative to APPROVED_DIR (Legacy/Queue Worker mode)
         video_filename = video_input
@@ -71,7 +66,7 @@ async def execute_approved_video(
         
         source_path = os.path.join(APPROVED_DIR, video_filename)
         if not os.path.exists(source_path):
-            return {"status": "error", "message": f"Video {video_filename} not found in approved/"}
+            return {"status": ScheduleStatus.FAILED, "message": f"Video {video_filename} not found in approved/"}
     
     # 2. Load Metadata (Priority: Argument > JSON Sidecar)
     # If explicit metadata passed (from Scheduler DB), usage that. 
@@ -123,34 +118,38 @@ async def execute_approved_video(
         # If not found in DB, it might be a new import or legacy. We assume active but log warning.
         logger.warning(f"⚠️ Perfil {session_name} não encontrado no banco. Prosseguindo com risco.")
     
-    # Move to processing
-    # If is_scheduled (Absolute path from library/input), we should COPY or MOVE to processing?
-    # Usually Scheduler picks from library/inputs. If we move, we lose the source file? 
-    # ACTUALLY: Scheduler uses 'video_path'. If it's in a temp folder ('pending'), moving is fine.
-    # If it's in a Library folder, we should probably COPY to processing to preserve the library master?
-    # BUT current logic moves. Let's stick to move for now to avoid duplicates, OR COPY if is_scheduled.
-    # User feedback likely implies "Publish this".
-    # Let's MOVE to processing to ensure we have    # Move to processing
+    # 3. Move to processing (Unique Path to avoid Race Conditions)
     status_manager.update_status(
         state="busy", 
         current_task=video_filename, 
         progress=10, 
-        step="Movendo para Processing...", 
-        logs=["Movendo arquivo..."]
+        step="Preparando ambiente único...", 
+        logs=["Movendo arquivo para isolamento..."]
     )
-    proc_path = os.path.join(PROCESSING_DIR, video_filename)
+    
+    # [SYN-FIX] Use processing_id to isolate concurrent runs for same video
+    unique_filename = f"{processing_id}_{video_filename}" if processing_id else video_filename
+    proc_path = os.path.join(PROCESSING_DIR, unique_filename)
+    
     try:
-        # If source and dest are same (e.g. reprocessing), don't fail
+        # If source and dest are same, don't fail
         if os.path.abspath(source_path) != os.path.abspath(proc_path):
             if os.path.exists(proc_path):
                 os.remove(proc_path)
-            shutil.move(source_path, proc_path)
+            
+            # [SYN-FIX] If scheduled, COPY instead of MOVE to preserve source for other profiles
+            if is_scheduled:
+                shutil.copy(source_path, proc_path)
+                logger.info(f"✅ Copied to UNIQUE processing path: {proc_path}")
+            else:
+                shutil.move(source_path, proc_path)
+                logger.info(f"✅ Moved to UNIQUE processing path: {proc_path}")
         else:
             logger.info("Source is already in processing folder.")
     except Exception as e:
-        logger.error(f"Erro ao mover para processing: {e}")
-        status_manager.update_status("error", logs=[f"Erro de I/O: {e}"])
-        return {"status": "error", "message": str(e)}
+        logger.error(f"Erro no isolamento de arquivo: {e}")
+        status_manager.update_status("error", logs=[f"Erro de I/O em processamento: {e}"])
+        return {"status": ScheduleStatus.FAILED, "message": str(e)}
     
     # Get caption (use from metadata or generate with Brain)
     caption = metadata.get('caption')
@@ -212,7 +211,7 @@ async def execute_approved_video(
         )
         
         # ... logic continues ...
-        if result["status"] == "ready":
+        if result["status"] == ScheduleStatus.READY:
              # Success handled by queue worker mostly, but we can update logs
              
              # [SYN-FIX] Idempotency: Create .completed marker in processing folder
@@ -265,7 +264,7 @@ async def execute_approved_video(
         except Exception as move_err:
             logger.error(f"Failed to move to errors: {move_err}")
             
-        return {"status": "error", "message": str(e)}
+        return {"status": ScheduleStatus.FAILED, "message": str(e)}
 
 
 async def process_all_approved():
