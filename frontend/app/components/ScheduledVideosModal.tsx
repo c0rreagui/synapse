@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
-import { XMarkIcon, CalendarIcon, MusicalNoteIcon, PlayCircleIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, CalendarIcon, MusicalNoteIcon, PlayCircleIcon, TrashIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'; // [SYN-UX] Added ExclamationTriangleIcon
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import clsx from 'clsx';
 import { ScheduleEvent, TikTokProfile } from '../types';
+import ProfileRepairModal from './ProfileRepairModal'; // [SYN-UX] Import Repair Modal
 
 interface ScheduledVideosModalProps {
     isOpen: boolean;
@@ -19,6 +20,9 @@ interface ScheduledVideosModalProps {
 export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDelete, onUpdate }: ScheduledVideosModalProps) {
     const [events, setEvents] = useState<ScheduleEvent[]>([]);
     const [loading, setLoading] = useState(false);
+
+    // [SYN-UX] Repair Logic
+    const [repairProfile, setRepairProfile] = useState<TikTokProfile | null>(null);
 
     // Use centralized API Client for robust local connections
     // Note: requires import { getApiUrl } from '../utils/apiClient'; - please ensure import is added.
@@ -158,10 +162,10 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
             // But cleanup_missed_schedules handles the "too old" part on backend.
             // So we can simpler: Status == 'pending' AND (Time > now - 1h)
             // Or just check if status is pending.
-            return event.status === 'pending';
+            return event.status === 'pending' || event.status === 'paused_login_required'; // [SYN-UX] Show paused items in pending
         } else {
             // History: Completed, Failed, or Expired
-            return event.status !== 'pending';
+            return event.status !== 'pending' && event.status !== 'paused_login_required';
         }
     });
 
@@ -171,6 +175,16 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
         const timeB = new Date(b.scheduled_time).getTime();
         return activeTab === 'upcoming' ? timeA - timeB : timeB - timeA;
     });
+
+    // [SYN-UX] Open Repair Modal for Specific Event
+    const handleReconnect = (profileId: string) => {
+        const p = profiles.find(pr => pr.id === profileId);
+        if (p) {
+            setRepairProfile(p);
+        } else {
+            toast.error("Perfil não encontrado localmente");
+        }
+    };
 
     return (
         <Transition appear show={isOpen} as={Fragment}>
@@ -228,7 +242,7 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                                     >
                                         Próximos Posts
                                         <span className={clsx("ml-2 px-2 py-0.5 rounded-full text-xs", activeTab === 'upcoming' ? "bg-synapse-purple/20" : "bg-white/5")}>
-                                            {events.filter(e => e.status === 'pending').length}
+                                            {events.filter(e => e.status === 'pending' || e.status === 'paused_login_required').length}
                                         </span>
                                     </button>
                                     <button
@@ -288,6 +302,7 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                                                             {groupEvents.map((event) => {
                                                                 const isEditing = editingId === event.id;
                                                                 const isFailed = event.status === 'failed' || event.status === 'error';
+                                                                const isPaused = event.status === 'paused_login_required';
                                                                 const isDone = event.status === 'completed' || event.status === 'done';
                                                                 const isToday = format(new Date(), 'yyyy-MM-dd') === dateKey;
 
@@ -297,8 +312,9 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                                                                         className={clsx(
                                                                             "group relative flex items-center gap-4 p-4 rounded-xl border transition-all hover:shadow-lg hover:shadow-black/50 ml-4",
                                                                             isFailed ? "bg-red-500/5 border-red-500/20 hover:bg-red-500/10" :
-                                                                                isDone ? "bg-green-500/5 border-green-500/20 hover:bg-green-500/10" :
-                                                                                    "bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-synapse-purple/20"
+                                                                                isPaused ? "bg-amber-500/5 border-amber-500/20 hover:bg-amber-500/10" :
+                                                                                    isDone ? "bg-green-500/5 border-green-500/20 hover:bg-green-500/10" :
+                                                                                        "bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-synapse-purple/20"
                                                                         )}
                                                                     >
                                                                         {/* Timeline Connector */}
@@ -306,8 +322,9 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                                                                         <div className={clsx(
                                                                             "absolute -left-[19px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full border-2 transition-colors z-20",
                                                                             isFailed ? "bg-[#0c0c0e] border-red-500" :
-                                                                                isDone ? "bg-green-500 border-green-500" :
-                                                                                    "bg-[#0c0c0e] border-white/10 group-hover:border-synapse-purple"
+                                                                                isPaused ? "bg-[#0c0c0e] border-amber-500 animate-pulse" :
+                                                                                    isDone ? "bg-green-500 border-green-500" :
+                                                                                        "bg-[#0c0c0e] border-white/10 group-hover:border-synapse-purple"
                                                                         )} />
 
                                                                         {/* Simulated Thumbnail / File Icon */}
@@ -333,6 +350,12 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                                                                                         {isFailed && (
                                                                                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/20 uppercase tracking-wider">
                                                                                                 FALHA
+                                                                                            </span>
+                                                                                        )}
+                                                                                        {isPaused && (
+                                                                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/20 uppercase tracking-wider flex items-center gap-1">
+                                                                                                <ExclamationTriangleIcon className="w-3 h-3" />
+                                                                                                SESSÃO EXPIRADA
                                                                                             </span>
                                                                                         )}
                                                                                     </div>
@@ -361,6 +384,20 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                                                                                         <div className="mt-1.5 p-1.5 rounded bg-red-950/30 border border-red-500/30 text-[11px] text-red-200 font-mono max-w-[400px]">
                                                                                             <span className="font-bold text-red-400 mr-1">⛔ ERRO:</span>
                                                                                             {event.error_message || event.metadata?.error}
+                                                                                        </div>
+                                                                                    )}
+
+                                                                                    {/* [SYN-UX] Reconnect Button for Paused Items */}
+                                                                                    {isPaused && (
+                                                                                        <div className="mt-2 flex items-center gap-2">
+                                                                                            <button
+                                                                                                onClick={() => handleReconnect(event.profile_id)}
+                                                                                                className="px-3 py-1.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold hover:bg-amber-500/30 transition-all flex items-center gap-1.5 shadow-[0_0_15px_rgba(245,158,11,0.1)]"
+                                                                                            >
+                                                                                                <ExclamationTriangleIcon className="w-3.5 h-3.5" />
+                                                                                                Reconectar Perfil
+                                                                                            </button>
+                                                                                            <span className="text-[10px] text-gray-500">Faça login novamente para retomar.</span>
                                                                                         </div>
                                                                                     )}
                                                                                 </div>
@@ -396,7 +433,7 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                                                                                         title={activeTab === 'upcoming' ? "Clique para editar" : ""}
                                                                                     >
                                                                                         <div className={clsx("text-xl font-bold font-mono tracking-tight transition-colors",
-                                                                                            isFailed ? "text-red-400" : "text-white group-hover/time:text-synapse-purple")}>
+                                                                                            isFailed ? "text-red-400" : isPaused ? "text-amber-400" : "text-white group-hover/time:text-synapse-purple")}>
                                                                                             {format(new Date(event.scheduled_time), 'HH:mm')}
                                                                                         </div>
                                                                                     </div>
@@ -425,7 +462,9 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
 
                                                                             {/* Progress bar simulation / Status line */}
                                                                             <div className={clsx("absolute bottom-0 left-0 h-[2px] w-full transition-opacity rounded-b-xl overflow-hidden",
-                                                                                isFailed ? "bg-red-500 opacity-50" : "bg-gradient-to-r from-synapse-purple to-transparent opacity-0 group-hover:opacity-50")} />
+                                                                                isFailed ? "bg-red-500 opacity-50" :
+                                                                                    isPaused ? "bg-amber-500 opacity-50" :
+                                                                                        "bg-gradient-to-r from-synapse-purple to-transparent opacity-0 group-hover:opacity-50")} />
                                                                         </div>
                                                                     </div>
                                                                 );
@@ -440,6 +479,17 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                         </Transition.Child>
                     </div>
                 </div>
+
+                {/* [SYN-UX] New Repair Modal */}
+                <ProfileRepairModal
+                    isOpen={!!repairProfile}
+                    onClose={() => setRepairProfile(null)}
+                    profile={repairProfile}
+                    onSuccess={() => {
+                        fetchEvents(); // Refresh list to see if statuses update (backend might need polling but good for now)
+                        if (onUpdate) onUpdate();
+                    }}
+                />
             </Dialog>
         </Transition >
     );

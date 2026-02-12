@@ -164,11 +164,16 @@ class BatchManager:
                 ))
             cursor += timedelta(minutes=interval_minutes)
         
+        try:
+            from zoneinfo import ZoneInfo
+        except ImportError:
+            from backports.zoneinfo import ZoneInfo
+            
         self._batches[batch_id] = {
             "batch_id": batch_id,
             "status": BatchStatus.CREATED,
             "events": events,
-            "created_at": datetime.now(),
+            "created_at": datetime.now(ZoneInfo("America/Sao_Paulo")),
             "config": {
                 "interval_minutes": interval_minutes,
                 "viral_music_enabled": viral_music_enabled,

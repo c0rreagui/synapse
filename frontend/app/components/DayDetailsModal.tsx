@@ -1,14 +1,15 @@
 'use client';
 
 import { Fragment, useState, useEffect } from 'react';
-import { Dialog, Transition } from '@headlessui/react';
+import { Dialog, Transition, Menu } from '@headlessui/react';
 import { ScheduleEvent, TikTokProfile } from '../types';
 import { NeonButton } from './NeonButton';
-import { XMarkIcon, ClockIcon, TrashIcon, CalendarIcon, PlusIcon, MusicalNoteIcon, PencilSquareIcon, CheckIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, ClockIcon, TrashIcon, CalendarIcon, PlusIcon, MusicalNoteIcon, PencilSquareIcon, CheckIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import clsx from 'clsx';
 import { toast } from 'sonner';
+import EditScheduleModal, { EditScheduleData } from './EditScheduleModal';
 
 interface DayDetailsModalProps {
     isOpen: boolean;
@@ -19,6 +20,8 @@ interface DayDetailsModalProps {
     onDeleteEvent: (eventId: string) => void;
     onEditEvent: (eventId: string, newTime: string) => void;
     onAddEvent: () => void;
+    onRetryEvent: (eventId: string, mode: 'now' | 'next_slot') => void;
+    onFullEdit?: (eventId: string, data: EditScheduleData) => Promise<void>;
 }
 
 export default function DayDetailsModal({
@@ -29,8 +32,13 @@ export default function DayDetailsModal({
     profiles,
     onDeleteEvent,
     onEditEvent,
-    onAddEvent
+    onAddEvent,
+    onRetryEvent,
+    onFullEdit
 }: DayDetailsModalProps) {
+
+    // [SYN-EDIT] Full Edit Modal State
+    const [editingEvent, setEditingEvent] = useState<ScheduleEvent | null>(null);
 
     // Sort events by time
     const sortedEvents = [...events].sort((a, b) =>
@@ -126,9 +134,11 @@ export default function DayDetailsModal({
                                                     key={event.id}
                                                     event={event}
                                                     profileLabel={getProfileLabel(event.profile_id)}
-                                                    profileColor={getProfileColor(event.profile_id)} // [SYN-UX] Consistent Color
+                                                    profileColor={getProfileColor(event.profile_id)}
                                                     onEdit={onEditEvent}
                                                     onDelete={onDeleteEvent}
+                                                    onRetry={onRetryEvent}
+                                                    onFullEdit={onFullEdit ? () => setEditingEvent(event) : undefined}
                                                 />
                                             ))}
                                         </div>
@@ -151,21 +161,38 @@ export default function DayDetailsModal({
                         </Transition.Child>
                     </div>
                 </div>
+
+                {/* [SYN-EDIT] Full Edit Modal */}
+                {onFullEdit && (
+                    <EditScheduleModal
+                        isOpen={editingEvent !== null}
+                        onClose={() => setEditingEvent(null)}
+                        event={editingEvent}
+                        profiles={profiles}
+                        onSave={async (eventId, data) => {
+                            await onFullEdit(eventId, data);
+                            setEditingEvent(null);
+                        }}
+                    />
+                )}
             </Dialog>
         </Transition>
     );
 }
 
 // Sub-component for individual Event Row logic
-function EventRow({ event, profileLabel, profileColor, onEdit, onDelete }: {
+function EventRow({ event, profileLabel, profileColor, onEdit, onDelete, onRetry, onFullEdit }: {
     event: ScheduleEvent,
     profileLabel: string,
     profileColor: string,
     onEdit: (id: string, time: string) => void,
-    onDelete: (id: string) => void
+    onDelete: (id: string) => void,
+    onRetry: (id: string, mode: 'now' | 'next_slot') => void,
+    onFullEdit?: () => void
 }) {
     const [isEditing, setIsEditing] = useState(false);
     const [editTime, setEditTime] = useState(format(new Date(event.scheduled_time), 'HH:mm'));
+
 
     useEffect(() => {
         setEditTime(format(new Date(event.scheduled_time), 'HH:mm'));
@@ -190,10 +217,17 @@ function EventRow({ event, profileLabel, profileColor, onEdit, onDelete }: {
 
     return (
         <div
-            className="group relative flex items-center gap-4 p-4 rounded-xl bg-[#13111a] border border-white/5 hover:border-synapse-purple/30 transition-all shadow-sm hover:shadow-lg hover:shadow-synapse-purple/5 overflow-hidden"
+            className={clsx(
+                "group relative flex items-center gap-4 p-4 rounded-xl border transition-all shadow-sm hover:shadow-lg", // [SYN-FIX] Removed overflow-hidden for Popover
+                (event.status === 'completed' || event.status === 'posted')
+                    ? "bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40 hover:shadow-emerald-500/10"
+                    : event.status === 'failed'
+                        ? "bg-red-500/5 border-red-500/20 hover:border-red-500/40 hover:shadow-red-500/10"
+                        : "bg-[#13111a] border-white/5 hover:border-synapse-purple/30 hover:shadow-synapse-purple/5"
+            )}
         >
-            {/* [SYN-UX] Profile Color Indicator Bar */}
-            <div className={clsx("absolute left-0 top-0 bottom-0 w-1", profileColor)} />
+            {/* [SYN-UX] Profile Color Indicator Bar (Rounded to match container since overflow is visible) */}
+            <div className={clsx("absolute left-0 top-0 bottom-0 w-1 rounded-l-xl", profileColor)} />
             {/* Time Badge */}
             {isEditing ? (
                 <div className="flex items-center gap-2">
@@ -238,7 +272,9 @@ function EventRow({ event, profileLabel, profileColor, onEdit, onDelete }: {
                                     (event.status === 'paused_login_required' ? "bg-orange-500 animate-pulse shadow-[0_0_5px_#f97316]" : "bg-yellow-500 shadow-[0_0_5px_#eab308]"))
                         )} />
                         <span className="uppercase tracking-wider font-mono text-[10px]">
-                            {event.status === 'paused_login_required' ? 'SESSÃO EXPIRADA' : (event.status || 'AGENDADO')}
+                            {event.status === 'paused_login_required'
+                                ? 'SESSÃO EXPIRADA'
+                                : ((event.status === 'completed' || event.status === 'posted') ? 'POSTADO' : (event.status || 'AGENDADO'))}
                         </span>
                     </div>
                     {event.status === 'paused_login_required' && (
@@ -256,7 +292,7 @@ function EventRow({ event, profileLabel, profileColor, onEdit, onDelete }: {
                             {event.error_message || event.metadata.error}
 
                             {/* Generic Hint */}
-                            <div className="absolute left-0 bottom-full mb-2 w-48 p-2 bg-black/90 border border-white/10 rounded text-xs text-gray-400 opacity-0 group-hover/error:opacity-100 transition-opacity pointer-events-none z-50">
+                            <div className="absolute left-0 bottom-full mb-2 w-48 p-2 bg-black/90 border border-white/10 rounded text-xs text-gray-400 opacity-0 group-hover/error:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
                                 O sistema tentou processar mas encontrou um erro irrecuperável. Verifique os logs se persistir.
                             </div>
                         </div>
@@ -266,11 +302,99 @@ function EventRow({ event, profileLabel, profileColor, onEdit, onDelete }: {
 
             {/* Actions */}
             {!isEditing && (
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0">
+                <div className={clsx(
+                    "flex gap-1 transition-all duration-300 relative",
+                    // [SYN-UX] Show actions if failed/paused OR hover
+                    (event.status === 'failed' || event.status === 'paused_login_required')
+                        ? "opacity-100 translate-x-0"
+                        : "opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0"
+                )}>
+                    {/* [SYN-73] Retry Button (Headless UI Menu with Portal via anchor) */}
+                    {(event.status === 'failed' || event.status === 'paused_login_required') && (
+                        <Menu as="div" className="relative">
+                            {({ open }) => (
+                                <>
+                                    <Menu.Button
+                                        className={clsx(
+                                            "p-2 rounded-lg transition-all border border-transparent flex items-center justify-center",
+                                            "bg-synapse-purple/10 text-synapse-purple border-synapse-purple/20 hover:bg-synapse-purple/20 shadow-[0_0_15px_rgba(139,92,246,0.1)]",
+                                            open && "ring-2 ring-synapse-purple/50 bg-synapse-purple/25 shadow-[0_0_20px_rgba(139,92,246,0.2)]"
+                                        )}
+                                        title="Opções de Recuperação"
+                                    >
+                                        <ArrowPathIcon className={clsx("w-4 h-4 transition-transform duration-500", !open && "animate-pulse", open && "rotate-180")} />
+                                    </Menu.Button>
+
+                                    <Transition
+                                        as={Fragment}
+                                        enter="transition ease-out duration-100"
+                                        enterFrom="transform opacity-0 scale-95"
+                                        enterTo="transform opacity-100 scale-100"
+                                        leave="transition ease-in duration-75"
+                                        leaveFrom="transform opacity-100 scale-100"
+                                        leaveTo="transform opacity-0 scale-95"
+                                    >
+                                        <Menu.Items
+                                            anchor="bottom end"
+                                            className="w-56 bg-[#0c0a10] border border-synapse-purple/40 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,1)] z-[9999] focus:outline-none overflow-hidden ring-1 ring-white/10 [--anchor-gap:8px]"
+                                        >
+                                            <div className="p-1.5 space-y-1">
+                                                <div className="px-3 py-2 text-[10px] font-bold text-synapse-purple uppercase tracking-[0.2em] border-b border-white/5 mb-1.5 flex items-center justify-between">
+                                                    <span>RECUPERAÇÃO</span>
+                                                    <div className="w-1 h-1 rounded-full bg-synapse-purple animate-pulse" />
+                                                </div>
+
+                                                <Menu.Item>
+                                                    {({ active }) => (
+                                                        <button
+                                                            onClick={() => onRetry(event.id, 'now')}
+                                                            className={clsx(
+                                                                "w-full text-left px-3 py-3 rounded-lg transition-all flex items-center gap-3 group/btn",
+                                                                active ? "bg-white/5 text-white" : "text-gray-300"
+                                                            )}
+                                                        >
+                                                            <div className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_10px_#ef4444]" />
+                                                            <div className="flex flex-col">
+                                                                <span className="font-bold text-xs">Repostar Agora</span>
+                                                                <span className="text-[9px] text-gray-500 group-hover/btn:text-gray-400">Tenta enviar imediatamente</span>
+                                                            </div>
+                                                        </button>
+                                                    )}
+                                                </Menu.Item>
+
+                                                <Menu.Item>
+                                                    {({ active }) => (
+                                                        <button
+                                                            onClick={() => onRetry(event.id, 'next_slot')}
+                                                            className={clsx(
+                                                                "w-full text-left px-3 py-3 rounded-lg transition-all flex items-center gap-3 group/btn",
+                                                                active ? "bg-white/5 text-white" : "text-gray-300"
+                                                            )}
+                                                        >
+                                                            <div className="w-2.5 h-2.5 rounded-full bg-blue-400 shadow-[0_0_10px_#3b82f6]" />
+                                                            <div className="flex flex-col">
+                                                                <span className="font-bold text-xs">Reagendar Vídeo</span>
+                                                                <span className="text-[9px] text-gray-500 group-hover/btn:text-gray-400">Próximo horário disponível</span>
+                                                            </div>
+                                                        </button>
+                                                    )}
+                                                </Menu.Item>
+                                            </div>
+                                            <div className="bg-synapse-purple/10 p-2 text-[9px] text-gray-500 font-mono text-center border-t border-white/5 italic">
+                                                Restaura arquivo original automaticamente
+                                            </div>
+                                        </Menu.Items>
+                                    </Transition>
+                                </>
+                            )}
+                        </Menu>
+                    )}
+
+                    {/* Edit/Delete Buttons (Standard) */}
                     <button
-                        onClick={() => setIsEditing(true)}
+                        onClick={() => onFullEdit ? onFullEdit() : setIsEditing(true)}
                         className="p-2 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
-                        title="Editar Horário"
+                        title={onFullEdit ? 'Editar Agendamento' : 'Editar Horario'}
                     >
                         <PencilSquareIcon className="w-4 h-4" />
                     </button>

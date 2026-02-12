@@ -180,10 +180,15 @@ async def reject_video(video_id: str):
     Reject a pending video (delete from pending).
     """
     try:
+        # [SECURITY] Sanitize video_id to prevent path traversal attacks
+        safe_video_id = os.path.basename(video_id)
+        if safe_video_id != video_id:
+            raise HTTPException(status_code=400, detail="Invalid video_id")
+        
         # Find and delete video file
         deleted = False
         for filename in os.listdir(PENDING_DIR):
-            if filename.startswith(video_id):
+            if filename.startswith(safe_video_id):
                 file_path = os.path.join(PENDING_DIR, filename)
                 os.remove(file_path)
                 deleted = True

@@ -1,4 +1,4 @@
-```python
+
 import os
 import glob
 from fastapi import APIRouter, HTTPException, BackgroundTasks
@@ -110,11 +110,39 @@ async def validate_profile_endpoint(profile_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+
+
+@router.post("/repair/{profile_id}")
+async def repair_session_endpoint(profile_id: str, background_tasks: BackgroundTasks):
+    """
+    Launches an interactive browser for manual session repair.
+    The browser opens in the background and waits for user to log in.
+    """
+    from core.browser_manager import browser_manager
+    from fastapi import HTTPException
+    import asyncio
+    
+    # 1. Check if busy
+    if browser_manager.is_busy(profile_id):
+         raise HTTPException(status_code=409, detail=f"Profile {profile_id} is already busy (Repairing/Running).")
+
+    # 2. Launch Repair in Background using asyncio.create_task
+    # We need to run the async function in the existing event loop
+    asyncio.create_task(browser_manager.launch_repair_session(profile_id))
+    
+    return {"status": "launched", "message": "Browser aberto no servidor. Faca login manualmente e depois feche o navegador."}
+
+
 @router.post("/refresh-avatar/{profile_id}")
-async def refresh_avatar_endpoint(profile_id: str):
+async def refresh_avatar_endpoint(profile_id: str, background_tasks: BackgroundTasks):
     """
-    Turbine mode: Atualiza TUDO do perfil (Avatar, Nick, Bio, Stats) usando o validador completo.
+    Inicia o refresh do avatar em background.
     """
+    
+    from core.session_manager import get_session_path
+
+
+    # Turbine mode: Atualiza TUDO do perfil (Avatar, Nick, Bio, Stats) usando o validador completo.
     import subprocess
     import sys
     import json
@@ -182,6 +210,26 @@ async def refresh_avatar_endpoint(profile_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+class UpdateCookiesRequest(BaseModel):
+    cookies: str
+
+@router.put("/{profile_id}/cookies")
+async def update_cookies_endpoint(profile_id: str, request: UpdateCookiesRequest):
+    """
+    Atualiza os cookies de um perfil existente.
+    Usado para renovar sessões expiradas sem criar novo perfil.
+    """
+    from core.session_manager import update_session_cookies
+    from fastapi.concurrency import run_in_threadpool
+    
+    success = await run_in_threadpool(update_session_cookies, profile_id, request.cookies)
+    
+    if not success:
+        raise HTTPException(status_code=400, detail="Falha ao atualizar cookies. Verifique se o perfil existe.")
+        
+    return {"status": "success", "message": "Cookies atualizados com sucesso."}
+
 @router.delete("/{profile_id}")
 async def delete_profile_endpoint(profile_id: str):
     """
@@ -195,3 +243,4 @@ async def delete_profile_endpoint(profile_id: str):
         raise HTTPException(status_code=404, detail="Perfil não encontrado ou erro ao excluir")
         
     return {"status": "success", "message": f"Perfil {profile_id} removido."}
+

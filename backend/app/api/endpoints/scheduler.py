@@ -1,8 +1,10 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from core.scheduler import scheduler_service
-from typing import List, Dict
+from typing import List, Dict, Optional
 from .. import websocket
+import os
 
 router = APIRouter()
 
@@ -133,15 +135,189 @@ async def delete_schedule(event_id: str):
     return {"status": "deleted"}
 
 class UpdateEventRequest(BaseModel):
-    scheduled_time: str
+    scheduled_time: Optional[str] = None
+    profile_id: Optional[str] = None
+    caption: Optional[str] = None
+    privacy_level: Optional[str] = None
+    viral_music_enabled: Optional[bool] = None
+    music_volume: Optional[float] = None
 
 @router.patch("/{event_id}")
 async def update_event(event_id: str, request: UpdateEventRequest):
-    updated_item = scheduler_service.update_event(event_id, request.scheduled_time)
+    # [SYN-EDIT] Build kwargs from provided fields only
+    kwargs = {}
+    if request.profile_id is not None:
+        kwargs['profile_id'] = request.profile_id
+    if request.caption is not None:
+        kwargs['caption'] = request.caption
+    if request.privacy_level is not None:
+        kwargs['privacy_level'] = request.privacy_level
+    if request.viral_music_enabled is not None:
+        kwargs['viral_music_enabled'] = request.viral_music_enabled
+    if request.music_volume is not None:
+        kwargs['music_volume'] = request.music_volume
+
+    updated_item = scheduler_service.update_event(
+        event_id, 
+        scheduled_time=request.scheduled_time,
+        **kwargs
+    )
     if not updated_item:
         raise HTTPException(status_code=404, detail="Event not found")
     await websocket.notify_schedule_update(scheduler_service.load_schedule())
     return updated_item
+
+
+
+
+@router.get("/video-preview/{event_id}")
+def video_preview(event_id: str):
+    """
+    Returns the video file associated with a scheduled event.
+    Smart Path Resolution: searches pending/done/approved/processing/data directories.
+    Note: Synchronous to avoid blocking asyncio loop with DB operations.
+    """
+    import os
+    from core.database import SessionLocal
+    from core.models import ScheduleItem
+    from core.config import DATA_DIR, DONE_DIR, APPROVED_DIR, PROCESSING_DIR
+    
+    # Define directories
+    PENDING_DIR = os.path.join(DATA_DIR, "pending")
+    # Priority: Pending > Done > Approved > Processing > Data Root
+    SEARCH_DIRS = [PENDING_DIR, DONE_DIR, APPROVED_DIR, PROCESSING_DIR, DATA_DIR]
+    
+    db = SessionLocal()
+    try:
+        # 1. Resolve Event
+        item = None
+        try:
+            pk = int(event_id)
+            item = db.query(ScheduleItem).filter(ScheduleItem.id == pk).first()
+        except ValueError:
+            item = db.query(ScheduleItem).filter(ScheduleItem.id == event_id).first()
+        
+        if not item:
+            raise HTTPException(status_code=404, detail="Event not found")
+        
+        # 2. Resolve Video Path
+        video_path = item.video_path
+        
+        # [Fix] Handle Windows paths on Linux (Docker)
+        # DB stores D:\... but we are on Linux. os.path.basename fails on backslashes.
+        # Check both / and \ by replacing.
+        filename = None
+        if video_path:
+            clean_path = video_path.replace("\\", "/")
+            filename = clean_path.split("/")[-1]
+
+        found_path = None
+        if video_path and os.path.exists(video_path):
+             found_path = video_path
+        elif filename:
+            # Smart Path Resolution
+            for search_dir in SEARCH_DIRS:
+                candidate = os.path.join(search_dir, filename)
+                if os.path.exists(candidate):
+                    found_path = candidate
+                    break
+        
+        # 3. Final Check
+        if not found_path:
+             raise HTTPException(status_code=404, detail=f"Video file not found: {filename}")
+        
+        # 4. Serve File
+        abs_path = os.path.abspath(found_path)
+        return FileResponse(
+            abs_path, 
+            media_type="video/mp4",
+            filename=os.path.basename(abs_path)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERROR [video_preview]: {e}", flush=True)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+
+@router.get("/items/{event_id}")
+def get_schedule_item(event_id: str):
+    """
+    Returns a single schedule item by ID.
+    Used for refreshing modal data.
+    """
+    from core.scheduler import scheduler_service
+    # We can load the whole schedule and find it, or query DB directly.
+    # Querying DB is more efficient for single item.
+    from core.database import SessionLocal
+    from core.models import ScheduleItem
+    from zoneinfo import ZoneInfo
+
+    db = SessionLocal()
+    try:
+        try:
+            pk = int(event_id)
+            item = db.query(ScheduleItem).filter(ScheduleItem.id == pk).first()
+        except ValueError:
+            item = db.query(ScheduleItem).filter(ScheduleItem.id == event_id).first()
+        
+        if not item:
+            raise HTTPException(status_code=404, detail="Event not found")
+        
+        # Unpack metadata
+        meta = item.metadata_info if item.metadata_info else {}
+        
+        # Handle Timezone
+        s_time = item.scheduled_time
+        if s_time and s_time.tzinfo is None:
+            s_time = s_time.replace(tzinfo=ZoneInfo("America/Sao_Paulo"))
+
+        return {
+            "id": str(item.id),
+            "profile_id": item.profile_slug, # Map slug to profile_id for frontend compatibility
+            "video_path": item.video_path,
+            "scheduled_time": s_time.isoformat() if s_time else None,
+            "status": item.status,
+            "error_message": item.error_message,
+            
+            # Unpack metadata fields expected by frontend
+            "viral_music_enabled": meta.get("viral_music_enabled", False),
+            "music_volume": meta.get("music_volume", 0.0),
+            "sound_id": meta.get("sound_id"),
+            "sound_title": meta.get("sound_title"),
+            "caption": meta.get("caption", ""),
+            "privacy_level": meta.get("privacy_level", "public"),
+            "metadata": meta
+        }
+    except Exception as e:
+        print(f"ERROR [get_schedule_item]: {e}", flush=True)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+
+class RetryRequest(BaseModel):
+    mode: str = "now" # "now" | "next_slot"
+
+@router.post("/{event_id}/retry")
+async def retry_event(event_id: str, request: RetryRequest):
+    """
+    Retries a failed event: restores file and resets status.
+    mode="now": Retries immediately (keeps past time).
+    mode="next_slot": Moves to next available slot (Same time, next day).
+    """
+    try:
+        result = scheduler_service.retry_event(event_id, mode=request.mode)
+        await websocket.notify_schedule_update(scheduler_service.load_schedule())
+        return result
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+         raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/suggestion/{profile_id}")
 async def get_schedule_suggestion(profile_id: str):

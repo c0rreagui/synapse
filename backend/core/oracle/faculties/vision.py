@@ -10,6 +10,7 @@ import subprocess
 import hashlib
 import base64
 import io
+import shutil
 import time
 from typing import List, Dict, Any, Union, Optional
 import PIL.Image
@@ -73,6 +74,10 @@ class VisionFaculty:
 
     def extract_frames(self, video_path: str, num_frames: int = 5) -> List[str]:
         """Uses FFmpeg to extract N evenly spaced frames from a video."""
+        if not shutil.which("ffmpeg"):
+            logger.error("[VISION] FFmpeg not found in PATH. Video analysis disabled.")
+            return []
+
         if not os.path.exists(video_path):
             logger.error(f"Video not found: {video_path}")
             return []

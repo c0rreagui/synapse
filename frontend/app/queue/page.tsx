@@ -108,15 +108,18 @@ export default function QueuePage() {
                 setShowModal(false);
                 setSelectedVideo(null);
                 fetchPendingVideos(); // Refresh list
-                alert(postType === 'immediate'
-                    ? 'Vídeo aprovado! Bot iniciando execução...'
-                    : `Vídeo agendado para ${selectedDate} às ${selectedTime}`);
+                showToast(
+                    postType === 'immediate'
+                        ? 'Video aprovado! Bot iniciando execucao...'
+                        : `Video agendado para ${selectedDate} as ${selectedTime}`,
+                    'success'
+                );
             } else {
-                throw new Error('Falha na aprovação');
+                throw new Error('Falha na aprovacao');
             }
         } catch (error) {
             console.error('Error approving video:', error);
-            alert('Erro ao aprovar vídeo');
+            showToast('Erro ao aprovar video', 'error');
         } finally {
             setSubmitting(false);
         }

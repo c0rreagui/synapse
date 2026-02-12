@@ -32,7 +32,7 @@ export function BatchSidebar() {
     };
 
     const filteredProfiles = profiles.filter(p =>
-        (p.label || p.username).toLowerCase().includes(searchTerm.toLowerCase())
+        (p.label || p.username || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
@@ -85,12 +85,22 @@ export function BatchSidebar() {
                 ) : (
                     filteredProfiles.map(profile => {
                         const isSelected = selectedProfiles.includes(profile.id);
+
+                        // [SYN-UX] Status Logic
+                        const isHealthy = profile.status === 'active' && profile.session_valid;
+                        const hasError = !!profile.last_error_screenshot;
+                        const isExpired = !profile.session_valid;
+
+                        let statusColor = "bg-gray-500";
+                        if (isHealthy) statusColor = "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]";
+                        else if (hasError || isExpired) statusColor = "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]";
+
                         return (
                             <div
                                 key={profile.id}
                                 onClick={() => toggleProfile(profile.id)}
                                 className={clsx(
-                                    "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 group",
+                                    "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 group relative",
                                     isSelected
                                         ? "bg-synapse-purple/10 border border-synapse-purple/30"
                                         : "hover:bg-white/5 border border-transparent"
@@ -98,7 +108,7 @@ export function BatchSidebar() {
                             >
                                 {/* Checkbox Visual */}
                                 <div className={clsx(
-                                    "w-4 h-4 rounded-md border flex items-center justify-center transition-all",
+                                    "w-4 h-4 rounded-md border flex items-center justify-center transition-all shrink-0",
                                     isSelected
                                         ? "bg-synapse-purple border-synapse-purple text-white"
                                         : "border-white/20 group-hover:border-white/40 bg-transparent"
@@ -111,20 +121,35 @@ export function BatchSidebar() {
                                 </div>
 
                                 {/* Info */}
-                                <div className="flex items-center gap-2 overflow-hidden">
-                                    <div className="w-6 h-6 rounded-full bg-gray-800 flex items-center justify-center text-xs overflow-hidden border border-white/10 shrink-0">
-                                        {profile.avatar_url ? (
-                                            <img src={profile.avatar_url} alt={profile.label} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <span className="text-gray-400 font-bold">{profile.label?.charAt(0).toUpperCase() || '?'}</span>
+                                <div className="flex items-center gap-2 overflow-hidden flex-1">
+                                    <div className="relative shrink-0">
+                                        <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-xs overflow-hidden border border-white/10">
+                                            {profile.avatar_url ? (
+                                                <img src={profile.avatar_url} alt={profile.label} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <span className="text-gray-400 font-bold">{profile.label?.charAt(0).toUpperCase() || '?'}</span>
+                                            )}
+                                        </div>
+                                        {/* Status Dot */}
+                                        <div className={clsx(
+                                            "absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#161b22]",
+                                            statusColor
+                                        )} />
+                                    </div>
+
+                                    <div className="flex flex-col overflow-hidden">
+                                        <span className={clsx(
+                                            "text-xs font-medium truncate",
+                                            isSelected ? "text-white" : "text-gray-400 group-hover:text-gray-300"
+                                        )}>
+                                            {profile.label || profile.username}
+                                        </span>
+                                        {!isHealthy && (
+                                            <span className="text-[10px] text-red-400 truncate">
+                                                {hasError ? "Erro" : isExpired ? "Expirado" : "Inativo"}
+                                            </span>
                                         )}
                                     </div>
-                                    <span className={clsx(
-                                        "text-xs font-medium truncate",
-                                        isSelected ? "text-white" : "text-gray-400 group-hover:text-gray-300"
-                                    )}>
-                                        {profile.label || profile.username}
-                                    </span>
                                 </div>
                             </div>
                         );

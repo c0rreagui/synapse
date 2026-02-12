@@ -310,7 +310,13 @@ async def delete_file(filename: str, status: str = "queued"):
         raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
     
     directory = paths[status]
-    file_path = os.path.join(directory, filename)
+    
+    # [SECURITY] Sanitize filename to prevent path traversal attacks
+    safe_filename = os.path.basename(filename)
+    if safe_filename != filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    
+    file_path = os.path.join(directory, safe_filename)
     
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail=f"File not found: {filename}")
@@ -335,9 +341,14 @@ async def reprocess_file(filename: str):
     """
     import shutil
     
+    # [SECURITY] Sanitize filename to prevent path traversal attacks
+    safe_filename = os.path.basename(filename)
+    if safe_filename != filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    
     errors_dir = os.path.join(BASE_DIR, "errors")
-    source = os.path.join(errors_dir, filename)
-    dest = os.path.join(PENDING_DIR, filename)
+    source = os.path.join(errors_dir, safe_filename)
+    dest = os.path.join(PENDING_DIR, safe_filename)
     
     if not os.path.exists(source):
         raise HTTPException(status_code=404, detail=f"File not found in errors: {filename}")

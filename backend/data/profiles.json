@@ -681,5 +681,19 @@
         },
         "screenshot_path": "/app/data/screenshots/opiniaoviral_audit.png",
         "last_audit_date": "2026-01-22T19:39:12.783938"
+    },
+    "tiktok_profile_1770135259969": {
+        "label": "Restored Session",
+        "icon": "👻",
+        "type": "restored",
+        "active": true,
+        "avatar_url": "https://p16-sign-sg.tiktokcdn.com/tos-alisg-avt-0068/7db3d93774889e496b86be45a1f6a1d1~tplv-tiktokx-cropcenter:1080:1080.jpeg",
+        "username": "restored_user",
+        "bio": "Profile restored by Antigravity System Audit",
+        "oracle_best_times": [],
+        "oracle_last_run": "never",
+        "last_seo_audit": {},
+        "screenshot_path": "",
+        "last_audit_date": ""
     }
 }

@@ -126,18 +126,6 @@ app.include_router(batch.router, prefix="/api/v1/batch", tags=["batch"])
 app.include_router(templates.router, prefix="/api/v1/templates", tags=["templates"])
 app.include_router(settings.router, prefix="/api/v1/settings", tags=["settings"])
 app.include_router(health.router, prefix="/api/health", tags=["health"]) # Sonar
-app.include_router(queue.router, prefix="/api/v1/queue", tags=["queue"])
-app.include_router(videos.router, prefix="/api/v1/videos", tags=["videos"])
-app.include_router(status.router, prefix="/api/v1/status", tags=["status"])
-app.include_router(scheduler.router, prefix="/api/v1/scheduler", tags=["scheduler"])
-app.include_router(oracle.router, prefix="/api/v1/oracle", tags=["oracle"])
-app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
-app.include_router(viral_sounds.router, prefix="/api/v1/viral-sounds", tags=["viral-sounds"])
-app.include_router(audio.router, prefix="/api/v1/audio", tags=["audio"])
-app.include_router(logic.router, prefix="/api/v1/logic", tags=["smart-logic"])
-app.include_router(batch.router, prefix="/api/v1/batch", tags=["batch-manager"])
-app.include_router(templates.router, prefix="/api/v1/templates", tags=["templates"])
-app.include_router(settings.router, prefix="/api/v1/system", tags=["settings"])
 app.include_router(debug_router.router, prefix="/api/v1", tags=["debug"])
 app.include_router(ws_router.router, tags=["websocket"])
 
@@ -148,3 +136,4 @@ def read_root():
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
+

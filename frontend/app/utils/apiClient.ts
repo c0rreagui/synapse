@@ -13,7 +13,7 @@ export const getApiUrl = () => {
                 return envUrl;
             }
             // Fallback to direct backend port for local dev excellence
-            return 'http://127.0.0.1:8000';
+            return 'http://localhost:8000';
         }
     }
 

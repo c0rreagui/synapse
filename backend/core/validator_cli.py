@@ -14,6 +14,10 @@ async def main():
         return
 
     profile_id = sys.argv[1]
+    headless = True
+    if "--headful" in sys.argv:
+        headless = False
+        # Remove flag so profile_id logic works if mixed (basic implementation)
     
     # Capture/suppress all other output
     import io
@@ -25,7 +29,7 @@ async def main():
     result = None
     try:
         with redirect_stdout(f_out), redirect_stderr(f_err):
-            result = await validate_profile(profile_id)
+            result = await validate_profile(profile_id, headless=headless)
     except Exception as e:
         # If it crashed, we return the error
         # We can optionally log f_err.getvalue() to a file if needed

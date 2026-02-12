@@ -49,17 +49,45 @@ async def execute_approved_video(
     logger.info(f"Iniciando execucao {'agendada' if is_scheduled else 'manual'}: {os.path.basename(video_input)}")
     
     # 1. Determine Source Path and Filename
-    if os.path.isabs(video_input):
-        source_path = video_input
-        video_filename = os.path.basename(video_input)
-        # If absolute, verify it exists
-        if not os.path.exists(source_path):
-             return {"status": ScheduleStatus.FAILED, "message": f"Source file not found: {source_path}"}
+    # [SYN-FIX] Handle Windows paths passed from Scheduler DB
+    if "\\" in video_input or "/" in video_input:
+        # It's likely a path (absolute or relative)
+        
+        # Simple Normalization:
+        # 1. Replace backslashes
+        clean_path = video_input.replace("\\", "/")
+        
+        # 2. Check existence as-is (best effort)
+        if os.path.exists(video_input):
+            source_path = video_input
+            video_filename = os.path.basename(video_input)
+        elif os.path.exists(clean_path):
+             source_path = clean_path
+             video_filename = os.path.basename(clean_path)
+        else:
+             # [SYN-FIX] Try mapping Windows Path (D:/...) to Docker (/app/...)
+             # We assume /app/data maps to D:/.../backend/data
+             from core.config import DATA_DIR
+             
+             # Heuristic: Find 'data' in path
+             parts = clean_path.split("/data/")
+             if len(parts) > 1:
+                 # Reconstruct relative to /app/data/
+                 relative = parts[-1]
+                 candidate = os.path.join(DATA_DIR, relative)
+                 if os.path.exists(candidate):
+                     source_path = candidate
+                     video_filename = os.path.basename(candidate)
+                 else:
+                     return {"status": ScheduleStatus.FAILED, "message": f"Source file not found (mapped): {candidate}"}
+             else:
+                 return {"status": ScheduleStatus.FAILED, "message": f"Source file not found: {video_input}"}
+
     else:
         # Relative to APPROVED_DIR (Legacy/Queue Worker mode)
         video_filename = video_input
         
-        # Security: Prevent Path Traversal
+        # Security: Prevent Path Traversal (Keep this for pure filenames)
         if ".." in video_filename or "/" in video_filename or "\\" in video_filename:
              logger.critical(f"🛑 ATTEMPTED PATH TRAVERSAL IN EXECUTOR: {video_filename}")
              return {"status": "error", "message": "Invalid filename (Path Traversal Detected)"}
@@ -89,11 +117,21 @@ async def execute_approved_video(
 
     
     # Extract profile from metadata or filename
-    profile_id = metadata.get('profile_id') or metadata.get('profile_slug') or metadata.get('tiktok_profile') or 'p1'
+    profile_id = metadata.get('profile_id') or metadata.get('profile_slug') or metadata.get('tiktok_profile')
+    
+    # [SYN-FIX] Fallback: Extract profile_id from filename if not in metadata
+    # Filenames follow pattern: ptiktok_profile_TIMESTAMP_HASH.mp4 or N_ptiktok_profile_TIMESTAMP_HASH.mp4
+    if not profile_id:
+        import re
+        match = re.search(r'p?(tiktok_profile_\d+)', video_filename)
+        if match:
+            profile_id = match.group(1)  # Already clean: tiktok_profile_TIMESTAMP
+            logger.info(f"Profile ID extraido do filename: {profile_id}")
+        else:
+            profile_id = 'p1'  # Legacy fallback
     
     # Convert short profile ID to full session name
-    # Convert short profile ID to full session name
-    if profile_id.startswith('p') and not profile_id.startswith('ptiktok'):
+    if profile_id.startswith('p') and not profile_id.startswith('ptiktok') and not profile_id.startswith('tiktok_profile_'):
         profile_number = profile_id[1:]
         session_name = f"tiktok_profile_{profile_number.zfill(2)}"
     elif profile_id.startswith('ptiktok'):
@@ -113,15 +151,24 @@ async def execute_approved_video(
             status_manager.update_status("error", logs=[f"Perfil {session_name} inativo. Re-autentique."])
             return {"status": "error", "message": "Profile is inactive (disabled in DB)"}
     
-    # [NEW] Pre-flight Session Validation (Studio Access)
-    # This prevents failures if the session is active in DB but expired in TikTok
-    status_manager.update_status(state="busy", step="Validando Sessão (Pre-flight)...", progress=8)
-    is_session_valid = await session_manager.validate_session_for_upload(session_name)
-    if not is_session_valid:
-        logger.error(f"🛑 Falha na validação de sessão para {session_name}. Marcando como inativo.")
-        session_manager.update_profile_status(session_name, False)
-        status_manager.update_status("error", logs=[f"Sessão de {session_name} expirada. Login necessário."])
-        return {"status": "error", "message": "Session expired (Login required)"}
+    # [SYN-FIX] Lightweight Pre-flight: Cookie-only check (no browser launch)
+    # The real session check happens inside uploader_monitored.py in the actual upload browser.
+    # Opening a separate headless browser here caused TikTok rate-limiting / false positives.
+    from core.session_manager import get_session_path, check_cookies_validity
+    session_file = get_session_path(session_name)
+    if os.path.exists(session_file):
+        try:
+            with open(session_file, 'r', encoding='utf-8') as _f:
+                _data = json.load(_f)
+                _cookies = _data.get("cookies", []) if isinstance(_data, dict) else _data
+            if not check_cookies_validity(_cookies):
+                logger.warning(f"Cookies expirados para {session_name}, mas tentando upload mesmo assim.")
+        except Exception:
+            pass
+    else:
+        logger.error(f"Arquivo de sessao nao encontrado: {session_file}")
+        status_manager.update_status("error", logs=[f"Sessao de {session_name} nao encontrada."])
+        return {"status": "error", "message": "Session file not found"}
     
     # 3. Move to processing (Unique Path to avoid Race Conditions)
     status_manager.update_status(

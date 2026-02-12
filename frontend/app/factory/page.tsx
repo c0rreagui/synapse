@@ -29,7 +29,9 @@ export default function FactoryPage() {
         try {
             const res = await fetch(`${API_BASE}/ingest/status`);
             if (res.ok) setStatus(await res.json());
-        } catch { /* Backend offline */ }
+        } catch (error) {
+            console.error('Failed to fetch ingestion status:', error);
+        }
     }, []);
 
     // WebSocket Integration
@@ -48,7 +50,9 @@ export default function FactoryPage() {
             await fetch(`${API_BASE}/content/scan`, { method: 'POST' });
             setLastScan(new Date().toLocaleTimeString('pt-BR'));
             await fetchStatus();
-        } catch { /* Error */ }
+        } catch (error) {
+            console.error('Failed to trigger scan:', error);
+        }
         setScanning(false);
     };
 

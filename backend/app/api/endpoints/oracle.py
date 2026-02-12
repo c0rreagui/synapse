@@ -234,6 +234,45 @@ async def analyze_video_url(video_url: str):
     from core.oracle.visual_cortex import visual_cortex
     import os
     import aiohttp
+    from urllib.parse import urlparse
+    
+    # [SECURITY] SSRF Protection - Validate URL
+    def is_safe_url(url: str) -> bool:
+        """Prevents SSRF by blocking private IPs, localhost, and non-HTTP schemes."""
+        try:
+            parsed = urlparse(url)
+            hostname = parsed.hostname
+            
+            if not hostname:
+                return False
+            
+            # Block localhost
+            if hostname in ['localhost', '127.0.0.1', '0.0.0.0', '::1']:
+                return False
+            
+            # Block private IP ranges
+            if hostname.startswith('192.168.') or hostname.startswith('10.'):
+                return False
+            if hostname.startswith('172.'):
+                parts = hostname.split('.')
+                if len(parts) >= 2 and parts[1].isdigit():
+                    if 16 <= int(parts[1]) <= 31:
+                        return False
+            
+            # Block metadata endpoints
+            if hostname.startswith('169.254.'):  # AWS metadata
+                return False
+            
+            # Only allow HTTP/HTTPS
+            if parsed.scheme not in ['http', 'https']:
+                return False
+            
+            return True
+        except Exception:
+            return False
+    
+    if not is_safe_url(video_url):
+        raise HTTPException(status_code=400, detail="Invalid or unsafe video URL")
     
     # Quick hack to download video to temp
     local_filename = f"temp_video_{os.urandom(4).hex()}.mp4"
@@ -241,7 +280,7 @@ async def analyze_video_url(video_url: str):
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(video_url) as resp:
+            async with session.get(video_url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
                 if resp.status == 200:
                     with open(local_path, 'wb') as f:
                         f.write(await resp.read())

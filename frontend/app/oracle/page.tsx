@@ -116,7 +116,9 @@ export default function OraclePage() {
                 setProfiles(data);
                 if (data.length > 0) setSelectedProfileId(data[0].id);
             })
-            .catch(() => { });
+            .catch((error) => {
+                console.error('Failed to load profiles:', error);
+            });
     }, []);
 
     // Fetch Analytics when tab is active and profile selected
@@ -211,6 +213,9 @@ export default function OraclePage() {
             });
             const data = await res.json();
             setBioOptions(data.options || []);
+        } catch (error) {
+            console.error('Failed to fix bio:', error);
+            toast.error('Erro ao gerar bio.');
         } finally {
             setLoading(false);
         }
@@ -247,6 +252,9 @@ export default function OraclePage() {
             });
             const data = await res.json();
             setHashtagResult(data);
+        } catch (error) {
+            console.error('Failed to run hashtags:', error);
+            toast.error('Erro ao gerar hashtags.');
         } finally {
             setLoading(false);
         }

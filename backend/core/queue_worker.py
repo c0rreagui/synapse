@@ -174,7 +174,7 @@ async def worker_loop():
                     status_manager.update_status("idle", progress=100, step="Concluído com sucesso", logs=[f"Finalizado em {duration:.1f}s"])
                 else:
                     status_manager.update_status("error", step="Falha no processamento", logs=[result.get('message', 'Erro desconhecido')])
-                    time.sleep(5) # Pause to let user see error status before idle
+                    await asyncio.sleep(5) # Pause to let user see error status before idle
                     status_manager.set_idle()
                 
             except Exception as e:

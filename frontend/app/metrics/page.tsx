@@ -24,7 +24,7 @@ export default function MetricsPage() {
                 setStatus(data);
                 setHistory(prev => [...prev.slice(-11), data]); // Keep last 12 data points
             }
-        } catch { }
+        } catch (error) { \n            console.error('Failed to fetch metrics status:', error); \n }
         setLastUpdate(new Date().toLocaleTimeString('pt-BR'));
     }, []);
 

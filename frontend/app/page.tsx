@@ -286,7 +286,10 @@ export default function Home() {
           try {
             await fetch(`${API_BASE}/queue/${id}`, { method: 'DELETE' });
             successCount++;
-          } catch (e) { console.error(`Failed to delete ${id}`, e); }
+          } catch (e) {
+            console.error(`Failed to delete ${id}`, e);
+            toast.error(`Erro ao rejeitar video ${id}`);
+          }
         }
 
         toast.success(`${successCount} vídeos rejeitados`);
@@ -298,23 +301,38 @@ export default function Home() {
   };
 
   const handleBulkApprove = async () => {
-    if (!confirm(`Aprovar ${selectedItems.size} vídeos (Imediato)?`)) return;
+    setConfirmModal({
+      isOpen: true,
+      title: `Aprovar ${selectedItems.size} videos (Imediato)?`,
+      type: 'success',
+      onConfirm: async () => {
+        let successCount = 0;
+        let failCount = 0;
+        for (const id of Array.from(selectedItems)) {
+          try {
+            await fetch(`${API_BASE}/queue/approve`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id, action: 'immediate' })
+            });
+            successCount++;
+          } catch (e) {
+            console.error(`Failed to approve ${id}`, e);
+            failCount++;
+          }
+        }
 
-    let successCount = 0;
-    for (const id of Array.from(selectedItems)) {
-      try {
-        await fetch(`${API_BASE}/queue/approve`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, action: 'immediate' })
-        });
-        successCount++;
-      } catch (e) { console.error(`Failed to approve ${id}`, e); }
-    }
-
-    toast.success(`${successCount} vídeos aprovados!`);
-    setSelectedItems(new Set());
-    fetchAllData();
+        if (failCount > 0) {
+          toast.error(`${failCount} videos falharam ao aprovar`);
+        }
+        if (successCount > 0) {
+          toast.success(`${successCount} videos aprovados!`);
+        }
+        setSelectedItems(new Set());
+        fetchAllData();
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
   };
 
   const formatDate = (dateStr: string) => {

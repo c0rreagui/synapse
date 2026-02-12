@@ -1,17 +1,19 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { toast } from 'sonner';
 import Link from 'next/link';
 // // import Sidebar from '../components/Sidebar';
 import { TikTokProfile } from '../types';
 import useWebSocket from '../hooks/useWebSocket';
 import {
-    ArrowLeftIcon, CheckCircleIcon, PlusIcon, TrashIcon, UserGroupIcon, ArrowPathIcon
+    ArrowLeftIcon, CheckCircleIcon, PlusIcon, TrashIcon, UserGroupIcon, ArrowPathIcon, ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import { StitchCard } from '../components/StitchCard';
 import { NeonButton } from '../components/NeonButton';
 import clsx from 'clsx';
 import Modal from '../components/Modal';
+import ProfileRepairModal from '../components/ProfileRepairModal'; // [SYN-UX] New Import
 
 import { getApiUrl } from '../utils/apiClient';
 
@@ -25,6 +27,7 @@ export default function ProfilesPage() {
     const [importCookies, setImportCookies] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [refreshingProfiles, setRefreshingProfiles] = useState<Record<string, boolean>>({});
+    const [refreshErrors, setRefreshErrors] = useState<Record<string, string | null>>({});
     const [isRefreshingAll, setIsRefreshingAll] = useState(false);
 
     // BULK ACTIONS STATE
@@ -42,6 +45,17 @@ export default function ProfilesPage() {
     const [importUsername, setImportUsername] = useState('');
     const [importAvatar, setImportAvatar] = useState('');
     const [validatingCookies, setValidatingCookies] = useState(false);
+
+    // [SYN-UX] Repair Modal State (Replaces old manual/auto states)
+    const [repairProfile, setRepairProfile] = useState<TikTokProfile | null>(null);
+
+    // CONFIRM MODAL STATE (Missing in original file but used in render? Added for safety)
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean;
+        title: string;
+        type: 'delete' | 'success' | 'warning';
+        onConfirm: () => void;
+    }>({ isOpen: false, title: '', type: 'success', onConfirm: () => { } });
 
     // HELPERS
     const getHealthStatus = (profile: TikTokProfile) => {
@@ -93,11 +107,15 @@ export default function ProfilesPage() {
                 } else {
                     const err = await res.json().catch(() => ({ detail: res.statusText }));
                     console.error("Delete failed:", err);
-                    alert(`Falha ao excluir perfil: ${err.detail || "Erro desconhecido"}`);
+                    toast.error('Falha ao excluir', {
+                        description: err.detail || 'Erro desconhecido'
+                    });
                 }
             } catch (e) {
                 console.error("Delete failed", e);
-                alert(`Erro de conexão ao excluir: ${e}`);
+                toast.error('Erro de conexao', {
+                    description: 'Falha ao excluir perfil'
+                });
             }
 
             // Remove from pending list (cleanup)
@@ -188,13 +206,19 @@ export default function ProfilesPage() {
                 if (data.username) setImportUsername(data.username);
                 if (data.avatar_url) setImportAvatar(data.avatar_url);
                 if (!importLabel && data.username) setImportLabel(data.username); // Auto-set label too if empty
-                alert("Cookies válidos! Dados preenchidos.");
+                toast.success('Cookies validos!', {
+                    description: 'Dados preenchidos automaticamente'
+                });
             } else {
-                alert(`Erro na validação: ${data.error || "Sessão inválida"}`);
+                toast.error('Erro na validacao', {
+                    description: data.error || 'Sessao invalida'
+                });
             }
         } catch (e) {
             console.error(e);
-            alert("Erro ao validar: JSON inválido ou falha na conexão.");
+            toast.error('Erro ao validar', {
+                description: 'JSON invalido ou falha na conexao'
+            });
         }
         setValidatingCookies(false);
     };
@@ -227,16 +251,22 @@ export default function ProfilesPage() {
                 fetchProfiles(); // Refresh list
             } else {
                 const err = await res.json();
-                alert(`Erro: ${err.detail}`);
+                toast.error('Erro ao importar', {
+                    description: err.detail || 'Falha na importacao'
+                });
             }
         } catch (e) {
             console.error(e);
-            alert('JSON inválido ou erro de conexão.');
+            toast.error('Erro de validacao', {
+                description: 'JSON invalido ou erro de conexao'
+            });
         }
     };
 
     const handleRefreshAvatar = async (profileId: string) => {
         setRefreshingProfiles(prev => ({ ...prev, [profileId]: true }));
+        setRefreshErrors(prev => ({ ...prev, [profileId]: null })); // Clear errors
+
         try {
             const res = await fetch(`${API_BASE}/profiles/refresh-avatar/${profileId}`, { method: 'POST' });
             const data = await res.json().catch(() => ({}));
@@ -245,17 +275,19 @@ export default function ProfilesPage() {
                 // Success - the WebSocket should handle the update, but we refetch to be sure
                 fetchProfiles();
             } else {
-                // Specific error handling
-                if (data.detail && data.detail.includes("Session Expired")) {
-                    alert(`Sessão Expirada: O perfil "${profiles.find(p => p.id === profileId)?.label}" precisa de novos cookies.`);
-                } else if (data.detail && data.detail.includes("Target page, context or browser has been closed")) {
-                    alert("O navegador fechou inesperadamente. Tentando novamente pode resolver.");
-                } else {
-                    alert(`Erro no Refresh: ${data.detail || "Falha na comunicação com o TikTok"}`);
+                let errorMessage = data.detail || "Falha na comunicação com o TikTok";
+
+                // Friendly error mapping
+                if (errorMessage.includes("Session Expired")) {
+                    errorMessage = "Sessão Expirada. Renove os cookies.";
+                } else if (errorMessage.includes("Target page, context or browser has been closed")) {
+                    errorMessage = "Navegador fechou. Tente novamente.";
                 }
+
+                setRefreshErrors(prev => ({ ...prev, [profileId]: errorMessage }));
             }
         } catch (e) {
-            alert(`Erro de conexão: Não foi possível alcançar o servidor Synapse.`);
+            setRefreshErrors(prev => ({ ...prev, [profileId]: "Erro de conexão com o Synapse." }));
         }
         setRefreshingProfiles(prev => ({ ...prev, [profileId]: false }));
     };
@@ -268,8 +300,16 @@ export default function ProfilesPage() {
         return '👤';
     };
 
+    // [SYN-UX] Repair Session Handler - Removed manual logic in favor of ProfileRepairModal
+    // New simplified handler (although direct setter can be used too)
+    const handleOpenRepair = (profile: TikTokProfile) => {
+        setRepairProfile(profile);
+    };
+
     return (
         <>
+
+
             {/* UNDO TOAST CONTAINER */}
             <div className="fixed bottom-8 right-8 z-50 flex flex-col gap-2 pointer-events-none">
                 {Array.from(pendingDeletes).map(id => {
@@ -316,17 +356,23 @@ export default function ProfilesPage() {
                     <NeonButton
                         variant="ghost"
                         onClick={async () => {
-                            if (confirm("Atualizar todos os perfis sequencialmente? Isso pode levar algum tempo.")) {
-                                setIsRefreshingAll(true);
-                                try {
-                                    for (const p of profiles) {
-                                        await handleRefreshAvatar(p.id);
+                            setConfirmModal({
+                                isOpen: true,
+                                title: "Atualizar todos os perfis sequencialmente?",
+                                type: 'success',
+                                onConfirm: async () => {
+                                    setIsRefreshingAll(true);
+                                    try {
+                                        for (const p of profiles) {
+                                            await handleRefreshAvatar(p.id);
+                                        }
+                                        toast.success('Todos os perfis atualizados!');
+                                    } finally {
+                                        setIsRefreshingAll(false);
+                                        setConfirmModal(prev => ({ ...prev, isOpen: false }));
                                     }
-                                    alert("Todos os perfis foram atualizados!");
-                                } finally {
-                                    setIsRefreshingAll(false);
                                 }
-                            }
+                            });
                         }}
                         disabled={isRefreshingAll || Object.values(refreshingProfiles).some(v => v)}
                         className="text-xs"
@@ -352,6 +398,8 @@ export default function ProfilesPage() {
                         if (pendingDeletes.has(profile.id)) return null;
                         const health = getHealthStatus(profile);
                         const isSelected = selectedIds.has(profile.id);
+                        const refreshError = refreshErrors[profile.id];
+                        const isRefreshing = refreshingProfiles[profile.id];
 
                         return (
                             <StitchCard
@@ -371,23 +419,55 @@ export default function ProfilesPage() {
                                     />
                                 </div>
 
+                                {/* ERROR OVERLAY */}
+                                {refreshError && (
+                                    <div className="absolute inset-0 z-30 bg-black/90 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in border border-red-500/30">
+                                        <ExclamationTriangleIcon className="w-8 h-8 text-red-500 mb-3 animate-pulse" />
+                                        <p className="text-sm text-white font-bold mb-1">Falha na Atualização</p>
+                                        <p className="text-xs text-red-300 mb-4 leading-tight opacity-90 font-mono bg-red-900/20 p-2 rounded">{refreshError}</p>
+
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setRefreshErrors(prev => ({ ...prev, [profile.id]: null })); }}
+                                                className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-xs text-white font-bold transition-all border border-white/5 hover:border-white/20"
+                                            >
+                                                FECHAR
+                                            </button>
+
+                                            {/* RENEW BUTTON */}
+                                            {refreshError.includes("cookies") && (
+                                                <NeonButton
+                                                    variant="primary"
+                                                    onClick={(e) => { e.stopPropagation(); handleOpenUpdateModal(profile); }}
+                                                    className="!py-1 !px-4 !text-[10px]"
+                                                >
+                                                    RENOVAR COOKIES
+                                                </NeonButton>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* REFRESHING FULL OVERLAY (with text) */}
+                                {isRefreshing && (
+                                    <div className="absolute inset-0 z-20 bg-black/80 backdrop-blur-[2px] rounded-xl flex flex-col items-center justify-center animate-in fade-in duration-300">
+                                        <ArrowPathIcon className="w-8 h-8 text-synapse-primary animate-spin mb-3" />
+                                        <p className="text-xs font-bold text-white tracking-wider animate-pulse">ATUALIZANDO...</p>
+                                        <p className="text-[10px] text-synapse-primary/70 mt-1 font-mono">Verificando sessão</p>
+                                    </div>
+                                )}
+
                                 <div className="flex items-center justify-between mb-4 pr-6">
                                     <div className="flex items-center gap-3">
                                         {/* Avatar Logic */}
                                         <div className="relative">
-                                            {/* REFRESHING OVERLAY */}
-                                            {refreshingProfiles[profile.id] && (
-                                                <div className="absolute inset-0 z-20 bg-black/60 rounded-full flex items-center justify-center">
-                                                    <ArrowPathIcon className="w-6 h-6 text-synapse-primary animate-spin" />
-                                                </div>
-                                            )}
                                             {profile.avatar_url ? (
                                                 <img
                                                     src={profile.avatar_url}
                                                     alt={profile.label}
                                                     className={clsx(
                                                         "w-12 h-12 rounded-full object-cover bg-[#30363d] ring-2 ring-transparent group-hover:ring-synapse-primary/50 transition-all",
-                                                        refreshingProfiles[profile.id] && "blur-[1px]"
+                                                        isRefreshing && "blur-[2px] opacity-50"
                                                     )}
                                                     onError={(e) => {
                                                         // Fallback on error
@@ -449,6 +529,19 @@ export default function ProfilesPage() {
                                     )}
                                 </div>
 
+                                {/* [SYN-UX] Error Recovery Actions */}
+                                {health === 'error' || health === 'expired' ? ( // Show for both error and expired
+                                    <div className="flex gap-2 mb-4 animate-in fade-in">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setRepairProfile(profile); }}
+                                            className="flex-1 px-3 py-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] font-bold hover:bg-amber-500/20 transition-all flex items-center justify-center gap-1.5 shadow-[0_0_10px_rgba(245,158,11,0.1)]"
+                                        >
+                                            <ExclamationTriangleIcon className="w-3 h-3" />
+                                            REPARAR SESSÃO
+                                        </button>
+                                    </div>
+                                ) : null}
+
 
                                 <div className="grid grid-cols-2 gap-3 mb-4">
                                     <div className="p-3 rounded-lg bg-black/30 border border-white/5">
@@ -469,17 +562,17 @@ export default function ProfilesPage() {
                                     {/* Refresh Avatar Button */}
                                     <button
                                         onClick={() => handleRefreshAvatar(profile.id)}
-                                        disabled={refreshingProfiles[profile.id]}
+                                        disabled={isRefreshing}
                                         className={clsx(
                                             "p-2.5 rounded-lg bg-[#1c2128] border border-white/10 text-gray-400 hover:text-white hover:border-synapse-primary/50 transition-all",
-                                            refreshingProfiles[profile.id] && "opacity-50 cursor-not-allowed"
+                                            isRefreshing && "opacity-20 cursor-not-allowed"
                                         )}
                                         title="Atualizar avatar do TikTok"
                                     >
                                         <ArrowPathIcon
                                             className={clsx(
                                                 "w-4 h-4",
-                                                refreshingProfiles[profile.id] && "animate-spin text-synapse-primary"
+                                                isRefreshing && "animate-spin text-synapse-primary"
                                             )}
                                         />
                                     </button>
@@ -536,15 +629,18 @@ export default function ProfilesPage() {
                             </button>
                             <button
                                 onClick={() => {
-                                    if (confirm(`Excluir ${selectedIds.size} perfis selecionados?`)) {
-                                        // Bulk delete logic would go here - for now just alert
-                                        // Ideally we iterate and call delete, or have a bulk endpoint
-                                        Array.from(selectedIds).forEach(id => {
-                                            // Optimistic delete logic will be better here, but for now standard:
-                                            fetch(`${API_BASE}/profiles/${id}`, { method: 'DELETE' }).then(() => fetchProfiles());
-                                        });
-                                        setSelectedIds(new Set());
-                                    }
+                                    setConfirmModal({
+                                        isOpen: true,
+                                        title: `Excluir ${selectedIds.size} perfis selecionados?`,
+                                        type: 'delete',
+                                        onConfirm: () => {
+                                            Array.from(selectedIds).forEach(id => {
+                                                fetch(`${API_BASE}/profiles/${id}`, { method: 'DELETE' }).then(() => fetchProfiles());
+                                            });
+                                            setSelectedIds(new Set());
+                                            setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                                        }
+                                    });
                                 }}
                                 className="p-2 rounded-full hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
                                 title="Excluir Selecionados"
@@ -623,6 +719,38 @@ export default function ProfilesPage() {
                 </div>
             </Modal>
 
+            {/* [SYN-UX] GLOBAL CONFIRM MODAL (Added generic support) */}
+            <Modal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                title={confirmModal.title}
+            >
+                <div className="flex justify-end gap-3 mt-6">
+                    <NeonButton variant="ghost" onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}>
+                        Cancelar
+                    </NeonButton>
+                    <NeonButton
+                        variant={confirmModal.type === 'delete' ? 'primary' : 'primary'}
+                        onClick={confirmModal.onConfirm}
+                        className={confirmModal.type === 'delete' ? '!bg-red-500/20 !text-red-500 hover:!bg-red-500/30' : ''}
+                    >
+                        Confirmar
+                    </NeonButton>
+                </div>
+            </Modal>
+
+            {/* [SYN-UX] New Repair Modal - Replaces UpdateCookiesModal */}
+            <ProfileRepairModal
+                isOpen={!!repairProfile}
+                onClose={() => setRepairProfile(null)}
+                profile={repairProfile}
+                onSuccess={() => {
+                    if (repairProfile) {
+                        handleRefreshAvatar(repairProfile.id); // Auto-verify after repair
+                    }
+                }}
+            />
+
             {/* Import Modal */}
             <Modal
                 isOpen={showImportModal}
@@ -693,4 +821,5 @@ export default function ProfilesPage() {
             </Modal>
         </>
     );
+
 }

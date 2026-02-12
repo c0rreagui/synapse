@@ -8,6 +8,7 @@ import { LayoutDashboard, Radio, Search, Users, Settings, Activity, Calendar, Fi
 // Wait, I used local utils in Atoms. I should stick to consistency.
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { toast } from 'sonner';
 
 function cnLocal(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
@@ -42,14 +43,26 @@ export const NeoSidebar = React.forwardRef<HTMLDivElement, NeoSidebarProps>(
     ({ className, logo, collapsed = false, onToggle, ...props }, ref) => {
         const pathname = usePathname();
         const [inactiveCount, setInactiveCount] = React.useState(0);
+        const [firstInactiveId, setFirstInactiveId] = React.useState<string | null>(null);
+        const [isRepairing, setIsRepairing] = React.useState(false);
 
         React.useEffect(() => {
             const checkProfileHealth = async () => {
                 try {
-                    const res = await fetch('http://localhost:8000/api/v1/profiles/list');
+                    const res = await fetch('http://localhost:8000/api/v1/profiles');
                     const data = await res.json();
-                    const count = data.filter((p: any) => !p.active).length;
-                    setInactiveCount(count);
+                    // Detect profiles with errors: health_status error OR has error screenshot
+                    const inactive = data.filter((p: any) =>
+                        p.health_status === 'error' ||
+                        p.health_status === 'expired' ||
+                        p.last_error_screenshot
+                    );
+                    setInactiveCount(inactive.length);
+                    if (inactive.length > 0) {
+                        setFirstInactiveId(inactive[0].id);
+                    } else {
+                        setFirstInactiveId(null);
+                    }
                 } catch (e) {
                     console.error("Error checking profile health:", e);
                 }
@@ -127,6 +140,69 @@ export const NeoSidebar = React.forwardRef<HTMLDivElement, NeoSidebarProps>(
                         )
                     })}
                 </nav>
+
+                {/* Repair Button (Visible if issues exist) */}
+                {inactiveCount > 0 && firstInactiveId && (
+                    <div className={cnLocal(
+                        "my-2 transition-all duration-300",
+                        collapsed ? "px-0 flex justify-center" : "px-4"
+                    )}>
+                        <button
+                            onClick={async () => {
+                                if (!firstInactiveId || isRepairing) return;
+                                setIsRepairing(true);
+
+                                const toastId = toast.loading('Abrindo browser para reparo...');
+
+                                try {
+                                    const res = await fetch(`http://localhost:8000/api/v1/profiles/repair/${firstInactiveId}`, { method: 'POST' });
+                                    if (res.ok) {
+                                        toast.success('Browser aberto no servidor!', {
+                                            id: toastId,
+                                            description: 'Complete o login e feche o navegador.',
+                                            duration: 8000
+                                        });
+                                    } else {
+                                        const err = await res.json().catch(() => ({ detail: 'Erro desconhecido' }));
+                                        toast.error('Erro ao abrir reparo', {
+                                            id: toastId,
+                                            description: err.detail || 'Perfil pode estar ocupado'
+                                        });
+                                    }
+                                } catch (e) {
+                                    toast.error('Erro de conexao', { id: toastId });
+                                } finally {
+                                    setIsRepairing(false);
+                                }
+                            }}
+                            className={cnLocal(
+                                "flex items-center gap-3 w-full rounded-xl border transition-all duration-300 group relative overflow-hidden",
+                                isRepairing
+                                    ? "bg-yellow-500/20 border-yellow-500/50 text-yellow-500"
+                                    : "bg-red-500/10 border-red-500/30 hover:bg-red-500/20 text-red-400 hover:text-red-300",
+                                collapsed ? "justify-center p-3" : "px-4 py-3"
+                            )}
+                            title={collapsed ? "Reparar Sessão" : undefined}
+                        >
+                            {isRepairing ? (
+                                <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin shrink-0" />
+                            ) : (
+                                <Activity className="w-5 h-5 shrink-0" /> // Using Activity as Wrench is not imported yet
+                            )}
+
+                            <span className={cnLocal(
+                                "font-bold text-sm whitespace-nowrap overflow-hidden transition-all duration-300",
+                                collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
+                            )}>
+                                {isRepairing ? "Abrindo..." : "Reparar Sessão"}
+                            </span>
+
+                            {!collapsed && !isRepairing && (
+                                <span className="absolute right-2 w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                            )}
+                        </button>
+                    </div>
+                )}
 
                 {/* Status Footer */}
                 <StatusFooter collapsed={collapsed} />

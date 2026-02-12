@@ -1,32 +1,55 @@
 import asyncio
 import logging
+import os # Added import
 from typing import Dict, Optional
-from core.session_manager import get_session_path, update_profile_info, update_profile_metadata, update_profile_status, get_profile_metadata
+from core.session_manager import get_session_path, update_profile_info, update_profile_metadata, update_profile_status, get_profile_metadata, get_profile_user_agent
 
 logger = logging.getLogger(__name__)
 
 
-async def validate_profile(profile_id: str) -> Dict:
+async def validate_profile(profile_id: str, headless: bool = True) -> Dict:
     """
     Launches browser with profile cookies, navigates to TikTok,
     extracts avatar and nickname using Context JSON, and updates the profile metadata.
     """
-    logger.info(f"🕵️ Validating profile: {profile_id}")
+    logger.info(f"🕵️ Validating profile: {profile_id} (Headless: {headless})")
     
     session_path = get_session_path(profile_id)
+    
+    # NEW: Persistent Context Logic
+    # We check if a context dir exists. If so, we use it.
+    from core.session_manager import get_context_path
+    context_path = get_context_path(profile_id)
+    use_persistent = os.path.exists(context_path)
+    
     p = None
     browser = None
     
     try:
         # Launch headless browser with stealth
         from core.browser import launch_browser, close_browser
+        from core.network_utils import get_random_user_agent, DEFAULT_UA
         
-        from core.network_utils import get_random_user_agent
-        p, browser, context, page = await launch_browser(
-            headless=True, 
-            storage_state=session_path,
-            user_agent=get_random_user_agent()
-        )
+        # [SYN-FIX] FORCE Desktop UA for validation. The tiktokstudio/upload route
+        # is a DESKTOP-ONLY feature. Using a Mobile UA (like iPhone) causes TikTok
+        # to redirect to the App Store (onelink.me), which breaks the session check.
+        # The stored profile UA is preserved for other operations, but validation MUST use Desktop.
+        user_agent = DEFAULT_UA
+        
+        launch_kwargs = {
+            "headless": headless,
+            "user_agent": user_agent
+        }
+        
+        if use_persistent:
+            launch_kwargs["user_data_dir"] = context_path
+            # When using persistent context, cookies are loaded from the dir automatically.
+            # We don't necessarily need storage_state, but we can update it later.
+            logger.info(f"Using Persistent Context at {context_path}")
+        else:
+            launch_kwargs["storage_state"] = session_path
+            
+        p, browser, context, page = await launch_browser(**launch_kwargs)
         
         # Navigate to TikTok Studio upload page
         # This page contains the __Creator_Center_Context__ with full user info
@@ -45,13 +68,18 @@ async def validate_profile(profile_id: str) -> Dict:
                 logger.warning(f"Navigation attempt {attempt+1} failed ({e}), retrying {attempt+2}/{max_retries+1}...")
                 await asyncio.sleep(2)
         
-        # 🛡️ SECURITY CHECK: Detect Login Redirect (Dead Session/Limited Access)
+        # SECURITY CHECK: Detect Login Redirect (Dead Session/Limited Access)
         current_url = page.url
         if "login" in current_url or "tiktok.com" not in current_url:
-            logger.error(f"❌ SESSÃO MORTA DETECTADA EM VALIDAÇÃO! Redirecionado para login: {current_url}")
+            logger.error(f"SESSAO MORTA DETECTADA EM VALIDACAO! Redirecionado para login: {current_url}")
             # Mark as inactive immediately
-            update_profile_status(profile_id, False)
+            # update_profile_status(profile_id, False)
             raise Exception("Session Expired - Login Required")
+        
+        # [SYN-FIX] Check for Mobile -> App Store Redirect
+        if "onelink.me" in current_url:
+            logger.error(f"REDIRECIONAMENTO PARA APP STORE DETECTADO! URL: {current_url}")
+            raise Exception("Session Expired - Mobile Redirect Detected")
         
         # Wait for the page to reach a stable state where the context script is likely present
         try:
@@ -126,6 +154,11 @@ async def validate_profile(profile_id: str) -> Dict:
             if update_success:
                 # Reactivate profile since validation was successful
                 update_profile_status(profile_id, True)
+                
+                # [SYN-FIX] Clear error state so frontend shows ATIVO not ERRO
+                # Frontend getHealthStatus checks last_error_screenshot FIRST
+                update_profile_metadata(profile_id, {"last_error_screenshot": None})
+                
                 logger.info("Profile updated and reactivated successfully!")
                 return {
                     "status": "success",
@@ -289,6 +322,7 @@ async def validate_profile(profile_id: str) -> Dict:
                         
                          # Reactivate profile since validation was successful
                          update_profile_status(profile_id, True)
+                         update_profile_metadata(profile_id, {"last_error_screenshot": None})
                          
                          return {
                             "status": "success",
@@ -316,6 +350,7 @@ async def validate_profile(profile_id: str) -> Dict:
         if update_success:
             # Reactivate profile since validation was successful
             update_profile_status(profile_id, True)
+            update_profile_metadata(profile_id, {"last_error_screenshot": None})
             return {
                 "status": "success",
                 "profile_id": profile_id, 
@@ -329,7 +364,7 @@ async def validate_profile(profile_id: str) -> Dict:
         logger.error(f"Validation failed for {profile_id}: {e}")
         
         # Mark session as invalid in DB
-        update_profile_status(profile_id, False) # active=False
+        # update_profile_status(profile_id, False) # active=False
         
         # Capture Screenshot for Visual Debugging
         screenshot_url = None

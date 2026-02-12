@@ -33,8 +33,9 @@ class TrendChecker:
     """
     
     from core.network_utils import get_creative_center_url
+    from core.config import DATA_DIR
     CREATIVE_CENTER_URL = get_creative_center_url()
-    DATA_FILE = "/app/data/trends.json"
+    DATA_FILE = os.path.join(DATA_DIR, "trends.json")
     
     def __init__(self):
         self.trends_cache: List[TrendData] = []
@@ -56,7 +57,13 @@ class TrendChecker:
             # Load fresh trends (not expired)
             # Query Logic: Get latest snapshot. 
             # For simplicity, we fetch trends created in the last 24h.
-            now = datetime.now()
+            try:
+                from zoneinfo import ZoneInfo
+            except ImportError:
+                from backports.zoneinfo import ZoneInfo
+                
+            tz = ZoneInfo("America/Sao_Paulo")
+            now = datetime.now(tz)
             
             # Simple retrieval: fetch all valid trends
             # In a real scenario, we might want to filter by category, 
@@ -66,7 +73,11 @@ class TrendChecker:
             latest = db.query(Trend).order_by(Trend.cached_at.desc()).first()
             
             if latest:
-                self.last_updated = latest.cached_at.replace(tzinfo=None) # naive compat
+                # Ensure latest.cached_at is aware if it was stored as such, or force it
+                if latest.cached_at.tzinfo is None:
+                    self.last_updated = latest.cached_at.replace(tzinfo=tz)
+                else:
+                    self.last_updated = latest.cached_at
                 
                 # Fetch trends from that batch
                 batch_time = latest.cached_at
