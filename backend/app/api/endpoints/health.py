@@ -1,52 +1,94 @@
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 import os
 import json
 import time
 from datetime import datetime
+from sqlalchemy import text
+from core.database import SessionLocal
+from core.queue_manager import QueueManager
+from core.storage import s3_storage
 from core.config import DATA_DIR
+import logging
 
 router = APIRouter()
+logger = logging.getLogger("Health")
 
-@router.get("/sonar")
-def get_sonar_status():
-    """
-    Returns the real-time status of the background scheduler.
-    """
+def check_db():
+    try:
+        db = SessionLocal()
+        db.execute(text("SELECT 1"))
+        db.close()
+        return True, "connected"
+    except Exception as e:
+        return False, str(e)
+
+async def check_redis():
+    try:
+        pool = await QueueManager.get_pool()
+        # Arq pool doesn't strictly have ping, but we can check health
+        # or use raw redis connection. 
+        # For arq, generally if we can get pool, we are good?
+        # Let's try to enqueue a dummy or just use the pool's internal redis
+        # Arq doesn't expose raw redis easily without creating a job?
+        # Actually QueueManager.get_pool() returns an ArqRedis instance
+        await pool.ping()
+        return True, "connected"
+    except Exception as e:
+        return False, str(e)
+
+def check_minio():
+    try:
+        # Check if bucket exists
+        s3_storage.client.head_bucket(Bucket=s3_storage.bucket)
+        return True, "connected"
+    except Exception as e:
+        return False, str(e)
+
+def check_scheduler():
     hb_path = os.path.join(DATA_DIR, "scheduler_heartbeat.json")
-    
-    status = {
-        "status": "offline", # offline, running, stalled
-        "latency_seconds": -1,
-        "last_beat": None,
-        "pid": None
-    }
-    
     if not os.path.exists(hb_path):
-        return status
+        return False, "no_heartbeat_file"
         
     try:
         with open(hb_path, 'r') as f:
             data = json.load(f)
-            
         last_ts = data.get("timestamp", 0)
-        now = time.time()
-        latency = now - last_ts
-        
-        status["last_beat"] = data.get("last_beat")
-        status["pid"] = data.get("pid")
-        status["latency_seconds"] = round(latency, 2)
-        
-        # Determine health
-        if latency < 90: # Loop runs every 60s, so <90 is safe
-            status["status"] = "running"
-        elif latency < 180:
-            status["status"] = "stalled" # Late but maybe busy
-        else:
-            status["status"] = "offline" # > 3 min delay
-            
-        return status
-        
+        latency = time.time() - last_ts
+        if latency < 120:
+            return True, f"running_latency_{int(latency)}s"
+        return False, f"stalled_latency_{int(latency)}s"
     except Exception as e:
-        status["error"] = str(e)
-        return status
+        return False, str(e)
+
+@router.get("/")
+async def health_check():
+    """
+    Comprehensive System Health Check
+    """
+    db_ok, db_msg = check_db()
+    redis_ok, redis_msg = await check_redis()
+    minio_ok, minio_msg = check_minio()
+    sched_ok, sched_msg = check_scheduler()
+    
+    status = "healthy" if all([db_ok, redis_ok, minio_ok]) else "unhealthy"
+    
+    return {
+        "status": status,
+        "timestamp": datetime.now().isoformat(),
+        "components": {
+            "database": {"ok": db_ok, "message": db_msg},
+            "redis": {"ok": redis_ok, "message": redis_msg},
+            "minio": {"ok": minio_ok, "message": minio_msg},
+            "scheduler": {"ok": sched_ok, "message": sched_msg}
+        }
+    }
+
+@router.get("/sonar")
+def get_sonar_status():
+    """Legacy Endpoint for Scheduler"""
+    ok, msg = check_scheduler()
+    return {
+        "status": "running" if ok else "offline",
+        "details": msg
+    }

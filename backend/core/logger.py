@@ -25,6 +25,18 @@ class JsonLogger:
         """Sets the async callback for real-time updates."""
         self.async_callback = callback
 
+    def info(self, message: str, source: str = "system"):
+        return self.log("info", message, source)
+
+    def warning(self, message: str, source: str = "system"):
+        return self.log("warning", message, source)
+
+    def error(self, message: str, source: str = "system", exc_info=None):
+        return self.log("error", message, source)
+    
+    def critical(self, message: str, source: str = "system"):
+        return self.log("critical", message, source)
+
     def _load_from_file(self):
         """Loads last N logs from file into memory."""
         if not os.path.exists(self.file_path):

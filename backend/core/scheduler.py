@@ -11,6 +11,7 @@ from core.database import SessionLocal
 from core.models import ScheduleItem
 from core.logger import logger
 from core.consts import ScheduleStatus
+from core.database_utils import with_db_retries, retry_db_op
 # [SYN-FIX] Path Normalization: Docker <-> Windows
 # When running locally on Windows, video_paths stored as Docker paths won't work.
 # This function translates them to the correct local path.
@@ -39,6 +40,7 @@ class Scheduler:
         self.semaphore = asyncio.Semaphore(1) # [SYN-FIX] Limit to 1 concurrent upload to save RAM
 
 
+    @with_db_retries()
     def load_schedule(self) -> List[Dict]:
         """Loads all schedule items from DB and formats them as dicts."""
         db = SessionLocal()
@@ -83,6 +85,7 @@ class Scheduler:
         finally:
             db.close()
 
+    @with_db_retries()
     def add_event(self, profile_id: str, video_path: str, scheduled_time: str, viral_music_enabled: bool = False, music_volume: float = 0.0, sound_id: str = None, sound_title: str = None, smart_captions: bool = False, privacy_level: str = "public", caption: str = None) -> Dict:
         """Schedules a new video upload."""
         
@@ -189,6 +192,7 @@ class Scheduler:
         finally:
             db.close()
 
+    @with_db_retries()
     def delete_event(self, event_id: str) -> bool:
         db = SessionLocal()
         try:
@@ -213,6 +217,7 @@ class Scheduler:
         finally:
             db.close()
             
+    @with_db_retries()
     def cleanup_missed_schedules(self):
         """
         [SYN-42] Lifecycle Management:
@@ -254,6 +259,7 @@ class Scheduler:
         finally:
             db.close()
 
+    @with_db_retries()
     def cleanup_phantom_events(self):
         """Removes any events associated with phantom/temporary profile IDs."""
         db = SessionLocal()
@@ -271,6 +277,7 @@ class Scheduler:
         finally:
             db.close()
 
+    @with_db_retries()
     def is_slot_available(self, profile_id: str, check_time: datetime, buffer_minutes: int = 15) -> bool:
         """Checks if a time slot is free for a given profile within a buffer."""
         db = SessionLocal()
@@ -313,6 +320,7 @@ class Scheduler:
             
         return (start_time + timedelta(days=7)).isoformat()
 
+    @with_db_retries()
     def update_event(self, event_id: str, scheduled_time: str = None, **kwargs) -> Optional[Dict]:
         """
         [SYN-EDIT] Full Edit Support.
@@ -346,17 +354,19 @@ class Scheduler:
                     dt_obj = datetime.fromisoformat(clean_time)
 
                     # [SYN-FIX] Timezone Correction
+                    sp_tz = ZoneInfo("America/Sao_Paulo")
                     if dt_obj.tzinfo is not None:
-                        try:
-                            from zoneinfo import ZoneInfo
-                        except ImportError:
-                            from backports.zoneinfo import ZoneInfo
-                            
-                        sp_tz = ZoneInfo("America/Sao_Paulo")
                         dt_sp = dt_obj.astimezone(sp_tz)
                         item.scheduled_time = dt_sp.replace(tzinfo=None)
                     else:
                         item.scheduled_time = dt_obj
+                    
+                    # [SYN-FIX] Force status reset to pending if time changes
+                    # This ensures the scheduler picks it up again (e.g. from failed -> pending)
+                    if item.status != 'processing':
+                        print(f"DEBUG: Reschedule detected. Resetting status {item.status} -> pending")
+                        item.status = 'pending'
+                        item.error_message = None
 
                 # --- Update Profile (if provided) ---
                 if 'profile_id' in kwargs and kwargs['profile_id'] is not None:
@@ -375,11 +385,20 @@ class Scheduler:
                 
                 # Build enriched response
                 refreshed_meta = item.metadata_info or {}
+                
+                # Format time logic
+                s_time_formatted = None
+                if item.scheduled_time:
+                    if item.scheduled_time.tzinfo is None:
+                        s_time_formatted = item.scheduled_time.replace(tzinfo=ZoneInfo("America/Sao_Paulo")).isoformat()
+                    else:
+                        s_time_formatted = item.scheduled_time.isoformat()
+
                 return {
                     "id": str(item.id),
                     "profile_id": item.profile_slug,
                     "video_path": item.video_path,
-                    "scheduled_time": item.scheduled_time.replace(tzinfo=ZoneInfo("America/Sao_Paulo")).isoformat() if item.scheduled_time and item.scheduled_time.tzinfo is None else (item.scheduled_time.isoformat() if item.scheduled_time else None),
+                    "scheduled_time": s_time_formatted,
                     "status": item.status,
                     "error_message": item.error_message,
                     "viral_music_enabled": bool(refreshed_meta.get('viral_music_enabled', False)),
@@ -399,6 +418,7 @@ class Scheduler:
         finally:
             db.close()
 
+    @with_db_retries()
     def update_video_path(self, old_path: str, new_path: str) -> int:
         """Updates the video path for all pending/scheduled items."""
         db = SessionLocal()
@@ -533,139 +553,118 @@ class Scheduler:
         except Exception as e:
             logger.log("error", f"[SONAR] Failed to update heartbeat: {e}", "scheduler")
 
+    @with_db_retries()
+    async def _claim_scheduled_item(self, item_id: int, new_status: str = 'processing') -> bool:
+        """
+        Atomically tries to claim an item by setting status to new_status (default 'processing').
+        Returns True if successful, False if race condition lost.
+        """
+        db = SessionLocal()
+        try:
+            result = db.query(ScheduleItem).filter(
+                ScheduleItem.id == item_id,
+                ScheduleItem.status == 'pending'
+            ).update({"status": new_status}, synchronize_session=False)
+            db.commit()
+            return result > 0
+        finally:
+            db.close()
+
+    @with_db_retries()
+    async def _finalize_scheduled_item(self, item_id: int, status: str, result: Dict):
+        """Finalizes item status to COMPLETED or FAILED."""
+        db = SessionLocal()
+        try:
+            item = db.query(ScheduleItem).filter(ScheduleItem.id == item_id).first()
+            if not item: return
+
+            item.status = status
+            item.error_message = result.get('message')
+            if status == ScheduleStatus.COMPLETED:
+                item.published_url = result.get('url')
+                item.error_message = None
+                from core.session_manager import update_profile_metadata
+                update_profile_metadata(item.profile_slug, {"last_error_screenshot": None})
+            else:
+                 # fallback metadata
+                 meta = dict(item.metadata_info or {})
+                 meta['error'] = result.get('message')
+                 item.metadata_info = meta
+
+            db.commit()
+        finally:
+            db.close()
+
     async def execute_due_item(self, item: ScheduleItem, db):
-        from core.manual_executor import execute_approved_video
-        from core.status_manager import status_manager
-        from core.session_manager import update_profile_status, get_profile_user_agent, get_session_path, check_cookies_validity
-        
+        from core.queue_manager import QueueManager
+        from core.consts import ScheduleStatus
+        from core.session_manager import get_profile_user_agent, get_session_path, check_cookies_validity
+
         try:
             # 0. Lightweight Pre-flight: Check if cookies exist and are not expired
-            # [SYN-FIX] Replaced browser-based validate_session_for_upload with cookie-only check.
-            # Opening a headless browser here caused TikTok rate-limiting, leading to false
-            # "Session Expired" errors. The real browser check happens in uploader_monitored.py.
             print(f"[SCHEDULER] Running lightweight cookie check for {item.profile_slug}...")
             session_file = get_session_path(item.profile_slug)
+            
+            # Helper to fail quickly
+            async def fail_preflight(msg):
+                print(f"[SCHEDULER] Pre-flight failed: {msg}")
+                await self._finalize_scheduled_item(
+                    item.id, 
+                    ScheduleStatus.PAUSED_LOGIN_REQUIRED, 
+                    {"message": msg}
+                )
+
             if not os.path.exists(session_file):
-                print(f"[SCHEDULER] Pre-flight failed: Session file not found for {item.profile_slug}")
-                item.status = ScheduleStatus.PAUSED_LOGIN_REQUIRED
-                item.error_message = "Session file not found"
-                db.commit()
+                await fail_preflight("Session file not found")
                 return
+
             try:
                 with open(session_file, 'r', encoding='utf-8') as _f:
                     _data = json.load(_f)
                     _cookies = _data.get("cookies", []) if isinstance(_data, dict) else _data
                 if not check_cookies_validity(_cookies):
-                    print(f"[SCHEDULER] Pre-flight: Cookies expired for {item.profile_slug}")
-                    item.status = ScheduleStatus.PAUSED_LOGIN_REQUIRED
-                    item.error_message = "Session cookies expired (pre-flight)"
-                    db.commit()
+                    await fail_preflight("Session cookies expired (pre-flight)")
                     return
                 print(f"[SCHEDULER] Cookie check passed for {item.profile_slug}")
             except Exception as cookie_err:
                 print(f"[SCHEDULER] Cookie check error (proceeding anyway): {cookie_err}")
 
-            # 1. Update status to processing (ATOMIC CHECK-AND-SET)
-            # Use raw SQL to ensure atomicity across instances/race conditions
-            # Only update if status is STILL 'pending'
-            
-            try:
-                result = db.query(ScheduleItem).filter(
-                    ScheduleItem.id == item.id,
-                    ScheduleItem.status == 'pending'
-                ).update({"status": 'processing'}, synchronize_session=False)
-                
-                db.commit()
-                
-                if result == 0:
-                    print(f"[SCHEDULER] Race condition detected: Item {item.id} already claimed by another worker.")
-                    return
-                
-                print(f"[SCHEDULER] Acquired lock for item {item.id}")
-                
-            except Exception as e:
-                print(f"[SCHEDULER] Error locking item {item.id}: {e}")
-                db.rollback()
+            # 1. Update status to QUEUED (ATOMIC CHECK-AND-SET)
+            # We claim it by moving to QUEUED state.
+            acquired = await self._claim_scheduled_item(item.id, new_status=ScheduleStatus.QUEUED)
+            if not acquired:
+                print(f"[SCHEDULER] Race condition detected: Item {item.id} already claimed.")
                 return
 
-            status_manager.update_status(
-                state="busy",
-                current_task=f"Scheduled: {os.path.basename(item.video_path)}",
-                step="Executando Agendamento",
-                progress=0
-            )
+            print(f"[SCHEDULER] Acquired lock for item {item.id} -> QUEUED")
             
-            # 2. Execute
-            # execute_approved_video expects a FILE PATH.
-            # [SYN-FIX] Normalize Docker paths to Windows paths
+            # 2. Enqueue Job
             video_path = normalize_video_path(item.video_path)
             
-            print(f"[SCHEDULER] Executing Video: {video_path}")
-            
-            # Need to ensure file exists
-            if not os.path.exists(video_path):
-                 print(f"[SCHEDULER] File not found: {video_path}")
-                 item.status = 'failed'
-                 print(f"Error Log: File not found on disk")
-                 db.commit()
-                 return
-
-            # Call manual executor (which handles upload logic)
-            # execute_approved_video is async
-            
-            # [SYN-FIX] Inject profile info into metadata so executor knows who to use
+            # Prepare metadata
             exec_metadata = dict(item.metadata_info or {})
             exec_metadata['profile_slug'] = item.profile_slug
             exec_metadata['profile_id'] = item.profile_slug
             exec_metadata['user_agent'] = get_profile_user_agent(item.profile_slug)
             
-            # [SYN-FIX] Pass item.id as processing_id to isolate file system movements
-            result = await execute_approved_video(
-                video_path, 
-                is_scheduled=True, 
-                metadata=exec_metadata,
-                processing_id=str(item.id)
-            )
-            
-            if result.get('status') in [ScheduleStatus.SUCCESS, ScheduleStatus.READY, ScheduleStatus.COMPLETED]:
-                item.status = ScheduleStatus.COMPLETED
-                item.published_url = result.get('url')
-                item.error_message = None # Clear any previous errors
+            try:
+                job_id = await QueueManager.enqueue_upload(item.id, video_path, exec_metadata)
+                print(f"[SCHEDULER] Item {item.id} pushed to Redis Queue: Job {job_id}")
+            except Exception as queue_err:
+                print(f"[SCHEDULER] Failed to enqueue item {item.id}: {queue_err}")
+                # Rollback status to failed (or pending retry?)
+                await self._finalize_scheduled_item(item.id, ScheduleStatus.FAILED, {"message": f"Queue Error: {queue_err}"})
                 
-                # [SYN-FIX] Clear error screenshot on success for UI consistency
-                from core.session_manager import update_profile_metadata
-                update_profile_metadata(item.profile_slug, {"last_error_screenshot": None})
-                
-                logger.log("success", f"Successfully executed item {item.id} (Scheduled: {item.scheduled_time})", "scheduler")
-            else:
-                item.status = ScheduleStatus.FAILED
-                # [SYN-FIX] Save to explicit error_message column
-                item.error_message = result.get('message')
-                
-                # Also fallback to metadata for legacy compatibility if needed
-                meta = dict(item.metadata_info or {})
-                meta['error'] = result.get('message')
-                item.metadata_info = meta
-                
-                print(f"Error Log: {result.get('message')}")
-                logger.log("error", f"Failed to execute item {item.id}: {result.get('message')}", "scheduler")
-            
-            db.commit()
-            
         except Exception as e:
-            print(f"[{ScheduleStatus.FAILED.upper()}] Execution Failed: {e}")
-            item.status = ScheduleStatus.FAILED
-            item.error_message = str(e)
-            
-            meta = dict(item.metadata_info or {})
-            meta['error'] = str(e)
-            item.metadata_info = meta
-            
-            print(f"Error Log: {str(e)}")
-            logger.log("error", f"Exception executing item {item.id}: {str(e)}", "scheduler")
-            db.commit()
+            print(f"[{ScheduleStatus.FAILED.upper()}] Scheduler Enqueue Failed: {e}")
+            logger.log("error", f"Exception queuing item {item.id}: {str(e)}", "scheduler")
+            try:
+                await self._finalize_scheduled_item(item.id, ScheduleStatus.FAILED, {"message": str(e)})
+            except:
+                pass
 
 
+    @with_db_retries()
     def retry_event(self, event_id: str, mode: str = "now") -> Dict:
         """
         Retries a failed event by restoring the file and resetting status.
@@ -738,9 +737,12 @@ class Scheduler:
                 print(f"[RETRY] Critical: File {filename} not found. Checked: {locations_checked}")
                 raise FileNotFoundError(f"Video file '{filename}' is missing from disk. Checked: approved, errors, processing, done, pending.")
                     
-            # Restore to Approved if it was in Error/Processing
-            # We always move back to 'approved' to ensure clean state
-            restore_path = os.path.join(APPROVED_DIR, filename)
+            # Restore to PENDING_DIR to avoid QueueWorker stealing the task
+            # [SYN-FIX] Race Condition: QueueWorker monitors 'approved', so we use 'pending'
+            if not os.path.exists(PENDING_DIR):
+                os.makedirs(PENDING_DIR)
+                
+            restore_path = os.path.join(PENDING_DIR, filename)
             
             # If found_path is different from restore_path, move it
             if os.path.abspath(found_path) != os.path.abspath(restore_path):
@@ -749,7 +751,7 @@ class Scheduler:
                      # If conflicting file exists, rename incoming
                      name, ext = os.path.splitext(filename)
                      new_name = f"{name}_retry_{int(time.time())}{ext}"
-                     restore_path = os.path.join(APPROVED_DIR, new_name)
+                     restore_path = os.path.join(PENDING_DIR, new_name)
                      
                 shutil.move(found_path, restore_path)
                 print(f"[RETRY] Restored file from {found_path} -> {restore_path}")
@@ -839,32 +841,48 @@ class Scheduler:
             # [SYN-FIX] For "now" mode, trigger immediate execution in background
             if mode == "now":
                 import asyncio
+                import threading
                 item_id = item.id  # Capture ID before db closes
                 print(f"[RETRY] Triggering immediate execution for item {item_id}")
                 
                 async def execute_single_item(event_id):
-                    """Wrapper to execute a single item by ID"""
+                    """Wrapper to execute a single item by ID with its own DB session"""
+                    # Wait a moment for the commit to be visible to other sessions
+                    await asyncio.sleep(0.5)
+                    
                     exec_db = SessionLocal()
                     try:
+                        print(f"[RETRY_WORKER] Starting execution for {event_id}...")
                         exec_item = exec_db.query(ScheduleItem).filter(ScheduleItem.id == event_id).first()
-                        if exec_item and exec_item.status == 'pending':
-                            await self.execute_due_item(exec_item, exec_db)
+                        if exec_item:
+                            if exec_item.status == 'pending':
+                                await self.execute_due_item(exec_item, exec_db)
+                            else:
+                                print(f"[RETRY_WORKER] Item {event_id} is not pending (status={exec_item.status}). usage skipped.")
+                        else:
+                             print(f"[RETRY_WORKER] Item {event_id} not found in worker session.")
                     except Exception as ex:
                         print(f"[RETRY] Execution failed: {ex}")
+                        import traceback
+                        traceback.print_exc()
                     finally:
                         exec_db.close()
                 
+                # Robust Async Trigger
                 try:
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
-                        loop.create_task(execute_single_item(item_id))
-                    else:
-                        asyncio.run(execute_single_item(item_id))
+                    # 1. Try to get the running loop (FastAPI main loop)
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(execute_single_item(item_id))
+                    print(f"[RETRY] Task created in running loop.")
                 except RuntimeError:
-                    # No running loop, create one in thread
-                    import threading
+                    # 2. No running loop (e.g. called from synchronous context or thread), start a new one in a thread
+                    print(f"[RETRY] No running loop, spawning thread...")
                     def run_execution():
-                        asyncio.run(execute_single_item(item_id))
+                        new_loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(new_loop)
+                        new_loop.run_until_complete(execute_single_item(item_id))
+                        new_loop.close()
+                        
                     thread = threading.Thread(target=run_execution, daemon=True)
                     thread.start()
             

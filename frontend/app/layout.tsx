@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   description: "Plataforma de orquestração e distribuição de mídia automatizada",
 };
 
+import QueryProvider from "@/providers/QueryProvider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -30,9 +32,11 @@ export default function RootLayout({
         className="font-display bg-[#050507] text-slate-300 overflow-hidden antialiased selection:bg-primary/30 selection:text-white"
         suppressHydrationWarning={true}
       >
-        <ClientLayout>
-          {children}
-        </ClientLayout>
+        <QueryProvider>
+          <ClientLayout>
+            {children}
+          </ClientLayout>
+        </QueryProvider>
       </body>
     </html>
   );

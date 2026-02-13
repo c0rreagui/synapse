@@ -2,6 +2,7 @@ from enum import Enum
 
 class ScheduleStatus(str, Enum):
     PENDING = "pending"
+    QUEUED = "queued"
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"

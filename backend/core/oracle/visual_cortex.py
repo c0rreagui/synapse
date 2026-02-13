@@ -47,8 +47,19 @@ class VisualCortex:
             output_pattern
         ]
 
+        # [SYN-HARDENING] Use ProcessManager to prevent Zombie processes
+        from core.process_manager import process_manager
+        proc = None
         try:
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            # Use Popen instead of run to capture PID
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            process_manager.register(proc)
+            
+            stdout, stderr = proc.communicate(timeout=30) # 30s timeout for frame extraction
+            
+            if proc.returncode != 0:
+                raise Exception(f"FFmpeg exited with code {proc.returncode}: {stderr.decode('utf-8', errors='ignore')}")
+            
             # Gather generated files
             frames = sorted([
                 os.path.join(frames_dir, f) 
@@ -56,9 +67,18 @@ class VisualCortex:
                 if f.startswith("frame_") and f.endswith(".jpg")
             ])
             return frames[:num_frames]
+            
+        except subprocess.TimeoutExpired:
+            logger.error("[VISUAL] FFmpeg timed out")
+            if proc:
+                proc.kill()
+            return []
         except Exception as e:
             logger.error(f"[VISUAL] FFmpeg failed: {e}")
             return []
+        finally:
+            if proc:
+                process_manager.unregister(proc)
 
     async def analyze_video_content(self, video_path: str) -> Dict[str, Any]:
         """

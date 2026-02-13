@@ -15,6 +15,16 @@ if sys.platform == "win32":
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import sentry_sdk
+
+if os.getenv("SENTRY_DSN"):
+    sentry_sdk.init(
+        dsn=os.getenv("SENTRY_DSN"),
+        traces_sample_rate=1.0,
+        profiles_sample_rate=1.0,
+        environment=os.getenv("ENVIRONMENT", "production"),
+    )
+    print("SYSTEM: Sentry Monitoring Enabled 🚨")
 
 app = FastAPI(title="Auto Content Empire API")
 # Force Reload Trigger (Final Config)
@@ -46,8 +56,11 @@ async def startup_event():
         asyncio.create_task(oracle_automator.start_loop())
         
         # Start Scheduler Loop (The Missing Engine)
-        from core.scheduler import scheduler_service
-        asyncio.create_task(scheduler_service.start_loop())
+        if os.getenv("DISABLE_SCHEDULER", "false").lower() != "true":
+            from core.scheduler import scheduler_service
+            asyncio.create_task(scheduler_service.start_loop())
+        else:
+            print("SYSTEM: Scheduler disabled by env var (Running in separate container)")
         
         print("SYSTEM: Background workers (Factory + Queue + Oracle + Scheduler) started.")
     except Exception as e:

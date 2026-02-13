@@ -23,29 +23,22 @@ import BatchUploadModal from './components/BatchUploadModal';
 import AudioSuggestionCard, { AudioSuggestion } from './components/AudioSuggestionCard';
 import { SchedulingData } from './components/SchedulerForm';
 import ScheduledVideosModal from './components/ScheduledVideosModal';
+import { useIngestionStatus, usePendingVideos, useProfiles, useScheduledEvents, useDashboardRefresh } from './hooks/useDashboardData';
 
 const API_BASE = getApiUrl() + '/api/v1';
 
-interface IngestionStatus { queued: number; processing: number; completed: number; failed: number; }
-interface PendingVideo {
-  id: string;
-  filename: string;
-  profile: string;
-  uploaded_at: string;
-  status: string;
-  metadata: {
-    caption?: string;
-    original_filename?: string;
-    profile_id?: string;
-  };
-}
+// Removed legacy interfaces (IngestionStatus, PendingVideo) as they are now in useDashboardData
+// kept PendingVideo if used locally or re-export it from hook
+import { PendingVideo } from './hooks/useDashboardData';
 
 export default function Home() {
-  const [ingestionStatus, setIngestionStatus] = useState<IngestionStatus>({ queued: 0, processing: 0, completed: 0, failed: 0 });
-  const [pendingVideos, setPendingVideos] = useState<PendingVideo[]>([]);
+  // React Query Hooks
+  const { data: ingestionStatus = { queued: 0, processing: 0, completed: 0, failed: 0 }, isError: isBackendError } = useIngestionStatus();
+  const { data: pendingVideos = [] } = usePendingVideos();
+  const { data: profiles = [] } = useProfiles();
+  const { data: scheduledEvents = [] } = useScheduledEvents();
+  const refreshDashboard = useDashboardRefresh();
 
-  const [profiles, setProfiles] = useState<TikTokProfile[]>([]);
-  const [scheduledEvents, setScheduledEvents] = useState<ScheduleEvent[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Metrics Modal State
@@ -89,61 +82,32 @@ export default function Home() {
   const [selectedVideo, setSelectedVideo] = useState<PendingVideo | null>(null);
 
   // System State
-  const [backendOnline, setBackendOnline] = useState(false);
+  const backendOnline = !isBackendError;
   const [lastUpdate, setLastUpdate] = useState('');
   const [showCommandPalette, setShowCommandPalette] = useState(false);
 
-  // Note: WebSocket is managed by CommandCenter component
-  const fetchAllData = useCallback(async () => {
-    try {
-      setLastUpdate(new Date().toLocaleTimeString());
-      const healthRes = await fetch(`${API_BASE}/ingest/status`);
-      setBackendOnline(healthRes.ok);
-      // Se backend offline, não tenta o resto para evitar spam de erros
-      if (!healthRes.ok) return;
-
-      const [statusRes, queueRes, profilesRes, scheduleRes] = await Promise.all([
-        fetch(`${API_BASE}/ingest/status`),
-        fetch(`${API_BASE}/queue/pending`),
-        fetch(`${API_BASE}/profiles/list`),
-        fetch(`${API_BASE}/scheduler/list`)
-      ]);
-
-      if (statusRes.ok) setIngestionStatus(await statusRes.json());
-      if (queueRes.ok) setPendingVideos(await queueRes.json());
-      if (scheduleRes.ok) setScheduledEvents(await scheduleRes.json());
-      if (profilesRes.ok) {
-        const profs = await profilesRes.json();
-        setProfiles(profs);
-        // Fix: Use functional update to avoid dependency on selectedProfile
-        if (profs.length > 0) {
-          setSelectedProfile(prev => prev || profs[0].id);
-        }
-      }
-    } catch {
-      setBackendOnline(false);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []); // Fix: Removed selectedProfile dependency
-
-  // Polling como fallback e para dados não-socket
+  // Update lastUpdate on render (or use an effect if strictly needed)
   useEffect(() => {
-    fetchAllData();
-    const interval = setInterval(fetchAllData, 5000);
-    return () => clearInterval(interval);
-  }, [fetchAllData]);
+    setLastUpdate(new Date().toLocaleTimeString());
+  }, [ingestionStatus]); // Update timestamp when data changes
+
+  // Auto-select first profile
+  useEffect(() => {
+    if (profiles.length > 0 && !selectedProfile) {
+      setSelectedProfile(profiles[0].id);
+    }
+  }, [profiles, selectedProfile]);
 
   // Post-Approval Handler (Refreshes Queue)
   const handlePostApprovalSuccess = useCallback(() => {
     toast.success("Vídeo agendado e aprovado com sucesso!");
-    fetchAllData();
+    refreshDashboard();
     setShowBatchModal(false);
-  }, [fetchAllData]);
+  }, [refreshDashboard]);
 
   const commands = [
     { id: 'upload', title: 'Upload Video', key: 'u', description: 'Abrir seletor de arquivo', action: () => fileInputRef.current?.click() },
-    { id: 'refresh', title: 'Atualizar Dados', key: 'r', description: 'Recarregar dashboard', action: fetchAllData },
+    { id: 'refresh', title: 'Atualizar Dados', key: 'r', description: 'Recarregar dashboard', action: refreshDashboard },
   ];
 
   useKeyboardShortcuts(commands);
@@ -168,7 +132,7 @@ export default function Home() {
       setUploadStatus('success');
       toast.success(`✓ ${file.name} enviado com sucesso!`);
       setLastUploadedFile(file.name);
-      fetchAllData();
+      refreshDashboard();
 
       // 🎵 Buscar sugestões de áudio após upload
       try {
@@ -229,7 +193,7 @@ export default function Home() {
       if (response.ok) {
         setShowBatchModal(false);
         setSelectedVideo(null);
-        fetchAllData();
+        refreshDashboard();
         toast.success('Processado com sucesso!');
       } else {
         throw new Error('Falha na resposta');
@@ -248,7 +212,7 @@ export default function Home() {
         try {
           await fetch(`${API_BASE}/queue/${id}`, { method: 'DELETE' });
           toast.success('Vídeo rejeitado', { icon: '🗑️' });
-          fetchAllData();
+          refreshDashboard();
         } catch {
           toast.error('Erro ao rejeitar');
         }
@@ -294,7 +258,7 @@ export default function Home() {
 
         toast.success(`${successCount} vídeos rejeitados`);
         setSelectedItems(new Set());
-        fetchAllData();
+        refreshDashboard();
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
       }
     });
@@ -329,7 +293,7 @@ export default function Home() {
           toast.success(`${successCount} videos aprovados!`);
         }
         setSelectedItems(new Set());
-        fetchAllData();
+        refreshDashboard();
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
       }
     });
@@ -392,7 +356,7 @@ export default function Home() {
 
         <div className="flex items-center gap-3">
           {/* Tech Buttons */}
-          <button onClick={() => fetchAllData()} className="h-10 px-4 flex items-center gap-2 border border-white/10 bg-black/40 hover:bg-white/5 hover:border-synapse-primary/50 transition-all group active:scale-95">
+          <button onClick={() => refreshDashboard()} className="h-10 px-4 flex items-center gap-2 border border-white/10 bg-black/40 hover:bg-white/5 hover:border-synapse-primary/50 transition-all group active:scale-95">
             <ArrowPathIcon className="w-4 h-4 text-gray-400 group-hover:text-synapse-primary group-hover:rotate-180 transition-all duration-700" />
             <span className="text-xs font-mono text-gray-400 group-hover:text-white uppercase">Refresh</span>
           </button>

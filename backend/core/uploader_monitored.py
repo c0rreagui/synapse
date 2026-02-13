@@ -1075,15 +1075,17 @@ async def upload_video_monitored(
                             await monitor.capture_full_state(page, f"modal_confirm_attempt_{m_attempt}", "Modal detectado")
                         await modal_confirm.click(force=True)
                         await page.wait_for_timeout(3000)
-                    else:
-                        logger.info(f"ℹ️ Tentativa {m_attempt+1}: Nenhum modal visível.")
-                        if m_attempt > 0: # Se já passou do primeiro check, assume sucesso
-                            confirmed = True
-                            break
+                        logger.info(f"ℹ️ Tentativa {m_attempt+1}: Nenhum modal visível. Aguardando confirmação explícita...")
+                        # [SYN-FIX] Strict Mode: Do NOT assume success just because no modal appeared.
+                        # We continue the loop waiting for redirection or success text.
                 
-                # SUCESSO NO CLICK
-                result["status"] = "ready"
-                result["message"] = "Action completed"
+                if confirmed:
+                    result["status"] = "ready"
+                    result["message"] = "Action completed"
+                else:
+                    logger.warning("❌ Falha na verificação final: Sucesso não confirmado.")
+                    result["status"] = "error"
+                    result["message"] = "Post verification failed: No success confirmation (Strict Mode)"
                     
             else:
                 logger.warning(f"⚠️ Botão '{btn_text}' está desabilitado (upload incompleto ou validação falhou).")

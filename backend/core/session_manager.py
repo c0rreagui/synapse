@@ -8,9 +8,11 @@ from typing import List, Dict, Any, Optional
 from core.config import SESSIONS_DIR, DATA_DIR
 PROFILES_FILE = os.path.join(DATA_DIR, "profiles.json") # Deprecated but kept for legacy sync
 
+#from core.config import DATA_DIR, BASE_DIR
 # DB Imports
 from core.database import SessionLocal
 from core.models import Profile
+from core.database_utils import with_db_retries
 
 def get_session_path(session_name: str) -> str:
     """Returns the absolute path for a session file."""
@@ -566,48 +568,42 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 
+@with_db_retries()
 def update_profile_info(profile_id: str, info: Dict[str, Any]) -> bool:
     """
     Updates basic profile info (label, username, avatar) in SQLite.
     Includes retry logic for SQLite locking issues.
     """
-    max_retries = 3
-    for attempt in range(max_retries):
-        db = SessionLocal()
-        try:
-            profile = db.query(Profile).filter(Profile.slug == profile_id).first()
-            if not profile:
-                return False
-                
-            if "avatar_url" in info:
-                profile.avatar_url = info["avatar_url"]
-            if "nickname" in info:
-                profile.label = info["nickname"]
-            if "label" in info:
-                profile.label = info["label"]
-            if "username" in info:
-                profile.username = info["username"]
-            if "bio" in info:
-                profile.bio = info["bio"]
-            if "active" in info:
-                profile.active = info["active"]
+    db = SessionLocal()
+    try:
+        profile = db.query(Profile).filter(Profile.slug == profile_id).first()
+        if not profile:
+            return False
             
-            profile.updated_at = datetime.now(ZoneInfo("America/Sao_Paulo")).replace(tzinfo=None)
-            
-            db.commit()
-            return True
-        except Exception as e:
-            db.rollback()
-            if "locked" in str(e).lower() and attempt < max_retries - 1:
-                time.sleep(0.5)
-                continue
-            print(f"DB Error updating profile info (attempt {attempt+1}): {e}")
-            if attempt == max_retries - 1:
-                return False
-        finally:
-            db.close()
-    return False
+        if "avatar_url" in info:
+            profile.avatar_url = info["avatar_url"]
+        if "nickname" in info:
+            profile.label = info["nickname"]
+        if "label" in info:
+            profile.label = info["label"]
+        if "username" in info:
+            profile.username = info["username"]
+        if "bio" in info:
+            profile.bio = info["bio"]
+        if "active" in info:
+            profile.active = info["active"]
+        
+        profile.updated_at = datetime.now(ZoneInfo("America/Sao_Paulo")).replace(tzinfo=None)
+        
+        db.commit()
+        return True
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        db.close()
 
+@with_db_retries()
 def update_profile_metadata(profile_id: str, updates: Dict[str, Any]) -> bool:
     """
     Generic update for profile metadata in SQLite.

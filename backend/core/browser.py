@@ -52,6 +52,8 @@ DOCKER_HEADLESS_ARGS = [
 # Identidade Dinâmica centralizada em core.network_utils
 from core.network_utils import get_random_user_agent, DEFAULT_LOCALE, DEFAULT_TIMEZONE
 
+from core.process_manager import process_manager
+
 async def launch_browser(
     headless: bool = True,
     proxy: Optional[Dict[str, str]] = None,
@@ -74,6 +76,7 @@ async def launch_browser(
         Tuple containing (playwright, browser, context, page)
     """
     p = await async_playwright().start()
+    process_manager.register(p) # Register Playwright
     
     # Resolve User-Agent if not provided
     if not user_agent:
@@ -128,6 +131,8 @@ async def launch_browser(
                 ignore_default_args=["--enable-automation"],
                 **({"proxy": launch_options["proxy"]} if proxy else {})
             )
+            # Register Context (which acts as browser)
+            process_manager.register(context)
             
             browser = None 
             page = context.pages[0] if context.pages else await context.new_page()
@@ -139,6 +144,8 @@ async def launch_browser(
                 args=browser_args,
                 ignore_default_args=["--enable-automation"],
             )
+            process_manager.register(browser) # Register Browser
+            
             logger.info(f"Browser launched (headless={headless})")
             
             context_options: Dict[str, Any] = {
@@ -182,7 +189,10 @@ async def launch_browser(
 
 async def close_browser(p: Playwright, browser: Browser):
     """Safely closes browser and playwright instance."""
+    from core.process_manager import process_manager
     if browser:
+        process_manager.unregister(browser)
         await browser.close()
     if p:
+        process_manager.unregister(p)
         await p.stop()

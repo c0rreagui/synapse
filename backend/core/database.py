@@ -6,29 +6,39 @@ import os
 # Create engine for SQLite
 # We use check_same_thread=False because FastAPI runs in multiple threads but SQLite 
 # connection is usually thread-bound. For simple apps this is fine.
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# BASE_DIR is .../backend
-DB_PATH = os.path.join(BASE_DIR, "synapse.db")
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
+# Database Selection (SQLite vs Postgres)
+POSTGRES_USER = os.getenv("POSTGRES_USER")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+POSTGRES_SERVER = os.getenv("POSTGRES_SERVER")
+POSTGRES_DB = os.getenv("POSTGRES_DB")
 
-# Create engine
-# [SYN-FIX] Enable WAL Mode for Concurrency
-# SQLite standard mode locks the whole file for writing, causing "disk I/O error" or "db locked"
-# when API and Scheduler try to write simultaneously. WAL allows concurrent readers and writers.
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, 
-    connect_args={"check_same_thread": False},
-    pool_pre_ping=True
-)
+if POSTGRES_SERVER:
+    # PostgreSQL Connection
+    SQLALCHEMY_DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}/{POSTGRES_DB}"
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL, 
+        pool_pre_ping=True
+    )
+else:
+    # SQLite Connection (Fallback)
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    DB_PATH = os.path.join(BASE_DIR, "synapse.db")
+    SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 
-from sqlalchemy import event
-@event.listens_for(engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")
-    cursor.execute("PRAGMA synchronous=NORMAL")
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL, 
+        connect_args={"check_same_thread": False},
+        pool_pre_ping=True
+    )
+
+    from sqlalchemy import event
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

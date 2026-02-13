@@ -25,3 +25,9 @@ DB_PATH = os.path.join(BASE_DIR, "synapse.db")
 
 # --- OTHER GLOBALS ---
 DEFAULT_TIMEOUT = 30000
+
+# [SYN-FIX] FFmpeg Local Path
+# Add local 'bin' directory to PATH for FFmpeg/FFprobe
+LOCAL_BIN = os.path.join(BASE_DIR, "..", "bin")
+if os.path.exists(LOCAL_BIN):
+    os.environ["PATH"] += os.pathsep + LOCAL_BIN

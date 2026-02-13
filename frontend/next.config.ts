@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  experimental: {
+    instrumentationHook: true,
+  },
   async rewrites() {
     return [
       {

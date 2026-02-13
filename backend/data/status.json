@@ -1,13 +1,13 @@
 {
-  "state": "error",
-  "last_updated": "2026-02-11T23:47:10.277282",
-  "timestamp": 1770864430.2772896,
+  "state": "busy",
+  "last_updated": "2026-02-13T14:00:36.536312",
+  "timestamp": 1771002036.5363312,
   "job": {
-    "name": "None",
+    "name": "Scheduled: D:\\APPS - ANTIGRAVITY\\Synapse\\backend\\data\\pending\\ptiktok_profile_1770135259969_aabbbb08.mp4",
     "progress": 0,
-    "step": "Falha no processamento",
+    "step": "Executando Agendamento",
     "logs": [
-      "Source file not found (mapped): /app/data/pending/ptiktok_profile_1770135259969_7f7db1eb.mp4"
+      "Sess\u00e3o expirada. Perfil desativado."
     ]
   },
   "bots": [
@@ -17,7 +17,7 @@
       "role": "UPLOADER",
       "status": "online",
       "current_task": "Idle",
-      "uptime": "0h 6m",
+      "uptime": "0h 54m",
       "description": "Unidade de transmissao de alta largura de banda. Garantindo metricas globais de propagacao.",
       "avatar": "/avatars/atlas.png"
     },
@@ -27,7 +27,7 @@
       "role": "FACTORY",
       "status": "online",
       "current_task": "Watching inputs...",
-      "uptime": "0h 6m",
+      "uptime": "0h 54m",
       "description": "Nucleo de sintese neural. Montando dados brutos em construcoes cognitivas.",
       "avatar": "/avatars/forge.png"
     },
@@ -37,8 +37,9 @@
       "role": "MONITOR",
       "status": "online",
       "current_task": "System Check",
-      "uptime": "0h 6m",
+      "uptime": "0h 54m",
       "description": "Sentinela onisciente. Analisando anomalias de telemetria em tempo real.",
       "avatar": "/avatars/watcher.png"
     }
-  
+  ]
+}

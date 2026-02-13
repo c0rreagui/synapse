@@ -135,11 +135,49 @@ async def worker_loop():
                 # Fila vazia
                 await asyncio.sleep(5)
                 continue
+
+            # [SYN-FIX] Race Condition Prevention
+            # Filter out files that are already managed by Scheduler (DB)
+            # If it's in DB as pending/scheduled/processing, Scheduler handles it.
+            # Queue Worker only handles "orphan" files (Manual Drag & Drop).
+            from core.database import SessionLocal
+            from core.models import ScheduleItem
+            
+            # Get list of managed filenames
+            managed_filenames = set()
+            db = SessionLocal()
+            try:
+                active_items = db.query(ScheduleItem.video_path).filter(
+                    ScheduleItem.status.in_(['pending', 'scheduled', 'processing'])
+                ).all()
+                
+                for item in active_items:
+                    if item.video_path:
+                        managed_filenames.add(os.path.basename(item.video_path))
+            except Exception as e:
+                logger.error(f"DB Error checking managed files: {e}")
+            finally:
+                db.close()
+            
+            # Filter files
+            actual_files = []
+            for f in files:
+                if f in managed_filenames:
+                    # Debug log only occasionally to avoid spam?
+                    # logger.debug(f"Skipping managed file: {f}")
+                    pass
+                else:
+                    actual_files.append(f)
+            
+            if not actual_files:
+                # All files are managed by scheduler or empty
+                await asyncio.sleep(2)
+                continue
                 
             # Ordenar por data de modificação (FIFO - First In First Out)
             # Queremos o mais antigo primeiro
             files_with_time = []
-            for f in files:
+            for f in actual_files:
                 full_path = os.path.join(APPROVED_DIR, f)
                 mtime = os.path.getmtime(full_path)
                 files_with_time.append((f, mtime))

@@ -6,7 +6,6 @@ import asyncio
 import os
 import sys
 import shutil
-import logging
 import json
 from typing import Optional
 
@@ -18,8 +17,8 @@ from core.status_manager import status_manager
 from core.consts import ScheduleStatus
 
 # Configuração de Logger
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
-logger = logging.getLogger(__name__)
+from core.logger import logger
+
 
 # Configuração no Windows
 if sys.platform == "win32":
@@ -299,7 +298,29 @@ async def execute_approved_video(
              except Exception as e:
                  logger.warning(f"Failed to finalize/move file {video_filename}: {e}")
         else:
-             pass
+             # [SYN-FIX] Cleanup: Move to errors if validation failed
+             # This prevents the file from becoming a zombie on restart.
+             logger.warning(f"⚠️ Validation failed (Status={result['status']}). Moving detailed error analysis to ERRORS_DIR.")
+             try:
+                 error_path = os.path.join(ERRORS_DIR, video_filename)
+                 if os.path.exists(error_path):
+                     os.remove(error_path)
+                 if os.path.exists(proc_path):
+                     shutil.move(proc_path, error_path)
+                     logger.info(f"✅ Moved failed file to: {error_path}")
+                     
+                 # Also move json sidecar
+                 proc_json = proc_path + ".json" 
+                 if not os.path.exists(proc_json):
+                     proc_json = os.path.splitext(proc_path)[0] + ".json"
+                 
+                 if os.path.exists(proc_json):
+                     error_json = os.path.join(ERRORS_DIR, os.path.basename(proc_json))
+                     if os.path.exists(error_json): os.remove(error_json)
+                     shutil.move(proc_json, error_json)
+                     
+             except Exception as cleanup_err:
+                 logger.error(f"Failed to cleanup failed file: {cleanup_err}")
              
         return result # Return result to queue worker to finalized status
             

@@ -1,39 +1,156 @@
 version: '3.8'
 
 services:
-  # 🧠 Cérebro (API)
+  # 🐘 PostgreSQL: Banco de Dados Relacional Robusto
+  db:
+    image: postgres:15-alpine
+    container_name: synapse-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-synapse}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-synapse_password}
+      POSTGRES_DB: ${POSTGRES_DB:-synapse_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./backend/data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synapse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ⚡ Redis: Cache & Fila de Tarefas
+  redis:
+    image: redis:7-alpine
+    container_name: synapse-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./backend/data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 📦 MinIO: Armazenamento de Objetos (S3 Local)
+  minio:
+    image: minio/minio
+    container_name: synapse-minio
+    restart: always
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-synapse_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-synapse_secret_key}
+    volumes:
+      - ./backend/data/minio:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # 🧠 Backend (API + Workers)
   backend:
     build: ./backend
     container_name: synapse-backend
+    restart: always
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app # Live Reload do código
-      - ./brain:/app/brain # Memória persistente
+      - ./brain:/app/brain # Memória persistente (Docs)
       - ./inputs:/app/inputs # Entrada de arquivos
-      - ./processing:/app/processing
-      - ./done:/app/done
-      - ./errors:/app/errors
-      - ./backend/synapse.db:/app/synapse.db # Persistencia do Banco de Dados
+      - ./backend/data/approved:/app/data/approved # Legado (Migração)
     environment:
       - ENVIRONMENT=development
       - TZ=America/Sao_Paulo
+      - POSTGRES_SERVER=db
+      - POSTGRES_USER=${POSTGRES_USER:-synapse}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-synapse_password}
+      - POSTGRES_DB=${POSTGRES_DB:-synapse_db}
+      - REDIS_HOST=redis
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-synapse_admin}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-synapse_secret_key}
+      - DISABLE_SCHEDULER=true
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
 
-  # 👁️ Interface (UI)
+  # 👷 Worker (Processamento em Background)
+  worker:
+    build: ./backend
+    container_name: synapse-worker
+    restart: always
+    command: arq core.worker.WorkerSettings --watch /app
+    volumes:
+      - ./backend:/app
+      - ./brain:/app/brain
+      - ./inputs:/app/inputs
+      - ./backend/data/approved:/app/data/approved
+    environment:
+      - ENVIRONMENT=development
+      - TZ=America/Sao_Paulo
+      - POSTGRES_SERVER=db
+      - POSTGRES_USER=${POSTGRES_USER:-synapse}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-synapse_password}
+      - POSTGRES_DB=${POSTGRES_DB:-synapse_db}
+      - REDIS_HOST=redis
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-synapse_admin}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-synapse_secret_key}
+    depends_on:
+      - db
+      - redis
+      - minio
+
+  # ⏰ Scheduler (Agendamento Isolado)
+  scheduler:
+    build: ./backend
+    container_name: synapse-scheduler
+    restart: always
+    command: python scheduler_runner.py
+    volumes:
+      - ./backend:/app
+      - ./brain:/app/brain
+      - ./inputs:/app/inputs
+      - ./backend/data/approved:/app/data/approved
+    environment:
+      - ENVIRONMENT=development
+      - TZ=America/Sao_Paulo
+      - POSTGRES_SERVER=db
+      - POSTGRES_USER=${POSTGRES_USER:-synapse}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-synapse_password}
+      - POSTGRES_DB=${POSTGRES_DB:-synapse_db}
+      - REDIS_HOST=redis
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-synapse_admin}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-synapse_secret_key}
+    depends_on:
+      - db
+      - redis
+
+  # 👁️ Frontend (Interface)
   frontend:
     build: ./frontend
     container_name: synapse-frontend-v3-fix
+    restart: always
     ports:
       - "3000:3000"
     volumes:
       - ./frontend:/app # Live Reload do código
       - /app/node_modules # Evita conflito com node_modules do Windows
     environment:
-      - NEXT_PUBLIC_API_URL=
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:
       - backend
-
-
-
-
-

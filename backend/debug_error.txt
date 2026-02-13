@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/app/app/api/endpoints/scheduler.py", line 161, in update_event
+    updated_item = scheduler_service.update_event(
+  File "/app/core/scheduler.py", line 382, in update_event
+    "scheduled_time": item.scheduled_time.replace(tzinfo=ZoneInfo("America/Sao_Paulo")).isoformat() if item.scheduled_time and item.scheduled_time.tzinfo is None else (item.scheduled_time.isoformat() if item.scheduled_time else None),
+UnboundLocalError: local variable 'ZoneInfo' referenced before assignment
