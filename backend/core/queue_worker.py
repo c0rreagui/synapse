@@ -119,12 +119,22 @@ async def worker_loop():
     logger.info("🚀 Queue Worker Iniciado - Monitorando pasta APPROVED...")
     logger.info(f"📂 Diretório: {APPROVED_DIR}")
     
+    # [SYN-SAFETY] Initialize Circuit Breaker
+    from core.circuit_breaker import circuit_breaker
+    
     # Run Validations/Cleanups
     recover_zombie_tasks()
     cleanup_done_files()
     
     while True:
         try:
+            # [SYN-SAFETY] Check Circuit Breaker
+            if circuit_breaker.is_open():
+                logger.warning("🛑 CIRCUIT OPEN: Pausing Worker for 60s...")
+                status_manager.update_status("paused", step="Circuit Breaker Open", logs=["Too many failures. System paused."])
+                await asyncio.sleep(60)
+                continue
+
             # Lista arquivos
             if not os.path.exists(APPROVED_DIR):
                 os.makedirs(APPROVED_DIR)
@@ -212,11 +222,18 @@ async def worker_loop():
                     status_manager.update_status("idle", progress=100, step="Concluído com sucesso", logs=[f"Finalizado em {duration:.1f}s"])
                 else:
                     status_manager.update_status("error", step="Falha no processamento", logs=[result.get('message', 'Erro desconhecido')])
+                    # [SYN-SAFETY] Record Failure (Soft)
+                    logger.error(f"Execution failed: {result.get('message')}")
+                    await circuit_breaker.record_failure()
+                    
                     await asyncio.sleep(5) # Pause to let user see error status before idle
                     status_manager.set_idle()
                 
             except Exception as e:
                 logger.error(f"❌ Falha ao processar {target_file}: {e}")
+                # [SYN-SAFETY] Record Critical Failure
+                await circuit_breaker.record_failure()
+                
                 import traceback
                 traceback.print_exc()
                 

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getApiUrl } from '../utils/apiClient';
+import { getApiUrl } from '@/app/utils/apiClient';
 import { TikTokProfile, ScheduleEvent } from '../types';
 
 const API_BASE = getApiUrl() + '/api/v1';

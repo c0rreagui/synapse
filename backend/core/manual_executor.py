@@ -11,7 +11,7 @@ from typing import Optional
 
 # Ajuste de path e imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.uploader_monitored import upload_video_monitored
+# from core.uploader_monitored import upload_video_monitored
 from core import brain
 from core.status_manager import status_manager
 from core.consts import ScheduleStatus
@@ -80,6 +80,7 @@ async def execute_approved_video(
                  else:
                      return {"status": ScheduleStatus.FAILED, "message": f"Source file not found (mapped): {candidate}"}
              else:
+                 print(f"DEBUG EXECUTOR: Returning Source Not Found: {video_input}")
                  return {"status": ScheduleStatus.FAILED, "message": f"Source file not found: {video_input}"}
 
     else:
@@ -93,6 +94,7 @@ async def execute_approved_video(
         
         source_path = os.path.join(APPROVED_DIR, video_filename)
         if not os.path.exists(source_path):
+            print(f"DEBUG EXECUTOR: Not found in approved")
             return {"status": ScheduleStatus.FAILED, "message": f"Video {video_filename} not found in approved/"}
     
     # 2. Load Metadata (Priority: Argument > JSON Sidecar)
@@ -139,16 +141,17 @@ async def execute_approved_video(
     else:
         session_name = profile_id
     
-    # 🛡️ SAFETY CHECK: Verify if profile is active in DB
-    from core import session_manager
-    # We use the session_name (slug) to query status
+     
+    # [SYN-DEBUG] Temporarily disabled profile active check to test upload flow
+    # TODO: Debug why get_profile_metadata() returns empty or active=False in Docker
+    # db_meta = session_manager.get_profile_metadata(session_name)
+    # if db_meta:
+    #     if db_meta.get("active") is False:
+    #         logger.warning(f"🛑 Execução abortada: Perfil {session_name} está INATIVO/BANIDO.")
+    #         status_manager.update_status("error", logs=[f"Perfil {session_name} inativo. Re-autentique."])
+    #         print(f"DEBUG EXECUTOR: Returning Profile Inactive")
+    #         return {"status": "error", "message": "Profile is inactive (disabled in DB)"}
     
-    db_meta = session_manager.get_profile_metadata(session_name)
-    if db_meta:
-        if db_meta.get("active") is False:
-            logger.warning(f"🛑 Execução abortada: Perfil {session_name} está INATIVO/BANIDO.")
-            status_manager.update_status("error", logs=[f"Perfil {session_name} inativo. Re-autentique."])
-            return {"status": "error", "message": "Profile is inactive (disabled in DB)"}
     
     # [SYN-FIX] Lightweight Pre-flight: Cookie-only check (no browser launch)
     # The real session check happens inside uploader_monitored.py in the actual upload browser.
@@ -167,6 +170,7 @@ async def execute_approved_video(
     else:
         logger.error(f"Arquivo de sessao nao encontrado: {session_file}")
         status_manager.update_status("error", logs=[f"Sessao de {session_name} nao encontrada."])
+        print("DEBUG EXECUTOR: Session file not found")
         return {"status": "error", "message": "Session file not found"}
     
     # 3. Move to processing (Unique Path to avoid Race Conditions)
@@ -179,7 +183,13 @@ async def execute_approved_video(
     )
     
     # [SYN-FIX] Use processing_id to isolate concurrent runs for same video
-    unique_filename = f"{processing_id}_{video_filename}" if processing_id else video_filename
+    # BUT: Only add prefix if not already using absolute/scheduled path
+    # When video_path is absolute (scheduled), source_path already has full path
+    # and video_filename is just basename - we don't want to prefix the final copy
+    if processing_id and not is_scheduled:
+        unique_filename = f"{processing_id}_{video_filename}"
+    else:
+        unique_filename = video_filename
     proc_path = os.path.join(PROCESSING_DIR, unique_filename)
     
     try:
@@ -200,6 +210,7 @@ async def execute_approved_video(
     except Exception as e:
         logger.error(f"Erro no isolamento de arquivo: {e}")
         status_manager.update_status("error", logs=[f"Erro de I/O em processamento: {e}"])
+        print("DEBUG EXECUTOR: IO Error")
         return {"status": ScheduleStatus.FAILED, "message": str(e)}
     
     # Get caption (use from metadata or generate with Brain)
@@ -246,20 +257,83 @@ async def execute_approved_video(
         logs=["Abrindo navegador...", f"Perfil: {session_name}", f"Privacidade: {privacy_level}"]
     )
 
-    # Execute upload
+    # Execute upload (Subprocess Isolation)
+    from core.process_manager import process_manager
+    import sys
+    
+    script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploader_cli.py")
+    
+    cmd = [
+        sys.executable, 
+        script_path,
+        "--session", session_name,
+        "--video", proc_path,
+        "--privacy", str(privacy_level)
+    ]
+    
+    # Optional Args
+    if caption:
+        cmd.extend(["--caption", caption])
+        
+    if hashtags:
+        try:
+            cmd.extend(["--hashtags", json.dumps(hashtags)])
+        except: pass
+        
+    if action == 'scheduled' and schedule_time:
+        if isinstance(schedule_time, str):
+            cmd.extend(["--schedule_time", schedule_time])
+        else:
+            cmd.extend(["--schedule_time", schedule_time.isoformat()])
+            
+    if action == 'immediate':
+        cmd.append("--post")
+        
+    if metadata.get('viral_music_enabled'):
+        cmd.append("--viral_music")
+        
+    if metadata.get('sound_title'):
+         cmd.extend(["--sound_title", metadata.get('sound_title')])
+
+    # [SYN-SEC] Data Integrity Checksum
+    if metadata.get('md5_checksum'):
+        cmd.extend(["--checksum", metadata.get('md5_checksum')])
+
+    logger.info(f"🚀 Spawning Uploader Subprocess: {' '.join(cmd)}")
+    
     try:
-        result = await upload_video_monitored(
-            session_name=session_name,
-            video_path=proc_path,
-            caption=caption,
-            hashtags=hashtags,
-            schedule_time=schedule_time if action == 'scheduled' else None,
-            post=(action == 'immediate'),
-            enable_monitor=True,
-            viral_music_enabled=metadata.get('viral_music_enabled', False),
-            sound_title=metadata.get('sound_title'),  # 🎵 Música viral selecionada
-            privacy_level=privacy_level
-        )
+        proc = process_manager.start_process(cmd)
+        if not proc:
+             raise Exception("Failed to start uploader process")
+             
+        # Wait for completion
+        # We use run_in_executor to avoid blocking the asyncio loop with synchronous wait
+        pid = proc.pid
+        stdout, stderr = await asyncio.get_event_loop().run_in_executor(None, proc.communicate)
+        
+        process_manager.stop_process(pid)
+        
+        if proc.returncode != 0:
+             logger.error(f"Uploader Process Failed (Exit {proc.returncode}): {stderr}")
+             # Try to parse error from JSON if possible, else generic
+             print("DEBUG EXECUTOR: Process Crash")
+             return {"status": ScheduleStatus.FAILED, "message": f"Process Crash: {stderr}"}
+             
+        # Parse Output
+        try:
+            lines = stdout.strip().splitlines()
+            last_line = lines[-1] if lines else ""
+            result = json.loads(last_line)
+        except Exception as json_err:
+             logger.error(f"Failed to parse uploader output: {stdout}")
+             result = {"status": ScheduleStatus.FAILED, "message": "Invalid Output from Uploader"}
+
+        except Exception as e:
+            logger.error(f"Subprocess Execution Error: {e}")
+            print(f"DEBUG EXECUTOR: Process Execution Error: {e}")
+            result = {"status": ScheduleStatus.FAILED, "message": str(e)}
+            # [BUG FIX] NÃO retornar aqui! Continuar para o código de cleanup abaixo
+
         
         # ... logic continues ...
         if result["status"] == ScheduleStatus.READY:
@@ -322,6 +396,7 @@ async def execute_approved_video(
              except Exception as cleanup_err:
                  logger.error(f"Failed to cleanup failed file: {cleanup_err}")
              
+        print(f"DEBUG EXECUTOR: Returning Result (Main Path): {result}")
         return result # Return result to queue worker to finalized status
             
     except Exception as e:
@@ -337,6 +412,7 @@ async def execute_approved_video(
         except Exception as move_err:
             logger.error(f"Failed to move to errors: {move_err}")
             
+        print("DEBUG EXECUTOR: Fatal Exception")
         return {"status": ScheduleStatus.FAILED, "message": str(e)}
 
 

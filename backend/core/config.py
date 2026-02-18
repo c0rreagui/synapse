@@ -31,3 +31,8 @@ DEFAULT_TIMEOUT = 30000
 LOCAL_BIN = os.path.join(BASE_DIR, "..", "bin")
 if os.path.exists(LOCAL_BIN):
     os.environ["PATH"] += os.pathsep + LOCAL_BIN
+
+# --- NOTIFICATIONS & SAFETY ---
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "") # Empty = Disabled
+CIRCUIT_BREAKER_THRESHOLD = int(os.getenv("CIRCUIT_BREAKER_THRESHOLD", "5")) # Max failures allowed
+CIRCUIT_BREAKER_WINDOW = int(os.getenv("CIRCUIT_BREAKER_WINDOW", "3600")) # Time window in seconds (1h)

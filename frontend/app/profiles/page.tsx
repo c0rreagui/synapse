@@ -55,7 +55,8 @@ export default function ProfilesPage() {
         title: string;
         type: 'delete' | 'success' | 'warning';
         onConfirm: () => void;
-    }>({ isOpen: false, title: '', type: 'success', onConfirm: () => { } });
+        isLoading?: boolean;
+    }>({ isOpen: false, title: '', type: 'success', onConfirm: () => { }, isLoading: false });
 
     // HELPERS
     const getHealthStatus = (profile: TikTokProfile) => {
@@ -360,7 +361,9 @@ export default function ProfilesPage() {
                                 isOpen: true,
                                 title: "Atualizar todos os perfis sequencialmente?",
                                 type: 'success',
+                                isLoading: false,
                                 onConfirm: async () => {
+                                    setConfirmModal(prev => ({ ...prev, isLoading: true }));
                                     setIsRefreshingAll(true);
                                     try {
                                         for (const p of profiles) {
@@ -369,7 +372,7 @@ export default function ProfilesPage() {
                                         toast.success('Todos os perfis atualizados!');
                                     } finally {
                                         setIsRefreshingAll(false);
-                                        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                                        setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
                                     }
                                 }
                             });
@@ -438,7 +441,7 @@ export default function ProfilesPage() {
                                             {refreshError.includes("cookies") && (
                                                 <NeonButton
                                                     variant="primary"
-                                                    onClick={(e) => { e.stopPropagation(); handleOpenUpdateModal(profile); }}
+                                                    onClick={(e) => { e.stopPropagation(); setRepairProfile(profile); }}
                                                     className="!py-1 !px-4 !text-[10px]"
                                                 >
                                                     RENOVAR COOKIES
@@ -530,7 +533,7 @@ export default function ProfilesPage() {
                                 </div>
 
                                 {/* [SYN-UX] Error Recovery Actions */}
-                                {health === 'error' || health === 'expired' ? ( // Show for both error and expired
+                                {health === 'error' || health === 'expired' || health === 'inactive' ? ( // Show for error, expired AND inactive
                                     <div className="flex gap-2 mb-4 animate-in fade-in">
                                         <button
                                             onClick={(e) => { e.stopPropagation(); setRepairProfile(profile); }}
@@ -633,12 +636,21 @@ export default function ProfilesPage() {
                                         isOpen: true,
                                         title: `Excluir ${selectedIds.size} perfis selecionados?`,
                                         type: 'delete',
-                                        onConfirm: () => {
-                                            Array.from(selectedIds).forEach(id => {
-                                                fetch(`${API_BASE}/profiles/${id}`, { method: 'DELETE' }).then(() => fetchProfiles());
-                                            });
-                                            setSelectedIds(new Set());
-                                            setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                                        isLoading: false,
+                                        onConfirm: async () => {
+                                            setConfirmModal(prev => ({ ...prev, isLoading: true }));
+                                            try {
+                                                await Promise.all(
+                                                    Array.from(selectedIds).map(id =>
+                                                        fetch(`${API_BASE}/profiles/${id}`, { method: 'DELETE' })
+                                                    )
+                                                );
+                                                await fetchProfiles();
+                                                setSelectedIds(new Set());
+                                                toast.success('Perfis excluídos com sucesso!');
+                                            } finally {
+                                                setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+                                            }
                                         }
                                     });
                                 }}
@@ -722,19 +734,34 @@ export default function ProfilesPage() {
             {/* [SYN-UX] GLOBAL CONFIRM MODAL (Added generic support) */}
             <Modal
                 isOpen={confirmModal.isOpen}
-                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                onClose={() => !confirmModal.isLoading && setConfirmModal(prev => ({ ...prev, isOpen: false }))}
                 title={confirmModal.title}
             >
                 <div className="flex justify-end gap-3 mt-6">
-                    <NeonButton variant="ghost" onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}>
+                    <NeonButton
+                        variant="ghost"
+                        onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                        disabled={confirmModal.isLoading}
+                    >
                         Cancelar
                     </NeonButton>
                     <NeonButton
                         variant={confirmModal.type === 'delete' ? 'primary' : 'primary'}
                         onClick={confirmModal.onConfirm}
-                        className={confirmModal.type === 'delete' ? '!bg-red-500/20 !text-red-500 hover:!bg-red-500/30' : ''}
+                        disabled={confirmModal.isLoading}
+                        className={clsx(
+                            confirmModal.type === 'delete' ? '!bg-red-500/20 !text-red-500 hover:!bg-red-500/30' : '',
+                            confirmModal.isLoading && 'opacity-50 cursor-not-allowed'
+                        )}
                     >
-                        Confirmar
+                        {confirmModal.isLoading ? (
+                            <>
+                                <ArrowPathIcon className="w-4 h-4 animate-spin mr-2" />
+                                Processando...
+                            </>
+                        ) : (
+                            'Confirmar'
+                        )}
                     </NeonButton>
                 </div>
             </Modal>

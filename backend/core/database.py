@@ -15,6 +15,15 @@ POSTGRES_DB = os.getenv("POSTGRES_DB")
 if POSTGRES_SERVER:
     # PostgreSQL Connection
     SQLALCHEMY_DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}/{POSTGRES_DB}"
+    
+    # [LOGGING] Identify where we are connecting from
+    if POSTGRES_SERVER == "db":
+        print(f"[DATABASE] Running in Docker/Cluster (Server: {POSTGRES_SERVER})")
+    elif POSTGRES_SERVER == "localhost" or POSTGRES_SERVER == "127.0.0.1":
+        print(f"[DATABASE] Running on Host/Local (Server: {POSTGRES_SERVER})")
+    else:
+        print(f"[DATABASE] Connecting to custom server: {POSTGRES_SERVER}")
+
     engine = create_engine(
         SQLALCHEMY_DATABASE_URL, 
         pool_pre_ping=True

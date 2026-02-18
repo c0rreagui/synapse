@@ -38,8 +38,13 @@ async def startup_event():
     # Registra o callback para enviar atualizações via WebSocket
     status_manager.set_async_callback(notify_pipeline_update)
     logger.set_async_callback(notify_new_log)
+    logger.set_async_callback(notify_new_log)
     print("SYSTEM: Real-time updates handler registered.")
 
+    # 🛡️ PROCESS MANAGER (Cleanup Handlers)
+    # Importing it ensures atexit/signal handlers are registered
+    from core.process_manager import process_manager
+    
     # Start Background Workers
     try:
         from core.factory_watcher import start_watcher

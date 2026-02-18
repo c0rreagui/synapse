@@ -12,7 +12,7 @@ from core.queue_manager import QueueManager
 from core.storage import s3_storage
 
 async def check_all():
-    print("🔍 DIAGNOSTIC: Checking System Connections...")
+    print("[DIAGNOSTIC] Checking System Connections...")
     errors = []
 
     # 1. PostgreSQL
@@ -20,33 +20,33 @@ async def check_all():
         db = SessionLocal()
         db.execute(text("SELECT 1"))
         db.close()
-        print("✅ PostgreSQL: Connected")
+        print("[OK] PostgreSQL: Connected")
     except Exception as e:
-        print(f"❌ PostgreSQL: Failed ({e})")
+        print(f"[FAIL] PostgreSQL: Failed ({e})")
         errors.append("postgres")
 
     # 2. Redis
     try:
         pool = await QueueManager.get_pool()
         await pool.ping()
-        print("✅ Redis: Connected")
+        print("[OK] Redis: Connected")
     except Exception as e:
-        print(f"❌ Redis: Failed ({e})")
+        print(f"[FAIL] Redis: Failed ({e})")
         errors.append("redis")
 
     # 3. MinIO
     try:
         s3_storage.client.head_bucket(Bucket=s3_storage.bucket)
-        print("✅ MinIO: Connected")
+        print("[OK] MinIO: Connected")
     except Exception as e:
-        print(f"❌ MinIO: Failed ({e})")
+        print(f"[FAIL] MinIO: Failed ({e})")
         errors.append("minio")
 
     if errors:
-        print(f"💥 System Check Failed for: {', '.join(errors)}")
+        print(f"[ERROR] System Check Failed for: {', '.join(errors)}")
         sys.exit(1)
     else:
-        print("🚀 ALL SYSTEMS GO!")
+        print("[SUCCESS] ALL SYSTEMS GO!")
         sys.exit(0)
 
 if __name__ == "__main__":

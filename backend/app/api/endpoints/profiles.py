@@ -136,81 +136,15 @@ async def repair_session_endpoint(profile_id: str, background_tasks: BackgroundT
 @router.post("/refresh-avatar/{profile_id}")
 async def refresh_avatar_endpoint(profile_id: str, background_tasks: BackgroundTasks):
     """
-    Inicia o refresh do avatar em background.
+    Inicia o refresh do avatar e metadados em background usando a API/Scraper.
     """
+    from fastapi.concurrency import run_in_threadpool
+    from core.session_manager import update_profile_metadata_async
     
-    from core.session_manager import get_session_path
-
-
-    # Turbine mode: Atualiza TUDO do perfil (Avatar, Nick, Bio, Stats) usando o validador completo.
-    import subprocess
-    import sys
-    import json
-    from fastapi import HTTPException
+    # [SYN-FIX] Substituído validator_cli (que só valida login) por update_metadata (que baixa avatar)
+    background_tasks.add_task(run_in_threadpool, update_profile_metadata_async, profile_id)
     
-    script_path = os.path.join(BASE_DIR, "core", "validator_cli.py")
-    
-    # Pass current environment to subprocess to ensure PYTHONPATH is set
-    env = os.environ.copy()
-    env["PYTHONPATH"] = BASE_DIR
-    
-    try:
-        # Reusing the subprocess logic from validate endpoint for stability
-        # avoiding circular imports and event loop issues
-        result_proc = subprocess.run(
-            [sys.executable, script_path, profile_id],
-            capture_output=True,
-            text=True,
-            check=False,
-            env=env
-        )
-        
-        if result_proc.returncode != 0:
-            # Try to parse error from stdout if available
-            try:
-                # Some logs might be on stdout before JSON
-                output = result_proc.stdout.strip()
-                start_idx = output.find("{")
-                end_idx = output.rfind("}")
-                if start_idx != -1 and end_idx != -1:
-                    json_str = output[start_idx:end_idx+1]
-                    res_err = json.loads(json_str)
-                else:
-                    res_err = json.loads(output)
-                return res_err
-            except:
-                print(f"Validator CLI Error (Ref): {result_proc.stderr}")
-                raise HTTPException(status_code=500, detail=f"Validator Script Failed (Code {result_proc.returncode}): {result_proc.stderr}")
-
-        try:
-            output = result_proc.stdout.strip()
-            # Extract JSON (sometimes logs sneak in despite redirection if not careful)
-            start_idx = output.find("{")
-            end_idx = output.rfind("}")
-            if start_idx != -1 and end_idx != -1:
-                json_str = output[start_idx:end_idx+1]
-                result = json.loads(json_str)
-            else:
-                 result = json.loads(output) # Try direct
-        except Exception as e:
-             print(f"Validator Output Parse Error: {e} | Output: {result_proc.stdout}")
-             raise HTTPException(status_code=500, detail=f"Validator Output Invalid: {str(e)}")
-
-        if result.get("status") == "error":
-            raise HTTPException(status_code=500, detail=result["message"])
-            
-        # Notify Frontend
-        from core.session_manager import get_profile_metadata
-        profile_data = get_profile_metadata(profile_id)
-        if profile_data:
-            await websocket.notify_profile_change(profile_data)
-
-        return result
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
+    return {"status": "refreshing", "message": "Avatar e metadados estão sendo atualizados em background."}
 class UpdateCookiesRequest(BaseModel):
     cookies: str
 

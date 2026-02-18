@@ -1,0 +1,21 @@
+{
+  "caption": "dummy test - Siga para mais content! 👇",
+  "schedule_time": null,
+  "viral_music_enabled": false,
+  "original_filename": "dummy_test.mp4",
+  "profile_id": "ptiktok_profile_1770135259969",
+  "privacy_level": "public_to_everyone",
+  "uploaded_at": "08eb92c6-0916-11f1-b248-3ecab232b9f8",
+  "oracle_status": "completed",
+  "md5_checksum": "4f36a0f66805f6fb9fc790a2aeca082b",
+  "oracle_analysis": {
+    "suggested_caption": "dummy test - Siga para mais content! 👇",
+    "hashtags": [
+      "#viral",
+      "#fyp",
+      "#General"
+    ],
+    "viral_score": 50,
+    "viral_reason": "Erro na IA: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}"
+  }
+}

@@ -30,23 +30,9 @@ async def upload_video_monitored(
     enable_monitor: bool = False,  # Monitor desativado por padrao
     viral_music_enabled: bool = False,
     sound_title: str = None,  # Titulo da musica viral especifica
-    privacy_level: str = "public_to_everyone" # public_to_everyone, mutual_follow_friends, self_only
+    privacy_level: str = "public_to_everyone", # public_to_everyone, mutual_follow_friends, self_only
+    md5_checksum: str = None # [SYN-SEC] Optional Integrity Check
 ) -> dict:
-    # --- HELPER: Nuke Modals ---
-    async def nuke_modals(page_ref):
-        try:
-            # Remove overlays e backdrops comuns
-            await page_ref.evaluate("""
-                () => {
-                    document.querySelectorAll('.TUXModal-overlay, .TUXModal-backdrop, [role="dialog"]').forEach(el => el.remove());
-                    document.querySelectorAll('div[class*="overlay"], div[class*="backdrop"]').forEach(el => {
-                        if(window.getComputedStyle(el).position === 'fixed') el.remove();
-                    });
-                }
-            """)
-            await page_ref.wait_for_timeout(200)
-        except: pass
-    
     # --- HELPER: Nuke Modals ---
     async def nuke_modals(page_ref):
         try:
@@ -63,6 +49,29 @@ async def upload_video_monitored(
         except: pass
 
     result = {"status": "error", "message": "", "screenshot_path": None}
+    
+    # [SYN-SEC] CRITICAL: Data Integrity Pre-Flight Check
+    if md5_checksum:
+        logger.info(f"🛡️ [INTEGRITY] Verificando MD5 Checksum: {md5_checksum}")
+        try:
+            import hashlib
+            hasher = hashlib.md5()
+            with open(video_path, 'rb') as f:
+                # Read in chunks to avoid memory spike
+                for chunk in iter(lambda: f.read(4096), b""):
+                    hasher.update(chunk)
+            
+            calculated_md5 = hasher.hexdigest()
+            
+            if calculated_md5 != md5_checksum:
+                logger.critical(f"🛑 DATA INTEGRITY ERROR! Expected {md5_checksum}, got {calculated_md5}")
+                return {"status": "error", "message": "CRITICAL: File Corruption Detected (MD5 Mismatch)"}
+            
+            logger.info("✅ [INTEGRITY] Pre-flight Check Passed. File is bit-perfect.")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to verify checksum: {e}")
+            return {"status": "error", "message": f"Integrity Check Failed: {e}"}
     
     # MONITOR ULTRA-DETALHADO (so ativa se solicitado)
     monitor = TikTokMonitor(session_name) if enable_monitor else None
@@ -90,7 +99,16 @@ async def upload_video_monitored(
         _lock_ctx.__enter__()
         _lock_acquired = True
         
-        p, browser, context, page = await launch_browser(headless=False, storage_state=session_path)
+        # [SYN-SEC] Enforce Profile User-Agent
+        from core.session_manager import get_profile_user_agent
+        # session_name is effectively the profile_id (or slug) here
+        profile_ua = get_profile_user_agent(session_name)
+        
+        p, browser, context, page = await launch_browser(
+            headless=False, 
+            storage_state=session_path,
+            user_agent=profile_ua
+        )
             
         # 🎬 INICIAR PLAYWRIGHT TRACE (só se monitor ativo)
         if monitor:
@@ -134,6 +152,12 @@ async def upload_video_monitored(
                 status_manager.update_status("error", logs=["Sessão expirada. Perfil desativado."])
             except Exception as kill_err:
                 logger.error(f"Erro ao desativar perfil: {kill_err}")
+            
+            # [CIRCUIT BREAKER] Record Failure
+            try:
+                from core.circuit_breaker import circuit_breaker
+                await circuit_breaker.record_failure()
+            except: pass
                 
             raise Exception("Session Expired - Login Required")
         
@@ -1082,6 +1106,12 @@ async def upload_video_monitored(
                 if confirmed:
                     result["status"] = "ready"
                     result["message"] = "Action completed"
+                    
+                    # [CIRCUIT BREAKER] Record Success
+                    try:
+                        from core.circuit_breaker import circuit_breaker
+                        await circuit_breaker.record_success()
+                    except: pass
                 else:
                     logger.warning("❌ Falha na verificação final: Sucesso não confirmado.")
                     result["status"] = "error"
@@ -1110,6 +1140,16 @@ async def upload_video_monitored(
     except Exception as e:
         logger.error(f"Erro no upload: {e}")
         result["message"] = str(e)
+        
+        # [CIRCUIT BREAKER] Record Failure if not already recorded
+        # Note: Session Expired exception already recorded it, but we can't easily distinguish here without checking message
+        # But CircuitBreaker handles counts, so multiple records for same event is acceptable if rare, 
+        # OR we check message
+        if "Session Expired" not in str(e):
+             try:
+                from core.circuit_breaker import circuit_breaker
+                await circuit_breaker.record_failure()
+             except: pass
         # Captura estado de erro
         try:
             if monitor:

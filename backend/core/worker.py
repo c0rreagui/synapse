@@ -2,6 +2,7 @@
 import asyncio
 import os
 import sys
+import shutil
 import logging
 from typing import Dict, Any
 
@@ -23,6 +24,72 @@ logging.basicConfig(level=logging.INFO)
 async def startup(ctx):
     logger.info("🚀 Worker Process Starting...")
     # Initialize DB connection test or anything else
+    await check_consistency()
+
+async def check_consistency():
+    """
+    [SYN-DB] Transactional Recovery
+    Checks for stuck 'processing' items that might have finished while worker was down.
+    """
+    logger.info("🕵️ Running DB Consistency Check...")
+    db = SessionLocal()
+    try:
+        # Find items likely stuck
+        stuck_items = db.query(ScheduleItem).filter(ScheduleItem.status == 'processing').all()
+        
+        if not stuck_items:
+            logger.info("✅ No stuck items found.")
+            return
+
+        from core.config import DONE_DIR, ERRORS_DIR, PROCESSING_DIR
+        
+        for item in stuck_items:
+            filename = os.path.basename(item.video_path)
+            logger.info(f"Checking stuck item {item.id}: {filename}")
+            
+            # Case 1: In DONE? -> Mark Completed
+            done_path = os.path.join(DONE_DIR, filename)
+            if os.path.exists(done_path):
+                logger.info(f"♻️ RECOVERY: Item {item.id} found in DONE. Marking completed.")
+                item.status = ScheduleStatus.COMPLETED
+                db.commit()
+                continue
+                
+            # Case 2: In ERRORS? -> Mark Failed
+            error_path = os.path.join(ERRORS_DIR, filename)
+            if os.path.exists(error_path):
+                logger.info(f"♻️ RECOVERY: Item {item.id} found in ERRORS. Marking failed.")
+                item.status = ScheduleStatus.FAILED
+                db.commit()
+                continue
+                
+            # Case 3: Still in Processing?
+            # Check for .completed marker
+            proc_path = os.path.join(PROCESSING_DIR, filename)
+            marker_path = proc_path + ".completed"
+            
+            if os.path.exists(marker_path):
+                 # It finished but move failed?
+                 # Should we try to move it? Yes.
+                 logger.info(f"♻️ RECOVERY: Item {item.id} found in PROCESSING with .completed marker.")
+                 try:
+                     if os.path.exists(done_path): os.remove(done_path)
+                     shutil.move(proc_path, done_path)
+                     item.status = ScheduleStatus.COMPLETED
+                     db.commit()
+                     if os.path.exists(marker_path): os.remove(marker_path)
+                 except Exception as e:
+                     logger.error(f"Failed to recover completed item: {e}")
+            else:
+                 # Real Zombie?
+                 # If it's been processing for > 1 hour, maybe fail it?
+                 # For now just log usage.
+                 logger.warning(f"⚠️ Item {item.id} is in PROCESSING state but file state is ambiguous.")
+                 
+    except Exception as e:
+        logger.error(f"Consistency check failed: {e}")
+    finally:
+        db.close()
 
 async def shutdown(ctx):
     logger.info("🛑 Worker Process Stopping...")
@@ -53,6 +120,8 @@ async def upload_video_task(ctx, item_id: int, video_path: str, metadata: Dict[s
     
     # 1. Update DB -> Processing
     await update_job_status(item_id, ScheduleStatus.PROCESSING)
+    
+    local_video_path = video_path # [SYN-FIX] Default to provided path
     
     try:
         # [SYN-FIX] S3 Support
@@ -86,6 +155,10 @@ async def upload_video_task(ctx, item_id: int, video_path: str, metadata: Dict[s
             processing_id=str(item_id)
         )
         
+        if result is None:
+             logger.error("❌ EAV returned None! This usually means an unhandled path in manual_executor.")
+             result = {"status": "failed", "message": "Internal Error: Executor returned None"}
+
         status = result.get('status', 'failed')
         
         # 3. Update DB -> Completed/Failed

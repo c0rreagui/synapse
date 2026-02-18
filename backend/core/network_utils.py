@@ -12,7 +12,8 @@ except Exception as e:
     logger.warning(f"Falha ao carregar UserAgent fake, usando fallback fixo: {e}")
     ua = None
 
-DEFAULT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+# FIXED USER AGENT TO MATCH HEALED SESSIONS (Windows Desktop)
+DEFAULT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 DEFAULT_LOCALE = "pt-BR"
 DEFAULT_TIMEZONE = "America/Sao_Paulo"
 
@@ -22,12 +23,10 @@ TIKTOK_UPLOAD_URL = f"{TIKTOK_BASE_URL}/tiktokstudio/upload"
 TIKTOK_CREATIVE_CENTER_URL = "https://ads.tiktok.com/business/creativecenter/inspiration/popular/music/pc/en"
 
 def get_random_user_agent() -> str:
-    """Retorna um User-Agent realístico e aleatório."""
-    try:
-        if ua:
-            return ua.random
-    except Exception:
-        pass
+    """
+    Retorna User-Agent fixo para garantir consistência com cookies de sessão.
+    Evita rotação que causa 'Session Expired' por mismatch.
+    """
     return DEFAULT_UA
 
 def get_tiktok_headers(

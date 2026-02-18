@@ -2,8 +2,9 @@ import sys
 import os
 import shutil
 
-# Add backend root to path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# [HARDENING] Unified Environment Loader
+import script_env
+script_env.setup_script_env()
 
 from core.database import SessionLocal
 from core.models import Profile

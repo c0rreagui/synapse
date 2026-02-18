@@ -19,20 +19,29 @@ from core.config import DATA_DIR, BASE_DIR
 
 def normalize_video_path(docker_path: str) -> str:
     """
-    Converts Docker-style paths (/app/data/...) to Windows paths.
-    If already a Windows path, returns as-is.
+    Normalizes video paths based on the current environment.
+    - If running in Docker: keep Docker paths as-is
+    - If running on Host: convert Docker paths to Windows paths
     """
-    if docker_path.startswith("/app/data/"):
-        # Extract relative path after /app/data/
-        relative = docker_path.replace("/app/data/", "")
-        return os.path.join(DATA_DIR, relative)
-    elif docker_path.startswith("/app/"):
-        # Other /app/ paths
-        relative = docker_path.replace("/app/", "")
-        return os.path.join(BASE_DIR, relative)
-    else:
-        # Already a Windows path or other
+    # Detect if we're running in Docker
+    running_in_docker = os.path.exists("/.dockerenv")
+    
+    if running_in_docker:
+        # We're in Docker, return path as-is
         return docker_path
+    else:
+        # We're on Host (Windows), convert Docker paths to Windows paths
+        if docker_path.startswith("/app/data/"):
+            # Extract relative path after /app/data/
+            relative = docker_path.replace("/app/data/", "")
+            return os.path.join(DATA_DIR, relative)
+        elif docker_path.startswith("/app/"):
+            # Other /app/ paths
+            relative = docker_path.replace("/app/", "")
+            return os.path.join(BASE_DIR, relative)
+        else:
+            # Already a Windows path or other
+            return docker_path
 
 class Scheduler:
     def __init__(self):
@@ -455,9 +464,19 @@ class Scheduler:
                 print(f"Scheduler Loop Error: {e}")
             await asyncio.sleep(60) # Check every minute
 
+    @with_db_retries()
     async def check_due_items(self):
         """Checks DB for pending items that are due."""
         # 💓 [NEW] Post Heartbeat for System Sonar
+        # ... (heartbeat code if exists)
+        
+        # 🛡️ CIRCUIT BREAKER CHECK
+        from core.circuit_breaker import circuit_breaker
+        if circuit_breaker.is_open():
+             # Only log once per minute to avoid spam, or reliance on logger level
+             print("[PAUSED] Scheduler Paused: Circuit Breaker is OPEN.")
+             return
+             
         try:
             hb_path = os.path.join(DATA_DIR, "scheduler_heartbeat.json")
             with open(hb_path, 'w') as f:
@@ -513,16 +532,21 @@ class Scheduler:
                         await self.execute_due_item(item, db)
 
             # Since check_due_items runs every minute, we can do a quick check here.
-            zombie_threshold = datetime.now() - timedelta(hours=1)
+            # [SYN-FIX] Use SP Time for threshold to match DB storage (Naive = SP)
+            now_sp = datetime.now(ZoneInfo("America/Sao_Paulo")).replace(tzinfo=None)
+            zombie_threshold = now_sp - timedelta(hours=1)
+            print(f"[DEBUG] Zombie Check: NowSP={now_sp}, Threshold={zombie_threshold}")
             zombies = db.query(ScheduleItem).filter(
                 ScheduleItem.status == 'processing',
                 ScheduleItem.scheduled_time < zombie_threshold
             ).all()
+            if zombies:
+                 print(f"[DEBUG] Found Zombies: {[z.id for z in zombies]}")
             
             for zombie in zombies:
                 logger.log("warning", f"Zombie detected: Item {zombie.id} stuck in processing. Marking as failed.", "scheduler")
                 zombie.status = 'failed'
-                zombie.error_message = "Zombie Recovery: Pipeline stuck for >1h"
+                zombie.error_message = "ZOMBIE HOST DETECTED: Pipeline stuck for >1h"
             
             if zombies:
                 db.commit()

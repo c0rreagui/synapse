@@ -26,29 +26,8 @@ def session_exists(session_name: str) -> bool:
     """Checks if a session file exists."""
     return os.path.exists(get_session_path(session_name))
 
-def update_profile_status(profile_id: str, active: bool) -> bool:
-    """
-    Updates the 'active' status of a profile in the database.
-    Called by profile_validator.py after successful/failed validation.
-    Returns True if successful, False otherwise.
-    """
-    db = SessionLocal()
-    try:
-        profile = db.query(Profile).filter(Profile.slug == profile_id).first()
-        if not profile:
-            print(f"[update_profile_status] Profile {profile_id} not found in DB")
-            return False
-        
-        profile.active = active
-        db.commit()
-        print(f"[update_profile_status] Profile {profile_id} active -> {active}")
-        return True
-    except Exception as e:
-        print(f"[update_profile_status] Error: {e}")
-        db.rollback()
-        return False
-    finally:
-        db.close()
+# Duplicate update_profile_status removed. 
+# See implementation at bottom of file.
 
 async def save_session(context, session_name: str):
     """
@@ -408,7 +387,7 @@ def list_available_sessions() -> List[Dict[str, str]]:
             
             # Sync back to JSON for consistency (optional, but good for persistence)
             # We won't write to disk on every read to save I/O, but we return the truth.
-            
+
     except Exception as e:
         print(f"Error merging DB stats: {e}")
     finally:
@@ -660,6 +639,7 @@ def update_profile_metadata(profile_id: str, updates: Dict[str, Any]) -> bool:
     finally:
         db.close()
 
+@with_db_retries()
 def delete_session(profile_id: str) -> bool:
     """
     Deletes a profile from SQLite (and its related data) and removes its session file.
@@ -703,6 +683,7 @@ def delete_session(profile_id: str) -> bool:
     finally:
         db.close()
 
+@with_db_retries()
 def update_profile_status(profile_id: str, active: bool) -> bool:
     """
     Updates just the active status of a profile.

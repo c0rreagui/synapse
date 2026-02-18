@@ -79,20 +79,21 @@ services:
       - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-synapse_admin}
       - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-synapse_secret_key}
       - DISABLE_SCHEDULER=true
+      - GROQ_API_KEY=${GROQ_API_KEY}
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
       minio:
-        condition: service_healthy
+        condition: service_started
 
   # 👷 Worker (Processamento em Background)
   worker:
     build: ./backend
     container_name: synapse-worker
     restart: always
-    command: arq core.worker.WorkerSettings --watch /app
+    command: arq core.worker.WorkerSettings --watch /app/core
     volumes:
       - ./backend:/app
       - ./brain:/app/brain
@@ -126,6 +127,7 @@ services:
       - ./inputs:/app/inputs
       - ./backend/data/approved:/app/data/approved
     environment:
+      - PYTHONUNBUFFERED=1
       - ENVIRONMENT=development
       - TZ=America/Sao_Paulo
       - POSTGRES_SERVER=db

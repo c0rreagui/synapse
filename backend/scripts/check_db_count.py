@@ -2,8 +2,8 @@ import sys
 import os
 from sqlalchemy import create_engine, text
 
-# Add backend to path
-sys.path.append(os.path.join(os.getcwd(), 'backend'))
+import script_env
+script_env.setup_script_env()
 
 from core.database import SessionLocal
 from core.models import Profile, ScheduleItem
@@ -27,7 +27,7 @@ def check_counts():
             print("--- Schedule Items ---")
             schedule_items = db.query(ScheduleItem).all()
             for s in schedule_items:
-                print(f"ID: {s.id}, Profile ID: {s.profile_id}, Day: {s.day_of_week}, Start: {s.start_time}, End: {s.end_time}")
+                print(f"ID: {s.id}, Profile: {s.profile_slug}, Status: {s.status}, Time: {s.scheduled_time}")
                 
     except Exception as e:
         print(f"Error checking DB: {e}")

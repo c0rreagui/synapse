@@ -1,106 +1,174 @@
-import asyncio
+import subprocess
+import threading
+import time
 import logging
-import signal
-import sys
 import psutil
-from typing import List, Any, Optional
+import atexit
+import signal
+import os
+import sys
+from typing import List, Optional, Dict
 
 logger = logging.getLogger(__name__)
 
 class ProcessManager:
     """
-    Singleton Process Manager to track resources (processes, browsers, etc.)
-    and ensure graceful cleanup on shutdown (SIGINT, SIGTERM).
+    Centralized process manager to spawn, track, and kill child processes.
+    Ensures that no zombie processes are left behind on shutdown.
     """
     _instance = None
+    _lock = threading.Lock()
+    _instance = None
+    _lock = threading.Lock()
+    _processes: Dict[int, psutil.Process] = {}
+    _resources: set = set()
     
     def __new__(cls):
-        if not cls._instance:
-            cls._instance = super(ProcessManager, cls).__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super(ProcessManager, cls).__new__(cls)
+                cls._instance._initialize()
+            return cls._instance
     
-    def __init__(self):
-        if hasattr(self, '_initialized') and self._initialized:
-            return
-            
-        self.resources: List[Any] = []
-        self._shutting_down = False
-        self._initialized = True
+    def _initialize(self):
+        """Register cleanup handlers"""
+        logger.info("🛡️ ProcessManager Initialized")
+        atexit.register(self.kill_all)
+        signal.signal(signal.SIGTERM, self._signal_handler)
+        signal.signal(signal.SIGINT, self._signal_handler)
         
-        # Register Signal Handlers
-        try:
-            signal.signal(signal.SIGINT, self._handle_signal)
-            signal.signal(signal.SIGTERM, self._handle_signal)
-            if sys.platform == "win32":
-                signal.signal(signal.SIGBREAK, self._handle_signal)
-        except ValueError:
-            # Signal handling might fail if not main thread, usually fine
-            logger.warning("[ProcessManager] Could not register signal handlers (not main thread?)")
-            
-    def register(self, resource: Any):
-        """Registers a resource (browser, subprocess, etc.) for cleanup."""
-        if resource not in self.resources:
-            self.resources.append(resource)
-            
-    def unregister(self, resource: Any):
-        """Unregisters a resource."""
-        if resource in self.resources:
-            self.resources.remove(resource)
-            
-    def _handle_signal(self, signum, frame):
-        """Handles shutdown signals."""
-        if self._shutting_down: return
-        self._shutting_down = True
-        
-        sig_name = "SIGINT" if signum == signal.SIGINT else "SIGTERM"
-        logger.info(f"[ProcessManager] Received {sig_name}. cleaning up {len(self.resources)} resources...")
-        
-        # We need to schedule cleanup on the running loop
-        # But we modify the exit flow.
-        # Ideally, we create a task.
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            loop.create_task(self.cleanup())
-            # We don't exit immediately, we let cleanup finish?
-            # Signal handlers interrupt.
-            # We can raise SystemExit after cleanup?
-        else:
-            # Sync cleanup
-            asyncio.run(self.cleanup())
-            sys.exit(0)
-
-    async def cleanup(self):
-        """Iterates through resources and calls close()/stop()/kill()."""
-        logger.info("[ProcessManager] executing cleanup...")
-        for res in reversed(self.resources): # LIFO order
-            try:
-                # 1. Playwright / Browser objects
-                if hasattr(res, 'close'):
-                    if asyncio.iscoroutinefunction(res.close):
-                        await res.close()
-                    else:
-                        res.close()
-                elif hasattr(res, 'stop'):
-                    if asyncio.iscoroutinefunction(res.stop):
-                        await res.stop()
-                    else:
-                        res.stop()
-                
-                # 2. Subprocesses (Popen)
-                elif hasattr(res, 'terminate') and hasattr(res, 'kill'):
-                    res.terminate()
-                    try:
-                        res.wait(timeout=2)
-                    except:
-                        res.kill()
-                        
-            except Exception as e:
-                logger.error(f"[ProcessManager] Error cleaning up resource {res}: {e}")
-        
-        self.resources.clear()
-        logger.info("[ProcessManager] Cleanup complete. Exiting.")
+    def _signal_handler(self, signum, frame):
+        logger.warning(f"🛑 Received signal {signum}. Terminating all processes...")
+        self.kill_all()
         sys.exit(0)
 
-# Global Instance
+    def start_process(self, command: List[str], cwd: str = None, env: Dict = None) -> subprocess.Popen:
+        """
+        Starts a new process and tracks it.
+        params:
+            command: List of arguments (e.g. ["python", "script.py"])
+            cwd: Working directory
+            env: Environment variables
+        """
+        try:
+            # Force unbuffered output for Python scripts
+            if command[0].endswith("python") or command[0].endswith("python3"):
+                 if "-u" not in command:
+                     command.insert(1, "-u")
+            
+            # Configure startup info to hide window on Windows (optional)
+            startupinfo = None
+            if os.name == 'nt':
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            
+            process = subprocess.Popen(
+                command,
+                cwd=cwd,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True, # Py3.7+
+                encoding='utf-8',
+                errors='replace',
+                startupinfo=startupinfo
+            )
+            
+            if process.pid:
+                try:
+                    p = psutil.Process(process.pid)
+                    with self._lock:
+                        self._processes[process.pid] = p
+                    logger.info(f"🚀 Started subprocess {process.pid}: {' '.join(command)}")
+                except psutil.NoSuchProcess:
+                    logger.warning(f"⚠️ Process {process.pid} died immediately after spawn.")
+            
+            return process
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to start process {' '.join(command)}: {e}")
+            raise e
+
+    def stop_process(self, pid: int):
+        """Stop a specific process by PID"""
+        with self._lock:
+            proc = self._processes.get(pid)
+            if proc:
+                try:
+                    logger.info(f"🛑 Stopping process {pid}...")
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=5)
+                    except psutil.TimeoutExpired:
+                         logger.warning(f"⚠️ Process {pid} did not terminate gracefully. Killing force...")
+                         proc.kill()
+                    
+                    if pid in self._processes:
+                        del self._processes[pid]
+                        
+                except psutil.NoSuchProcess:
+                    # Already dead
+                    if pid in self._processes:
+                        del self._processes[pid]
+                except Exception as e:
+                    logger.error(f"❌ Error stopping process {pid}: {e}")
+
+    def kill_all(self):
+        """Kill all tracked processes. Safe to call multiple times."""
+        with self._lock:
+            if not self._processes:
+                return
+                
+            logger.warning(f"🧹 Cleaning up {len(self._processes)} child processes...")
+            
+            for pid, proc in list(self._processes.items()):
+                try:
+                    if proc.is_running():
+                        proc.terminate()
+                except psutil.NoSuchProcess:
+                    pass
+                except Exception as e:
+                    logger.error(f"Error terminating {pid}: {e}")
+            
+            # Wait for termination
+            gone, alive = psutil.wait_procs(self._processes.values(), timeout=3)
+            
+            # Force kill alive
+            for p in alive:
+                try:
+                    logger.warning(f"💀 Force killing zombie {p.pid}")
+                    p.kill()
+                except: pass
+            
+            self._processes.clear()
+            
+            # Cleanup registered resources (Best Effort)
+            if self._resources:
+                logger.info(f"🧹 Use Best-Effort cleanup for {len(self._resources)} resources...")
+                for res in list(self._resources):
+                    try:
+                        if hasattr(res, "close"):
+                             # If async, this might warn/fail in atexit, but we allow it for now
+                             # For sync resources it works.
+                            res.close()
+                        elif hasattr(res, "stop"):
+                            res.stop()
+                    except Exception as e:
+                        logger.warning(f"Error closing resource {res}: {e}")
+                self._resources.clear()
+
+            logger.info("✨ Process cleanup complete.")
+
+    def register(self, resource):
+        """Register a non-process resource for cleanup (e.g. Playwright)"""
+        with self._lock:
+            self._resources.add(resource)
+
+    def unregister(self, resource):
+        """Unregister a resource"""
+        with self._lock:
+            if resource in self._resources:
+                self._resources.remove(resource)
+
+# Singleton export
 process_manager = ProcessManager()

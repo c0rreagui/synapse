@@ -23,7 +23,7 @@ import BatchUploadModal from './components/BatchUploadModal';
 import AudioSuggestionCard, { AudioSuggestion } from './components/AudioSuggestionCard';
 import { SchedulingData } from './components/SchedulerForm';
 import ScheduledVideosModal from './components/ScheduledVideosModal';
-import { useIngestionStatus, usePendingVideos, useProfiles, useScheduledEvents, useDashboardRefresh } from './hooks/useDashboardData';
+import { useIngestionStatus, usePendingVideos, useProfiles, useScheduledEvents, useDashboardRefresh } from '../hooks/useDashboardData';
 
 const API_BASE = getApiUrl() + '/api/v1';
 
