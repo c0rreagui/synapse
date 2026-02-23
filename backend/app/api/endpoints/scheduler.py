@@ -305,8 +305,9 @@ class RetryRequest(BaseModel):
 async def retry_event(event_id: str, request: RetryRequest):
     """
     Retries a failed event: restores file and resets status.
-    mode="now": Retries immediately (keeps past time).
-    mode="next_slot": Moves to next available slot (Same time, next day).
+    mode="now": Retries immediately (sets time to now).
+    mode="next_slot": Moves to next available slot starting from NOW (same day if possible),
+                      respecting min 2h interval, blocked hours (02-06h) and daily post limit.
     """
     try:
         result = scheduler_service.retry_event(event_id, mode=request.mode)

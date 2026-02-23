@@ -20,7 +20,11 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
         isValidating,
         isUploading,
         bypassConflicts,
-        setBypassConflicts
+        setBypassConflicts,
+        // [SYN-67] Auto-Schedule
+        postsPerDay, setPostsPerDay,
+        autoStartHour, setAutoStartHour,
+        handleAutoSchedule,
     } = useBatch();
 
     const [showStrategyMenu, setShowStrategyMenu] = useState(false);
@@ -64,6 +68,8 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
         frequencyDisplay = 'Apenas Fila (Sem Agendar)';
     } else if (strategy === 'CUSTOM') {
         frequencyDisplay = `${customTimes.length} Posts / Dia (Fixo)`;
+    } else if (strategy === 'AUTO_SCHEDULE') {
+        frequencyDisplay = `Auto: ${postsPerDay}x / Dia as ${String(autoStartHour).padStart(2, '0')}:00`;
     } else {
         // Interval Strategy
         if (intervalMinutes === 1440) frequencyDisplay = '1x / Dia';
@@ -77,6 +83,7 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
     const canSchedule = files.length > 0 && selectedProfiles.length > 0 && !isValidating && !isUploading;
     const isApprovalMode = files.some(f => f.isRemote);
     const totalPosts = isApprovalMode ? files.length : files.length * selectedProfiles.length;
+    const isAutoScheduleMode = strategy === 'AUTO_SCHEDULE';
 
     return (
         <div className="absolute bottom-0 left-0 right-0 h-24 bg-[#0c0c0c]/95 backdrop-blur-2xl border-t border-white/5 flex items-center justify-between px-8 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
@@ -138,6 +145,22 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
 
                             <div className="h-px bg-white/5 my-1" />
 
+                            {/* [SYN-67] Auto-Schedule */}
+                            <button
+                                onClick={() => { setStrategy('AUTO_SCHEDULE'); setShowStrategyMenu(false); }}
+                                className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-emerald-500/10 transition-colors text-left group"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <span className="text-emerald-400 text-base">&#9654;</span>
+                                    <span className="text-xs text-gray-300 group-hover:text-white">Auto-Agendar (Studio)</span>
+                                </div>
+                                {strategy === 'AUTO_SCHEDULE' && (
+                                    <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
+                                )}
+                            </button>
+
+                            <div className="h-px bg-white/5 my-1" />
+
                             <button
                                 onClick={() => { setStrategy('ORACLE'); setShowStrategyMenu(false); }}
                                 className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-synapse-purple/20 transition-colors text-left group"
@@ -168,8 +191,8 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
                 )}
             </div>
 
-            {/* Center: Date/Time Picker Logic - [SYN-UI] Refactored for spacing */}
-            {strategy !== 'QUEUE' && (
+            {/* Center: Date/Time Picker Logic */}
+            {strategy !== 'QUEUE' && strategy !== 'AUTO_SCHEDULE' && (
                 <div className="flex items-center gap-6 animate-in fade-in zoom-in duration-300 mx-auto">
                     {/* Common Date Picker */}
                     <div
@@ -230,6 +253,49 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
                             />
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* [SYN-67] Auto-Schedule Config Panel */}
+            {isAutoScheduleMode && (
+                <div className="flex items-center gap-6 animate-in fade-in zoom-in duration-300 mx-auto">
+                    {/* Posts per day */}
+                    <div className="flex flex-col items-center gap-1">
+                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Posts / Dia</span>
+                        <div className="flex items-center bg-white/5 rounded-lg border border-white/5 px-1 py-0.5">
+                            <button onClick={() => setPostsPerDay(Math.max(1, postsPerDay - 1))} className="p-1.5 hover:text-white text-gray-500 disabled:opacity-30 hover:bg-white/5 rounded-md transition-colors" disabled={postsPerDay <= 1}>
+                                <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="text-sm font-mono w-8 text-center text-white">{postsPerDay}</span>
+                            <button onClick={() => setPostsPerDay(Math.min(3, postsPerDay + 1))} className="p-1.5 hover:text-white text-gray-500 disabled:opacity-30 hover:bg-white/5 rounded-md transition-colors" disabled={postsPerDay >= 3}>
+                                <Plus className="w-3 h-3" />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="h-10 w-px bg-white/10" />
+
+                    {/* Start hour */}
+                    <div className="flex flex-col items-center gap-1">
+                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Horario Base</span>
+                        <div className="flex items-center bg-white/5 rounded-lg border border-white/5 px-1 py-0.5">
+                            <button onClick={() => setAutoStartHour(autoStartHour === 0 ? 23 : autoStartHour - 1)} className="p-1.5 hover:text-white text-gray-500 hover:bg-white/5 rounded-md transition-colors">
+                                <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="text-sm font-mono w-16 text-center text-emerald-300">{String(autoStartHour).padStart(2, '0')}:00</span>
+                            <button onClick={() => setAutoStartHour((autoStartHour + 1) % 24)} className="p-1.5 hover:text-white text-gray-500 hover:bg-white/5 rounded-md transition-colors">
+                                <Plus className="w-3 h-3" />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="h-10 w-px bg-white/10" />
+
+                    {/* Info badge */}
+                    <div className="flex flex-col items-center">
+                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Lote Inicial</span>
+                        <span className="text-xs text-emerald-400 font-mono mt-1">10 videos</span>
+                    </div>
                 </div>
             )}
 
@@ -308,15 +374,16 @@ export function BatchFooter({ onClose }: { onClose: () => void }) {
                     Cancelar
                 </button>
                 <NeonButton
-                    onClick={handleUpload}
+                    onClick={isAutoScheduleMode ? handleAutoSchedule : handleUpload}
                     disabled={!canSchedule}
                     variant="primary"
-                    className="px-8 py-2.5 text-xs font-bold uppercase tracking-wider"
+                    className={`px-8 py-2.5 text-xs font-bold uppercase tracking-wider${isAutoScheduleMode ? ' !border-emerald-500/50 !text-emerald-400' : ''}`}
                 >
-                    {isValidating ? 'Validando...' :
-                        strategy === 'QUEUE' ? `Enviar ${totalPosts > 0 ? totalPosts : ''} para Fila`
-                            : isApprovalMode ? `Aprovar ${totalPosts > 0 ? totalPosts : ''} Vídeo(s)`
-                                : `Agendar ${totalPosts > 0 ? totalPosts : ''} Posts`
+                    {isUploading ? 'Enviando...' :
+                        isAutoScheduleMode ? `Auto-Agendar ${files.length > 0 ? files.length : ''} Videos` :
+                            isValidating ? 'Validando...' :
+                                isApprovalMode ? `Aprovar ${totalPosts > 0 ? totalPosts : ''} Video(s)`
+                                    : `Agendar ${totalPosts > 0 ? totalPosts : ''} Posts`
                     }
                 </NeonButton>
             </div>

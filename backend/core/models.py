@@ -86,3 +86,39 @@ class PromptTemplate(Base):
     is_favorite = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+
+class VideoQueue(Base):
+    """
+    Fila de videos para auto-agendamento incremental.
+    Criado por SYN-67 (TikTok Studio Native Scheduler) e SYN-69 (Video Queue Persistence).
+    """
+    __tablename__ = "video_queue"
+
+    id = Column(Integer, primary_key=True, index=True)
+    profile_slug = Column(String, index=True)
+    video_path = Column(String, nullable=False)
+    caption = Column(String, default="")
+    hashtags = Column(JSON, default=list)
+    privacy_level = Column(String, default="public_to_everyone")
+
+    # Posicao na fila (0-indexed)
+    position = Column(Integer, nullable=False)
+
+    # Configuracao de agendamento
+    posts_per_day = Column(Integer, default=1)     # 1, 2 ou 3 posts por dia
+    start_hour = Column(Integer, default=18)        # Mantido para backward-compat
+    schedule_hours = Column(JSON, default=list)     # Ex: [12, 18] - horarios exatos por dia
+
+    # Estado
+    status = Column(String, default="queued", index=True)
+    # queued     -> aguardando agendamento
+    # scheduled  -> agendado no TikTok Studio com sucesso
+    # failed     -> tentativa de agendamento falhou
+    # cancelled  -> cancelado pelo usuario
+
+    # Rastreabilidade
+    schedule_item_id = Column(Integer, ForeignKey("schedule.id"), nullable=True)
+    error_message = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    scheduled_at = Column(DateTime, nullable=True)

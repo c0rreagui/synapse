@@ -115,7 +115,7 @@ app.add_middleware(
 
 from fastapi.staticfiles import StaticFiles
 import os
-from .api.endpoints import content, ingestion, profiles, logs, queue, videos, status, scheduler, oracle, analytics, viral_sounds, audio, logic, batch, templates, validate_cookies, settings, health
+from .api.endpoints import content, ingestion, profiles, logs, queue, videos, status, scheduler, oracle, analytics, viral_sounds, audio, logic, batch, templates, validate_cookies, settings, health, auto_scheduler
 from .api import debug_router
 from .api import websocket as ws_router
 
@@ -144,6 +144,7 @@ app.include_router(batch.router, prefix="/api/v1/batch", tags=["batch"])
 app.include_router(templates.router, prefix="/api/v1/templates", tags=["templates"])
 app.include_router(settings.router, prefix="/api/v1/settings", tags=["settings"])
 app.include_router(health.router, prefix="/api/health", tags=["health"]) # Sonar
+app.include_router(auto_scheduler.router, prefix="/api/v1", tags=["auto-scheduler"])
 app.include_router(debug_router.router, prefix="/api/v1", tags=["debug"])
 app.include_router(ws_router.router, tags=["websocket"])
 

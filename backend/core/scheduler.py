@@ -6,7 +6,7 @@ import json
 import time
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from core.database import SessionLocal
 from core.models import ScheduleItem
 from core.logger import logger
@@ -50,7 +50,7 @@ class Scheduler:
 
 
     @with_db_retries()
-    def load_schedule(self) -> List[Dict]:
+    def load_schedule(self) -> List[Dict[str, Any]]:
         """Loads all schedule items from DB and formats them as dicts."""
         db = SessionLocal()
         try:
@@ -95,7 +95,7 @@ class Scheduler:
             db.close()
 
     @with_db_retries()
-    def add_event(self, profile_id: str, video_path: str, scheduled_time: str, viral_music_enabled: bool = False, music_volume: float = 0.0, sound_id: str = None, sound_title: str = None, smart_captions: bool = False, privacy_level: str = "public", caption: str = None) -> Dict:
+    def add_event(self, profile_id: str, video_path: str, scheduled_time: str, viral_music_enabled: bool = False, music_volume: float = 0.0, sound_id: Optional[str] = None, sound_title: Optional[str] = None, smart_captions: bool = False, privacy_level: str = "public", caption: Optional[str] = None) -> Dict[str, Any]:
         """Schedules a new video upload."""
         
         # [SYN-FIX] Auto-move from Pending -> Approved
@@ -201,7 +201,7 @@ class Scheduler:
         finally:
             db.close()
 
-    @with_db_retries()
+    @with_db_retries() # type: ignore
     def delete_event(self, event_id: str) -> bool:
         db = SessionLocal()
         try:
@@ -253,7 +253,7 @@ class Scheduler:
                     print(f"[SCHEDULER] Expired item detected: {item.id} (Due: {item.scheduled_time})")
                     item.status = "failed"
                     # Add metadata explanation
-                    current_meta = item.metadata_info or {}
+                    current_meta: Dict[str, Any] = dict(item.metadata_info or {})
                     current_meta["error"] = "Schedule expired (Missed window by >1h)"
                     item.metadata_info = current_meta
                     count += 1
@@ -286,7 +286,7 @@ class Scheduler:
         finally:
             db.close()
 
-    @with_db_retries()
+    @with_db_retries() # type: ignore
     def is_slot_available(self, profile_id: str, check_time: datetime, buffer_minutes: int = 15) -> bool:
         """Checks if a time slot is free for a given profile within a buffer."""
         db = SessionLocal()
@@ -329,8 +329,8 @@ class Scheduler:
             
         return (start_time + timedelta(days=7)).isoformat()
 
-    @with_db_retries()
-    def update_event(self, event_id: str, scheduled_time: str = None, **kwargs) -> Optional[Dict]:
+    @with_db_retries() # type: ignore
+    def update_event(self, event_id: str, scheduled_time: Optional[str] = None, **kwargs) -> Optional[Dict[str, Any]]:
         """
         [SYN-EDIT] Full Edit Support.
         Updates any combination of: scheduled_time, profile_id, caption, privacy_level,
@@ -382,7 +382,7 @@ class Scheduler:
                     item.profile_slug = kwargs['profile_id']
 
                 # --- Update Metadata Fields ---
-                meta = dict(item.metadata_info) if item.metadata_info else {}
+                meta: Dict[str, Any] = dict(item.metadata_info) if item.metadata_info else {}
                 metadata_fields = ['caption', 'privacy_level', 'viral_music_enabled', 'music_volume']
                 for field in metadata_fields:
                     if field in kwargs and kwargs[field] is not None:
@@ -427,7 +427,7 @@ class Scheduler:
         finally:
             db.close()
 
-    @with_db_retries()
+    @with_db_retries() # type: ignore
     def update_video_path(self, old_path: str, new_path: str) -> int:
         """Updates the video path for all pending/scheduled items."""
         db = SessionLocal()
@@ -577,7 +577,7 @@ class Scheduler:
         except Exception as e:
             logger.log("error", f"[SONAR] Failed to update heartbeat: {e}", "scheduler")
 
-    @with_db_retries()
+    @with_db_retries() # type: ignore
     async def _claim_scheduled_item(self, item_id: int, new_status: str = 'processing') -> bool:
         """
         Atomically tries to claim an item by setting status to new_status (default 'processing').
@@ -689,7 +689,7 @@ class Scheduler:
 
 
     @with_db_retries()
-    def retry_event(self, event_id: str, mode: str = "now") -> Dict:
+    def retry_event(self, event_id: str, mode: str = "now") -> Dict[str, Any]:
         """
         Retries a failed event by restoring the file and resetting status.
         mode: "now" (immediate) or "next_slot" (tomorrow + same time)
@@ -783,64 +783,54 @@ class Scheduler:
             
             # 3. Scheduling Logic
             if mode == "next_slot":
-                # [SYN-FIX] Find the first DAY with NO scheduled posts for this profile
-                # Instead of just adding 1 day, find a truly empty day
+                # Busca o primeiro DIA a partir de amanha que nao tenha nenhum
+                # agendamento para este perfil, e reagenda para o mesmo horario
+                # original do item naquele dia.
                 sp_tz = ZoneInfo("America/Sao_Paulo")
                 current_sched = item.scheduled_time
                 if current_sched.tzinfo is None:
                     current_sched = current_sched.replace(tzinfo=sp_tz)
-                else:
-                    current_sched = current_sched.astimezone(sp_tz)
-                
-                # Get the TIME (hour/minute) from original schedule
+
                 original_hour = current_sched.hour
                 original_minute = current_sched.minute
-                
-                # Start looking from tomorrow
-                from datetime import date
-                check_date = (current_sched + timedelta(days=1)).date()
-                max_days = 60  # Look up to 60 days ahead
-                
-                # Query all future events for this profile
-                future_events = db.query(ScheduleItem).filter(
-                    ScheduleItem.profile_slug == item.profile_slug,
-                    ScheduleItem.scheduled_time >= datetime.now(sp_tz).replace(tzinfo=None),
-                    ScheduleItem.status.in_(['pending', 'processing'])
-                ).all()
-                
-                # Build set of dates that have events
-                busy_dates = set()
-                for evt in future_events:
-                    if evt.scheduled_time:
-                        evt_dt = evt.scheduled_time
-                        if evt_dt.tzinfo is None:
-                            evt_dt = evt_dt.replace(tzinfo=sp_tz)
-                        busy_dates.add(evt_dt.date())
-                
-                # Find first empty day
+
+                # Comecar a busca a partir de amanha
+                check_date = (datetime.now(sp_tz) + timedelta(days=1)).date()
                 found_empty_day = None
-                for days_ahead in range(max_days):
-                    candidate_date = check_date + timedelta(days=days_ahead)
-                    if candidate_date not in busy_dates:
-                        found_empty_day = candidate_date
+
+                for _ in range(60):  # Procurar no maximo 60 dias para frente
+                    # Contar quantos agendamentos existem neste dia para este perfil
+                    day_start = datetime(check_date.year, check_date.month, check_date.day, 0, 0, 0)
+                    day_end = datetime(check_date.year, check_date.month, check_date.day, 23, 59, 59)
+                    count = db.query(ScheduleItem).filter(
+                        ScheduleItem.profile_slug == item.profile_slug,
+                        ScheduleItem.scheduled_time >= day_start,
+                        ScheduleItem.scheduled_time <= day_end,
+                        ScheduleItem.status.in_(["pending", "processing", "completed", "posted"])
+                    ).count()
+
+                    if count == 0:
+                        found_empty_day = check_date
                         break
-                
-                if not found_empty_day:
-                    # Fallback: use day after all events
-                    found_empty_day = check_date + timedelta(days=max_days)
-                
-                # Combine found day with original time
-                new_datetime = datetime(
-                    found_empty_day.year,
-                    found_empty_day.month,
-                    found_empty_day.day,
-                    original_hour,
-                    original_minute,
-                    tzinfo=sp_tz
-                )
-                
-                item.scheduled_time = new_datetime.replace(tzinfo=None)  # Store as naive (SP assumed)
-                print(f"[RETRY] Rescheduled from {current_sched.date()} to {found_empty_day} (first empty day)")
+                    check_date = check_date + timedelta(days=1)
+
+                if found_empty_day:
+                    assert found_empty_day is not None  # Pyre2: narrowing from Optional[date]
+                    new_datetime = datetime(
+                        found_empty_day.year,
+                        found_empty_day.month,
+                        found_empty_day.day,
+                        original_hour,
+                        original_minute,
+                        tzinfo=sp_tz
+                    )
+                    item.scheduled_time = new_datetime.replace(tzinfo=None)
+                    print(f"[RETRY] next_slot: Rescheduled to first empty day {item.scheduled_time}")
+                else:
+                    # Fallback: +7 dias do horario atual
+                    fallback = datetime.now(sp_tz) + timedelta(days=7)
+                    item.scheduled_time = fallback.replace(tzinfo=None)
+                    print(f"[RETRY] next_slot: No empty day found in 60 days, fallback +7d: {item.scheduled_time}")
                 
             elif mode == "now":
                 # [SYN-FIX] Execute immediately instead of waiting for scheduler
@@ -854,9 +844,8 @@ class Scheduler:
             
             # Clear error in metadata too
             if item.metadata_info:
-                meta = dict(item.metadata_info)
-                if "error" in meta:
-                    del meta["error"]
+                meta: Dict[str, Any] = dict(item.metadata_info)
+                meta.pop("error", None)
                 item.metadata_info = meta
 
             db.commit()

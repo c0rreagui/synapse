@@ -24,7 +24,7 @@ export interface FileUpload {
     };
 }
 
-export type ScheduleStrategy = 'INTERVAL' | 'ORACLE' | 'QUEUE' | 'CUSTOM';
+export type ScheduleStrategy = 'INTERVAL' | 'ORACLE' | 'QUEUE' | 'CUSTOM' | 'AUTO_SCHEDULE';
 
 interface BatchContextType {
     // State
@@ -80,6 +80,13 @@ interface BatchContextType {
     setIsGeneratingAll: React.Dispatch<React.SetStateAction<boolean>>;
     generateProgress: { current: number; total: number; statusMessage?: string } | null;
     setGenerateProgress: React.Dispatch<React.SetStateAction<{ current: number; total: number; statusMessage?: string } | null>>;
+
+    // [SYN-67] Auto-Schedule (Studio Native)
+    postsPerDay: number;
+    setPostsPerDay: (n: number) => void;
+    scheduleHours: number[];           // Ex: [12, 18] - horarios exatos
+    setScheduleHours: (hours: number[]) => void;
+    handleAutoSchedule: () => Promise<void>;
 }
 
 export const BatchContext = createContext<BatchContextType | undefined>(undefined);
@@ -201,6 +208,10 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
     // [SYN-UX] Automation
     const [isGeneratingAll, setIsGeneratingAll] = useState(false);
     const [generateProgress, setGenerateProgress] = useState<{ current: number; total: number; statusMessage?: string } | null>(null);
+
+    // [SYN-67] Auto-Schedule
+    const [postsPerDay, setPostsPerDay] = useState(1);
+    const [scheduleHours, setScheduleHours] = useState<number[]>([18]);
 
     // --- Logic ---
 
@@ -426,6 +437,66 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
         }
     };
 
+    // [SYN-67] Auto-Schedule Handler
+    const handleAutoSchedule = async () => {
+        if (files.length === 0 || selectedProfiles.length === 0) return;
+        if (selectedProfiles.length > 1) {
+            toast.error('Auto-Agendar suporta apenas 1 perfil por vez.');
+            return;
+        }
+
+        setIsUploading(true);
+        const fileMetaList: Array<{ path: string; caption: string; hashtags: string[] }> = [];
+
+        try {
+            for (let i = 0; i < files.length; i++) {
+                const fileObj = files[i];
+                if (fileObj.status === 'done' || fileObj.isRemote) {
+                    fileMetaList.push({ path: fileObj.filename, caption: fileObj.metadata?.caption || '', hashtags: [] });
+                    continue;
+                }
+                setFiles(prev => prev.map(f => f.id === fileObj.id ? { ...f, status: 'uploading', progress: 0 } : f));
+                const formData = new FormData();
+                if (!fileObj.file) continue;
+                formData.append('file', fileObj.file);
+                formData.append('profile_id', selectedProfiles[0]);
+                formData.append('privacy_level', privacyLevel || 'public_to_everyone');
+                const API_URL = getApiUrl();
+                const uploadRes = await fetch(`${API_URL}/api/v1/ingest/upload`, { method: 'POST', body: formData });
+                if (!uploadRes.ok) throw new Error(`Falha ao enviar ${fileObj.filename}`);
+                const data = await uploadRes.json();
+                fileMetaList.push({ path: data.filename, caption: fileObj.metadata?.caption || '', hashtags: [] });
+                setFiles(prev => prev.map(f => f.id === fileObj.id ? { ...f, status: 'done', progress: 100 } : f));
+            }
+
+            const API_URL = getApiUrl();
+            const res = await fetch(`${API_URL}/api/v1/auto-scheduler/queue`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    profile_slug: selectedProfiles[0],
+                    videos: fileMetaList.map(m => ({ path: m.path, caption: m.caption, hashtags: m.hashtags, privacy_level: privacyLevel || 'public_to_everyone' })),
+                    posts_per_day: postsPerDay,
+                    schedule_hours: scheduleHours.slice(0, postsPerDay),
+                    auto_schedule_first_batch: true
+                })
+            });
+
+            if (!res.ok) throw new Error('Falha ao criar fila de agendamento');
+            const result = await res.json();
+            toast.success(`${result.total_queued} videos adicionados a fila! Primeiros 10 sendo agendados...`);
+            onSuccess();
+            onClose();
+            setFiles([]);
+            setSelectedProfiles([]);
+        } catch (e: any) {
+            console.error('AutoSchedule error', e);
+            toast.error(e.message || 'Falha no auto-agendamento');
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
     const value = {
         files, setFiles,
         selectedProfiles, setSelectedProfiles,
@@ -449,7 +520,10 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
         selectedFileIds, setSelectedFileIds,
         viewFilter, setViewFilter,
         isGeneratingAll, setIsGeneratingAll,
-        generateProgress, setGenerateProgress
+        generateProgress, setGenerateProgress,
+        postsPerDay, setPostsPerDay,
+        scheduleHours, setScheduleHours,
+        handleAutoSchedule,
     };
 
     return (

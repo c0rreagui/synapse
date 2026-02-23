@@ -1,7 +1,7 @@
 {
   "state": "paused",
-  "last_updated": "2026-02-18T20:47:35.244644",
-  "timestamp": 1771458455.2446535,
+  "last_updated": "2026-02-19T01:52:59.625249",
+  "timestamp": 1771476779.625257,
   "job": {
     "name": "None",
     "progress": 0,
@@ -17,7 +17,7 @@
       "role": "UPLOADER",
       "status": "online",
       "current_task": "Idle",
-      "uptime": "0h 1m",
+      "uptime": "0h 35m",
       "description": "Unidade de transmissao de alta largura de banda. Garantindo metricas globais de propagacao.",
       "avatar": "/avatars/atlas.png"
     },
@@ -27,7 +27,7 @@
       "role": "FACTORY",
       "status": "online",
       "current_task": "Watching inputs...",
-      "uptime": "0h 1m",
+      "uptime": "0h 35m",
       "description": "Nucleo de sintese neural. Montando dados brutos em construcoes cognitivas.",
       "avatar": "/avatars/forge.png"
     },
@@ -37,7 +37,7 @@
       "role": "MONITOR",
       "status": "online",
       "current_task": "System Check",
-      "uptime": "0h 1m",
+      "uptime": "0h 35m",
       "description": "Sentinela onisciente. Analisando anomalias de telemetria em tempo real.",
       "avatar": "/avatars/watcher.png"
     }
