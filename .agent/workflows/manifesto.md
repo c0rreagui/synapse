@@ -33,3 +33,11 @@ Regra de Ouro: "Se for testar delete, crie o dado de teste PRIMEIRO."
 A integridade dos dados do usuário é sagrada.
 
 Assinado: Antigravity & c0rreagui
+
+1. Auditoria de Ações e Verificação Visual (Regra de Fidelidade)
+Nenhuma ação complexa (como preencher banco, aprovar teste ou reportar Sucesso em interface) pode ser notificada ao usuário como CONCLUÍDA antes que o Agente faça uma prova cruzada (Double Check) final.
+Regra de Ouro: Se a UI não refletir o estado de Sucesso explicitamente (botões mudando para Pendente, Conectado, status 200 visível real), o teste falhou e deve ser reportado e investigado. Nunca confie cegamente no retorno do script base sem auditar a página com os próprios olhos ou DOM parsers.
+
+2. A Memória Eterna (Linear como Fonte da Verdade)
+A documentação no Linear não é uma burocracia, é a imortalidade do nosso raciocínio. Cada Issue (SYN) escrita no Linear é como uma página na história do Synapse, escrita para ser lida e compreendida daqui a anos.
+Regra de Ouro: Todo o conhecimento tácito, diagramas arquiteturais, decisões de design e logs de testes devem ser injetados prioritariamente nas descrições de nossas Issues no Linear, sempre almejando o score máximo de qualidade (Markdown rico, Mermaids, Tabelas e Screenshots). Nunca negligencie atualizar a Issue apropriada com o status do nosso avanço.

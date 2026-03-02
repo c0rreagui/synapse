@@ -60,11 +60,15 @@ now = datetime.now()  # sem timezone
 
 ---
 
-## 3. Linear - Padrao de Issues
+## 3. Linear - A Memória Coletiva Inteligente (SISTEMA PRINCIPAL)
 
-### Antes de Codificar
+> **"O Linear não é apenas um tracker - é a fonte da verdade absoluta, a memória de longo prazo e a documentação principal do Synapse."**
 
-Se nao existe um SYN para o que voce vai fazer, CRIE UM antes de comecar.
+**NUNCA NEGLIGENCIE O LINEAR.** Se não está no Linear, com a riqueza de detalhes e qualidade esperadas, então não foi feito. TODA a documentação atualizada do projeto (diagramas, decisões arquiteturais, métricas e checklists) deve residir primariamente lá.
+
+### Antes de Codificar e Durante o Processo
+
+Se nao existe um SYN para o que voce vai fazer, CRIE UM antes de comecar. Ao finalizar uma branch/tarefa, ATUALIZE a issue com o máximo de detalhes possível, espelhando os relatórios de `walkthrough` e `implementation_plan` na própria Issue do Linear.
 
 ### Padrao de Titulo
 
@@ -74,9 +78,18 @@ Se nao existe um SYN para o que voce vai fazer, CRIE UM antes de comecar.
 
 Exemplos:
 
-- `Feature: TikTok Studio Native Scheduler`
-- `Fix: Session Expired apos renovacao de LocalStorage`
-- `Chore: Limpeza de scripts debug no backend`
+- `🚀 Feature: Inteface Ultra-Premium UX/UI - Parte 1`
+- `🐛 Bug: Session Expired apos renovacao de LocalStorage`
+- `🔧 Chore: Refatoracao de scripts debug no backend`
+
+### O Padrão de Qualidade do Linear (Score > 90)
+
+Toda Issue concluída no Linear DEVE almejar o nível de "Excellent" (Quality Score ≥ 90). Para isso, as issues devem obrigatoriamente conter:
+
+- **Diagramas de Arquitetura:** Utilize blocos Markdown com `mermaid` para desenhar fluxos sempre que o código passar de 50 linhas ou introduzir nova lógica.
+- **Tabelas Explicativas:** Tabelas mostrando Decisões Arquiteturais, Rotas Novas (Method, Endpoint, Schemas) e Comparativos Before/After.
+- **Screenshots / Carousel:** Inserir a sintaxe `carousel` no markdown evidenciando as mudanças visuais que foram validadas e testadas (Antes, Depois, Vídeo Demo).
+- **Riqueza de Markdown:** Use labels de cores (🚨 Critical, 🚀 Feature, 🎨 UI/UX) e as propriedades adequadas (Project, Priority, Status).
 
 ### Campos Obrigatorios em Todo SYN
 
@@ -87,7 +100,7 @@ Exemplos:
 | Labels | Sim (minimo 1) |
 | Prioridade | Sim |
 | Status | Sim |
-| Descricao com contexto | Sim |
+| Descricao com contexto Rico | Sim |
 
 ### Projetos Disponiveis
 
@@ -98,7 +111,7 @@ Exemplos:
 | Central de Comando | Home, Upload, Profiles |
 | Oracle | AI analysis, SEO, Deep Analytics |
 | AI/ML Core | Smart Logic, Batch Manager, algoritmos |
-| Design UI/UX | Visual components, Storybook, animacoes |
+| Design UI/UX | Visual components, Storybook, animacoes, redesigns estéticos |
 
 ### Labels Disponiveis
 
@@ -126,16 +139,22 @@ db.query(ScheduleItem).delete()  # sem filtro!
 
 ---
 
-## 5. Fluxo de Testes
+## 5. Fluxo de Testes e Deployment
 
 ### Hierarquia de Ambientes
 
-1. Container Docker (`synapse-backend`) = producao
-2. Nunca assumir que ambiente local == Docker
+1. Localhost (Dev) = Ambiente de programacao inicial
+2. Container Docker (`synapse-backend`) = Producao
+
+### Dev-First e Deploy Seguro (CRITICO)
+
+- NUNCA realize deploy ou teste diretamente no ambiente de producao sem validar antes em desenvolvimento (localhost).
+- Toda feature nova, tela nova ou refatoracao deve iniciar e ser inteiramente construida em `localhost`.
+- Apenas quando a feature estiver perfeitamente estavel no ambiente local, ela podera avancar para o deploy no Docker/Producao.
 
 ### Antes de Marcar Qualquer Tarefa como Concluida
 
-- [ ] Testou no container Docker (nao apenas localmente)
+- [ ] Testou ponta-a-ponta no dev local e em seguida no container Docker.
 - [ ] Checou os logs do container (`docker logs synapse-backend --tail 50`)
 - [ ] Verificou `GET /health` continua saudavel
 - [ ] Notificou o usuario com resultado do teste

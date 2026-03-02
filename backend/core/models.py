@@ -20,6 +20,22 @@ class Profile(Base):
     oracle_best_times = Column(JSON, default=list) # List of dicts
     last_seo_audit = Column(JSON, default=dict) # The BIG audit object
     
+    # --- Anti-Detect: Proxy Identity (Per-Profile Isolation) ---
+    proxy_server = Column(String, nullable=True)    # Ex: "http://123.45.67.89:8080"
+    proxy_username = Column(String, nullable=True)
+    proxy_password = Column(String, nullable=True)
+
+    # --- Anti-Detect: Browser Fingerprint (Per-Profile) ---
+    fingerprint_ua = Column(String, nullable=True)          # User-Agent fixo para este perfil
+    fingerprint_viewport_w = Column(Integer, default=1920)
+    fingerprint_viewport_h = Column(Integer, default=1080)
+    fingerprint_locale = Column(String, default="pt-BR")
+    fingerprint_timezone = Column(String, default="America/Sao_Paulo")
+
+    # --- Anti-Detect: Geolocation (Consistente com IP do Proxy) ---
+    geolocation_latitude = Column(String, nullable=True)   # Ex: "-23.5505"
+    geolocation_longitude = Column(String, nullable=True)  # Ex: "-46.6333"
+
     # Metadata
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -122,3 +138,9 @@ class VideoQueue(Base):
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     scheduled_at = Column(DateTime, nullable=True)
+
+
+# ─── Clipper Module Models ──────────────────────────────────────────────
+# Importados aqui para garantir que o SQLAlchemy registre as tabelas
+# quando Base.metadata.create_all() for executado.
+from core.clipper.models import TwitchTarget, ClipJob  # noqa: F401, E402

@@ -115,6 +115,40 @@ services:
       - redis
       - minio
 
+  # 🎬 Clipper Worker (Pipeline Twitch -> TikTok/Shorts)
+  clipper:
+    build: ./backend
+    container_name: synapse-clipper
+    restart: always
+    command: arq core.clipper.worker.WorkerSettings
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+    volumes:
+      - ./backend:/app
+      - ./brain:/app/brain
+      - ./inputs:/app/inputs
+      - ./backend/data/approved:/app/data/approved
+    environment:
+      - ENVIRONMENT=development
+      - TZ=America/Sao_Paulo
+      - POSTGRES_SERVER=db
+      - POSTGRES_USER=${POSTGRES_USER:-synapse}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-synapse_password}
+      - POSTGRES_DB=${POSTGRES_DB:-synapse_db}
+      - REDIS_HOST=redis
+      - REDIS_URL=redis://redis:6379
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-synapse_admin}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-synapse_secret_key}
+      - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID:-}
+      - TWITCH_CLIENT_SECRET=${TWITCH_CLIENT_SECRET:-}
+    depends_on:
+      - db
+      - redis
+      - minio
+
   # ⏰ Scheduler (Agendamento Isolado)
   scheduler:
     build: ./backend

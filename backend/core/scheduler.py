@@ -622,10 +622,25 @@ class Scheduler:
     async def execute_due_item(self, item: ScheduleItem, db):
         from core.queue_manager import QueueManager
         from core.consts import ScheduleStatus
-        from core.session_manager import get_profile_user_agent, get_session_path, check_cookies_validity
+        from core.session_manager import get_session_path, check_cookies_validity
+        from core.network_utils import get_profile_identity
+        from core.retry_utils import MissingProxyError
 
         try:
-            # 0. Lightweight Pre-flight: Check if cookies exist and are not expired
+            # 0a. ANTI-DETECT PRE-FLIGHT: Resolve identity (HARD BLOCK in production if no proxy)
+            try:
+                identity = get_profile_identity(item.profile_slug)
+                print(f"[SCHEDULER] Identity resolved for {item.profile_slug}: proxy={'YES' if identity['has_proxy'] else 'NO'}")
+            except MissingProxyError as proxy_err:
+                print(f"[SCHEDULER] HARD BLOCK: {proxy_err}")
+                await self._finalize_scheduled_item(
+                    item.id,
+                    ScheduleStatus.FAILED,
+                    {"message": str(proxy_err)}
+                )
+                return
+
+            # 0b. Lightweight Pre-flight: Check if cookies exist and are not expired
             print(f"[SCHEDULER] Running lightweight cookie check for {item.profile_slug}...")
             session_file = get_session_path(item.profile_slug)
             
@@ -654,7 +669,6 @@ class Scheduler:
                 print(f"[SCHEDULER] Cookie check error (proceeding anyway): {cookie_err}")
 
             # 1. Update status to QUEUED (ATOMIC CHECK-AND-SET)
-            # We claim it by moving to QUEUED state.
             acquired = await self._claim_scheduled_item(item.id, new_status=ScheduleStatus.QUEUED)
             if not acquired:
                 print(f"[SCHEDULER] Race condition detected: Item {item.id} already claimed.")
@@ -662,21 +676,23 @@ class Scheduler:
 
             print(f"[SCHEDULER] Acquired lock for item {item.id} -> QUEUED")
             
-            # 2. Enqueue Job
+            # 2. Enqueue Job with full identity metadata
             video_path = normalize_video_path(item.video_path)
             
-            # Prepare metadata
+            # Prepare metadata with full profile identity
             exec_metadata = dict(item.metadata_info or {})
             exec_metadata['profile_slug'] = item.profile_slug
             exec_metadata['profile_id'] = item.profile_slug
-            exec_metadata['user_agent'] = get_profile_user_agent(item.profile_slug)
+            exec_metadata['user_agent'] = identity['user_agent']
+            exec_metadata['proxy'] = identity.get('proxy')
+            exec_metadata['viewport'] = identity.get('viewport')
+            exec_metadata['has_proxy'] = identity.get('has_proxy', False)
             
             try:
                 job_id = await QueueManager.enqueue_upload(item.id, video_path, exec_metadata)
                 print(f"[SCHEDULER] Item {item.id} pushed to Redis Queue: Job {job_id}")
             except Exception as queue_err:
                 print(f"[SCHEDULER] Failed to enqueue item {item.id}: {queue_err}")
-                # Rollback status to failed (or pending retry?)
                 await self._finalize_scheduled_item(item.id, ScheduleStatus.FAILED, {"message": f"Queue Error: {queue_err}"})
                 
         except Exception as e:

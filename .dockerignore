@@ -1,10 +1,14 @@
-# Dependencies (will be installed inside container)
+# ==============================
+# SYNAPSE - DOCKERIGNORE (Lean Build Context)
+# ==============================
+
+# --- Dependencies (installed inside container) ---
 .venv
 backend/venv
 frontend/node_modules
 node_modules
 
-# Build outputs
+# --- Build outputs ---
 frontend/.next
 frontend/out
 frontend/storybook-static
@@ -12,21 +16,30 @@ __pycache__
 *.pyc
 *.pyo
 
-# Git and IDE
+# --- Git and IDE ---
 .git
 .gitignore
 .github
 .vscode
-*.md
+.idea
 
-# Docker files (prevent recursive copy)
-Dockerfile
-docker-compose.yml
+# --- Docker files (prevent recursive copy) ---
+docker-compose*.yml
+.dockerignore
 
-# Media and temp files
+# --- Database Volumes (CRITICAL: never copy to image) ---
+backend/data/postgres
+backend/data/redis
+backend/data/minio
+
+# --- Media and temp files ---
 *.mp4
 *.avi
 *.mov
+*.mkv
+*.webm
+*.wav
+*.mp3
 *.log
 *.png
 *.jpg
@@ -37,13 +50,45 @@ done/*
 errors/*
 media/*
 
-# Playwright cache (installed fresh in container)
+# --- Session Data (sensitive) ---
+backend/data/sessions
+backend/data/contexts
+
+# --- Playwright cache (installed fresh in container) ---
 ms-playwright
 
-# Test artifacts
+# --- Test artifacts ---
 frontend/test-results
 frontend/playwright-report
 backend/tests/screenshots
+backend/tests/test_videos
 
-# Brain/data (mounted as volume)
+# --- Data volumes (mounted, not baked) ---
 brain
+
+# --- Debug scripts at root ---
+debug_*.py
+check_*.py
+inspect_*.py
+verify_*.py
+*.bat
+browser_test_log.txt
+header_comparison.json
+import_errors.txt
+validator_debug.log
+debug_upload_page.html
+
+# --- Misc ---
+*.db
+*.sqlite
+synapse.db*
+MONITOR
+auto-content-empire
+tools
+scripts/*.log
+sonar-project.properties
+pyrightconfig.json
+TRELLO*.json
+.env*
+.pytest_cache
+docs

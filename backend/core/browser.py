@@ -27,6 +27,9 @@ def is_running_in_docker() -> bool:
 
 IN_DOCKER = is_running_in_docker()
 
+# Path to system Chromium (installed via apt in Docker)
+SYSTEM_CHROMIUM_PATH = "/usr/bin/chromium" if IN_DOCKER else None
+
 STEALTH_ARGS = [
     "--disable-blink-features=AutomationControlled",
     "--disable-infobars",
@@ -129,6 +132,9 @@ async def launch_browser(
                 locale=DEFAULT_LOCALE,
                 timezone_id=DEFAULT_TIMEZONE,
                 ignore_default_args=["--enable-automation"],
+                **({
+                    "executable_path": SYSTEM_CHROMIUM_PATH
+                } if SYSTEM_CHROMIUM_PATH else {}),
                 **({"proxy": launch_options["proxy"]} if proxy else {})
             )
             # Register Context (which acts as browser)
@@ -139,11 +145,14 @@ async def launch_browser(
             
         else:
             # STANDARD EPHEMERAL MODE
-            browser = await p.chromium.launch(
-                headless=headless,
-                args=browser_args,
-                ignore_default_args=["--enable-automation"],
-            )
+            launch_kwargs = {
+                "headless": headless,
+                "args": browser_args,
+                "ignore_default_args": ["--enable-automation"],
+            }
+            if SYSTEM_CHROMIUM_PATH:
+                launch_kwargs["executable_path"] = SYSTEM_CHROMIUM_PATH
+            browser = await p.chromium.launch(**launch_kwargs)
             process_manager.register(browser) # Register Browser
             
             logger.info(f"Browser launched (headless={headless})")
@@ -196,3 +205,134 @@ async def close_browser(p: Playwright, browser: Browser):
     if p:
         process_manager.unregister(p)
         await p.stop()
+
+
+async def launch_browser_for_profile(
+    profile_slug: str,
+    headless: bool = True,
+    storage_state: Optional[str] = None,
+    max_retries: int = 3,
+    base_timeout: int = 90000,  # 90s base (higher for proxy connections)
+) -> Tuple[Playwright, Browser, BrowserContext, Page]:
+    """
+    Launches a browser with FULL identity isolation for a specific profile.
+    
+    Resolves proxy, User-Agent, viewport, geolocation, timezone and locale
+    from the database Profile model. In production, raises MissingProxyError
+    if no proxy is configured (HARD BLOCK).
+    
+    Includes retry with exponential backoff for proxy connection resilience.
+    
+    Args:
+        profile_slug: The profile slug/ID to resolve identity for.
+        headless: Whether to run headless.
+        storage_state: Path to cookies/session JSON file.
+        max_retries: Number of retries for launch failures.
+        base_timeout: Base navigation timeout in ms (extended for proxies).
+    
+    Returns:
+        Tuple of (playwright, browser, context, page)
+    """
+    from core.network_utils import get_profile_identity
+    from core.retry_utils import retry_async
+
+    # Resolve full identity (will raise MissingProxyError in production if no proxy)
+    identity = get_profile_identity(profile_slug)
+
+    proxy_config = None
+    if identity["proxy"]:
+        proxy_config = {
+            "server": identity["proxy"]["server"],
+            "username": identity["proxy"].get("username"),
+            "password": identity["proxy"].get("password"),
+        }
+        logger.info(f"[BROWSER] Proxy configurado para '{profile_slug}': {identity['proxy']['server']}")
+
+    logger.info(
+        f"[BROWSER] Identidade isolada para '{profile_slug}': "
+        f"UA={identity['user_agent'][:50]}..., "
+        f"Viewport={identity['viewport']}, "
+        f"Locale={identity['locale']}, "
+        f"TZ={identity['timezone']}, "
+        f"Proxy={'SIM' if proxy_config else 'NAO'}, "
+        f"Geo={'SIM' if identity['geolocation'] else 'NAO'}"
+    )
+
+    async def _attempt_launch():
+        p, browser, context, page = await launch_browser(
+            headless=headless,
+            proxy=proxy_config,
+            user_agent=identity["user_agent"],
+            viewport=identity["viewport"],
+            storage_state=storage_state,
+        )
+
+        # Apply geolocation if available
+        if identity["geolocation"]:
+            try:
+                await context.set_geolocation(identity["geolocation"])
+                await context.grant_permissions(["geolocation"])
+                logger.info(f"[BROWSER] Geolocation definida: {identity['geolocation']}")
+            except Exception as geo_err:
+                logger.warning(f"[BROWSER] Falha ao definir geolocation: {geo_err}")
+
+        # Override timezone and locale at context level (stealth script)
+        try:
+            await context.add_init_script(f"""
+                Object.defineProperty(Intl.DateTimeFormat.prototype, 'resolvedOptions', {{
+                    value: function() {{
+                        return {{ timeZone: '{identity["timezone"]}', locale: '{identity["locale"]}' }};
+                    }}
+                }});
+            """)
+        except Exception:
+            pass  # Non-critical
+
+        # Set default navigation timeout (extended for proxy latency)
+        page.set_default_navigation_timeout(base_timeout)
+        page.set_default_timeout(base_timeout)
+
+        return p, browser, context, page
+
+    # Retry with backoff for proxy/network failures
+    return await retry_async(
+        coro_factory=_attempt_launch,
+        max_retries=max_retries,
+        base_delay=3.0,
+        max_delay=30.0,
+        retryable_exceptions=(Exception,),
+        context_label=f"launch_browser({profile_slug})"
+    )
+
+
+async def resilient_goto(
+    page: Page,
+    url: str,
+    timeout: int = 120000,
+    wait_until: str = "domcontentloaded",
+    max_retries: int = 3,
+):
+    """
+    Navigates to a URL with retry logic for proxy/network resilience.
+    
+    Args:
+        page: Playwright Page instance.
+        url: URL to navigate to.
+        timeout: Navigation timeout in ms.
+        wait_until: Load state to wait for.
+        max_retries: Number of retry attempts.
+    """
+    from core.retry_utils import retry_async
+
+    async def _attempt_goto():
+        await page.goto(url, timeout=timeout, wait_until=wait_until)
+
+    await retry_async(
+        coro_factory=_attempt_goto,
+        max_retries=max_retries,
+        base_delay=3.0,
+        max_delay=15.0,
+        retryable_exceptions=(Exception,),
+        context_label=f"page.goto({url[:60]})"
+    )
+

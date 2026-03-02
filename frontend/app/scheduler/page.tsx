@@ -1,455 +1,276 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon, MusicalNoteIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { ScheduleEvent, TikTokProfile } from '../types';
-import { EditScheduleData } from '../components/EditScheduleModal';
-import { getApiUrl } from '../utils/apiClient';
-import useWebSocket from '../hooks/useWebSocket';
-// import Sidebar from '../components/Sidebar';
-import { StitchCard } from '../components/StitchCard';
-import { NeonButton } from '../components/NeonButton';
-import { SchedulingData } from '../components/SchedulerForm';
-import BatchUploadModal from '../components/BatchUploadModal';
-import ScheduledVideosModal from '../components/ScheduledVideosModal';
-import DayDetailsModal from '../components/DayDetailsModal';
-import clsx from 'clsx';
-import { toast } from 'sonner';
-import ProfileRepairModal from '../components/ProfileRepairModal'; // [SYN-UX]
 
-
+import React from 'react';
 
 export default function SchedulerPage() {
-    const API_URL = getApiUrl();
-    const [currentDate, setCurrentDate] = useState(new Date());
-    const [events, setEvents] = useState<ScheduleEvent[]>([]);
-    const [viralBoost, setViralBoost] = useState(false);
-    const [profiles, setProfiles] = useState<TikTokProfile[]>([]);
-
-    // Modal State
-    // Modal State
-    const [uploadModal, setUploadModal] = useState<{ isOpen: boolean; mode: 'single' | 'batch'; date?: Date }>({ isOpen: false, mode: 'batch' });
-    const [isScheduledModalOpen, setIsScheduledModalOpen] = useState(false);
-    const [isDayDetailsOpen, setIsDayDetailsOpen] = useState(false);
-    const [modalDate, setModalDate] = useState(new Date());
-
-    // [SYN-UX] Repair Logic
-    const [repairProfile, setRepairProfile] = useState<TikTokProfile | null>(null);
-
-    // Load Events & Profiles
-    const fetchData = async () => {
-        try {
-            // Fetch Events - Robust Localhost Bypass
-            // Fetch Events - Robust Localhost Bypass
-
-            const eventsRes = await fetch(`${API_URL}/api/v1/scheduler/list`);
-            if (eventsRes.ok) {
-                setEvents(await eventsRes.json());
-            } else {
-                console.error("Failed to fetch events", eventsRes.status);
-            }
-
-            // Fetch Profiles - Robust Localhost Bypass
-            // (Re-using the same URL logic)
-            const profilesRes = await fetch(`${API_URL}/api/v1/profiles/list`);
-            if (profilesRes.ok) {
-                setProfiles(await profilesRes.json());
-            } else {
-                console.error("Failed to fetch profiles:", profilesRes.status, await profilesRes.text());
-                // Fallback attempt if 500 and we are on localhost but didn't use direct?
-                // Already tried direct above.
-            }
-
-        } catch (err) {
-            console.error("Erro ao carregar dados:", err);
-            toast.error("Erro ao carregar dados do servidor");
-        }
-    };
-
-    useWebSocket({
-        onScheduleUpdate: (data) => setEvents(data)
-    });
-
-    useEffect(() => {
-        fetchData();
-
-        // [SYN-ROBUST] Polling to ensure UI matches Backend (Ghost Item Fix)
-        const interval = setInterval(() => {
-            fetchData();
-        }, 30000); // Check every 30s
-
-        return () => clearInterval(interval);
-    }, []);
-
-    const openDayDetails = (date: Date) => {
-        if (!isSameMonth(date, currentDate)) return; // Optional: Only allow current month interaction? No, allow all.
-        setModalDate(date);
-        setIsDayDetailsOpen(true);
-    };
-
-    // [SYN-73] Smart Retry Logic
-    const handleRetryEvent = async (eventId: string, mode: 'now' | 'next_slot') => {
-        try {
-            // Assuming axios and API_BASE_URL are defined elsewhere or need to be imported/defined.
-            // For now, using fetch and API_URL as per existing code pattern.
-            // If axios is intended, it needs to be imported.
-            // If API_BASE_URL is intended, it needs to be defined.
-            // For consistency, I'll use fetch and API_URL.
-            const res = await fetch(`${API_URL}/api/v1/scheduler/${eventId}/retry`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode })
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.detail || "Erro desconhecido");
-            }
-
-            toast.success(mode === 'now' ? "Repostando imediatamente..." : "Reagendado para o próximo slot!");
-            fetchData(); // Refresh data
-        } catch (error: any) {
-            console.error("Retry failed", error);
-            toast.error("Falha ao repostar: " + (error.message || "Erro desconhecido"));
-        }
-    };
-
-    const handleAddEvent = async (eventData: any) => {
-        try {
-            const res = await fetch(`${API_URL}/api/v1/scheduler/${eventData.id}`, { method: 'DELETE' }); // This seems to be a copy-paste error from handleDeleteEvent
-            if (!res.ok) throw new Error("Falha ao deletar"); // This also seems to be a copy-paste error
-
-            // Optimistic update or refetch
-            // This function body needs to be corrected by the user if it's meant to add an event.
-            // For now, I'm keeping it as provided in the instruction, assuming it's a placeholder or a temporary state.
-        } catch (e) {
-            console.error(e);
-            toast.error("Erro ao remover"); // This also seems to be a copy-paste error
-        }
-    };
-
-    const handleDeleteEvent = async (eventId: string) => {
-        try {
-            const res = await fetch(`${API_URL}/api/v1/scheduler/${eventId}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error("Falha ao deletar");
-
-            // Optimistic update or refetch
-            setEvents(prev => prev.filter(e => e.id !== eventId));
-            toast.success("Agendamento removido");
-        } catch (e) {
-            console.error(e);
-            toast.error("Erro ao remover");
-        }
-    };
-
-    const handleEditEvent = async (eventId: string, newTime: string) => {
-        // newTime is HH:mm. We need to combine it with the event's original date.
-        const originalEvent = events.find(e => e.id === eventId);
-        if (!originalEvent) return;
-
-        const originalDate = new Date(originalEvent.scheduled_time);
-        const [hours, minutes] = newTime.split(':').map(Number);
-
-        const newDate = new Date(originalDate);
-        newDate.setHours(hours, minutes);
-
-        const toastId = toast.loading("Atualizando...");
-        try {
-            const res = await fetch(`${API_URL}/api/v1/scheduler/${eventId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ scheduled_time: newDate.toISOString() })
-            });
-            if (!res.ok) throw new Error("Falha ao editar");
-
-            // [SYN-ROBUST] Use Server Response (Source of Truth)
-            const updatedItem = await res.json();
-
-            setEvents(prev => prev.map(e =>
-                e.id === eventId ? updatedItem : e
-            ));
-            toast.success("Horário atualizado", { id: toastId });
-        } catch (e) {
-            console.error(e);
-            toast.error("Erro ao atualizar horário", { id: toastId });
-        }
-    };
-
-    // [SYN-EDIT] Full Edit Handler
-    const handleFullEdit = async (eventId: string, data: EditScheduleData) => {
-        const toastId = toast.loading('Salvando alteracoes...');
-        try {
-            const res = await fetch(`${API_URL}/api/v1/scheduler/${eventId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            if (!res.ok) throw new Error('Falha ao salvar');
-
-            const updatedItem = await res.json();
-            setEvents(prev => prev.map(e => e.id === eventId ? updatedItem : e));
-            toast.success('Agendamento atualizado!', { id: toastId });
-        } catch (e) {
-            console.error(e);
-            toast.error('Erro ao salvar alteracoes', { id: toastId });
-            throw e;
-        }
-    };
-
-    const handleScheduleSubmit = async (data: SchedulingData) => {
-        try {
-            // Iterate over selected profiles and create an event for each
-            const promises = data.profile_ids.map(async (profileId) => {
-                const payload = {
-                    profile_id: profileId,
-                    video_path: data.video_path, // REAL PATH
-                    scheduled_time: data.scheduled_time,
-                    viral_music_enabled: data.viral_music_enabled,
-                    music_volume: data.music_volume, // Updated from intensity
-                    trend_category: data.trend_category
-                };
-
-                const res = await fetch(`${API_URL}/api/v1/scheduler/create`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (res.status === 409) {
-                    // Propagate 409 to modal
-                    const err = await res.json();
-                    throw { status: 409, response: err.detail };
-                }
-
-                if (!res.ok) throw new Error("Falha ao agendar");
-                return res.json();
-            });
-
-            await Promise.all(promises);
-
-            // Refresh events
-            fetchData();
-            toast.success(`Agendado com sucesso para ${data.profile_ids.length} perfil(s)!`);
-        } catch (e: any) {
-            // If it's a conflict, rethrow so modal handles it
-            if (e.status === 409) throw e;
-
-            console.error("Erro ao agendar:", e);
-            toast.error(e.message || "Erro ao agendar");
-            throw e; // Ensure modal knows it failed
-        }
-    };
-
-    const monthStart = startOfMonth(currentDate);
-    const monthEnd = endOfMonth(currentDate);
-    const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
-
-    const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
-    const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
-
     return (
-        <>
-            <header className="flex items-center justify-between mb-8">
-                <div>
-                    <h2 className="text-2xl font-bold text-white flex items-center gap-3 m-0">
-                        <CalendarIcon className="w-8 h-8 text-synapse-purple" />
-                        Smart Scheduler
-                    </h2>
-                    <p className="text-sm text-gray-500 font-mono m-0 mt-1">// PLANEJAMENTO_TEMPORAL</p>
-                </div>
+        <div className="flex-1 flex flex-col relative overflow-hidden bg-background-dark text-slate-100 min-h-screen selection:bg-primary/30 w-full">
+            <div className="parallax-bg"></div>
 
-                <div className="flex items-center gap-4 bg-[#1c2128] p-2 rounded-xl border border-white/10 shadow-lg">
-                    <button onClick={prevMonth} className="p-2 hover:bg-white/5 rounded-lg text-gray-400 hover:text-white transition-colors">
-                        <ChevronLeftIcon className="w-5 h-5" />
-                    </button>
-                    <span className="font-mono text-synapse-purple font-bold w-40 text-center uppercase tracking-wider text-sm">
-                        {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
-                    </span>
-                    <button onClick={nextMonth} className="p-2 hover:bg-white/5 rounded-lg text-gray-400 hover:text-white transition-colors">
-                        <ChevronRightIcon className="w-5 h-5" />
-                    </button>
-                </div>
-
-                <div className="flex gap-3">
-                    <button
-                        onClick={() => setIsScheduledModalOpen(true)}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white text-sm font-bold transition-all shadow-lg"
-                    >
-                        <span className="opacity-80">📋 Ver Fila</span>
-                    </button>
-
-                    <button
-                        onClick={() => setUploadModal({ isOpen: true, mode: 'batch' })}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-synapse-purple/10 border border-synapse-purple/30 hover:bg-synapse-purple/20 rounded-xl text-synapse-purple text-sm font-bold transition-all shadow-[0_0_15px_rgba(139,92,246,0.1)] hover:shadow-[0_0_20px_rgba(139,92,246,0.3)]"
-                    >
-                        <span>📦 Bulk Upload</span>
-                    </button>
-                </div>
-            </header>
-
-            {/* Config Panel */}
-            <StitchCard className="p-5 mb-6 flex items-center justify-between bg-black/40 backdrop-blur-md">
-                <div className="flex items-center gap-4">
-                    <div className="p-3 bg-synapse-purple/15 rounded-xl border border-synapse-purple/20">
-                        <MusicalNoteIcon className="w-6 h-6 text-synapse-purple" />
-                    </div>
-                    <div>
-                        <span className="text-base font-bold text-white block">Viral Audio Boost</span>
-                        <span className="text-sm text-gray-500">Aplica top trend oculta para engajamento.</span>
-                    </div>
-                </div>
-
-                <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                        type="checkbox"
-                        checked={viralBoost}
-                        onChange={(e) => setViralBoost(e.target.checked)}
-                        className="sr-only peer"
-                    />
-                    <div className="w-12 h-7 bg-gray-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-synapse-purple border border-gray-600 peer-checked:border-synapse-purple/50 shadow-inner"></div>
-                </label>
-            </StitchCard>
-
-            {/* Calendar Grid */}
-            <StitchCard className="flex-1 p-6 relative bg-black/40 backdrop-blur-sm border border-white/5">
-                <div className="grid grid-cols-7 gap-4 mb-4 pb-4 border-b border-white/5">
-                    {['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB'].map(day => (
-                        <div key={day} className="text-center font-mono text-xs text-gray-500 font-bold uppercase tracking-widest opacity-70">
-                            {day}
+            <main className="flex-1 flex flex-col relative overflow-hidden w-full h-full max-w-[1600px] mx-auto">
+                <div className="px-8 py-6 flex flex-wrap gap-4 items-end justify-between z-30 relative pointer-events-none mt-4">
+                    <div className="pointer-events-auto">
+                        <div className="flex items-center gap-2 text-xs font-mono text-cyan-400/60 mb-2 tech-stencil">
+                            <span className="material-symbols-outlined text-[14px]">history</span>
+                            <span>Operações Temporais</span>
+                            <span className="text-slate-600">/</span>
+                            <span className="text-white font-bold">Visão em Grade</span>
                         </div>
-                    ))}
+                        <h1 className="text-5xl font-bold text-white tracking-tight flex items-center gap-4 font-display">
+                            OUTUBRO <span className="text-slate-600 font-light">2023</span>
+                            <div className="flex items-center gap-2 px-2 py-1 bg-cyan-400/10 border border-cyan-400/30 rounded-none backdrop-blur-sm">
+                                <span className="size-1.5 bg-cyan-400 rounded-full animate-pulse-slow"></span>
+                                <span className="text-[10px] font-mono font-bold text-cyan-400 tracking-widest">AO VIVO</span>
+                            </div>
+                        </h1>
+                    </div>
+
+                    <div className="flex items-center gap-2 bg-black/60 p-1 border border-white/10 backdrop-blur-md shadow-2xl pointer-events-auto">
+                        <button className="size-8 flex items-center justify-center hover:bg-white/5 border border-transparent hover:border-white/10 text-slate-300 transition-all">
+                            <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+                        </button>
+                        <button className="px-4 h-8 flex items-center justify-center bg-cyan-400/20 border border-cyan-400/50 text-cyan-400 font-bold text-[10px] tech-stencil hover:bg-cyan-400/30 transition-all shadow-[0_0_15px_rgba(7,182,213,0.15)]">
+                            Presente
+                        </button>
+                        <button className="size-8 flex items-center justify-center hover:bg-white/5 border border-transparent hover:border-white/10 text-slate-300 transition-all">
+                            <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                        </button>
+                        <div className="w-px h-4 bg-white/10 mx-2"></div>
+                        <div className="flex">
+                            <button className="px-3 h-8 text-[10px] font-bold tech-stencil text-white bg-white/10 border border-white/10">Mês</button>
+                            <button className="px-3 h-8 text-[10px] font-bold tech-stencil text-slate-500 hover:text-white border-y border-r border-white/10 hover:bg-white/5 transition-colors">Semana</button>
+                        </div>
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-7 gap-2 h-[600px] overflow-y-auto custom-scrollbar">
-                    {days.map((day) => {
-                        const dayEvents = events.filter(e => isSameDay(new Date(e.scheduled_time), day))
-                            .sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime());
-                        const isToday = isSameDay(day, new Date());
+                <div className="flex-1 px-8 pb-8 overflow-hidden flex gap-8 perspective-container relative z-10">
+                    {/* Grid Section */}
+                    <div className="flex-1 relative">
+                        <div className="tilted-grid w-full h-full flex flex-col pt-8">
+                            <div className="grid grid-cols-7 mb-2 transform-style-3d">
+                                {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((day, i) => (
+                                    <div key={day} className={`text-center text-[10px] font-bold ${i < 5 ? 'text-cyan-400/60 border-cyan-400/20' : 'text-slate-600 border-slate-800'} tech-stencil pb-2 border-b`}>
+                                        {day}
+                                    </div>
+                                ))}
+                            </div>
 
-                        // [SYN-UX] Profile Color Mapping (Robust Hash)
-                        const getProfileColor = (pid: string) => {
-                            const colors = [
-                                'bg-cyan-400',    // Vibe
-                                'bg-rose-400',    // Opiniao
-                                'bg-emerald-400', // Green
-                                'bg-amber-400',   // Yellow
-                                'bg-violet-400',  // Purple
-                                'bg-fuchsia-400'  // Pink
-                            ];
-                            let hash = 0;
-                            for (let i = 0; i < pid.length; i++) {
-                                hash = pid.charCodeAt(i) + ((hash << 5) - hash);
-                            }
-                            return colors[Math.abs(hash) % colors.length];
-                        };
-
-                        return (
-                            <div
-                                key={day.toISOString()}
-                                className={clsx(
-                                    "min-h-[120px] rounded-xl border p-2 relative group transition-all duration-300 flex flex-col gap-1 cursor-pointer",
-                                    isToday
-                                        ? "bg-synapse-purple/5 border-synapse-purple/50 shadow-[inset_0_0_20px_rgba(139,92,246,0.05)]"
-                                        : "bg-white/[0.02] border-white/5 hover:border-synapse-purple/30 hover:bg-white/5 hover:shadow-lg hover:shadow-synapse-purple/5"
-                                )}
-                                onClick={() => openDayDetails(day)}
-                            >
-                                <span className={clsx(
-                                    "text-xs font-mono block mb-1 w-6 h-6 flex items-center justify-center rounded-full transition-colors",
-                                    isToday ? "bg-synapse-purple text-white font-bold shadow-lg shadow-synapse-purple/40" : "text-gray-500 group-hover:text-white"
-                                )}>
-                                    {format(day, 'd')}
-                                </span>
-
-                                {/* [SYN-UX] Compact List View */}
-                                <div className="flex flex-col gap-1">
-                                    {dayEvents.slice(0, 3).map(event => (
-                                        <div
-                                            key={event.id}
-                                            className={clsx(
-                                                "flex items-center gap-2 px-2 py-1 rounded-md text-[10px] font-medium transition-colors",
-                                                (event.status === 'completed' || event.status === 'posted')
-                                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                                                    : event.status === 'failed'
-                                                        ? "bg-red-500/10 text-red-400 border border-red-500/20"
-                                                        : event.status === 'paused_login_required'
-                                                            ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                                                            : "bg-white/5 text-gray-300 hover:bg-white/10"
-                                            )}
-                                        >
-                                            <div className={clsx("w-1.5 h-1.5 rounded-full shadow-[0_0_5px_currentColor]",
-                                                (event.status === 'completed' || event.status === 'posted')
-                                                    ? "bg-emerald-500 shadow-[0_0_5px_#10b981]"
-                                                    : event.status === 'failed' ? 'bg-red-500'
-                                                        : event.status === 'paused_login_required' ? 'bg-amber-500 shadow-[0_0_5px_#f59e0b]'
-                                                            : getProfileColor(event.profile_id)
-                                            )} />
-                                            <span className="truncate font-mono tracking-tight">{format(new Date(event.scheduled_time), 'HH:mm')}</span>
-                                            {event.status === 'paused_login_required' && <ExclamationTriangleIcon className="w-2.5 h-2.5 ml-auto text-amber-500" />}
-                                            {event.viral_music_enabled && event.status !== 'paused_login_required' && <MusicalNoteIcon className="w-2.5 h-2.5 ml-auto text-synapse-purple" />}
-                                        </div>
-                                    ))}
-
-                                    {/* More Indicator */}
-                                    {dayEvents.length > 3 && (
-                                        <div className="mt-0.5 px-2 py-0.5 text-[9px] font-bold text-center text-gray-500 bg-white/5 rounded-md group-hover:bg-white/10 group-hover:text-white transition-colors">
-                                            +{dayEvents.length - 3} posts
-                                        </div>
-                                    )}
+                            <div className="flex-1 grid grid-cols-7 grid-rows-5 gap-3 pb-12">
+                                {/* Dummy Grid Filler */}
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                    <div key={`prev-${i}`} className="grid-cell bg-[#0c1618]/40 border border-white/5 relative p-2">
+                                        <span className="text-slate-700 font-mono text-xs">{25 + i}</span>
+                                    </div>
+                                ))}
+                                <div className="grid-cell bg-[#060b0c]/20 border border-white/5 relative p-2">
+                                    <span className="text-slate-700 font-mono text-xs">30</span>
+                                </div>
+                                <div className="grid-cell bg-[#060b0c]/20 border border-white/5 relative p-2">
+                                    <span className="text-slate-600 font-mono text-xs">01</span>
                                 </div>
 
-                                {/* Hover hint */}
-                                <div className="absolute inset-x-0 bottom-0 h-4 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-b-xl" />
+                                <div className="grid-cell bg-[#0c1618]/60 border border-white/10 relative p-2 group hover:border-cyan-400/30">
+                                    <span className="text-slate-400 font-mono text-xs group-hover:text-cyan-400 transition-colors">02</span>
+                                </div>
+                                <div className="grid-cell bg-[#0c1618]/60 border border-white/10 relative p-2 group hover:border-cyan-400/30">
+                                    <span className="text-slate-400 font-mono text-xs group-hover:text-cyan-400 transition-colors">03</span>
+                                    <div className="time-crystal mt-4 p-2 rounded-sm" style={{ '--crystal-color': '#a855f7' } as React.CSSProperties}>
+                                        <div className="chronos-connector diagonal" style={{ '--color': '#a855f7' } as React.CSSProperties}></div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-[9px] font-bold text-purple-200 uppercase tracking-wider">IG Reels</span>
+                                            <span className="ml-auto size-1 bg-purple-400 rounded-full shadow-[0_0_5px_#a855f7]"></span>
+                                        </div>
+                                        <div className="text-[10px] text-slate-300 font-mono">10:00 UTC</div>
+                                    </div>
+                                </div>
+                                <div className="grid-cell bg-[#0c1618]/60 border border-white/10 relative p-2 group hover:border-cyan-400/30">
+                                    <span className="text-slate-400 font-mono text-xs group-hover:text-cyan-400 transition-colors">04</span>
+                                </div>
+
+                                {/* Today Highlights */}
+                                <div className="grid-cell bg-[#060b0c]/80 border border-cyan-400/50 relative p-2 shadow-neon z-20 overflow-visible transform translate-z-10">
+                                    <div className="beam-of-light"></div>
+                                    <div className="beam-core"></div>
+                                    <div className="flex justify-between items-start relative z-20">
+                                        <span className="text-cyan-400 font-mono text-sm font-bold drop-shadow-[0_0_5px_#0bf]">05</span>
+                                        <span className="text-[8px] bg-cyan-400 text-black font-bold px-1 py-0.5 uppercase tracking-wider">Hoje</span>
+                                    </div>
+                                    <div className="time-crystal mt-4 p-2 rounded-sm bg-cyan-400/10 border-cyan-400/30" style={{ '--crystal-color': '#0bf' } as React.CSSProperties}>
+                                        <div className="chronos-connector" style={{ '--color': '#0bf' } as React.CSSProperties}></div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-[9px] font-bold text-cyan-100 uppercase tracking-wider">TikTok Gaming</span>
+                                            <span className="ml-auto material-symbols-outlined text-[10px] text-cyan-300 animate-spin">sync</span>
+                                        </div>
+                                        <div className="text-[10px] text-cyan-200 font-mono">14:00 UTC</div>
+                                        <div className="h-0.5 w-full bg-cyan-400/20 mt-1 rounded-full overflow-hidden">
+                                            <div className="h-full bg-cyan-400 w-2/3 shadow-[0_0_5px_#0bf]"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid-cell bg-[#0c1618]/60 border border-white/10 relative p-2 group hover:border-cyan-400/30">
+                                    <span className="text-slate-400 font-mono text-xs group-hover:text-cyan-400 transition-colors">06</span>
+                                    <div className="mt-8 p-2 border border-dashed border-slate-600 bg-black/40 backdrop-blur-sm opacity-60 transform translate-z-2 hover:translate-z-4 hover:opacity-100 transition-all">
+                                        <span className="text-[9px] text-slate-400 uppercase tracking-wider block">Rascunho: Prod V2</span>
+                                    </div>
+                                </div>
+                                <div className="grid-cell bg-[#060b0c]/20 border border-white/5 relative p-2">
+                                    <span className="text-slate-600 font-mono text-xs">07</span>
+                                </div>
+                                <div className="grid-cell bg-[#060b0c]/20 border border-white/5 relative p-2">
+                                    <span className="text-slate-600 font-mono text-xs">08</span>
+                                </div>
+
+                                {/* Next Week Filler */}
+                                {Array.from({ length: 4 }).map((_, i) => (
+                                    <div key={`next-${i}`} className="grid-cell bg-[#0c1618]/60 border border-white/10 relative p-2 group hover:border-cyan-400/30">
+                                        <span className="text-slate-400 font-mono text-xs group-hover:text-cyan-400 transition-colors">{9 + i}</span>
+                                    </div>
+                                ))}
+
+                                <div className="grid-cell bg-[#0c1618]/60 border border-white/10 relative p-2 group hover:border-cyan-400/30">
+                                    <span className="text-slate-400 font-mono text-xs group-hover:text-cyan-400 transition-colors">13</span>
+                                    <div className="time-crystal mt-4 p-2 rounded-sm" style={{ '--crystal-color': '#f59e0b' } as React.CSSProperties}>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-[9px] font-bold text-amber-200 uppercase tracking-wider">YT Short</span>
+                                            <span className="ml-auto size-1 bg-amber-400 rounded-full shadow-[0_0_5px_#f59e0b]"></span>
+                                        </div>
+                                        <div className="text-[10px] text-slate-300 font-mono">16:30 UTC</div>
+                                    </div>
+                                </div>
+
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                    <div key={`mid-${i}`} className="grid-cell bg-[#0c1618]/60 border border-white/10 relative p-2 group hover:border-cyan-400/30">
+                                        <span className="text-slate-400 font-mono text-xs group-hover:text-cyan-400 transition-colors">{14 + i}</span>
+                                    </div>
+                                ))}
+                                <div className="grid-cell bg-[#0c1618]/60 border border-white/10 relative p-2 group hover:border-cyan-400/30">
+                                    <span className="text-slate-400 font-mono text-xs group-hover:text-cyan-400 transition-colors">19</span>
+                                    <div className="time-crystal mt-4 p-2 rounded-sm" style={{ '--crystal-color': '#ef4444' } as React.CSSProperties}>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-[9px] font-bold text-red-200 uppercase tracking-wider">Lançamento</span>
+                                            <span className="ml-auto material-symbols-outlined text-[10px] text-red-400">rocket_launch</span>
+                                        </div>
+                                        <div className="text-[10px] text-slate-300 font-mono">11:00 UTC</div>
+                                    </div>
+                                </div>
+
+                                {Array.from({ length: 11 }).map((_, i) => (
+                                    <div key={`end-${i}`} className="grid-cell bg-[#0c1618]/60 border border-white/10 relative p-2 group hover:border-cyan-400/30">
+                                        <span className="text-slate-400 font-mono text-xs group-hover:text-cyan-400 transition-colors">{20 + i}</span>
+                                    </div>
+                                ))}
+
                             </div>
-                        );
-                    })}
+                        </div>
+                    </div>
+
+                    {/* Staging Dock Panel */}
+                    <div className="w-80 flex-shrink-0 flex flex-col gap-4 z-50">
+                        <div className="glass-panel p-0 rounded-none flex-1 flex flex-col h-full border border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.5)] relative overflow-hidden backdrop-blur-3xl">
+                            <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-cyan-400/40"></div>
+                            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-cyan-400/40"></div>
+
+                            <div className="p-5 border-b border-white/10 bg-[#060b0c]/80 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-cyan-400 text-[20px] animate-pulse-slow">precision_manufacturing</span>
+                                    <h3 className="text-white font-bold text-xs tech-stencil">Doca de Preparação</h3>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button className="text-slate-500 hover:text-cyan-400 transition-colors">
+                                        <span className="material-symbols-outlined text-[18px]">tune</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="p-4 bg-[#0c1618]/50">
+                                <div className="relative">
+                                    <input className="w-full bg-black/40 border border-white/10 px-3 py-2 pl-9 text-xs text-white placeholder-slate-600 font-mono focus:outline-none focus:border-cyan-400/50" placeholder="FILTRAR CARGAS..." type="text" />
+                                    <span className="material-symbols-outlined absolute left-2 top-2 text-cyan-400/50 text-[16px]">filter_alt</span>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-0 overflow-y-auto flex-1 dock-slot scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+
+                                <div className="p-4 border-b border-white/5 hover:bg-white/5 cursor-grab active:cursor-grabbing group transition-all relative payload-ready">
+                                    <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-cyan-400/0 group-hover:bg-cyan-400 transition-all"></div>
+                                    <div className="flex gap-4">
+                                        <div className="size-12 bg-black border border-white/10 relative overflow-hidden group-hover:border-cyan-400/50 transition-colors shrink-0">
+                                            <div className="absolute inset-0 bg-cover bg-center opacity-70 group-hover:opacity-100 transition-opacity bg-[url('https://lh3.googleusercontent.com/aida-public/AB6AXuC5p7MjHgkG8S5UjLu1ZcSSWPHABvgZLQ7hfPq7FksYtr7ngiq2BMYmZNTPR694JoPz5iOM-FHLo3tPQ6tYbu5sOKVKM_li9o7v1GXwbphgGL4O5CEgehvOsK5G_MRkr1WpnCjsl4ycFmu1nU0zY3lyJz9gIBjAuCOqzPxj2WYj_cM-ofi3VevJPEboKqBoNfrvMxQ17Ry6dFI1Lq5LktZ_dKfcBjR5PcQ8eVtjetP9piEYUgHxJSwQmaWZpi85Fu3mzsd6W6ztmjw')]"></div>
+                                            <div className="absolute bottom-0 right-0 bg-black/80 px-1 py-0.5 text-[8px] font-mono text-cyan-400 border-t border-l border-white/10">MP4</div>
+                                        </div>
+                                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                            <h4 className="text-slate-200 text-xs font-bold truncate font-mono">Cyberpunk_Intro_v4</h4>
+                                            <div className="flex items-center gap-3 mt-1.5">
+                                                <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                                                    <span className="material-symbols-outlined text-[12px]">timer</span> 00:15
+                                                </div>
+                                                <div className="flex items-center gap-1 text-[10px] text-cyan-400/70">
+                                                    <span className="material-symbols-outlined text-[12px]">check_circle</span> PRONTO
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-center text-slate-600 group-hover:text-cyan-400 transition-colors">
+                                            <span className="material-symbols-outlined text-[20px] mech-arm">precision_manufacturing</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="p-4 border-b border-white/5 hover:bg-white/5 cursor-grab active:cursor-grabbing group transition-all relative">
+                                    <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-cyan-400/0 group-hover:bg-purple-500 transition-all"></div>
+                                    <div className="flex gap-4">
+                                        <div className="size-12 bg-black border border-white/10 relative overflow-hidden group-hover:border-purple-500/50 transition-colors shrink-0">
+                                            <div className="absolute inset-0 bg-cover bg-center opacity-70 group-hover:opacity-100 transition-opacity bg-[url('https://lh3.googleusercontent.com/aida-public/AB6AXuCp3ZSJi4VX2PPXcgxESiy8yAAXcCDK50mlZ1_v0kW1Tv-WMVitvttd1D7HqdNfz548HUWhFD6TBfcXf0_tTvWiuTIjOsBHq1FMu3UNXWUXwOeelEUV5oqGkV_lcVBuy9gj2a3342H3Hk8fKRV67YlQc2pBipjPRsEGPODTR77GK9MkihpY0_UkxWgk69nU9iwlhBRvOBo13lGvukAizQt5pQs0QDm6CU52Nr63aKpCo-Vol5uKzWfA8lJZKxMyWn7wGeLcF_izkzg')]"></div>
+                                            <div className="absolute bottom-0 right-0 bg-black/80 px-1 py-0.5 text-[8px] font-mono text-purple-400 border-t border-l border-white/10">MOV</div>
+                                        </div>
+                                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                            <h4 className="text-slate-200 text-xs font-bold truncate font-mono">Neon_City_Loop</h4>
+                                            <div className="flex items-center gap-3 mt-1.5">
+                                                <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                                                    <span className="material-symbols-outlined text-[12px]">timer</span> 00:30
+                                                </div>
+                                                <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                                                    <span className="material-symbols-outlined text-[12px]">cloud_upload</span> 95%
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-center text-slate-600 group-hover:text-white transition-colors">
+                                            <span className="material-symbols-outlined text-[20px]">drag_indicator</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="m-4 border border-dashed border-cyan-400/30 bg-cyan-400/5 p-6 flex flex-col items-center justify-center text-center group hover:bg-cyan-400/10 transition-colors cursor-pointer">
+                                    <div className="p-2 rounded-full bg-cyan-400/10 mb-2 group-hover:scale-110 transition-transform">
+                                        <span className="material-symbols-outlined text-cyan-400 text-[24px]">input</span>
+                                    </div>
+                                    <span className="text-[10px] text-cyan-400/70 font-mono uppercase tracking-wider">Inicializar Upload</span>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div className="glass-panel p-4 rounded-none border border-white/10 relative overflow-hidden backdrop-blur-3xl">
+                            <div className="absolute top-0 left-0 w-full h-[1px] bg-cyan-400/50 shadow-[0_0_10px_#0bf] animate-[scan_2s_ease-in-out_infinite]"></div>
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-[10px] font-bold text-slate-400 tech-stencil">Taxa de Transferência do Uplink</span>
+                                <span className="text-cyan-400 text-xs font-mono font-bold">12.4 TB/s</span>
+                            </div>
+                            <div className="relative h-12 w-full flex items-end gap-[2px] opacity-80">
+                                <div className="flex-1 bg-gradient-to-t from-cyan-400/10 to-cyan-400/40 h-[30%]"></div>
+                                <div className="flex-1 bg-gradient-to-t from-cyan-400/10 to-cyan-400/50 h-[50%]"></div>
+                                <div className="flex-1 bg-gradient-to-t from-cyan-400/10 to-cyan-400/30 h-[20%]"></div>
+                                <div className="flex-1 bg-gradient-to-t from-cyan-400/10 to-cyan-400/60 h-[70%]"></div>
+                                <div className="flex-1 bg-gradient-to-t from-cyan-400/20 to-cyan-400 h-[90%] shadow-[0_0_8px_rgba(7,182,213,0.4)]"></div>
+                                <div className="flex-1 bg-gradient-to-t from-cyan-400/10 to-cyan-400/50 h-[45%]"></div>
+                                <div className="flex-1 bg-gradient-to-t from-cyan-400/10 to-cyan-400/20 h-[25%]"></div>
+                                <div className="flex-1 bg-gradient-to-t from-cyan-400/10 to-cyan-400/30 h-[35%]"></div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
-            </StitchCard>
-
-            {/* Modals */}
-            {/* Modals */}
-            <BatchUploadModal
-                key={`${uploadModal.mode}-${uploadModal.date?.toISOString()}`}
-                isOpen={uploadModal.isOpen}
-                onClose={() => setUploadModal(prev => ({ ...prev, isOpen: false }))}
-                onSingleSubmit={handleScheduleSubmit}
-                onSuccess={() => {
-                    fetchData();
-                    setUploadModal(prev => ({ ...prev, isOpen: false }));
-                    if (uploadModal.mode === 'batch') toast.success("Campanha iniciada com sucesso!");
-                }}
-                mode={uploadModal.mode}
-                initialDate={uploadModal.date}
-                initialViralBoost={viralBoost}
-                profiles={profiles}
-            />
-
-            <ScheduledVideosModal
-                isOpen={isScheduledModalOpen}
-                onClose={() => setIsScheduledModalOpen(false)}
-                profiles={profiles}
-                onDelete={(id) => {
-                    setEvents(prev => prev.filter(e => e.id !== id));
-                }}
-                onUpdate={fetchData} // Sync trigger
-            />
-
-            <DayDetailsModal
-                isOpen={isDayDetailsOpen}
-                onClose={() => setIsDayDetailsOpen(false)}
-                date={modalDate}
-                events={events.filter(e => isSameDay(new Date(e.scheduled_time), modalDate))}
-                profiles={profiles}
-                onDeleteEvent={handleDeleteEvent}
-                onEditEvent={handleEditEvent}
-                onAddEvent={() => {
-                    setIsDayDetailsOpen(false);
-                    setUploadModal({ isOpen: true, mode: 'batch', date: modalDate });
-                }}
-                onRetryEvent={handleRetryEvent}
-                onFullEdit={handleFullEdit}
-            />
-        </>
+            </main>
+        </div>
     );
 }

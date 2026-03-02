@@ -1,4 +1,5 @@
 import logging
+import os
 import random
 from typing import Dict, Any, Optional
 from fake_useragent import UserAgent
@@ -21,6 +22,12 @@ DEFAULT_TIMEZONE = "America/Sao_Paulo"
 TIKTOK_BASE_URL = "https://www.tiktok.com"
 TIKTOK_UPLOAD_URL = f"{TIKTOK_BASE_URL}/tiktokstudio/upload"
 TIKTOK_CREATIVE_CENTER_URL = "https://ads.tiktok.com/business/creativecenter/inspiration/popular/music/pc/en"
+
+
+def is_production() -> bool:
+    """Checks if we are running in a production environment."""
+    return os.getenv("ENVIRONMENT", "development").lower() == "production"
+
 
 def get_random_user_agent() -> str:
     """
@@ -93,3 +100,101 @@ def get_creative_center_url() -> str:
 def get_upload_url() -> str:
     """Retorna a URL de upload do TikTok Studio."""
     return TIKTOK_UPLOAD_URL
+
+
+def get_profile_identity(profile_slug: str) -> Dict[str, Any]:
+    """
+    Resolves the complete browser identity for a profile from the database.
+    
+    Returns a dict with:
+        - proxy: Dict with server/username/password or None
+        - user_agent: str
+        - viewport: Dict with width/height
+        - locale: str
+        - timezone: str
+        - geolocation: Dict with latitude/longitude or None
+        - has_proxy: bool
+    
+    In PRODUCTION, raises MissingProxyError if no proxy is configured.
+    In DEVELOPMENT, logs a warning and returns defaults without proxy.
+    """
+    from core.retry_utils import MissingProxyError
+
+    identity = {
+        "proxy": None,
+        "user_agent": DEFAULT_UA,
+        "viewport": {"width": 1920, "height": 1080},
+        "locale": DEFAULT_LOCALE,
+        "timezone": DEFAULT_TIMEZONE,
+        "geolocation": None,
+        "has_proxy": False,
+    }
+
+    # Try database first
+    try:
+        from core.database import SessionLocal
+        from core.models import Profile
+
+        db = SessionLocal()
+        try:
+            profile = db.query(Profile).filter(Profile.slug == profile_slug).first()
+            if profile:
+                # Proxy
+                if profile.proxy_server:
+                    identity["proxy"] = {
+                        "server": profile.proxy_server,
+                        "username": profile.proxy_username,
+                        "password": profile.proxy_password,
+                    }
+                    identity["has_proxy"] = True
+
+                # User-Agent (DB > session JSON > default)
+                if profile.fingerprint_ua:
+                    identity["user_agent"] = profile.fingerprint_ua
+
+                # Viewport
+                identity["viewport"] = {
+                    "width": profile.fingerprint_viewport_w or 1920,
+                    "height": profile.fingerprint_viewport_h or 1080,
+                }
+
+                # Locale & Timezone
+                if profile.fingerprint_locale:
+                    identity["locale"] = profile.fingerprint_locale
+                if profile.fingerprint_timezone:
+                    identity["timezone"] = profile.fingerprint_timezone
+
+                # Geolocation
+                if profile.geolocation_latitude and profile.geolocation_longitude:
+                    identity["geolocation"] = {
+                        "latitude": float(profile.geolocation_latitude),
+                        "longitude": float(profile.geolocation_longitude),
+                    }
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning(f"[IDENTITY] Erro ao resolver identidade do perfil '{profile_slug}' via DB: {e}")
+
+    # Fallback: try session JSON for UA (legacy support)
+    if identity["user_agent"] == DEFAULT_UA:
+        try:
+            from core.session_manager import get_profile_user_agent
+            legacy_ua = get_profile_user_agent(profile_slug)
+            if legacy_ua and legacy_ua != DEFAULT_UA:
+                identity["user_agent"] = legacy_ua
+        except Exception:
+            pass
+
+    # PRODUCTION HARD BLOCK: No proxy = abort
+    if is_production() and not identity["has_proxy"]:
+        raise MissingProxyError(profile_slug)
+
+    # DEVELOPMENT WARNING
+    if not identity["has_proxy"]:
+        logger.warning(
+            f"[IDENTITY] Perfil '{profile_slug}' SEM proxy configurado. "
+            f"Em producao, isso sera um HARD BLOCK."
+        )
+
+    return identity
+

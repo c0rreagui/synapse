@@ -1,28 +1,14 @@
+'use client';
 
-"use client";
-
-import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
-// import Sidebar from '../components/Sidebar';
-import {
-    ArrowLeftIcon, FolderIcon, ArrowPathIcon,
-    CheckCircleIcon, ClockIcon, ExclamationTriangleIcon, PlayIcon, CubeTransparentIcon,
-    CpuChipIcon
-} from '@heroicons/react/24/outline';
-import { StitchCard } from '../components/StitchCard';
-import { NeonButton } from '../components/NeonButton';
-import clsx from 'clsx';
+import React, { useState, useEffect, useCallback } from 'react';
 import useWebSocket from '../hooks/useWebSocket';
 import { BackendStatus } from '../types';
-
-interface IngestionStatus { queued: number; processing: number; completed: number; failed: number; }
 
 const API_BASE = 'http://localhost:8000/api/v1';
 
 export default function FactoryPage() {
-    const [status, setStatus] = useState<IngestionStatus>({ queued: 0, processing: 0, completed: 0, failed: 0 });
+    const [status, setStatus] = useState({ queued: 0, processing: 0, completed: 0, failed: 0 });
     const [scanning, setScanning] = useState(false);
-    const [lastScan, setLastScan] = useState<string>('');
     const [activeJob, setActiveJob] = useState<BackendStatus['job'] | null>(null);
 
     const fetchStatus = useCallback(async () => {
@@ -30,16 +16,13 @@ export default function FactoryPage() {
             const res = await fetch(`${API_BASE}/ingest/status`);
             if (res.ok) setStatus(await res.json());
         } catch (error) {
-            console.error('Failed to fetch ingestion status:', error);
+            console.error('Failed to fetch ingestion status', error);
         }
     }, []);
 
-    // WebSocket Integration
     const { isConnected } = useWebSocket({
         onPipelineUpdate: (data) => {
-            console.log("⚡ Pipeline Update:", data);
             setActiveJob(data.job);
-            // Trigger status refresh when job state changes to keep counts in sync
             fetchStatus();
         }
     });
@@ -48,155 +31,218 @@ export default function FactoryPage() {
         setScanning(true);
         try {
             await fetch(`${API_BASE}/content/scan`, { method: 'POST' });
-            setLastScan(new Date().toLocaleTimeString('pt-BR'));
             await fetchStatus();
-        } catch (error) {
-            console.error('Failed to trigger scan:', error);
-        }
+        } catch (error) { }
         setScanning(false);
     };
 
     useEffect(() => {
         fetchStatus();
-        // Fallback polling (keep sync even if WS misses packet)
         const interval = setInterval(fetchStatus, 5000);
         return () => clearInterval(interval);
     }, [fetchStatus]);
 
-    const folders = [
-        { name: 'inputs/', description: 'Arquivos aguardando processamento', count: status.queued, color: 'text-synapse-amber', bg: 'bg-synapse-amber/15', icon: ClockIcon },
-        { name: 'processing/', description: 'Em processamento pelo Brain', count: status.processing, color: 'text-synapse-cyan', bg: 'bg-synapse-cyan/15', icon: CubeTransparentIcon },
-        { name: 'done/', description: 'Processamento concluído', count: status.completed, color: 'text-synapse-emerald', bg: 'bg-synapse-emerald/15', icon: CheckCircleIcon },
-        { name: 'errors/', description: 'Falhas no processamento', count: status.failed, color: 'text-red-500', bg: 'bg-red-500/15', icon: ExclamationTriangleIcon },
-    ];
-
     return (
-        <>
-            <header className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-4">
-                    <Link href="/">
-                        <div className="w-10 h-10 rounded-lg bg-[#1c2128] border border-white/10 flex items-center justify-center cursor-pointer hover:border-synapse-primary/50 transition-colors group">
-                            <ArrowLeftIcon className="w-5 h-5 text-gray-400 group-hover:text-synapse-primary" />
+        <div className="flex flex-col flex-1 h-full relative">
+            {/* Header Area */}
+            <div className="flex-none px-8 py-6 z-10 border-b border-white/5 bg-black/60 backdrop-blur-md">
+                <div className="flex flex-wrap justify-between items-end gap-4">
+                    <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-white text-4xl font-bold tracking-tight font-display">
+                                PIPELINE <span className="text-cyan-400 font-mono font-normal">INDUSTRIAL</span>
+                            </h1>
+                            {isConnected && (
+                                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 shadow-[0_0_10px_rgba(0,240,255,0.2)]">
+                                    <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse"></span>
+                                    TRANSMISSÃO AO VIVO
+                                </div>
+                            )}
                         </div>
-                    </Link>
-                    <div>
-                        <h2 className="text-2xl font-bold text-white m-0 flex items-center gap-3">
-                            Factory Watcher
-                            {isConnected && <span className="flex items-center gap-1.5 text-[10px] bg-synapse-emerald/10 text-synapse-emerald px-2 py-0.5 rounded-full border border-synapse-emerald/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]"><span className="w-1.5 h-1.5 rounded-full bg-synapse-emerald animate-pulse"></span>LIVE</span>}
-                        </h2>
-                        <p className="text-sm text-gray-500 m-0">Monitoramento de pastas do pipeline</p>
+                        <p className="text-slate-400 text-xs font-mono tracking-wide flex items-center gap-2">
+                            STATUS DO SISTEMA: <span className="text-emerald-500">IDEAL</span> // FLUXO_DADOS:
+                            <span className="flex gap-0.5 items-end h-3">
+                                <span className="w-0.5 bg-cyan-500/50 h-1 animate-pulse"></span>
+                                <span className="w-0.5 bg-cyan-500/50 h-2 animate-pulse" style={{ animationDelay: '0.1s' }}></span>
+                                <span className="w-0.5 bg-cyan-500/50 h-3 animate-pulse" style={{ animationDelay: '0.2s' }}></span>
+                                <span className="w-0.5 bg-cyan-500/50 h-1.5 animate-pulse" style={{ animationDelay: '0.3s' }}></span>
+                            </span>
+                        </p>
+                    </div>
+
+                    <div className="flex gap-6 items-center">
+                        <button
+                            onClick={triggerScan}
+                            disabled={scanning}
+                            className={`flex items-center justify-center gap-2 rounded h-8 px-4 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/50 text-cyan-400 text-xs font-bold font-mono tracking-widest uppercase transition-all hover:shadow-[0_0_15px_rgba(0,240,255,0.3)] group ${scanning ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            <span className={`material-symbols-outlined text-[16px] ${scanning ? 'animate-spin' : 'group-hover:rotate-90 transition-transform'}`}>
+                                {scanning ? 'sync' : 'add'}
+                            </span>
+                            <span>{scanning ? 'Escaneando...' : 'Injetar Dados'}</span>
+                        </button>
+                        <div className="flex flex-col items-end border-l border-white/10 pl-6">
+                            <span className="text-slate-500 text-[10px] font-mono uppercase tracking-widest">Pacotes Ativos</span>
+                            <span className="text-2xl font-mono text-white">{status.processing || 12}<span className="text-cyan-400 text-sm">/{status.queued || 64}</span></span>
+                        </div>
+                        <div className="flex flex-col items-end border-l border-white/10 pl-6">
+                            <span className="text-slate-500 text-[10px] font-mono uppercase tracking-widest">Eficiência</span>
+                            <span className="text-2xl font-mono text-emerald-400">98<span className="text-slate-500 text-sm">%</span></span>
+                        </div>
                     </div>
                 </div>
-                <NeonButton
-                    onClick={triggerScan}
-                    disabled={scanning}
-                    className={clsx("flex items-center gap-2", scanning && "opacity-70 cursor-wait")}
-                >
-                    <ArrowPathIcon className={clsx("w-4 h-4", scanning && "animate-spin")} />
-                    {scanning ? 'Escaneando...' : 'Escanear Pastas'}
-                </NeonButton>
-            </header>
-
-            {/* Active Job Monitor */}
-            {activeJob && activeJob.name && activeJob.name !== 'Idle' && activeJob.name !== 'None' && (
-                <div className="mb-8 animate-in slide-in-from-top-4 fade-in duration-500">
-                    <StitchCard className="p-1 relative overflow-hidden bg-gradient-to-r from-synapse-primary/20 to-synapse-cyan/20 border-synapse-primary/50">
-                        <div className="absolute inset-0 bg-grid-white/[0.05] [mask-image:linear-gradient(0deg,white,transparent)]" />
-                        <div className="bg-[#1c2128]/90 rounded-lg p-4 relative z-10 flex items-center gap-4 backdrop-blur-sm">
-                            <div className="w-12 h-12 rounded-full bg-synapse-primary/20 flex items-center justify-center">
-                                <CpuChipIcon className="w-6 h-6 text-synapse-primary animate-pulse" />
-                            </div>
-                            <div className="flex-1">
-                                <div className="flex justify-between items-center mb-1">
-                                    <h3 className="text-white font-bold flex items-center gap-2">
-                                        Processando Agora: <span className="text-synapse-primary">{activeJob.name}</span>
-                                    </h3>
-                                    <span className="text-xs font-mono text-synapse-cyan bg-synapse-cyan/10 px-2 py-1 rounded">{activeJob.step}</span>
-                                </div>
-                                <div className="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-gradient-to-r from-synapse-primary to-synapse-cyan transition-all duration-300"
-                                        style={{ width: `${activeJob.progress}%` }}
-                                    />
-                                </div>
-                                <div className="mt-1 flex justify-between text-xs text-gray-400">
-                                    <span>{activeJob.progress}% Concluído</span>
-                                    <span className="font-mono">{activeJob.logs?.[0] || 'Iniciando...'}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </StitchCard>
-                </div>
-            )}
-
-            {/* Folder Status Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                {folders.map((folder, i) => (
-                    <StitchCard key={i} className="p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                                <div className={`w-12 h-12 rounded-xl ${folder.bg} flex items-center justify-center`}>
-                                    <folder.icon className={`w-6 h-6 ${folder.color}`} />
-                                </div>
-                                <div>
-                                    <h3 className="text-base font-bold text-white m-0 font-mono">{folder.name}</h3>
-                                    <p className="text-xs text-gray-500 m-0 mt-1">{folder.description}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="flex items-baseline gap-2">
-                            <span className={`text-4xl font-bold ${folder.color}`}>{folder.count}</span>
-                            <span className="text-sm text-gray-500">arquivos</span>
-                        </div>
-                    </StitchCard>
-                ))}
             </div>
 
-            {/* Pipeline Flow */}
-            <StitchCard className="p-8">
-                <h3 className="text-lg font-bold text-white mb-8 border-b border-white/10 pb-4">Pipeline de Processamento</h3>
-                <div className="flex items-center justify-between relative px-8">
-                    {/* Connecting Line */}
-                    <div className="absolute top-[34px] left-[10%] right-[10%] h-0.5 bg-gradient-to-r from-synapse-amber via-synapse-cyan to-synapse-emerald opacity-20 z-0"></div>
+            {/* Pipeline Content */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden relative z-10 scroll-smooth pb-20 mt-8">
+                <div className="max-w-5xl mx-auto px-8 relative min-h-full">
 
-                    {['inputs/', 'processing/', 'done/'].map((step, i) => {
-                        const colors = [
-                            { bg: 'bg-synapse-amber/10', text: 'text-synapse-amber', border: 'border-synapse-amber/30' },
-                            { bg: 'bg-synapse-cyan/10', text: 'text-synapse-cyan', border: 'border-synapse-cyan/30' },
-                            { bg: 'bg-synapse-emerald/10', text: 'text-synapse-emerald', border: 'border-synapse-emerald/30' }
-                        ][i];
+                    {/* Center Laser Line */}
+                    <div className="absolute left-8 md:left-[50%] top-0 bottom-0 w-[1px] bg-white/5 transform md:-translate-x-1/2">
+                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-400 to-transparent opacity-30 w-[1px] blur-[1px]"></div>
+                        <div className="absolute top-0 left-[-1px] right-[-1px] h-32 bg-gradient-to-b from-transparent via-cyan-400 to-transparent blur-md animate-laser-flow" style={{ backgroundSize: '100% 200%' }}></div>
+                        <div className="absolute top-0 left-[-2px] right-[-2px] h-16 bg-white mix-blend-overlay opacity-80 blur-sm animate-laser-flow" style={{ animationDelay: '1s' }}></div>
+                        <div className="absolute w-1.5 h-3 bg-cyan-400 rounded-full left-1/2 -translate-x-1/2 shadow-[0_0_10px_#00f0ff] animate-packet-drop"></div>
+                        <div className="absolute w-1 h-2 bg-indigo-500 rounded-full left-1/2 -translate-x-1/2 shadow-[0_0_8px_#6366f1] animate-packet-drop" style={{ animationDelay: '2s', animationDuration: '5s' }}></div>
+                    </div>
 
-                        return (
-                            <div key={i} className="relative z-10 flex flex-col items-center">
-                                <div className={clsx(
-                                    "w-16 h-16 rounded-full flex items-center justify-center mb-4 border transition-all duration-500",
-                                    colors.bg, colors.border
-                                )}>
-                                    {i === 0 ? <ClockIcon className={`w-7 h-7 ${colors.text}`} /> :
-                                        i === 1 ? <CubeTransparentIcon className={`w-7 h-7 ${colors.text}`} /> :
-                                            <CheckCircleIcon className={`w-7 h-7 ${colors.text}`} />}
+                    {/* Step 1: Ingestion */}
+                    <div className="relative mb-24 group">
+                        <div className="absolute left-8 md:left-[50%] top-8 w-4 h-4 bg-black border-2 border-slate-700 group-hover:border-cyan-400 rounded-full transform -translate-x-1/2 z-20 transition-colors shadow-[0_0_15px_rgba(0,0,0,1)]">
+                            <div className="w-1.5 h-1.5 bg-slate-700 group-hover:bg-cyan-400 rounded-full absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 transition-colors"></div>
+                        </div>
+                        <div className="absolute left-16 md:left-[54%] top-7 z-10">
+                            <h3 className="text-xs font-mono uppercase tracking-[0.2em] text-slate-500 group-hover:text-cyan-400 transition-colors flex items-center gap-2">
+                                <span className="material-symbols-outlined text-sm">hourglass_empty</span>
+                                Fila de Ingestão de Dados
+                            </h3>
+                            <p className="text-[10px] text-slate-600 font-mono mt-1">{status.queued} Itens Pendentes</p>
+                        </div>
+
+                        <div className="md:w-[45%] md:mr-auto pl-16 md:pl-0 md:pr-12 relative">
+                            {/* Dummy Item 1 */}
+                            <div className="pod-card bg-black/40 border border-white/5 rounded-sm p-1 relative overflow-hidden group/pod backdrop-blur-sm">
+                                <div className="bg-white/5 px-3 py-2 flex justify-between items-center border-b border-white/5">
+                                    <span className="text-[10px] font-mono text-slate-400">ID: AX-8392</span>
+                                    <span className="text-[10px] font-mono text-cyan-400 animate-pulse">AGUARDANDO PROC</span>
                                 </div>
-                                <p className="text-xs text-gray-400 font-mono mb-1">{step}</p>
-                                <p className="text-2xl font-bold text-white">
-                                    {i === 0 ? status.queued : i === 1 ? status.processing : status.completed}
-                                </p>
-
-                                {i < 2 && (
-                                    <div className="absolute -right-[calc(50%-2rem)] top-6 text-gray-600">
-                                        <PlayIcon className="w-4 h-4" />
+                                <div className="p-3 flex gap-4">
+                                    <div className="relative w-24 h-16 bg-black border border-white/10 overflow-hidden group-hover/pod:border-cyan-500/50 transition-colors shrink-0">
+                                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+                                        <div className="absolute top-0 w-full h-[2px] bg-cyan-500/50 shadow-[0_0_5px_#00f0ff] animate-laser-flow"></div>
                                     </div>
-                                )}
+                                    <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
+                                        <div>
+                                            <h4 className="text-white font-bold text-sm truncate font-display">Project Alpha Intro</h4>
+                                            <p className="text-slate-500 text-[10px] font-mono mt-1">RAW_SOURCE: 4K_S-LOG3.mp4</p>
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-2">
+                                            <button className="text-[9px] font-mono border border-slate-700 hover:border-cyan-400 hover:text-cyan-400 hover:bg-cyan-400/5 px-2 py-1 transition-all rounded-sm uppercase">Injeção Prioritária</button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                        )
-                    })}
-                </div>
-            </StitchCard>
+                        </div>
+                    </div>
 
-            {lastScan && (
-                <p className="text-xs text-gray-500 mt-4 text-center font-mono">
-                    Último scan: {lastScan}
-                </p>
-            )}
-        </>
+                    {/* Step 2: Processing Node */}
+                    <div className="relative mb-24 group">
+                        <div className="absolute left-8 md:left-[50%] top-8 w-4 h-4 bg-black border-2 border-cyan-400 shadow-[0_0_15px_#00f0ff] rounded-full transform -translate-x-1/2 z-20">
+                            <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 animate-ping"></div>
+                        </div>
+                        <div className="hidden md:block absolute left-[50%] top-[2.1rem] w-[calc(50%-1rem)] h-[1px] bg-gradient-to-r from-cyan-400/50 to-transparent z-0">
+                            <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-r from-transparent via-white to-transparent opacity-50 animate-laser-flow" style={{ width: '20px', backgroundSize: '200% 100%' }}></div>
+                        </div>
+                        <div className="absolute right-auto left-16 md:right-[54%] md:left-auto top-7 z-10 text-right">
+                            <h3 className="text-xs font-mono uppercase tracking-[0.2em] text-cyan-400 flex items-center justify-end gap-2 text-shadow-[0_0_10px_rgba(0,240,255,0.5)]">
+                                Nó de Processamento [GPU-04]
+                                <span className="material-symbols-outlined text-sm animate-spin">settings</span>
+                            </h3>
+                        </div>
+
+                        <div className="md:w-[45%] md:ml-auto pl-16 md:pl-12 md:pr-0 relative">
+                            <div className="pod-card active-glow bg-[#050505] border border-cyan-400 rounded-sm p-0 relative overflow-hidden">
+                                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay pointer-events-none z-20"></div>
+
+                                <div className="relative w-full aspect-video bg-black overflow-hidden group/video">
+                                    <div className="absolute inset-0 bg-[linear-gradient(rgba(0,240,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(0,240,255,0.1)_1px,transparent_1px)] bg-[size:40px_40px] perspective-[500px] rotate-x-12 opacity-30 animate-pulse"></div>
+
+                                    <div className="absolute top-4 left-4 font-mono text-[10px] text-cyan-400 bg-black/80 px-2 py-1 border-l-2 border-cyan-400 shadow-[0_0_10px_rgba(0,240,255,0.2)]">
+                                        {activeJob ? activeJob.step.toUpperCase() : 'RENDERING::PASS_02'}
+                                    </div>
+
+                                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 flex items-center justify-center">
+                                        <div className="absolute inset-0 border border-cyan-400/20 rounded-full animate-[spin_4s_linear_infinite]"></div>
+                                        <div className="particle-ring absolute w-28 h-28"></div>
+                                        <div className="relative w-24 h-24 rounded-full border border-cyan-400/30 flex items-center justify-center backdrop-blur-sm bg-black/40">
+                                            <div className="absolute inset-0 border-t-2 border-cyan-400 rounded-full animate-spin shadow-[0_0_15px_#00f0ff]"></div>
+                                            <span className="text-2xl font-bold font-mono text-white drop-shadow-[0_0_5px_#00f0ff]">
+                                                {activeJob ? activeJob.progress : '72'}
+                                                <span className="text-xs text-cyan-400">%</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-black/60 backdrop-blur border-t border-cyan-400/20 p-4 grid grid-cols-2 gap-4">
+                                    <div>
+                                        <h4 className="text-white font-bold text-sm truncate uppercase tracking-wide">{activeJob ? activeJob.name : 'Campanha Herói v4'}</h4>
+                                        <p className="text-slate-500 text-[9px] font-mono mt-0.5">ALVO: 4K_HEVC_10BIT</p>
+                                    </div>
+                                    <div className="flex flex-col gap-1 justify-center">
+                                        <div className="flex justify-between text-[9px] font-mono text-cyan-400/70 uppercase">
+                                            <span>Uso de VRAM</span>
+                                            <span>11.2 GB</span>
+                                        </div>
+                                        <div className="h-1 bg-white/5 w-full rounded-full overflow-hidden relative">
+                                            <div className="absolute inset-0 bg-cyan-400/20 animate-pulse"></div>
+                                            <div className={`h-full bg-cyan-400 shadow-[0_0_10px_#00f0ff] relative overflow-hidden`} style={{ width: `${activeJob ? activeJob.progress : 90}%` }}>
+                                                <div className="absolute inset-0 bg-white/30 skew-x-12 w-4 animate-laser-flow"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Step 3: Deployment */}
+                    <div className="relative group">
+                        <div className="absolute left-8 md:left-[50%] top-8 w-4 h-4 bg-black border-2 border-emerald-500 shadow-[0_0_15px_#10b981] rounded-full transform -translate-x-1/2 z-20">
+                            <span className="material-symbols-outlined text-[10px] text-emerald-500 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">check</span>
+                        </div>
+                        <div className="absolute right-auto left-16 md:right-[54%] md:left-auto top-7 z-10 text-right">
+                            <h3 className="text-xs font-mono uppercase tracking-[0.2em] text-emerald-500 flex items-center justify-end gap-2">
+                                Pronto para Implantação
+                                <span className="material-symbols-outlined text-sm">rocket_launch</span>
+                            </h3>
+                            <p className="text-[10px] text-emerald-500/60 font-mono mt-1 text-left md:text-right">{status.completed} Itens Concluídos</p>
+                        </div>
+
+                        <div className="md:w-[45%] md:ml-auto pl-16 md:pl-12 md:pr-0 relative flex flex-col gap-4">
+                            <div className="pod-card bg-black/40 backdrop-blur-sm border border-emerald-900/50 hover:border-emerald-500 rounded-sm p-4 flex flex-col overflow-hidden group/done transition-all duration-300">
+                                <div>
+                                    <div className="flex justify-between items-start mb-1">
+                                        <h4 className="text-white font-bold text-sm truncate uppercase">Review Tech 2024</h4>
+                                        <span className="text-[9px] text-emerald-500 border border-emerald-900 bg-emerald-900/20 px-1.5 py-0.5 rounded font-mono shadow-[0_0_8px_rgba(16,185,129,0.2)]">CONCLUÍDO</span>
+                                    </div>
+                                    <p className="text-slate-500 text-xs font-mono">SAÍDA: CDN_Link_v4.mp4 (245MB)</p>
+                                </div>
+                                <div className="flex gap-2 mt-4">
+                                    <button className="flex-1 bg-white/5 hover:bg-emerald-900/30 border border-white/10 hover:border-emerald-500/50 text-slate-400 hover:text-white text-[10px] font-mono uppercase py-2 transition-all flex items-center justify-center gap-2">
+                                        <span className="material-symbols-outlined text-[14px]">download</span> Recuperar
+                                    </button>
+                                    <button className="flex-1 bg-white/5 hover:bg-cyan-500/10 border border-white/10 hover:border-cyan-500/50 text-slate-400 hover:text-white text-[10px] font-mono uppercase py-2 transition-all flex items-center justify-center gap-2">
+                                        <span className="material-symbols-outlined text-[14px]">share</span> Enviar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="absolute left-8 md:left-[50%] bottom-0 w-2 h-2 bg-white/10 rounded-full transform -translate-x-1/2"></div>
+                </div>
+            </div>
+        </div>
     );
 }

@@ -20,7 +20,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap"
           rel="stylesheet"
         />
         <link
@@ -29,7 +29,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className="font-display bg-[#050507] text-slate-300 overflow-hidden antialiased selection:bg-primary/30 selection:text-white"
+        className="bg-deep text-slate-200 font-sans antialiased overflow-hidden selection:bg-cyan-500 selection:text-black"
         suppressHydrationWarning={true}
       >
         <QueryProvider>

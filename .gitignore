@@ -1,58 +1,107 @@
-# Dependencies
-backend/venv/
+# ==============================
+# SYNAPSE - GITIGNORE (Production-Ready)
+# ==============================
+
+# --- Python ---
 **/__pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.venv/
+backend/venv/
+*.whl
+
+# --- Node.js ---
 frontend/node_modules/
 frontend/.next/
+frontend/out/
+frontend/storybook-static/
+node_modules/
 
-# Environment Variables
+# --- Environment Variables (NEVER commit secrets) ---
 .env
-*.env
-.env.local
+.env.*
+!.env.example
 
-# Media Storage (Local)
-backend/media/
+# --- Database Volumes (Local) ---
+backend/data/postgres/
+backend/data/redis/
+backend/data/minio/
+*.db
+*.sqlite
+*.sqlite3
+synapse.db*
+
+# --- Media / Processing (Never commit large files) ---
 *.mp4
 *.mov
+*.avi
+*.mkv
+*.webm
+*.wav
+*.mp3
+inputs/
+processing/
+done/
+errors/
+media/
+backend/media/
 
-# IDE
+# --- Session Data (Sensitive - Contains Cookies) ---
+backend/data/sessions/
+backend/data/contexts/
+
+# --- Debug Artifacts ---
+*.log
+*.png
+*.jpg
+*.jpeg
+debug_*.py
+check_*.py
+inspect_*.py
+verify_*.py
+browser_test_log.txt
+header_comparison.json
+import_errors.txt
+validator_debug.log
+debug_upload_page.html
+
+# --- IDE ---
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# Logs temporários
-*.log
-debug_test.log
-error_trace.log
-syntax_error.log
-backend/factory.log
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini
 
-# Monitoramento (capturas de tela)
+# --- Docker Data ---
+ms-playwright/
+
+# --- Build / Cache ---
+.pytest_cache/
+.next/
+htmlcov/
+.coverage
+.mypy_cache/
+
+# --- Monitoring ---
 MONITOR/
-html de exemplo/dashboard_(command_center)/code.html
-html de exemplo/dashboard_(command_center)/screen.png
-html de exemplo/distribution/code.html
-html de exemplo/distribution/screen.png
-html de exemplo/ingestion_(drag_&_drop)/code.html
-html de exemplo/ingestion_(drag_&_drop)/screen.png
-html de exemplo/settings_(configuration_hub)_/code.html
-html de exemplo/settings_(configuration_hub)_/screen.png
-frontend/screenshot.png
-frontend/screenshot2.png
-frontend/screenshot3.png
-frontend/screenshot4.png
-frontend/screenshot5.png
-frontend/screenshot6.png
-frontend/screenshot7.png
-frontend/screenshot8.png
-frontend/screenshot9.png
-frontend/screenshot10.png
-frontend/screenshot11.png
-backend/tests/test_mass_approval_monitor.py
-backend/tests/test_mass_approval_visual.py
-backend/tests/test_real_schedule.py
-backend/tests/screenshots/scheduled_profile_01_20260108_214929.png
-backend/tests/screenshots/scheduled_profile_02_20260108_214929.png
-backend/tests/screenshots/tiktok_agendados_final_20260108_213805.png
-backend/tests/screenshots/tiktok_studio_20260108_212722.png
-backend/tests/screenshots/tiktok_studio_20260108_213315.png
-TRELLO - DY3magWS - synapse-roadmap.json
+
+# --- Test Artifacts ---
+frontend/test-results/
+frontend/playwright-report/
+backend/tests/screenshots/
+backend/tests/test_videos/
+
+# --- Misc ---
+TRELLO*.json
+*.bat
+auto-content-empire/
+tools/
+scripts/*.log

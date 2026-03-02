@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Synapse Celestial Command Pro</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        cyan: {
+                            400: '#00f0ff',
+                            500: '#00d0e0',
+                            900: '#003a40',
+                        },
+                        indigo: {
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            900: '#312e81',
+                        },
+                        magenta: {
+                            500: '#ff0055',
+                            600: '#d60046',
+                        },
+                        deep: "#010103",
+                        space: "#050508",
+                    },
+                    fontFamily: {
+                        display: ["Space Grotesk", "sans-serif"],
+                        mono: ["JetBrains Mono", "monospace"],
+                    },
+                    backgroundImage: {
+                        'celestial-gradient': 'radial-gradient(circle at 50% 50%, #0c0e16 0%, #010103 100%)',
+                        'grid-perspective': "linear-gradient(to bottom, transparent 0%, rgba(0, 240, 255, 0.03) 100%)",
+                        'scanline': "linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06))",
+                    },
+                    boxShadow: {
+                        'glow-cyan': '0 0 20px rgba(0, 240, 255, 0.3), 0 0 10px rgba(0, 240, 255, 0.1)',
+                        'glow-indigo': '0 0 20px rgba(99, 102, 241, 0.4)',
+                        'glow-magenta': '0 0 20px rgba(255, 0, 85, 0.3)',
+                        'hologram': 'inset 0 0 30px rgba(0, 240, 255, 0.05)',
+                        'bloom': '0 0 15px 2px rgba(0, 240, 255, 0.15)',
+                    },
+                    animation: {
+                        'pulse-transmission': 'pulseTransmission 3s ease-out infinite',
+                        'data-stream': 'dataStream 2s linear infinite',
+                        'chromatic-pulse': 'chromaticPulse 4s ease-in-out infinite',
+                        'spin-slow': 'spin 20s linear infinite',
+                        'spin-reverse-slow': 'spin 25s linear infinite reverse',
+                        'float-slow': 'float 6s ease-in-out infinite',
+                        'shimmer': 'shimmer 2s linear infinite',
+                        'heartbeat': 'heartbeat 1.5s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        pulseTransmission: {
+                            '0%': { opacity: '0', transform: 'translateX(-50%) scaleX(0)' },
+                            '50%': { opacity: '1', transform: 'translateX(0) scaleX(1)' },
+                            '100%': { opacity: '0', transform: 'translateX(50%) scaleX(0)' },
+                        },
+                        dataStream: {
+                            '0%': { backgroundPosition: '0% 0%' },
+                            '100%': { backgroundPosition: '0% 100%' },
+                        },
+                        chromaticPulse: {
+                            '0%, 100%': { textShadow: '2px 0 #ff0055, -2px 0 #00f0ff' },
+                            '50%': { textShadow: '1px 0 #ff0055, -1px 0 #00f0ff' },
+                        },
+                        shimmer: {
+                            '0%': { backgroundPosition: '-1000px 0' },
+                            '100%': { backgroundPosition: '1000px 0' },
+                        },
+                        heartbeat: {
+                            '0%, 100%': { transform: 'scale(1)', opacity: 0.5 },
+                            '50%': { transform: 'scale(1.1)', opacity: 1 },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #010103;
+        }
+        .atmospheric-glass {
+            background: rgba(10, 12, 18, 0.4);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+        .atmospheric-glass::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(125deg, rgba(255,255,255,0.05) 0%, transparent 40%, transparent 60%, rgba(255,255,255,0.02) 100%);
+            pointer-events: none;
+            z-index: 1;
+        }.connection-line {
+            position: absolute;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.3), transparent);
+            z-index: 0;
+            overflow: hidden;
+        }
+        .pulse-packet {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 40px;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, #00f0ff, transparent);
+            box-shadow: 0 0 10px #00f0ff;
+            opacity: 0;
+            animation: movePacket 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+        @keyframes movePacket {
+            0% { left: 0%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { left: 100%; opacity: 0; }
+        }
+        .holographic-log-container {
+            perspective: 1000px;
+            overflow: hidden;
+        }
+        .holographic-log-cylinder {
+            transform-style: preserve-3d;
+            animation: rotateLog 20s linear infinite;
+        }
+        @keyframes rotateLog {
+            0% { transform: rotateX(10deg) rotateY(0deg); }
+            100% { transform: rotateX(10deg) rotateY(360deg); }
+        }.chromatic-text {
+            position: relative;
+            color: white;
+            mix-blend-mode: screen;
+        }
+        .chromatic-text::before, .chromatic-text::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #010103;
+            mix-blend-mode: multiply;
+            opacity: 0.8;
+        }
+        .chromatic-text::before {
+            color: #ff0055;
+            transform: translate(-1px, 0);
+            z-index: -1;
+            animation: glitch-anim-1 2s infinite linear alternate-reverse;
+        }
+        .chromatic-text::after {
+            color: #00f0ff;
+            transform: translate(1px, 0);
+            z-index: -2;
+            animation: glitch-anim-2 3s infinite linear alternate-reverse;
+        }
+        @keyframes glitch-anim-1 {
+            0% { clip-path: inset(20% 0 80% 0); }
+            20% { clip-path: inset(60% 0 10% 0); }
+            40% { clip-path: inset(40% 0 50% 0); }
+            60% { clip-path: inset(80% 0 5% 0); }
+            80% { clip-path: inset(10% 0 70% 0); }
+            100% { clip-path: inset(30% 0 20% 0); }
+        }
+        @keyframes glitch-anim-2 {
+            0% { clip-path: inset(10% 0 60% 0); }
+            20% { clip-path: inset(30% 0 20% 0); }
+            40% { clip-path: inset(70% 0 10% 0); }
+            60% { clip-path: inset(20% 0 50% 0); }
+            80% { clip-path: inset(50% 0 30% 0); }
+            100% { clip-path: inset(0% 0 90% 0); }
+        }
+        .star-field {
+            background-image: 
+                radial-gradient(1px 1px at 20px 30px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(1px 1px at 40px 70px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(1.5px 1.5px at 50px 160px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(1px 1px at 90px 40px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(1px 1px at 130px 80px, #ffffff, rgba(0,0,0,0));
+            background-repeat: repeat;
+            background-size: 200px 200px;
+            opacity: 0.2;
+        }
+        .system-vitals-graph {
+            background: repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 19px,
+                rgba(0, 240, 255, 0.05) 20px
+            );
+        }
+        .scanline-overlay {
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+            background-size: 100% 4px;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 50;
+            opacity: 0.15;
+        }.particle {
+            position: absolute;
+            background: #00f0ff;
+            border-radius: 50%;
+            box-shadow: 0 0 5px #00f0ff;
+            opacity: 0;
+            animation: particleRise 4s infinite ease-in;
+        }
+        @keyframes particleRise {
+            0% { transform: translateY(100px) scale(0); opacity: 0; }
+            50% { opacity: 0.8; }
+            100% { transform: translateY(-100px) scale(1); opacity: 0; }
+        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 240, 255, 0.2); border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0, 240, 255, 0.4); }
+    </style>
+</head>
+<body class="bg-deep text-slate-200 font-sans antialiased overflow-hidden selection:bg-cyan-500 selection:text-black">
+<div class="relative flex h-screen w-full overflow-hidden">
+<div class="absolute inset-0 bg-celestial-gradient z-0"></div>
+<div class="absolute inset-0 star-field animate-pulse z-0"></div>
+<div class="scanline-overlay"></div>
+<div class="absolute bottom-0 left-0 right-0 h-1/2 bg-grid-perspective opacity-20 pointer-events-none" style="transform: perspective(1000px) rotateX(60deg) scale(2.5) translateY(100px);"></div>
+<aside class="relative z-40 flex w-[80px] md:w-[100px] flex-col py-6 pl-4 h-full border-r border-white/5 bg-black/40 backdrop-blur-md">
+<div class="flex flex-col items-center gap-8 h-full">
+<div class="relative group cursor-pointer">
+<div class="absolute inset-0 bg-cyan-500/20 rounded-full blur-xl group-hover:blur-2xl transition-all duration-500 animate-pulse"></div>
+<div class="relative w-12 h-12 flex items-center justify-center border border-cyan-500/30 rounded-full bg-black/60 shadow-[0_0_15px_rgba(0,240,255,0.2)]">
+<span class="material-symbols-outlined text-cyan-400" style="font-size: 24px;">blur_on</span>
+</div>
+</div>
+<nav class="flex flex-col gap-6 mt-8 w-full items-center">
+<a class="group relative flex items-center justify-center w-12 h-12 rounded-xl bg-cyan-500/10 text-cyan-400 shadow-glow-cyan border border-cyan-500/30" href="#">
+<span class="material-symbols-outlined">rocket_launch</span>
+<div class="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-cyan-400 rounded-l-full shadow-[0_0_10px_#00f0ff]"></div>
+</a>
+<a class="group relative flex items-center justify-center w-12 h-12 rounded-xl text-slate-500 hover:text-white hover:bg-white/5 transition-all" href="#">
+<span class="material-symbols-outlined group-hover:text-cyan-300 transition-colors">network_node</span>
+</a>
+<a class="group relative flex items-center justify-center w-12 h-12 rounded-xl text-slate-500 hover:text-white hover:bg-white/5 transition-all" href="#">
+<span class="material-symbols-outlined group-hover:text-cyan-300 transition-colors">public</span>
+</a>
+<a class="group relative flex items-center justify-center w-12 h-12 rounded-xl text-slate-500 hover:text-white hover:bg-white/5 transition-all" href="#">
+<span class="material-symbols-outlined group-hover:text-cyan-300 transition-colors">analytics</span>
+</a>
+</nav>
+<div class="mt-auto flex flex-col gap-4 items-center">
+<div class="w-px h-12 bg-gradient-to-b from-transparent via-cyan-500/30 to-transparent"></div>
+<button class="text-slate-500 hover:text-magenta-500 transition-colors relative group">
+<span class="material-symbols-outlined group-hover:rotate-90 transition-transform duration-500">settings</span>
+</button>
+</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col relative z-20 h-full overflow-hidden">
+<header class="h-20 flex items-center justify-between px-8 border-b border-white/5 bg-black/10 backdrop-blur-sm z-30 relative">
+<div class="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent">
+<div class="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-cyan-400 to-transparent w-[100px] animate-pulse-transmission"></div>
+</div>
+<div class="flex items-center gap-4">
+<h1 class="text-2xl font-display font-bold tracking-widest text-white uppercase flex items-center gap-3">
+<span class="text-cyan-400 animate-pulse">///</span>
+<span class="chromatic-text" data-text="Celestial Command Pro">Celestial Command Pro</span>
+</h1>
+<div class="h-4 w-px bg-white/10 mx-2"></div>
+<div class="flex items-center gap-2 text-xs font-mono text-cyan-500/70">
+<span class="animate-pulse text-red-500">●</span> LIVE FEED
+                        <span class="text-slate-600">::</span>
+<span class="text-cyan-300">SECTOR 7G</span>
+</div>
+</div>
+<div class="flex items-center gap-8">
+<div class="hidden lg:flex items-center gap-6 font-mono text-xs">
+<div class="flex flex-col items-end group cursor-help">
+<span class="text-slate-500 uppercase tracking-wider text-[9px] mb-1">Network Latency</span>
+<span class="text-cyan-300 drop-shadow-[0_0_5px_rgba(0,240,255,0.5)]">12ms <span class="text-slate-600">stable</span></span>
+</div>
+<div class="flex flex-col items-end group cursor-help">
+<span class="text-slate-500 uppercase tracking-wider text-[9px] mb-1">Core Temp</span>
+<span class="text-magenta-500 drop-shadow-[0_0_5px_rgba(255,0,85,0.5)]">342<span class="text-slate-600">K</span></span>
+</div>
+</div>
+<div class="relative w-10 h-10 rounded-full border border-white/10 flex items-center justify-center bg-white/5 overflow-hidden group">
+<div class="absolute inset-0 bg-cover bg-center opacity-80 group-hover:opacity-100 transition-opacity" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuC3dZzME1UkKgHlqGy8F7oKyiroaA1oXyJ1TSzXREb0j3l7iVnF-CBYoUi8OEmJM73xzjzhEjt4MfZVUICKp1k-flKFONFIMsUo-4wpFt6lic8oTmk9hFjFS0WMdymikpISFhqSBUqPIekdeiyqAqr59cwl_fFYSd6Lm1IQMICQ8hXg55uCHAqtvpTkuBFMabPWanRR2_JNnVX9UHsbCVAujoTZfsybxWV_lfjshzHrBf9Cw8PFONcjpXtC13kI4uMuLUMKNNMkIO0'); filter: saturate(0) contrast(1.2); mix-blend-mode: luminosity;"></div>
+<div class="absolute inset-0 border border-cyan-500/0 group-hover:border-cyan-500/50 rounded-full transition-all duration-300 box-shadow-[0_0_10px_rgba(0,240,255,0.2)]"></div>
+</div>
+</div>
+</header>
+<div class="flex-1 p-6 grid grid-cols-12 gap-6 overflow-hidden relative">
+<div class="col-span-12 lg:col-span-3 flex flex-col gap-4 h-full relative z-20">
+<div class="connection-line top-1/2 right-[-24px] w-[24px]" style="top: 20%;">
+<div class="pulse-packet" style="animation-delay: 0.5s;"></div>
+</div>
+<div class="atmospheric-glass p-5 rounded-sm relative group overflow-hidden transition-all duration-300 hover:bg-white/5">
+<div class="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="flex justify-between items-start mb-4 relative z-10">
+<span class="text-xs font-mono text-cyan-500/60 uppercase tracking-widest">Orbital Velocity</span>
+<span class="material-symbols-outlined text-white/20 group-hover:text-cyan-400 transition-colors animate-pulse">speed</span>
+</div>
+<div class="text-3xl font-display font-bold text-white mb-1 drop-shadow-[0_0_8px_rgba(0,240,255,0.3)]">
+                            27,400 <span class="text-lg text-slate-500 font-normal">km/h</span>
+</div>
+<div class="text-xs font-mono text-emerald-400 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">arrow_upward</span> Delta-V Optimal
+                        </div>
+<div class="absolute top-0 left-0 w-2 h-2 border-l border-t border-cyan-500/50"></div>
+<div class="absolute bottom-0 right-0 w-2 h-2 border-r border-b border-cyan-500/50"></div>
+</div>
+<div class="atmospheric-glass p-5 rounded-sm relative group overflow-hidden hover:bg-white/5 transition-all">
+<div class="absolute inset-0 bg-gradient-to-br from-magenta-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="flex justify-between items-start mb-4 relative z-10">
+<span class="text-xs font-mono text-magenta-500/60 uppercase tracking-widest">Hull Integrity</span>
+<span class="material-symbols-outlined text-white/20 group-hover:text-magenta-400 transition-colors">shield</span>
+</div>
+<div class="text-3xl font-display font-bold text-white mb-1 drop-shadow-[0_0_8px_rgba(255,0,85,0.3)]">
+                            99.8 <span class="text-lg text-slate-500 font-normal">%</span>
+</div>
+<div class="w-full bg-slate-800/50 h-1 mt-2 rounded-full overflow-hidden">
+<div class="bg-gradient-to-r from-magenta-600 to-purple-500 h-full w-[99.8%] shadow-glow-magenta relative">
+<div class="absolute top-0 right-0 h-full w-2 bg-white/80 blur-[2px] animate-pulse"></div>
+</div>
+</div>
+</div>
+<div class="atmospheric-glass flex-1 p-5 rounded-sm relative flex flex-col overflow-hidden hover:bg-white/5 transition-all">
+<div class="flex items-center justify-between mb-4 border-b border-white/5 pb-2">
+<span class="text-xs font-display font-bold text-white uppercase tracking-wider text-cyan-200">Active Probes</span>
+<span class="text-[10px] font-mono text-slate-500 animate-pulse">AUTO-CYCLE</span>
+</div>
+<div class="space-y-3 font-mono text-xs overflow-y-auto pr-2 custom-scrollbar relative z-10">
+<div class="flex items-center justify-between p-2 bg-white/5 border-l-2 border-cyan-500 hover:bg-cyan-500/10 transition-colors cursor-pointer group/item">
+<div>
+<div class="text-cyan-300 font-bold group-hover/item:text-white group-hover/item:shadow-[0_0_10px_rgba(255,255,255,0.4)] transition-all">PROBE-alpha</div>
+<div class="text-slate-500 text-[10px]">Sector 4 // Mining</div>
+</div>
+<div class="h-1.5 w-1.5 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e] animate-pulse"></div>
+</div>
+<div class="flex items-center justify-between p-2 bg-white/5 border-l-2 border-slate-700 hover:bg-indigo-500/10 transition-colors cursor-pointer group/item">
+<div>
+<div class="text-slate-300 font-bold group-hover/item:text-white">PROBE-beta</div>
+<div class="text-slate-500 text-[10px]">Sector 9 // Idle</div>
+</div>
+<div class="h-1.5 w-1.5 rounded-full bg-yellow-500 shadow-[0_0_5px_#eab308]"></div>
+</div>
+<div class="flex items-center justify-between p-2 bg-white/5 border-l-2 border-magenta-500 hover:bg-magenta-500/10 transition-colors cursor-pointer group/item">
+<div>
+<div class="text-magenta-300 font-bold group-hover/item:text-white">PROBE-gamma</div>
+<div class="text-slate-500 text-[10px]">Deep Space // Lost</div>
+</div>
+<div class="h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444] animate-ping"></div>
+</div>
+</div>
+<div class="absolute bottom-0 right-0 w-20 h-20 bg-gradient-to-tl from-cyan-500/10 to-transparent pointer-events-none"></div>
+</div>
+</div>
+<div class="col-span-12 lg:col-span-6 relative flex flex-col items-center justify-center min-h-[500px]">
+<div class="absolute inset-0 pointer-events-none">
+<svg class="w-full h-full opacity-40" viewBox="0 0 800 800">
+<circle cx="400" cy="400" fill="none" r="150" stroke="#00f0ff" stroke-opacity="0.1" stroke-width="1"></circle>
+<circle cx="400" cy="400" fill="none" r="280" stroke="#00f0ff" stroke-dasharray="2 10" stroke-opacity="0.3" stroke-width="0.5"></circle>
+<circle cx="400" cy="400" fill="none" r="350" stroke="#6366f1" stroke-opacity="0.15" stroke-width="1"></circle>
+<line stroke="url(#gradient-line-left)" stroke-width="1" x1="400" x2="100" y1="400" y2="400"></line>
+<line stroke="url(#gradient-line-right)" stroke-width="1" x1="400" x2="700" y1="400" y2="400"></line>
+<line stroke="url(#gradient-line-top)" stroke-width="1" x1="400" x2="400" y1="400" y2="100"></line>
+<defs>
+<linearGradient id="gradient-line-left" x1="1" x2="0" y1="0" y2="0">
+<stop offset="0%" stop-color="#00f0ff" stop-opacity="0.5"></stop>
+<stop offset="100%" stop-color="transparent"></stop>
+</linearGradient>
+<linearGradient id="gradient-line-right" x1="0" x2="1" y1="0" y2="0">
+<stop offset="0%" stop-color="#00f0ff" stop-opacity="0.5"></stop>
+<stop offset="100%" stop-color="transparent"></stop>
+</linearGradient>
+<linearGradient id="gradient-line-top" x1="0" x2="0" y1="1" y2="0">
+<stop offset="0%" stop-color="#00f0ff" stop-opacity="0.5"></stop>
+<stop offset="100%" stop-color="transparent"></stop>
+</linearGradient>
+</defs>
+</svg>
+</div>
+<div class="relative w-[500px] h-[500px] flex items-center justify-center transform-gpu">
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-[300px] h-[300px] border border-cyan-500/20 rounded-full animate-ping opacity-20"></div>
+<div class="w-[200px] h-[200px] border border-indigo-500/20 rounded-full animate-ping opacity-30 delay-300"></div>
+</div>
+<div class="relative z-20 w-40 h-40 rounded-full bg-black flex items-center justify-center shadow-[0_0_80px_rgba(0,240,255,0.3)] animate-float-slow group cursor-pointer">
+<div class="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_30%,_rgba(0,240,255,0.4),_transparent_60%)]"></div>
+<div class="absolute inset-0 rounded-full border border-cyan-500/40 bg-black/60 backdrop-blur-sm z-10"></div>
+<div class="absolute w-20 h-20 bg-cyan-400 rounded-full blur-xl opacity-40 animate-heartbeat z-0"></div>
+<div class="text-center z-30 relative">
+<div class="text-[10px] font-mono text-cyan-300 tracking-[0.2em] mb-1 opacity-70">NEURAL CORE</div>
+<div class="text-4xl font-display font-bold text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] chromatic-text" data-text="84%">84%</div>
+<div class="text-[9px] font-mono text-indigo-300 mt-1">PROCESSING</div>
+</div>
+<div class="absolute inset-[-10px] border-l-2 border-r-2 border-cyan-500/60 rounded-full animate-spin duration-[4s] z-20"></div>
+<div class="absolute inset-[-20px] border-t border-b border-indigo-500/40 rounded-full animate-spin-reverse-slow z-10"></div>
+</div>
+<div class="orbital-ring w-[280px] h-[280px] border-cyan-500/10 animate-[spin_15s_linear_infinite]">
+<div class="planet w-2 h-2 bg-cyan-400 shadow-[0_0_15px_#00f0ff] -mt-1" style="left: 100%; top: 50%;"></div>
+</div>
+<div class="orbital-ring w-[400px] h-[400px] border-indigo-500/10 animate-[spin_30s_linear_infinite_reverse]">
+<div class="planet w-4 h-4 bg-black border border-indigo-500 flex items-center justify-center -mt-2 shadow-[0_0_20px_rgba(99,102,241,0.4)]" style="left: 50%; top: 0%;">
+<div class="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-pulse"></div>
+</div>
+</div>
+<div class="absolute top-20 right-10 animate-pulse text-xs font-mono text-cyan-500/50 text-right">
+                             Target: ALPHA-CENTAURI<br/>
+                             Dist: 4.37 LY
+                        </div>
+<div class="absolute bottom-32 left-10 text-left text-xs font-mono text-indigo-400/60">
+<span class="animate-pulse">/// TRANSMISSION_ACTIVE</span><br/>
+                            Packet Loss: 0.002%
+                        </div>
+</div>
+<div class="absolute bottom-0 w-full px-8 pb-4">
+<div class="flex justify-between items-end border-b border-white/10 pb-2 mb-2">
+<span class="text-xs font-display text-slate-400 tracking-widest">SYSTEM VITALS</span>
+<span class="text-xs font-mono text-cyan-400 animate-pulse">OPTIMAL</span>
+</div>
+<div class="relative h-16 w-full system-vitals-graph border border-white/5 bg-black/20 rounded overflow-hidden">
+<svg class="absolute bottom-0 left-0 w-full h-full" preserveAspectRatio="none">
+<path d="M0,50 Q20,50 40,30 T80,50 T120,50 T160,20 T200,50 L200,64 L0,64 Z" fill="rgba(0, 240, 255, 0.1)" stroke="none"></path>
+<path class="drop-shadow-[0_0_5px_#00f0ff]" d="M0,50 Q20,50 40,30 T80,50 T120,50 T160,20 T200,50 T240,50 T280,10 T320,50 T360,50 T400,60 T440,50 T480,50 T520,30 T560,50 L800,50" fill="none" stroke="#00f0ff" stroke-width="1.5" vector-effect="non-scaling-stroke">
+<animate attributeName="d" dur="3s" repeatCount="indefinite" values="M0,50 Q20,50 40,30 T80,50 T120,50 T160,20 T200,50 T240,50 T280,10 T320,50 T360,50 T400,60 T440,50 T480,50 T520,30 T560,50 L800,50;
+                                                       M0,50 Q20,55 40,40 T80,50 T120,50 T160,35 T200,50 T240,55 T280,25 T320,50 T360,55 T400,50 T440,50 T480,55 T520,40 T560,50 L800,50;
+                                                       M0,50 Q20,50 40,30 T80,50 T120,50 T160,20 T200,50 T240,50 T280,10 T320,50 T360,50 T400,60 T440,50 T480,50 T520,30 T560,50 L800,50"></animate>
+</path>
+</svg>
+<div class="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/10 to-transparent animate-pulse-transmission" style="animation-duration: 4s;"></div>
+</div>
+</div>
+</div>
+<div class="col-span-12 lg:col-span-3 flex flex-col gap-6 h-full relative z-20">
+<div class="connection-line top-[20%] left-[-24px] w-[24px]">
+<div class="pulse-packet" style="animation-delay: 1.5s; animation-direction: reverse;"></div>
+</div>
+<div class="flex-1 relative overflow-hidden flex flex-col justify-center items-center">
+<div class="absolute inset-0 bg-gradient-to-b from-transparent via-indigo-900/10 to-transparent pointer-events-none z-0"></div>
+<div class="text-center mb-4 relative z-10">
+<h3 class="text-cyan-400 font-display font-bold tracking-[0.2em] text-sm uppercase glow-text">System Log</h3>
+<div class="text-[9px] text-indigo-400 font-mono">HOLOGRAPHIC PROJECTION</div>
+</div>
+<div class="holographic-log-container w-full h-[400px] relative flex items-center justify-center">
+<div class="absolute bottom-10 w-40 h-10 bg-cyan-500/20 rounded-[100%] blur-xl animate-pulse"></div>
+<div class="holographic-log-cylinder absolute w-[240px] h-[300px]">
+<div class="absolute inset-0 overflow-hidden rounded-lg">
+<div class="particle" style="left: 20%; width: 2px; height: 2px; animation-duration: 3s; animation-delay: 0s;"></div>
+<div class="particle" style="left: 50%; width: 3px; height: 3px; animation-duration: 5s; animation-delay: 1s;"></div>
+<div class="particle" style="left: 80%; width: 2px; height: 2px; animation-duration: 4s; animation-delay: 2s;"></div>
+<div class="particle" style="left: 30%; width: 2px; height: 2px; animation-duration: 6s; animation-delay: 0.5s;"></div>
+</div>
+<div class="absolute inset-0 flex flex-col items-center justify-center space-y-6">
+<div class="w-[200px] bg-cyan-900/20 border border-cyan-500/30 p-3 backdrop-blur-sm transform hover:scale-105 transition-all shadow-glow-cyan">
+<div class="flex justify-between text-[9px] font-mono text-cyan-300 mb-1 border-b border-cyan-500/20 pb-1">
+<span>[SYS_INIT]</span>
+<span>10:42:01</span>
+</div>
+<div class="text-[11px] text-white holographic-text drop-shadow-[0_0_3px_rgba(0,240,255,0.8)]">Sequence Alpha initiated.</div>
+</div>
+<div class="w-[190px] bg-black/40 border border-indigo-500/30 p-3 backdrop-blur-sm opacity-90 hover:opacity-100 transition-opacity">
+<div class="flex justify-between text-[9px] font-mono text-indigo-300 mb-1 pb-1">
+<span>[NET_WARN]</span>
+<span>10:42:15</span>
+</div>
+<div class="text-[11px] text-slate-300">Latency spike on Node_7.</div>
+</div>
+<div class="w-[180px] bg-magenta-900/10 border border-magenta-500/30 p-3 backdrop-blur-sm opacity-70 hover:opacity-100 transition-opacity">
+<div class="flex justify-between text-[9px] font-mono text-magenta-300 mb-1 pb-1">
+<span>[ERR_CRIT]</span>
+<span>10:42:44</span>
+</div>
+<div class="text-[11px] text-magenta-100 holographic-text">Rerouting failed. Retry...</div>
+</div>
+</div>
+</div>
+</div>
+<div class="absolute bottom-4 w-24 h-1 bg-cyan-400 shadow-[0_0_20px_#00f0ff] rounded-full"></div>
+<div class="absolute bottom-4 w-full h-[100px] bg-gradient-to-t from-cyan-500/10 to-transparent pointer-events-none mask-image-b-fade"></div>
+</div>
+<div class="h-1/3 atmospheric-glass p-4 rounded-sm flex flex-col justify-between relative overflow-hidden tech-border-t-l hover:bg-white/5 transition-all">
+<div class="absolute top-0 left-0 w-8 h-8 border-t border-l border-cyan-500/50"></div>
+<div>
+<h4 class="text-xs font-mono text-slate-400 uppercase mb-3 tracking-wider">Resource Allocation</h4>
+<div class="flex items-center gap-2 mb-2 group">
+<div class="text-sm font-bold text-white w-12 group-hover:text-cyan-400 transition-colors">CPU</div>
+<div class="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-cyan-500 w-[45%] shadow-[0_0_10px_#00f0ff]"></div>
+</div>
+<span class="text-xs font-mono text-cyan-400">45%</span>
+</div>
+<div class="flex items-center gap-2 mb-2 group">
+<div class="text-sm font-bold text-white w-12 group-hover:text-indigo-400 transition-colors">MEM</div>
+<div class="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-indigo-500 w-[72%] shadow-[0_0_10px_#6366f1]"></div>
+</div>
+<span class="text-xs font-mono text-indigo-400">72%</span>
+</div>
+<div class="flex items-center gap-2 group">
+<div class="text-sm font-bold text-white w-12 group-hover:text-emerald-400 transition-colors">NET</div>
+<div class="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-emerald-500 w-[12%] shadow-[0_0_10px_#10b981]"></div>
+</div>
+<span class="text-xs font-mono text-emerald-400">12%</span>
+</div>
+</div>
+<div class="mt-4 p-2 bg-black/40 border border-white/5 rounded text-[10px] font-mono text-slate-400 relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-[2px] bg-cyan-500"></div>
+<div class="pl-2">
+<div class="opacity-70">&gt; Optimizing thread workers...</div>
+<div class="opacity-70">&gt; Clearing cache buffers...</div>
+<div class="text-cyan-400 animate-pulse font-bold mt-1">&gt; SYSTEM OPTIMAL</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+
+</body></html>

@@ -1,0 +1,182 @@
+version: '3.8'
+
+# =============================================
+# SYNAPSE - PRODUCTION COMPOSE
+# =============================================
+# Uso: docker compose -f docker-compose.production.yml up -d
+# Prerequisito: copiar .env.production -> .env na VPS
+
+services:
+  # PostgreSQL
+  db:
+    image: postgres:15-alpine
+    container_name: synapse-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "127.0.0.1:5432:5432" # Bind only to localhost (no external access)
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: synapse-redis
+    restart: always
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO (S3 Local)
+  minio:
+    image: minio/minio
+    container_name: synapse-minio
+    restart: always
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - miniodata:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Backend (API)
+  backend:
+    build: ./backend
+    container_name: synapse-backend
+    restart: always
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./brain:/app/brain
+      - ./inputs:/app/inputs
+      - sessions:/app/data/sessions
+      - contexts:/app/data/contexts
+      - screenshots:/app/data/screenshots
+    environment:
+      - ENVIRONMENT=production
+      - TZ=America/Sao_Paulo
+      - PYTHONUNBUFFERED=1
+      - POSTGRES_SERVER=db
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - REDIS_HOST=redis
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD}
+      - DISABLE_SCHEDULER=${DISABLE_SCHEDULER:-false}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+
+  # Worker (Background Processing)
+  worker:
+    build: ./backend
+    container_name: synapse-worker
+    restart: always
+    command: arq core.worker.WorkerSettings
+    volumes:
+      - ./backend:/app
+      - ./brain:/app/brain
+      - ./inputs:/app/inputs
+      - sessions:/app/data/sessions
+      - contexts:/app/data/contexts
+      - screenshots:/app/data/screenshots
+    environment:
+      - ENVIRONMENT=production
+      - TZ=America/Sao_Paulo
+      - PYTHONUNBUFFERED=1
+      - POSTGRES_SERVER=db
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - REDIS_HOST=redis
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    depends_on:
+      - db
+      - redis
+      - minio
+
+  # Scheduler
+  scheduler:
+    build: ./backend
+    container_name: synapse-scheduler
+    restart: always
+    command: python scheduler_runner.py
+    volumes:
+      - ./backend:/app
+      - ./brain:/app/brain
+      - ./inputs:/app/inputs
+      - sessions:/app/data/sessions
+      - contexts:/app/data/contexts
+    environment:
+      - ENVIRONMENT=production
+      - TZ=America/Sao_Paulo
+      - PYTHONUNBUFFERED=1
+      - POSTGRES_SERVER=db
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - REDIS_HOST=redis
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD}
+    depends_on:
+      - db
+      - redis
+
+  # Frontend
+  frontend:
+    build: ./frontend
+    container_name: synapse-frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+
+# Named volumes for persistent data (survives container rebuilds)
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
+  sessions:
+  contexts:
+  screenshots:

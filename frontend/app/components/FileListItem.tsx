@@ -113,7 +113,7 @@ export default function FileListItem({
                         <div className="h-1.5 w-full bg-card-darker rounded-full overflow-hidden border border-white/5 relative">
                             <div
                                 className={`h-full bg-gradient-to-r from-transparent via-${config.color} to-transparent rounded-full animate-shimmer shadow-[0_0_10px_currentColor] w-[var(--progress-width)]`}
-                                // eslint-disable-next-line
+                                 
                                 style={{ "--progress-width": progress ? `${progress}%` : "50%" } as React.CSSProperties}
                             />
                         </div>

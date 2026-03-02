@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Synapse Singularity Oracle Re-Enhanced</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Share+Tech+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<style type="text/tailwindcss">
+        @layer utilities {
+            .perspective-1000 {
+                perspective: 1000px;
+            }
+            .transform-style-3d {
+                transform-style: preserve-3d;
+            }
+            .orbit-container {
+                animation: rotate-orbit 60s linear infinite;
+            }
+            @keyframes rotate-orbit {
+                from { transform: rotateY(0deg) rotateX(20deg); }
+                to { transform: rotateY(360deg) rotateX(20deg); }
+            }
+            .orbit-item {
+                animation: counter-rotate 60s linear infinite;
+            }
+            @keyframes counter-rotate {
+                from { transform: rotateX(-20deg) rotateY(360deg); }
+                to { transform: rotateX(-20deg) rotateY(0deg); }
+            }
+            .matrix-rain {
+                background: linear-gradient(180deg, 
+                    rgba(7, 182, 213, 0) 0%, 
+                    rgba(7, 182, 213, 0.4) 50%, 
+                    rgba(99, 102, 241, 0) 100%);
+                background-size: 1px 150px;
+                animation: rain 3s linear infinite;
+            }
+            @keyframes rain {
+                0% { background-position: 0 -150px; }
+                100% { background-position: 0 100%; }
+            }
+            .singularity-core {
+                background: radial-gradient(circle at center, #000000 0%, #0c0e14 100%);
+                box-shadow: inset 0 0 40px rgba(7, 182, 213, 0.3);
+            }
+            .volumetric-glow {
+                 box-shadow: 
+                    0 0 60px rgba(7, 182, 213, 0.2),
+                    0 0 120px rgba(99, 102, 241, 0.15),
+                    inset 0 0 30px rgba(255, 255, 255, 0.1);
+            }
+            .internal-energy {
+                background-image: radial-gradient(circle, rgba(7,182,213,0.8) 1px, transparent 1px);
+                background-size: 10px 10px;
+                animation: energy-pulse 4s ease-in-out infinite alternate;
+                mask-image: radial-gradient(circle at center, black 0%, transparent 70%);
+            }
+            @keyframes energy-pulse {
+                0% { opacity: 0.3; transform: scale(0.95); }
+                100% { opacity: 0.6; transform: scale(1.05); }
+            }
+            .star-field {
+                background-image: 
+                    radial-gradient(1px 1px at 20px 30px, rgba(255,255,255,0.8), rgba(0,0,0,0)),
+                    radial-gradient(1px 1px at 40px 70px, rgba(255,255,255,0.6), rgba(0,0,0,0)),
+                    radial-gradient(1.5px 1.5px at 50px 160px, rgba(255,255,255,0.7), rgba(0,0,0,0)),
+                    radial-gradient(2px 2px at 90px 40px, rgba(165, 180, 252, 0.5), rgba(0,0,0,0));
+                background-repeat: repeat;
+                background-size: 300px 300px;
+            }
+            .nebula-cloud {
+                background: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.08), transparent 70%);
+                filter: blur(40px);
+            }
+            .glass-tag {
+                background: rgba(12, 14, 20, 0.4);
+                backdrop-filter: blur(8px);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                box-shadow: 
+                    0 4px 6px -1px rgba(0, 0, 0, 0.1), 
+                    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            }
+            .hud-line {
+                background: linear-gradient(90deg, transparent, rgba(7, 182, 213, 0.3), transparent);
+                height: 1px;
+            }
+            .aberration {
+                text-shadow: 
+                    1px 0 rgba(255,0,0,0.3), 
+                    -1px 0 rgba(0,255,255,0.3);
+            }
+            .soft-pulse {
+                animation: pulse-soft 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            }
+            @keyframes pulse-soft {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
+            }
+            .scan-line {
+                background: linear-gradient(to bottom, transparent, rgba(7, 182, 213, 0.05), transparent);
+                animation: scan 8s linear infinite;
+            }
+            @keyframes scan {
+                0% { transform: translateY(-100%); }
+                100% { transform: translateY(100vh); }
+            }
+        }
+    </style>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#07b6d5",
+                        "primary-dim": "#058a9e",
+                        "background-dark": "#030304", 
+                        "surface-dark": "#08090d",
+                        "surface-glass": "rgba(8, 9, 13, 0.6)",
+                        "accent-indigo": "#6366f1",
+                        "deep-space": "#020204",
+                    },
+                    fontFamily: {
+                        display: ["Space Grotesk", "sans-serif"],
+                        mono: ["Share Tech Mono", "monospace"],
+                    },
+                    backgroundImage: {
+                        'cosmic-gradient': 'radial-gradient(circle at 50% 40%, #1e1b4b 0%, #0f172a 40%, #020204 100%)',
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-dark text-slate-100 font-display antialiased min-h-screen flex flex-col overflow-x-hidden selection:bg-primary/30 selection:text-white">
+<div class="fixed inset-0 z-0 pointer-events-none bg-cosmic-gradient">
+<div class="absolute top-[-20%] left-[-10%] w-[80%] h-[80%] nebula-cloud opacity-40 mix-blend-screen animate-pulse duration-[10000ms]"></div>
+<div class="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] nebula-cloud opacity-30 mix-blend-screen animate-pulse duration-[12000ms]" style="background: radial-gradient(circle at 50% 50%, rgba(7, 182, 213, 0.06), transparent 70%);"></div>
+<div class="absolute inset-0 star-field opacity-60"></div>
+<div class="absolute inset-0 star-field opacity-30 scale-150 transform rotate-12"></div>
+<div class="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.07] brightness-100 contrast-150 mix-blend-overlay"></div>
+<div class="absolute inset-0 scan-line pointer-events-none"></div>
+</div>
+<div class="relative z-10 flex flex-col h-full grow w-full mx-auto">
+<header class="flex items-center justify-between whitespace-nowrap border-b border-white/5 bg-surface-dark/40 backdrop-blur-md px-10 py-5 sticky top-0 z-50">
+<div class="flex items-center gap-5 text-white">
+<div class="size-9 text-primary relative flex items-center justify-center">
+<div class="absolute inset-0 animate-ping opacity-10 bg-primary rounded-full"></div>
+<div class="absolute inset-0 bg-primary/10 rounded-full blur-sm"></div>
+<span class="material-symbols-outlined text-3xl relative z-10 drop-shadow-[0_0_8px_rgba(7,182,213,0.5)]">visibility</span>
+</div>
+<div class="flex flex-col">
+<h2 class="text-white text-lg font-bold leading-none tracking-wide aberration">SYNAPSE</h2>
+<span class="text-[10px] font-mono text-accent-indigo tracking-[0.3em] opacity-80 uppercase">Singularity v2.0</span>
+</div>
+</div>
+<div class="flex flex-1 justify-end gap-10">
+<nav class="hidden md:flex items-center gap-1">
+<a class="px-4 py-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-full transition-all text-xs font-medium uppercase tracking-wider" href="#">Dashboard</a>
+<a class="px-4 py-2 text-primary bg-primary/10 border border-primary/20 rounded-full shadow-[0_0_15px_rgba(7,182,213,0.1)] text-xs font-medium uppercase tracking-wider" href="#">Oracle</a>
+<a class="px-4 py-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-full transition-all text-xs font-medium uppercase tracking-wider" href="#">Automations</a>
+</nav>
+<div class="flex items-center gap-4 pl-6 border-l border-white/5">
+<div class="relative">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-9 ring-1 ring-white/10" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDIuPU_TpuKCkL6XMXO7lL90RrNxdjY4-e6WK1DTly99gB52og7Ie-d8Mvo22ahhJttEtsfumW3hmheCeZxcVZPFZVRQyg1GshQDILtAmN1hF_ApMHvxfWU7J3gkeBg7dEz7TTjh-NPpQmyDmwvMU2C8K3VhnWYqPHI7FP1Jv1NYyPaxTvI56MBR52NPCVc49XLIoavdgTHHt3jJ5MXBSeEwz6akN8E5OcllxvahK6ZlHev5opELujMdN4MMxmNf05_vahJzvtS-sQ");'></div>
+<div class="absolute bottom-0 right-0 size-2.5 bg-green-500 rounded-full border-2 border-surface-dark shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+</div>
+</div>
+</div>
+</header>
+<main class="flex flex-col flex-1 relative items-center justify-center min-h-[calc(100vh-88px)] overflow-hidden">
+<div class="relative w-full max-w-5xl h-[700px] flex items-center justify-center perspective-1000">
+<div class="absolute w-[650px] h-[650px] transform-style-3d orbit-container pointer-events-none opacity-80">
+<div class="absolute inset-0 border border-primary/10 rounded-full transform rotate-x-[75deg] shadow-[0_0_15px_rgba(7,182,213,0.05)]"></div>
+<div class="absolute inset-[15%] border border-accent-indigo/15 rounded-full transform rotate-x-[75deg] rotate-y-[45deg]"></div>
+<div class="absolute inset-[30%] border border-white/5 rounded-full transform rotate-x-[75deg] rotate-y-[-45deg] border-dashed"></div>
+<div class="absolute top-[10%] left-[50%] transform -translate-x-1/2 translate-z-[240px] orbit-item">
+<div class="glass-tag px-4 py-1.5 rounded-sm flex items-center gap-2 group">
+<span class="size-1.5 bg-primary rounded-full animate-pulse shadow-[0_0_8px_rgba(7,182,213,0.8)]"></span>
+<span class="text-[10px] font-mono text-primary/90 tracking-wider group-hover:text-white transition-colors uppercase drop-shadow-[0_0_5px_rgba(7,182,213,0.4)]">Deep_Learning</span>
+</div>
+</div>
+<div class="absolute top-[50%] right-[0%] transform translate-x-1/2 translate-z-[120px] orbit-item">
+<div class="glass-tag px-4 py-1.5 rounded-sm flex items-center gap-2 group">
+<span class="size-1.5 bg-accent-indigo rounded-full animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.8)]"></span>
+<span class="text-[10px] font-mono text-accent-indigo/90 tracking-wider group-hover:text-white transition-colors uppercase drop-shadow-[0_0_5px_rgba(99,102,241,0.4)]">Neural_Net</span>
+</div>
+</div>
+<div class="absolute bottom-[20%] left-[20%] transform translate-z-[-180px] orbit-item">
+<div class="glass-tag px-4 py-1.5 rounded-sm flex items-center gap-2 group border-white/10">
+<span class="size-1.5 bg-slate-400 rounded-full"></span>
+<span class="text-[10px] font-mono text-slate-300 tracking-wider uppercase">Auto_Scale</span>
+</div>
+</div>
+<div class="absolute top-[20%] right-[20%] transform translate-z-[60px] orbit-item">
+<div class="glass-tag px-4 py-1.5 rounded-sm flex items-center gap-2 group border-white/10">
+<span class="size-1.5 bg-slate-400 rounded-full"></span>
+<span class="text-[10px] font-mono text-slate-300 tracking-wider uppercase">Quantum_Hash</span>
+</div>
+</div>
+<div class="absolute bottom-[10%] right-[40%] transform translate-z-[200px] orbit-item">
+<div class="glass-tag px-4 py-1.5 rounded-sm flex items-center gap-2 group">
+<span class="size-1.5 bg-primary rounded-full animate-pulse shadow-[0_0_8px_rgba(7,182,213,0.8)]"></span>
+<span class="text-[10px] font-mono text-primary/90 tracking-wider uppercase drop-shadow-[0_0_5px_rgba(7,182,213,0.4)]">Singularity</span>
+</div>
+</div>
+</div>
+<div class="relative z-20 group w-full max-w-[500px] flex flex-col items-center gap-12">
+<div class="relative size-56 md:size-72 flex items-center justify-center">
+<div class="absolute inset-4 rounded-full z-10 singularity-core volumetric-glow border border-primary/20 overflow-hidden">
+<div class="absolute inset-0 internal-energy opacity-50 mix-blend-screen"></div>
+<div class="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-transparent animate-pulse"></div>
+</div>
+<div class="absolute inset-0 rounded-full border border-primary/10 border-t-primary/40 animate-spin [animation-duration:8s]"></div>
+<div class="absolute inset-[-15px] rounded-full border border-accent-indigo/10 border-b-accent-indigo/30 animate-spin [animation-duration:12s] [animation-direction:reverse]"></div>
+<div class="absolute inset-[-30px] rounded-full border border-dashed border-white/5 animate-spin [animation-duration:20s]"></div>
+<div class="absolute inset-[-50px] bg-primary/5 rounded-full blur-[60px] animate-pulse"></div>
+<div class="relative z-20 w-full h-full flex items-center justify-center">
+<input autofocus="" class="bg-transparent border-none text-center text-white text-xl font-medium placeholder:text-primary/30 focus:ring-0 w-[80%] drop-shadow-[0_0_10px_rgba(255,255,255,0.2)] tracking-wide" placeholder="INITIATE SEQUENCE..." type="text"/>
+</div>
+</div>
+<div class="text-center space-y-3 opacity-0 group-focus-within:opacity-100 transition-opacity duration-700">
+<p class="text-primary tracking-[0.3em] text-[10px] font-mono soft-pulse uppercase border-b border-primary/20 pb-1 inline-block">Awaiting Input Sequence</p>
+<p class="text-slate-500 text-xs font-mono tracking-wide">Press <span class="text-white">ENTER</span> to engage warp drive</p>
+</div>
+</div>
+</div>
+<div class="absolute inset-0 pointer-events-none z-0 flex justify-between px-10 md:px-32 overflow-hidden opacity-10">
+<div class="w-[1px] h-full matrix-rain" style="animation-duration: 2.5s; animation-delay: 0.2s;"></div>
+<div class="w-[1px] h-full matrix-rain" style="animation-duration: 3.1s; animation-delay: 1.5s;"></div>
+<div class="w-[1px] h-full matrix-rain" style="animation-duration: 2.8s; animation-delay: 0.8s;"></div>
+<div class="w-[1px] h-full matrix-rain hidden md:block" style="animation-duration: 3.5s; animation-delay: 2.1s;"></div>
+<div class="w-[1px] h-full matrix-rain" style="animation-duration: 2.2s; animation-delay: 0.5s;"></div>
+<div class="w-[1px] h-full matrix-rain hidden md:block" style="animation-duration: 4s; animation-delay: 1.2s;"></div>
+</div>
+<div class="absolute bottom-0 left-0 right-0 p-8 flex justify-between items-end bg-gradient-to-t from-black via-black/90 to-transparent z-30">
+<div class="flex flex-col gap-4 font-mono">
+<div class="flex items-center gap-3 bg-white/5 px-3 py-1.5 rounded-sm border border-white/5 backdrop-blur-sm">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+</span>
+<span class="text-[10px] text-emerald-400 tracking-wider">SYSTEM_ONLINE</span>
+</div>
+<div class="flex gap-8 text-[10px] text-slate-500 tracking-widest border-l border-white/10 pl-3">
+<div class="flex flex-col gap-1">
+<span class="text-slate-600">CPU_LOAD</span>
+<span class="text-primary font-bold">12<span class="text-[9px]">%</span></span>
+<div class="w-12 h-0.5 bg-white/10 rounded-full mt-1"><div class="w-[12%] h-full bg-primary shadow-[0_0_5px_rgba(7,182,213,0.5)]"></div></div>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-slate-600">MEM_ALLOC</span>
+<span class="text-primary font-bold">4.2<span class="text-[9px]">TB</span></span>
+<div class="w-12 h-0.5 bg-white/10 rounded-full mt-1"><div class="w-[45%] h-full bg-primary shadow-[0_0_5px_rgba(7,182,213,0.5)]"></div></div>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-slate-600">LATENCY</span>
+<span class="text-emerald-400 font-bold">12<span class="text-[9px]">MS</span></span>
+<div class="w-12 h-0.5 bg-white/10 rounded-full mt-1"><div class="w-[8%] h-full bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.5)]"></div></div>
+</div>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-3 px-5 py-2 rounded-sm border border-white/10 bg-surface-glass hover:bg-white/10 hover:border-primary/40 text-slate-400 hover:text-white transition-all group backdrop-blur-md">
+<span class="material-symbols-outlined text-base group-hover:text-primary transition-colors">history</span>
+<span class="text-xs font-mono uppercase tracking-wider">History_Log</span>
+</button>
+<button class="flex items-center gap-3 px-5 py-2 rounded-sm border border-white/10 bg-surface-glass hover:bg-white/10 hover:border-primary/40 text-slate-400 hover:text-white transition-all group backdrop-blur-md">
+<span class="material-symbols-outlined text-base group-hover:text-primary transition-colors">tune</span>
+<span class="text-xs font-mono uppercase tracking-wider">Parameters</span>
+</button>
+</div>
+</div>
+</main>
+</div>
+</body></html>

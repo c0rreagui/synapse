@@ -13,7 +13,7 @@ import re
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from playwright.async_api import Page
-from core.browser import launch_browser, close_browser
+from core.browser import launch_browser, launch_browser_for_profile, close_browser, resilient_goto
 from core.session_manager import get_session_path
 from core.monitor import TikTokMonitor
 from core.locking import session_lock, SessionLockError
@@ -99,15 +99,15 @@ async def upload_video_monitored(
         _lock_ctx.__enter__()
         _lock_acquired = True
         
-        # [SYN-SEC] Enforce Profile User-Agent
-        from core.session_manager import get_profile_user_agent
-        # session_name is effectively the profile_id (or slug) here
-        profile_ua = get_profile_user_agent(session_name)
-        
-        p, browser, context, page = await launch_browser(
+        # [SYN-ANTIDETECT] Launch browser with FULL profile identity isolation
+        # Resolves proxy, UA, viewport, geolocation, timezone from Profile DB.
+        # In PRODUCTION, raises MissingProxyError if no proxy configured (HARD BLOCK).
+        p, browser, context, page = await launch_browser_for_profile(
+            profile_slug=session_name,
             headless=False, 
             storage_state=session_path,
-            user_agent=profile_ua
+            max_retries=3,
+            base_timeout=120000,  # 2min for proxy-based connections
         )
             
         # 🎬 INICIAR PLAYWRIGHT TRACE (só se monitor ativo)
@@ -127,7 +127,7 @@ async def upload_video_monitored(
         # ========== STEP 1: NAVEGAÇÃO ==========
         status_manager.update_status("busy", step="uploading", progress=60, logs=["Acessando TikTok Studio..."])
         from core.network_utils import get_upload_url
-        await page.goto(get_upload_url(), timeout=120000, wait_until='domcontentloaded')
+        await resilient_goto(page, get_upload_url(), timeout=120000, max_retries=3)
         await page.wait_for_timeout(5000)
         if monitor:
             await monitor.capture_full_state(page, "navegacao_inicial", 

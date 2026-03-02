@@ -123,25 +123,24 @@ class ViralScraper:
         sounds = []
         
         try:
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True)
-                context = await browser.new_context(
-                    viewport={"width": 1920, "height": 1080},
-                    locale="en-US"
-                )
-                page = await context.new_page()
-                
-                # Construir URL com filtros
-                url = self._build_url(region, category)
-                logger.info(f"📍 Navegando para: {url}")
-                
-                await page.goto(url, wait_until="networkidle", timeout=30000)
-                await page.wait_for_timeout(3000)  # Esperar carregamento JS
-                
-                # Extrair dados dos cards de música
-                sounds = await self._extract_sounds(page, region, category, limit)
-                
-                await browser.close()
+            from core.browser import launch_browser, close_browser
+
+            p, browser, context, page = await launch_browser(
+                headless=True,
+                viewport={"width": 1920, "height": 1080},
+            )
+            
+            # Construir URL com filtros
+            url = self._build_url(region, category)
+            logger.info(f"Navegando para: {url}")
+            
+            await page.goto(url, wait_until="networkidle", timeout=30000)
+            await page.wait_for_timeout(3000)  # Esperar carregamento JS
+            
+            # Extrair dados dos cards de musica
+            sounds = await self._extract_sounds(page, region, category, limit)
+            
+            await close_browser(p, browser)
                 
         except Exception as e:
             logger.error(f"❌ Erro no scrape: {e}")

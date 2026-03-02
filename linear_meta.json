@@ -1,0 +1,256 @@
+{
+  "data": {
+    "projects": {
+      "nodes": [
+        {
+          "id": "47680c76-c434-46c3-8209-12fe7974cc37",
+          "name": "🎨 Design UI/UX"
+        },
+        {
+          "id": "c60c0c5d-0fe4-4be7-b6f3-27d974fb88e9",
+          "name": "🧠 AI/ML Core"
+        },
+        {
+          "id": "c3b0a910-4cdf-41e2-9ccd-6e67dc28e052",
+          "name": "🏗️ Infrastructure"
+        },
+        {
+          "id": "8bd808cb-9779-4fec-abb3-808a7dd9bad8",
+          "name": "📊 Logs"
+        },
+        {
+          "id": "2bb4e0c9-d6c3-4dd2-b894-0e2a2cb28a6a",
+          "name": "📅 Agendamento"
+        },
+        {
+          "id": "42235ddd-cc6c-4807-81e1-df2f47ed75e7",
+          "name": "👁️ Factory Watcher"
+        },
+        {
+          "id": "40c16ece-27d4-4dfe-a1f5-86433984f56c",
+          "name": "🔮 Oracle"
+        },
+        {
+          "id": "abc62799-605a-484d-99b6-d53a8aefa93f",
+          "name": "👤 Perfis TikTok"
+        },
+        {
+          "id": "e910b71e-ebf1-434b-b824-1a5137fdc45b",
+          "name": "🎛️ Central de Comando"
+        }
+      ]
+    },
+    "issueLabels": {
+      "nodes": [
+        {
+          "id": "1ce8450a-db55-4560-85f7-edbacd36c850",
+          "name": "Quick Win"
+        },
+        {
+          "id": "1c92f269-6e0a-45bc-92d3-7b31d1225029",
+          "name": "Blocked"
+        },
+        {
+          "id": "fabd3f02-fb59-4d9b-bd34-7030659ba79c",
+          "name": "AI/ML"
+        },
+        {
+          "id": "33575177-8141-4e4c-bae1-c35ba1cb5acf",
+          "name": "Frontend"
+        },
+        {
+          "id": "0ac38afe-5bda-457c-b96b-b489d212b13a",
+          "name": "Backend"
+        },
+        {
+          "id": "8ee3f032-e6b3-4cdc-89dc-52ab9dbf9650",
+          "name": "Testes"
+        },
+        {
+          "id": "f9263f53-b1a9-4ba7-9c4e-e92f81282056",
+          "name": "Polimento"
+        },
+        {
+          "id": "84c1edf1-581a-43bf-ae11-dd421f7c40fc",
+          "name": "Crítico"
+        },
+        {
+          "id": "b6123261-851a-417a-a0ac-9a612bc41484",
+          "name": "Improvement"
+        },
+        {
+          "id": "3d7e34ba-9f18-4947-92d9-769035810562",
+          "name": "Feature"
+        },
+        {
+          "id": "2fe13d95-5152-44ef-8d8a-424085a96c7b",
+          "name": "Bug"
+        }
+      ]
+    },
+    "issues": {
+      "nodes": [
+        {
+          "id": "e20947bd-a4ed-4da5-9711-421f2231941e",
+          "title": "🛰️ Feature: Sistema de Proxies por Perfil (Prevent Shadowban)",
+          "identifier": "SYN-83"
+        },
+        {
+          "id": "73a65768-14ac-4c15-bb83-579a195f31d5",
+          "title": "🌌 New Feature: Cofre de Configurações Dinâmicas",
+          "identifier": "SYN-82"
+        },
+        {
+          "id": "60eb3c9e-2845-46e4-b0b6-50bf1027efac",
+          "title": "🌌 New Feature: Motor Oráculo V2",
+          "identifier": "SYN-81"
+        },
+        {
+          "id": "697916aa-7263-4887-9249-7fec52b98ddc",
+          "title": "🌌 New Feature: Monitor de Telemetria Interativo (WebSockets)",
+          "identifier": "SYN-80"
+        },
+        {
+          "id": "4acc4c06-bf87-450b-830c-74372c6b6184",
+          "title": "🌌 New Feature: Scheduler PDD API (Calendário 3D)",
+          "identifier": "SYN-79"
+        },
+        {
+          "id": "218bc7ab-1a1f-4140-87f3-ccf6202563a5",
+          "title": "🌌 New Feature: Tela da Fábrica de Vídeos Kanban",
+          "identifier": "SYN-78"
+        },
+        {
+          "id": "3671b6c3-9f86-449a-bfec-c9a7c6f4c40e",
+          "title": "🌌 New Feature: Central de Comando (Dashboard Analytics)",
+          "identifier": "SYN-77"
+        },
+        {
+          "id": "b0a57257-e3e5-4ccd-b9ea-9d95912c367a",
+          "title": "🚀 Frontend Integration: Mecânica de Auto Refresh Nativa",
+          "identifier": "SYN-76"
+        },
+        {
+          "id": "f65b443e-f6ab-4cc5-b20e-b303b52a0843",
+          "title": "🚀 Frontend Integration: Visualização Dinâmica da Lista de Alvos",
+          "identifier": "SYN-75"
+        },
+        {
+          "id": "b46071c1-ae49-4483-add8-1aaa51b55841",
+          "title": "🚀 Frontend Integration: Formulário de Inserção de Target Real",
+          "identifier": "SYN-74"
+        },
+        {
+          "id": "e56a2a9e-1ce0-4b5b-a4c9-cfd567f945ed",
+          "title": "Chore: Smoke Test Automatico (Verificacao de Saude em menos de 30s)",
+          "identifier": "SYN-73"
+        },
+        {
+          "id": "a3ed2135-cf10-4d59-ba41-c253d0e4ed60",
+          "title": "Chore: Limpeza de Scripts Debug na Raiz do Backend",
+          "identifier": "SYN-72"
+        },
+        {
+          "id": "afc74250-62d6-4f5b-b3fc-16564e33891e",
+          "title": "📊 Setup Grafana Dashboard (Observabilidade)",
+          "identifier": "SYN-24"
+        },
+        {
+          "id": "ccb66a9d-5537-436a-a09c-96549767d42f",
+          "title": "🎯 Synapse Mission Control (Local Kanban)",
+          "identifier": "SYN-23"
+        },
+        {
+          "id": "60dee62b-f5b9-4524-8837-97d65a7b19e5",
+          "title": "🛡️ Proxy Manager (Rotação de IPs)",
+          "identifier": "SYN-22"
+        },
+        {
+          "id": "c6ed2259-1b6a-4942-a461-a3343d7f7802",
+          "title": "🔗 Integrar Tavily MCP (SEO & Discovery)",
+          "identifier": "SYN-21"
+        },
+        {
+          "id": "436d42f7-1988-4e97-9033-11bb9ec939fc",
+          "title": "📊 Lógica Central do Deep Analytics (Métricas)",
+          "identifier": "SYN-20"
+        },
+        {
+          "id": "7eced60e-2f16-4031-a7c9-23151e9c1b84",
+          "title": "🎵 Audio Intelligence - Sistema de Música Viral Integrado (Plataforma-Wide)",
+          "identifier": "SYN-19"
+        },
+        {
+          "id": "bb3509bf-f1a7-464d-90f8-489fc77e6a34",
+          "title": "💓 Sentiment Pulse (Nova Implementação)",
+          "identifier": "SYN-18"
+        },
+        {
+          "id": "29b3af36-b058-48a6-963f-02cfbebe2ab4",
+          "title": "📉 Oracle V2.1: Verificação de Tendências Reais (Scraper)",
+          "identifier": "SYN-17"
+        },
+        {
+          "id": "f9da6eaf-b218-44a7-ac39-3a28686856a4",
+          "title": "🎨 Stitch Design System",
+          "identifier": "SYN-16"
+        },
+        {
+          "id": "46c05fda-e5e3-4a31-a3b4-a171dd2e25a7",
+          "title": "💬 Sentiment Pulse (Oracle Expansion)",
+          "identifier": "SYN-15"
+        },
+        {
+          "id": "6dae6697-5d6a-4cf8-9fb0-34c6bf8f9c70",
+          "title": "✅ Oracle V2: Automation Suite",
+          "identifier": "SYN-14"
+        },
+        {
+          "id": "08f46b6d-2af2-49b8-9173-f8d551ffb392",
+          "title": "🔮 The Oracle (Cérebro Estratégico do Synapse)",
+          "identifier": "SYN-13"
+        },
+        {
+          "id": "a40c6779-8fa4-43d3-a3b7-e341f67f094f",
+          "title": "🧪 Teste de Fluxo Completo End-to-End (E2E)",
+          "identifier": "SYN-12"
+        },
+        {
+          "id": "453a3368-1003-46f2-9d1e-986fa51c83f5",
+          "title": "📊 Oracle V2: Deep Analytics",
+          "identifier": "SYN-11"
+        },
+        {
+          "id": "3a7e0550-07fc-4f94-944f-3ad5315d12e0",
+          "title": "🔍 Oracle V2: SEO & Discovery",
+          "identifier": "SYN-10"
+        },
+        {
+          "id": "35388d8b-372b-44be-8fd4-ae58052e5878",
+          "title": "🧠 Smart Logic - Motor de Regras Inteligente (Plataforma-Wide)",
+          "identifier": "SYN-9"
+        },
+        {
+          "id": "7af933a6-4973-4cbb-bb5b-d1a84a80256e",
+          "title": "🗑️ Remoção de Dados Simulados (Real World Integration)",
+          "identifier": "SYN-8"
+        },
+        {
+          "id": "d36af7af-0b56-48ee-b0ac-77373b93af68",
+          "title": "🧠 Plataforma Viva & Inteligente (Smart UX/UI)",
+          "identifier": "SYN-7"
+        },
+        {
+          "id": "9ca6f290-2cb0-4056-ba32-1d05e4cbdea3",
+          "title": "📝 Descrições Virais Geradas por IA (V1)",
+          "identifier": "SYN-6"
+        },
+        {
+          "id": "643b6bde-0c7d-457d-9bf7-24781c128375",
+          "title": "🔗 Configuração da Integração API TikTok",
+          "identifier": "SYN-5"
+        }
+      ]
+    }
+  }
+}

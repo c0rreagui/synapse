@@ -7,51 +7,39 @@ import AmbientBackground from './AmbientBackground';
 import SplashScreen from './SplashScreen';
 import { Toaster } from 'sonner';
 import { NeoSidebar } from '@/components/design-system/NeoSidebar';
+import { NeoHeader } from '@/components/design-system/NeoHeader';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
-    // START: Client-side Sidebar Logic
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
-
-    // Auto-collapse on smaller screens
-    React.useEffect(() => {
-        const handleResize = () => {
-            if (window.innerWidth < 1280) { // xl breakpoint
-                setIsSidebarCollapsed(true);
-            } else {
-                setIsSidebarCollapsed(false);
-            }
-        };
-
-        // Initial check
-        handleResize();
-
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
-    // END: Client-side Sidebar Logic
+    // State removed for new UI
 
     return (
         <MoodProvider>
-            {/* Global Ambient Glow (Reduces harshness of deep black) */}
+            {/* AmbientBackground is kept for dynamic mood colors if needed */}
             <AmbientBackground />
 
             <WebSocketProvider>
                 <SplashScreen>
-                    {/* Main Container: Fixed Viewport */}
-                    <div className="flex h-screen w-full overflow-hidden bg-neo-bg text-neo-text-primary selection:bg-neo-primary/30 selection:text-white font-sans">
+                    {/* Main Container: Fixed Viewport matching Prototype */}
+                    <div className="relative flex h-screen w-full overflow-hidden">
+                        {/* Global Background Effects */}
+                        <div className="absolute inset-0 bg-celestial-gradient z-0"></div>
+                        <div className="absolute inset-0 star-field animate-pulse z-0"></div>
+                        <div className="scanline-overlay"></div>
+                        <div
+                            className="absolute bottom-0 left-0 right-0 h-1/2 bg-grid-perspective opacity-20 pointer-events-none"
+                            style={{ transform: 'perspective(1000px) rotateX(60deg) scale(2.5) translateY(100px)' }}
+                        ></div>
 
-                        {/* 1. Global Navigation (Floating HUD) */}
-                        <div className="relative z-50">
-                            <NeoSidebar
-                                collapsed={isSidebarCollapsed}
-                                onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                            />
-                        </div>
+                        {/* Left Sidebar */}
+                        <NeoSidebar />
 
-                        {/* 2. Main Content Area (Scrollable) */}
-                        {/* margin-left calculated to clear the floating sidebar + gap */}
-                        <main className={`flex-1 h-full overflow-y-auto p-4 md:p-8 relative z-10 bg-grid-pattern scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent transition-all duration-300 ${isSidebarCollapsed ? 'ml-[120px]' : 'ml-[320px]'}`}>
-                            {children}
+                        {/* Main App Content */}
+                        <main className="flex-1 flex flex-col relative z-20 h-full overflow-hidden">
+                            <NeoHeader />
+                            {/* The children go inside the master grid wrapper */}
+                            <div className="flex-1 p-6 gap-6 overflow-y-auto overflow-x-hidden relative custom-scrollbar">
+                                {children}
+                            </div>
                         </main>
                     </div>
                 </SplashScreen>

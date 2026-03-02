@@ -146,6 +146,8 @@ app.include_router(settings.router, prefix="/api/v1/settings", tags=["settings"]
 app.include_router(health.router, prefix="/api/health", tags=["health"]) # Sonar
 app.include_router(auto_scheduler.router, prefix="/api/v1", tags=["auto-scheduler"])
 app.include_router(debug_router.router, prefix="/api/v1", tags=["debug"])
+from .api.endpoints.clipper import router as clipper_router
+app.include_router(clipper_router, prefix="/api/clipper", tags=["clipper"])
 app.include_router(ws_router.router, tags=["websocket"])
 
 @app.get("/")

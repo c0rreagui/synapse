@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { GlassPanel } from './GlassPanel';
 // import { cn } from '@/services/utils'; // Removed unused import
-import { LayoutDashboard, Radio, Search, Users, Settings, Activity, Calendar, FileText } from 'lucide-react';
+import { LayoutDashboard, Radio, Search, Users, Settings, Activity, Calendar, FileText, Scissors } from 'lucide-react';
 // Import clsx/twMerge local if needed, but assuming global utils for now to match project pattern
 // Wait, I used local utils in Atoms. I should stick to consistency.
 import { clsx, type ClassValue } from "clsx";
@@ -28,6 +28,7 @@ const navItems = [
     { icon: Users, label: 'Perfis', href: '/profiles' },
     { icon: Search, label: 'Oracle', href: '/oracle' },
     { icon: Activity, label: 'Factory', href: '/factory' },
+    { icon: Scissors, label: 'Clipper', href: '/clipper' },
     { icon: Calendar, label: 'Agenda', href: '/scheduler' },
     { icon: FileText, label: 'Logs', href: '/logs' },
     { icon: Settings, label: 'Config', href: '/settings' },

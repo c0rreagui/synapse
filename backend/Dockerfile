@@ -1,21 +1,43 @@
 # Use uma imagem leve do Python
-FROM python:3.10-slim
+FROM python:3.11-slim
 
-# Define diretório de trabalho
+# Define diretorio de trabalho
 WORKDIR /app
 
-# Instala dependências do sistema (FFmpeg é a chave aqui)
+# Instala dependencias do sistema (FFmpeg + curl + Chromium do sistema)
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     build-essential \
+    curl \
+    chromium \
+    chromium-driver \
+    fonts-liberation \
+    libnss3 \
+    libatk-bridge2.0-0 \
+    libdrm2 \
+    libxkbcommon0 \
+    libgbm1 \
+    libasound2 \
     && rm -rf /var/lib/apt/lists/*
+
+# Instala fonte Inter (Black/ExtraBold) do Google Fonts para legendas
+RUN mkdir -p /usr/share/fonts/inter /tmp/inter && \
+    curl -sL "https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip" -o /tmp/inter.zip && \
+    apt-get update && apt-get install -y --no-install-recommends unzip fontconfig && \
+    unzip -q /tmp/inter.zip -d /tmp/inter && \
+    find /tmp/inter -name "*.otf" -exec mv {} /usr/share/fonts/inter/ \; && \
+    find /tmp/inter -name "*.ttf" -exec mv {} /usr/share/fonts/inter/ \; && \
+    fc-cache -f -v && \
+    rm -rf /tmp/inter /tmp/inter.zip && \
+    apt-get purge -y unzip && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 # Copia requirements e instala
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Instala Playwright e navegadores
-RUN pip install playwright && playwright install --with-deps chromium
+# Instala Playwright (sem download de browser - usa Chromium do sistema)
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+RUN pip install playwright
 
 # Expõe a porta 8000
 EXPOSE 8000

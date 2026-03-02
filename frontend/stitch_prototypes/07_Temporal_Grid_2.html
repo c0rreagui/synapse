@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Synapse Pulse Node Wall Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#0bf",
+                        "primary-glow": "rgba(0, 187, 255, 0.6)",
+                        "background-dark": "#030608",
+                        "surface-dark": "#081014",
+                        "surface-darker": "#050a0c",
+                        "accent-cyan": "#0bf",
+                        "accent-purple": "#a855f7",
+                    },
+                    fontFamily: {
+                        display: ["Space Grotesk", "sans-serif"],
+                        mono: ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "monospace"],
+                    },
+                    backgroundImage: {
+                        'cosmic-gradient': 'radial-gradient(circle at 50% 50%, #112233 0%, #050a0c 60%, #000000 100%)',
+                    },
+                    animation: {
+                        'spin-slow': 'spin 12s linear infinite',
+                        'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                        'data-stream': 'dataStream 2s linear infinite',
+                        'laser-pulse': 'laserPulse 3s ease-in-out infinite',
+                        'gravity-suck': 'gravitySuck 2s ease-in infinite',
+                        'chromatic': 'chromaticShift 4s ease-in-out infinite alternate',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        dataStream: {
+                            '0%': { backgroundPosition: '0% 0%' },
+                            '100%': { backgroundPosition: '200% 0%' },
+                        },
+                        laserPulse: {
+                            '0%, 100%': { opacity: '0.3', filter: 'blur(1px)' },
+                            '50%': { opacity: '1', filter: 'blur(2px) brightness(1.5)' },
+                        },
+                        gravitySuck: {
+                            '0%': { transform: 'scale(1) rotate(0deg)', opacity: '0' },
+                            '50%': { opacity: '1' },
+                            '100%': { transform: 'scale(0) rotate(180deg)', opacity: '0' },
+                        },
+                        chromaticShift: {
+                            '0%': { textShadow: '-2px 0 #0bf, 2px 0 #a855f7' },
+                            '100%': { textShadow: '2px 0 #0bf, -2px 0 #a855f7' },
+                        }
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: "Space Grotesk", sans-serif;
+            background-color: #030608;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(7, 182, 213, 0.05) 0%, transparent 60%),
+                radial-gradient(circle at 80% 20%, rgba(168, 85, 247, 0.03) 0%, transparent 40%),
+                url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            overflow: hidden;
+        }
+        .hexagon-container {
+            position: relative;
+            width: 800px;
+            height: 700px;
+            margin: 0 auto;
+            transform-style: preserve-3d;
+            perspective: 1000px;
+        }
+        .hexagon {
+            position: absolute;
+            width: 140px;
+            height: 160px;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            background: rgba(8, 16, 20, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(8px);
+            z-index: 10;
+            border: 1px solid rgba(7, 182, 213, 0.2); 
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        }
+        .hexagon::before {
+            content: '';
+            position: absolute;
+            inset: 1px;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            background: linear-gradient(135deg, rgba(255,255,255,0.05), transparent 60%);
+            z-index: 1;
+            pointer-events: none;
+        }
+        .hexagon::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            box-shadow: inset 0 0 20px rgba(7, 182, 213, 0.1);
+            z-index: 2;
+            pointer-events: none;
+        }
+        .hexagon:hover {
+            transform: translateZ(20px) scale(1.05);
+            border-color: rgba(7, 182, 213, 0.6);
+            box-shadow: 0 0 30px rgba(7, 182, 213, 0.2);
+            z-index: 20;
+        }
+        .hexagon-center {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 180px;
+            height: 208px;
+            background: rgba(5, 10, 12, 0.95);
+            border: 2px solid rgba(7, 182, 213, 0.5);
+            box-shadow: 0 0 40px rgba(7, 182, 213, 0.3), inset 0 0 30px rgba(7, 182, 213, 0.2);
+            z-index: 15;
+        }
+        .hexagon-center:hover {
+            transform: translate(-50%, -50%) scale(1.05);
+            border-color: #0bf;
+            box-shadow: 0 0 60px rgba(7, 182, 213, 0.5), inset 0 0 40px rgba(7, 182, 213, 0.3);
+        }.hex-1 { top: 15%; left: 50%; transform: translateX(-50%); }.hex-2 { top: 32.5%; right: 18%; }.hex-3 { bottom: 32.5%; right: 18%; }.hex-4 { bottom: 15%; left: 50%; transform: translateX(-50%); }.hex-5 { bottom: 32.5%; left: 18%; }.hex-6 { top: 32.5%; left: 18%; }.connection-line {
+            position: absolute;
+            background: linear-gradient(90deg, transparent, rgba(7, 182, 213, 0.6), transparent);
+            height: 1px;
+            transform-origin: left center;
+            z-index: 5;
+            box-shadow: 0 0 4px rgba(7, 182, 213, 0.8);
+            opacity: 0.6;
+            animation: laser-pulse 3s infinite;
+        }
+        .data-packet {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #0bf, 0 0 12px #fff;
+            z-index: 6;
+            offset-path: path("M0,0 L100,0");animation: move-packet 2s linear infinite;
+        }
+        @keyframes move-packet {
+            0% { offset-distance: 0%; opacity: 0; transform: scale(0.5); }
+            10% { opacity: 1; transform: scale(1); }
+            90% { opacity: 1; transform: scale(1); }
+            100% { offset-distance: 100%; opacity: 0; transform: scale(0.5); }
+        }
+        .gravity-well {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 300px;
+            pointer-events: none;
+            z-index: 4;
+        }
+        .micro-data {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: rgba(7, 182, 213, 0.8);
+            box-shadow: 0 0 4px rgba(7, 182, 213, 1);
+            top: 50%;
+            left: 50%;
+            border-radius: 50%;
+        }
+        .glass-panel {
+            background: rgba(8, 16, 20, 0.7);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.5);
+        }
+        .chromatic-avatar {
+            animation: chromaticShift 4s infinite alternate;
+        }
+        .fui-btn {
+            background: linear-gradient(180deg, rgba(7, 182, 213, 0.1) 0%, rgba(7, 182, 213, 0.05) 100%);
+            border: 1px solid rgba(7, 182, 213, 0.3);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .fui-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(7, 182, 213, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        .fui-btn:hover::before {
+            left: 100%;
+        }
+        .fui-btn:hover {
+            border-color: rgba(7, 182, 213, 0.8);
+            box-shadow: 0 0 15px rgba(7, 182, 213, 0.3);
+            text-shadow: 0 0 8px rgba(7, 182, 213, 0.6);
+        }.stars-1 {
+            width: 1px; height: 1px;
+            background: transparent;
+            box-shadow: 1744px 122px #FFF , 134px 1321px #FFF , 92px 859px #FFF;animation: animStar 50s linear infinite;
+        }
+        .stars-2 {
+            width: 2px; height: 2px;
+            background: transparent;
+            box-shadow: 800px 400px #FFF , 1200px 100px #FFF;
+            animation: animStar 100s linear infinite;
+        }
+        @keyframes animStar {
+            from { transform: translateY(0px); }
+            to { transform: translateY(-2000px); }
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col overflow-hidden selection:bg-primary selection:text-black">
+<div class="fixed inset-0 z-0 pointer-events-none">
+<div class="stars-1 absolute inset-0 opacity-30"></div>
+<div class="stars-2 absolute inset-0 opacity-20"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-background-dark via-transparent to-transparent opacity-80"></div>
+</div>
+<header class="flex items-center justify-between whitespace-nowrap border-b border-white/5 glass-panel px-8 py-4 z-50 relative">
+<div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-5 pointer-events-none"></div>
+<div class="flex items-center gap-12 relative z-10">
+<div class="flex items-center gap-4 text-white group cursor-pointer">
+<div class="size-10 text-primary relative">
+<span class="material-symbols-outlined !text-[40px] animate-spin-slow group-hover:text-white transition-colors">hub</span>
+<div class="absolute inset-0 bg-primary blur-xl opacity-20 group-hover:opacity-50 transition-opacity"></div>
+</div>
+<div>
+<h2 class="text-white text-2xl font-bold tracking-[0.2em] group-hover:tracking-[0.25em] transition-all duration-500">SYNAPSE</h2>
+<div class="text-[9px] text-primary/60 font-mono tracking-widest uppercase">Node Wall Pro v2.4</div>
+</div>
+</div>
+<nav class="hidden lg:flex items-center gap-1 relative">
+<a class="px-6 py-2 text-xs font-bold uppercase tracking-widest text-primary/60 hover:text-white relative group overflow-hidden" href="#">
+<span class="relative z-10">Command</span>
+<div class="absolute bottom-0 left-0 w-full h-[1px] bg-primary/20 group-hover:bg-primary transition-colors"></div>
+<div class="absolute top-0 left-0 w-0 h-full bg-primary/5 group-hover:w-full transition-all duration-300"></div>
+</a>
+<a class="px-6 py-2 text-xs font-bold uppercase tracking-widest text-white relative group" href="#">
+<span class="relative z-10 drop-shadow-[0_0_5px_rgba(7,182,213,0.8)]">Node Wall</span>
+<div class="absolute bottom-0 left-0 w-full h-[2px] bg-primary shadow-[0_0_10px_#0bf]"></div>
+<div class="absolute inset-0 bg-primary/5"></div>
+<span class="absolute top-0 right-0 w-1.5 h-1.5 bg-primary"></span>
+<span class="absolute bottom-0 left-0 w-1.5 h-1.5 bg-primary"></span>
+</a>
+<a class="px-6 py-2 text-xs font-bold uppercase tracking-widest text-primary/60 hover:text-white relative group overflow-hidden" href="#">
+<span class="relative z-10">Neural Net</span>
+<div class="absolute bottom-0 left-0 w-full h-[1px] bg-primary/20 group-hover:bg-primary transition-colors"></div>
+<div class="absolute top-0 left-0 w-0 h-full bg-primary/5 group-hover:w-full transition-all duration-300"></div>
+</a>
+</nav>
+</div>
+<div class="flex items-center gap-6 relative z-10">
+<div class="flex items-center gap-2 px-3 py-1 bg-primary/5 border border-primary/20 rounded-sm">
+<span class="size-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_#22c55e]"></span>
+<span class="text-[10px] font-mono text-primary/80 tracking-widest">SYS: STABLE</span>
+</div>
+<div class="w-px h-8 bg-white/10"></div>
+<div class="flex gap-4 items-center pl-2">
+<button class="relative text-slate-400 hover:text-primary transition-colors group">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-0 right-0 size-2 bg-primary shadow-[0_0_8px_#0bf] rounded-full animate-pulse"></span>
+</button>
+<div class="size-11 p-[1px] bg-gradient-to-br from-primary/50 to-transparent relative group cursor-pointer clip-path-polygon">
+<div class="absolute -inset-1 bg-primary/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="size-full bg-surface-darker flex items-center justify-center overflow-hidden relative z-10">
+<img alt="User Profile" class="size-full object-cover opacity-90 hover:opacity-100 transition-opacity grayscale hover:grayscale-0" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDeUs1ruYQCrMJ--qv_ZH1MbZKIxKJIIf7gDPdCKd5UarJUNJFZtqeZBm38o1ooDvIOhuTczzDvX9cf0GtlxHO1pSSsdUtpML5iwkG7xlOzVqNDTL5_Esxt7LjRlug_IC1IJVgkFtfw9dxGhyNVLi62bWMPepFbuht2KJe4vXC2BZFgsRhq5bq0k3-ltgpsrsS9UrfCPHnRIJaoNFeFWmN-KU87ijhg9pjVuf7yGxquwoZiLlRNyt3i0EuckaZRCAuuyeqGWutnmqk"/>
+</div>
+</div>
+</div>
+</div>
+</header>
+<main class="flex-1 flex relative overflow-hidden">
+<aside class="w-80 flex-shrink-0 z-30 flex flex-col justify-center px-8 relative pointer-events-none lg:pointer-events-auto">
+<div class="glass-panel p-6 flex flex-col gap-6 relative overflow-hidden group hover:border-primary/30 transition-colors">
+<div class="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-primary/10 to-transparent"></div>
+<div>
+<h3 class="text-xs font-bold text-primary/60 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">analytics</span> 
+                        Throughput
+                    </h3>
+<div class="flex items-baseline gap-2 mb-2">
+<span class="text-4xl font-display font-bold text-white tracking-tighter drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">98.4</span>
+<span class="text-sm font-mono text-primary">TB/s</span>
+</div>
+<div class="h-16 flex items-end gap-1 mt-2">
+<div class="w-full bg-primary/10 h-[40%] animate-pulse"></div>
+<div class="w-full bg-primary/20 h-[70%]"></div>
+<div class="w-full bg-primary/40 h-[50%]"></div>
+<div class="w-full bg-primary/30 h-[85%]"></div>
+<div class="w-full bg-primary/60 h-[65%] shadow-[0_0_10px_rgba(7,182,213,0.4)]"></div>
+<div class="w-full bg-primary/20 h-[45%]"></div>
+</div>
+</div>
+<div class="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+<div>
+<h3 class="text-xs font-bold text-primary/60 uppercase tracking-[0.2em] mb-3">Active Nodes</h3>
+<div class="space-y-3">
+<div class="flex items-center justify-between text-xs font-mono text-slate-400">
+<span>ALPHA_CORE</span>
+<span class="text-green-400 drop-shadow-[0_0_5px_rgba(74,222,128,0.5)]">ONLINE</span>
+</div>
+<div class="flex items-center justify-between text-xs font-mono text-slate-400">
+<span>BETA_LINK</span>
+<span class="text-green-400 drop-shadow-[0_0_5px_rgba(74,222,128,0.5)]">ONLINE</span>
+</div>
+<div class="flex items-center justify-between text-xs font-mono text-slate-400">
+<span>GAMMA_FLOW</span>
+<span class="text-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.5)]">SYNCING...</span>
+</div>
+</div>
+</div>
+<div class="mt-4 p-3 border border-dashed border-primary/20 bg-primary/5 rounded relative overflow-hidden">
+<div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagmonds-light.png')] opacity-10"></div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-xl animate-spin-slow">settings_suggest</span>
+<div class="flex flex-col">
+<span class="text-[10px] font-bold text-white uppercase tracking-wider">Auto-Optimization</span>
+<span class="text-[9px] font-mono text-primary/70">Algorithm Active</span>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<div class="flex-1 flex items-center justify-center relative z-20 perspective-[1000px]">
+<div class="absolute inset-0 flex items-center justify-center opacity-20 pointer-events-none">
+<div class="w-[800px] h-[800px] border border-primary/20 rounded-full border-dashed animate-[spin_60s_linear_infinite]"></div>
+<div class="absolute w-[600px] h-[600px] border border-primary/10 rounded-full animate-[spin_40s_linear_infinite_reverse]"></div>
+</div>
+<div class="hexagon-container">
+<div class="gravity-well">
+<div class="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-primary/5 to-transparent blur-3xl animate-pulse"></div>
+<div class="micro-data" style="animation: gravity-suck 2s infinite ease-in; transform: rotate(0deg) translate(140px);"></div>
+<div class="micro-data" style="animation: gravity-suck 2.3s infinite ease-in 0.5s; transform: rotate(72deg) translate(140px);"></div>
+<div class="micro-data" style="animation: gravity-suck 1.8s infinite ease-in 1s; transform: rotate(144deg) translate(140px);"></div>
+<div class="micro-data" style="animation: gravity-suck 2.5s infinite ease-in 0.2s; transform: rotate(216deg) translate(140px);"></div>
+<div class="micro-data" style="animation: gravity-suck 2.1s infinite ease-in 0.8s; transform: rotate(288deg) translate(140px);"></div>
+</div>
+<div class="hexagon hexagon-center flex flex-col items-center justify-center text-center group cursor-pointer">
+<div class="absolute inset-0 bg-primary/10 animate-pulse rounded-full blur-2xl"></div>
+<div class="relative z-10 flex flex-col items-center gap-2">
+<div class="p-3 rounded-full border-2 border-primary/50 shadow-[0_0_15px_#0bf] group-hover:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined text-4xl text-white drop-shadow-[0_0_10px_#fff]">rocket_launch</span>
+</div>
+<h1 class="text-2xl font-bold text-white tracking-widest drop-shadow-md">DEPLOY</h1>
+<span class="text-[10px] font-mono text-primary bg-black/40 px-2 py-0.5 border border-primary/30 rounded">READY TO LAUNCH</span>
+</div>
+</div>
+<div class="connection-line w-[160px] top-[24%] left-[50%] rotate-[90deg] origin-left" style="animation-delay: 0s;"></div>
+<div class="connection-line w-[160px] top-[32%] left-[64%] rotate-[30deg] origin-left" style="animation-delay: 0.5s;"></div>
+<div class="connection-line w-[160px] top-[66%] left-[65%] rotate-[-30deg] origin-left" style="animation-delay: 1s;"></div>
+<div class="connection-line w-[160px] top-[74%] left-[50%] rotate-[-90deg] origin-left" style="animation-delay: 1.5s;"></div>
+<div class="connection-line w-[160px] top-[66%] left-[34%] rotate-[-150deg] origin-left" style="animation-delay: 2s;"></div>
+<div class="connection-line w-[160px] top-[32%] left-[36%] rotate-[150deg] origin-left" style="animation-delay: 2.5s;"></div>
+<div class="absolute top-[20%] left-[50%] w-1 h-8 bg-primary shadow-[0_0_10px_#0bf] animate-[float_3s_ease-in_infinite] opacity-0" style="animation-name: gravity-suck;"></div>
+<div class="hexagon hex-1 group cursor-pointer">
+<div class="absolute inset-0 bg-cover bg-center opacity-60 group-hover:opacity-100 transition-opacity saturate-0 group-hover:saturate-100 chromatic-avatar" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuC5p7MjHgkG8S5UjLu1ZcSSWPHABvgZLQ7hfPq7FksYtr7ngiq2BMYmZNTPR694JoPz5iOM-FHLo3tPQ6tYbu5sOKVKM_li9o7v1GXwbphgGL4O5CEgehvOsK5G_MRkr1WpnCjsl4ycFmu1nU0zY3lyJz9gIBjAuCOqzPxj2WYj_cM-ofi3VevJPEboKqBoNfrvMxQ17Ry6dFI1Lq5LktZ_dKfcBjR5PcQ8eVtjetP9piEYUgHxJSwQmaWZpi85Fu3mzsd6W6ztmjw');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent"></div>
+<div class="absolute bottom-4 text-center w-full z-10">
+<div class="text-[10px] font-mono text-primary mb-0.5">CREATOR</div>
+<div class="text-sm font-bold text-white tracking-wider">SARAH_V</div>
+</div>
+<div class="absolute top-2 right-4 size-2 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></div>
+</div>
+<div class="hexagon hex-2 group cursor-pointer">
+<div class="absolute inset-0 bg-cover bg-center opacity-60 group-hover:opacity-100 transition-opacity saturate-0 group-hover:saturate-100" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCp3ZSJi4VX2PPXcgxESiy8yAAXcCDK50mlZ1_v0kW1Tv-WMVitvttd1D7HqdNfz548HUWhFD6TBfcXf0_tTvWiuTIjOsBHq1FMu3UNXWUXwOeelEUV5oqGkV_lcVBuy9gj2a3342H3Hk8fKRV67YlQc2pBipjPRsEGPODTR77GK9MkihpY0_UkxWgk69nU9iwlhBRvOBo13lGvukAizQt5pQs0QDm6CU52Nr63aKpCo-Vol5uKzWfA8lJZKxMyWn7wGeLcF_izkzg');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent"></div>
+<div class="absolute bottom-4 text-center w-full z-10">
+<div class="text-[10px] font-mono text-purple-400 mb-0.5">EDITOR</div>
+<div class="text-sm font-bold text-white tracking-wider">KAI_ZEN</div>
+</div>
+</div>
+<div class="hexagon hex-3 group cursor-pointer">
+<div class="absolute inset-0 bg-surface-darker flex flex-col items-center justify-center border border-white/5">
+<span class="material-symbols-outlined text-4xl text-slate-600 group-hover:text-primary transition-colors">add_circle</span>
+<span class="text-[10px] mt-2 font-mono text-slate-500 group-hover:text-white uppercase tracking-wider">Add Node</span>
+</div>
+</div>
+<div class="hexagon hex-4 group cursor-pointer">
+<div class="absolute inset-0 bg-cover bg-center opacity-60 group-hover:opacity-100 transition-opacity saturate-0 group-hover:saturate-100" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD9UMh2crAOUXTGPN9La6USlyfjTATd4B0AXQsqKt6eJY3-t1GBrkON6lbyXOW72fphuqGP9cDFmcHaCuGNok5o-n1oQq325yYEcDlFHNLsbI0eBj2wQ2lsjwbrmL5Ksb1RF6Dj6cD-jxfRCiknjEArqBc2gKSrnEy4C7HrMiDG_PD1DsZCwTUh50eoNLrd_dDwDt4Cw2D_Sl6EQFFoqLCNttCdeBYUrq_wGzIyy_lOlVoQu5QXB2t1_QZ8ZCGddeMdlaNwaEG9Lhs');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent"></div>
+<div class="absolute bottom-4 text-center w-full z-10">
+<div class="text-[10px] font-mono text-blue-400 mb-0.5">REVIEWER</div>
+<div class="text-sm font-bold text-white tracking-wider">JAX_M</div>
+</div>
+<div class="absolute top-2 right-4 size-2 rounded-full bg-orange-500 shadow-[0_0_8px_orange] animate-pulse"></div>
+</div>
+<div class="hexagon hex-5 group cursor-pointer">
+<div class="absolute inset-0 bg-surface-darker flex flex-col items-center justify-center border border-white/5">
+<span class="material-symbols-outlined text-4xl text-slate-600 group-hover:text-primary transition-colors">hub</span>
+<span class="text-[10px] mt-2 font-mono text-slate-500 group-hover:text-white uppercase tracking-wider">Connect</span>
+</div>
+</div>
+<div class="hexagon hex-6 group cursor-pointer">
+<div class="absolute inset-0 bg-surface-darker flex flex-col items-center justify-center border border-white/5 p-4 text-center">
+<div class="w-full bg-slate-800 h-1 rounded-full mb-2 overflow-hidden">
+<div class="bg-primary h-full w-[75%] shadow-[0_0_5px_#0bf]"></div>
+</div>
+<span class="text-[10px] font-mono text-primary uppercase tracking-wider">Render: 75%</span>
+</div>
+</div>
+</div>
+</div>
+<aside class="w-80 flex-shrink-0 z-30 flex flex-col justify-center px-8 relative pointer-events-none lg:pointer-events-auto">
+<div class="glass-panel p-0 flex flex-col relative overflow-hidden h-[500px]">
+<div class="px-5 py-4 border-b border-white/10 flex items-center justify-between bg-white/5">
+<span class="text-xs font-bold text-white uppercase tracking-widest">Control Deck</span>
+<span class="material-symbols-outlined text-primary text-sm">tune</span>
+</div>
+<div class="p-5 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
+<div class="fui-btn p-4 cursor-pointer group">
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-bold text-white uppercase tracking-wider">Compile Assets</span>
+<span class="material-symbols-outlined text-slate-400 text-sm group-hover:text-white">memory</span>
+</div>
+<div class="text-[10px] text-slate-500 font-mono mb-2 group-hover:text-slate-300">Processing raw data inputs...</div>
+<div class="h-0.5 w-full bg-slate-800">
+<div class="h-full bg-primary w-full origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-1000"></div>
+</div>
+</div>
+<div class="fui-btn p-4 cursor-pointer group">
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-bold text-white uppercase tracking-wider">Scan Network</span>
+<span class="material-symbols-outlined text-slate-400 text-sm group-hover:text-white">radar</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="size-1.5 rounded-full bg-red-500 animate-pulse"></span>
+<span class="text-[10px] text-red-400 font-mono">2 Threats Detected</span>
+</div>
+</div>
+<div class="fui-btn p-4 cursor-pointer group">
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-bold text-white uppercase tracking-wider">Sync Temporal</span>
+<span class="material-symbols-outlined text-slate-400 text-sm group-hover:text-white">schedule</span>
+</div>
+<div class="text-[10px] text-slate-500 font-mono group-hover:text-slate-300">Aligning timeline nodes...</div>
+</div>
+<div class="mt-auto pt-4 border-t border-white/10">
+<div class="flex justify-between items-center text-[9px] font-mono text-slate-500 uppercase">
+<span>Lat: 34ms</span>
+<span>Enc: AES-256</span>
+</div>
+</div>
+</div>
+<div class="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-purple-500 to-primary opacity-50"></div>
+</div>
+</aside>
+</main>
+<footer class="glass-panel border-t border-white/5 py-2 px-6 flex items-center justify-between z-50 text-[10px] font-mono text-slate-500 uppercase tracking-wider relative">
+<div class="flex items-center gap-6">
+<span class="text-primary font-bold">Synapse OS v12.0.4</span>
+<span class="hidden md:inline">Server: US-East-4</span>
+<span class="hidden md:inline">Uptime: 412h 32m</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<span>Data Stream</span>
+<div class="w-20 h-1 bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-transparent via-primary to-transparent w-[50%] animate-[dataStream_1s_linear_infinite]"></div>
+</div>
+</div>
+<span>Secure Connection</span>
+</div>
+</footer>
+
+</body></html>

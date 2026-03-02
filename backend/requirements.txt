@@ -21,3 +21,9 @@ arq>=0.25.0
 minio>=7.0.0
 boto3>=1.26.0
 sentry-sdk[fastapi]>=2.0.0
+
+# Clipper Pipeline (Twitch -> TikTok/Shorts)
+faster-whisper>=1.0.0
+yt-dlp>=2024.1.0
+opencv-python-headless>=4.8.0
+facenet-pytorch>=2.5.0

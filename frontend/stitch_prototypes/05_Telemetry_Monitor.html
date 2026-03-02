@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Synapse Hyper-Terminal Pro</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@300;400;500;700&amp;family=Black+Ops+One&amp;family=Share+Tech+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f0ff","secondary": "#ff00ff","background-dark": "#000000","surface-dark": "#050505",
+                        "surface-panel": "#0a0a0a",
+                        "border-dark": "#333333",
+                        "terminal-text": "#a0aec0",
+                    },
+                    fontFamily: {
+                        "display": ["Black Ops One", "cursive"],"tech": ["Share Tech Mono", "monospace"],
+                        "mono": ["JetBrains Mono", "monospace"],
+                    },
+                    backgroundImage: {
+                        'grid-pattern': "linear-gradient(to right, #111 1px, transparent 1px), linear-gradient(to bottom, #111 1px, transparent 1px)",
+                        'scanline': "linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2))",
+                    },
+                    animation: {
+                        'scan': 'scan 4s linear infinite',
+                        'scan-fast': 'scan 2s linear infinite',
+                        'glitch': 'glitch 0.3s cubic-bezier(.25, .46, .45, .94) both infinite',
+                        'drift': 'drift 60s linear infinite',
+                        'shake': 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both',
+                        'text-scan': 'textScan 3s linear infinite',
+                    },
+                    keyframes: {
+                        scan: {
+                            '0%': { backgroundPosition: '0 -100vh' },
+                            '100%': { backgroundPosition: '0 100vh' }
+                        },
+                        glitch: {
+                            '0%': { transform: 'translate(0)' },
+                            '20%': { transform: 'translate(-2px, 2px)' },
+                            '40%': { transform: 'translate(-2px, -2px)' },
+                            '60%': { transform: 'translate(2px, 2px)' },
+                            '80%': { transform: 'translate(2px, -2px)' },
+                            '100%': { transform: 'translate(0)' }
+                        },
+                        drift: {
+                            '0%': { backgroundPosition: '0 0' },
+                            '100%': { backgroundPosition: '0 100%' }
+                        },
+                        shake: {
+                            '10%, 90%': { transform: 'translate3d(-1px, 0, 0)' },
+                            '20%, 80%': { transform: 'translate3d(2px, 0, 0)' },
+                            '30%, 50%, 70%': { transform: 'translate3d(-4px, 0, 0)' },
+                            '40%, 60%': { transform: 'translate3d(4px, 0, 0)' }
+                        },
+                        textScan: {
+                            '0%': { backgroundPosition: '-200% 0' },
+                            '100%': { backgroundPosition: '200% 0' }
+                        }
+                    }
+                },
+            },
+        }
+    </script>
+<style>.hud-perspective {
+            perspective: 1200px;
+        }
+        .hud-tilted {
+            transform: rotateX(8deg) scale(0.95);
+            transform-origin: center 20%;
+            box-shadow: 0 0 80px rgba(0, 240, 255, 0.05), inset 0 0 100px rgba(0,0,0,0.8);
+            border: 1px solid rgba(0, 240, 255, 0.15);
+            background: rgba(5, 5, 5, 0.6);
+        }.crt-overlay {
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #000;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #222;
+            border: 1px solid #00f0ff;
+        }.toggle-checkbox:checked {
+            right: 0;
+            border-color: #00f0ff;
+            box-shadow: 0 0 10px #00f0ff, inset 0 0 5px #00f0ff;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: rgba(0, 240, 255, 0.1);
+            border-color: #00f0ff;
+        }#toggle2:checked {
+            border-color: #ff00ff;
+            box-shadow: 0 0 10px #ff00ff, inset 0 0 5px #ff00ff;
+        }
+        #toggle2:checked + .toggle-label {
+             background-color: rgba(255, 0, 255, 0.1);
+             border-color: #ff00ff;
+        }
+         #toggle3:checked {
+            border-color: #facc15;
+            box-shadow: 0 0 10px #facc15, inset 0 0 5px #facc15;
+        }
+        #toggle3:checked + .toggle-label {
+             background-color: rgba(250, 204, 21, 0.1);
+             border-color: #facc15;
+        }
+        .glitch-text {
+            position: relative;
+        }
+        .glitch-text::before,
+        .glitch-text::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000; 
+        }
+        .glitch-text::before {
+            left: 2px;
+            text-shadow: -1px 0 #ff00ff;
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim 2s infinite linear alternate-reverse;
+        }
+        .glitch-text::after {
+            left: -2px;
+            text-shadow: -1px 0 #00f0ff;
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim2 3s infinite linear alternate-reverse;
+        }
+        @keyframes glitch-anim {
+            0% { clip: rect(14px, 9999px, 89px, 0); }
+            20% { clip: rect(66px, 9999px, 6px, 0); }
+            40% { clip: rect(38px, 9999px, 7px, 0); }
+            60% { clip: rect(81px, 9999px, 2px, 0); }
+            80% { clip: rect(10px, 9999px, 95px, 0); }
+            100% { clip: rect(54px, 9999px, 49px, 0); }
+        }
+        @keyframes glitch-anim2 {
+            0% { clip: rect(21px, 9999px, 86px, 0); }
+            20% { clip: rect(79px, 9999px, 26px, 0); }
+            40% { clip: rect(12px, 9999px, 67px, 0); }
+            60% { clip: rect(98px, 9999px, 12px, 0); }
+            80% { clip: rect(33px, 9999px, 5px, 0); }
+            100% { clip: rect(61px, 9999px, 39px, 0); }
+        }.schematic-bg {
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(0, 240, 255, 0.05) 0%, transparent 70%),
+                linear-gradient(0deg, transparent 24%, rgba(0, 240, 255, .03) 25%, rgba(0, 240, 255, .03) 26%, transparent 27%, transparent 74%, rgba(0, 240, 255, .03) 75%, rgba(0, 240, 255, .03) 76%, transparent 77%, transparent),
+                linear-gradient(90deg, transparent 24%, rgba(0, 240, 255, .03) 25%, rgba(0, 240, 255, .03) 26%, transparent 27%, transparent 74%, rgba(0, 240, 255, .03) 75%, rgba(0, 240, 255, .03) 76%, transparent 77%, transparent);
+            background-size: 100% 100%, 60px 60px, 60px 60px;
+        }
+        .text-scan-effect {
+            background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.4), transparent);
+            background-size: 200% 100%;
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            animation: textScan 3s linear infinite;
+        }
+        .error-shake:hover {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        .log-line {
+            position: relative;
+            overflow: hidden;
+        }
+        .log-line::before {
+             content: "";
+             position: absolute;
+             top: 0;
+             left: -100%;
+             width: 50%;
+             height: 100%;
+             background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.03), transparent);
+             transform: skewX(-20deg);
+             animation: shimmer 3s infinite;
+             pointer-events: none;
+        }
+        @keyframes shimmer {
+            0% { left: -100%; }
+            50%, 100% { left: 200%; }
+        }
+    </style>
+</head>
+<body class="bg-black text-slate-100 font-mono min-h-screen flex flex-col overflow-hidden selection:bg-primary selection:text-black">
+<div class="relative flex h-screen w-full flex-col bg-black overflow-hidden group/design-root schematic-bg animate-drift" style="background-size: 100px 100px;">
+<div class="absolute inset-0 pointer-events-none z-50 bg-scanline bg-[length:100%_4px] opacity-15 animate-scan mix-blend-overlay"></div>
+<div class="absolute inset-0 pointer-events-none z-40 crt-overlay opacity-40"></div>
+<div class="absolute inset-0 pointer-events-none z-0 opacity-10 flex items-center justify-center">
+<svg class="w-full h-full stroke-primary fill-none stroke-[0.5]" style="mask-image: radial-gradient(circle, black 40%, transparent 70%);" viewBox="0 0 800 600">
+<circle cx="400" cy="300" r="250" stroke-dasharray="4 4"></circle>
+<circle cx="400" cy="300" r="150" stroke-dasharray="10 5"></circle>
+<line x1="150" x2="650" y1="300" y2="300"></line>
+<line x1="400" x2="400" y1="50" y2="550"></line>
+<rect height="200" stroke-width="1" width="400" x="200" y="200"></rect>
+</svg>
+</div>
+<header class="flex shrink-0 items-center justify-between whitespace-nowrap border-b border-white/10 px-6 py-4 z-30 bg-black/90 backdrop-blur-md">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-3 text-white">
+<div class="size-8 text-primary animate-pulse">
+<svg class="drop-shadow-[0_0_15px_rgba(0,240,255,0.8)]" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path d="M24 4L29.2 17.6L44 20L32.4 29.6L36.4 44L24 36L11.6 44L15.6 29.6L4 20L18.8 17.6L24 4Z" stroke="currentColor" stroke-linejoin="round" stroke-width="2"></path>
+<circle class="animate-ping opacity-75" cx="24" cy="24" fill="currentColor" r="4"></circle>
+</svg>
+</div>
+<div class="flex flex-col">
+<h2 class="text-2xl font-display leading-none tracking-widest uppercase text-white drop-shadow-[0_0_8px_rgba(0,240,255,0.6)]">Synapse</h2>
+<span class="text-[10px] text-primary font-mono tracking-[0.4em] uppercase opacity-90 text-shadow-[0_0_5px_rgba(0,240,255,0.8)]">Hyper-Terminal Pro</span>
+</div>
+</div>
+<div class="h-8 w-px bg-white/10 mx-2 shadow-[0_0_10px_white]"></div>
+<nav class="hidden md:flex items-center gap-2">
+<a class="text-slate-500 font-mono text-[10px] uppercase tracking-wider px-3 py-1 hover:text-primary transition-colors border-b border-transparent hover:border-primary/50" href="#">[CMD] Dashboard</a>
+<a class="text-primary font-mono text-[10px] uppercase tracking-wider px-3 py-1 border-b border-primary bg-primary/10 shadow-[0_0_15px_rgba(0,240,255,0.2)]" href="#">[LOG] Telemetry</a>
+<a class="text-slate-500 font-mono text-[10px] uppercase tracking-wider px-3 py-1 hover:text-primary transition-colors border-b border-transparent hover:border-primary/50" href="#">[SYS] Config</a>
+</nav>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden sm:flex items-center gap-2 px-4 py-1 bg-surface-dark border border-primary/40 rounded-sm text-xs font-mono text-primary shadow-[0_0_15px_rgba(0,240,255,0.15)]">
+<span class="w-1.5 h-1.5 bg-primary animate-[pulse_0.2s_ease-in-out_infinite]"></span>
+<span class="tracking-widest text-[10px]">UPLINK ESTABLISHED</span>
+</div>
+<div class="flex items-center gap-4 border-l border-white/10 pl-6">
+<button class="text-slate-400 hover:text-secondary transition-colors material-symbols-outlined hover:animate-spin">settings</button>
+<div class="size-8 rounded-none border border-primary/50 overflow-hidden relative group cursor-pointer shadow-[0_0_10px_rgba(0,240,255,0.2)]">
+<img alt="User Avatar" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3eF5ZTcg2nRR8WufSYLnzAbJw-1BCMc2cy6qMPvgCQpTcsFIpBC8rmXbFmgGUTdYQ7DqmMwpm3V1tCjyhtZojgKtuMRSdCVgnyxpSyLy4Ct0rUBD2omZA12nSB3UDxcOz7g_9GWD2cKIt3diXX97_NU9r5BEVPN1mjWeWQ2-_2Ko6bRgyhlSzvZ7rlmZElwbY3idE7kUv6dXTMjkwHOITZWznZ8yym6hOjFD_UVwVT6M54zx9xzfVcs8zej1NYBsdBz7it0b2FFQ"/>
+<div class="absolute inset-0 bg-primary/20 mix-blend-overlay"></div>
+</div>
+</div>
+</div>
+</header>
+<main class="flex flex-1 overflow-hidden relative z-20">
+<aside class="hidden lg:flex w-80 flex-col border-r border-white/10 bg-[#020202] p-6 gap-8 shrink-0 relative shadow-[15px_0_30px_-5px_rgba(0,0,0,0.9)] z-30">
+<div class="absolute top-2 left-2 size-1.5 bg-slate-800 shadow-[0_0_5px_rgba(255,255,255,0.2)]"></div>
+<div class="absolute top-2 right-2 size-1.5 bg-slate-800 shadow-[0_0_5px_rgba(255,255,255,0.2)]"></div>
+<div class="absolute bottom-2 left-2 size-1.5 bg-slate-800 shadow-[0_0_5px_rgba(255,255,255,0.2)]"></div>
+<div class="absolute bottom-2 right-2 size-1.5 bg-slate-800 shadow-[0_0_5px_rgba(255,255,255,0.2)]"></div>
+<div class="flex flex-col gap-5">
+<p class="text-slate-500 font-display text-sm uppercase tracking-[0.2em] border-b border-white/5 pb-2 text-right">Filter Matrix</p>
+<div class="flex items-center justify-between group py-1">
+<span class="text-xs text-slate-400 font-mono tracking-widest group-hover:text-primary transition-colors">ALL SYSTEMS</span>
+<div class="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
+<input class="toggle-checkbox absolute block w-4 h-4 bg-black border border-slate-600 appearance-none cursor-pointer rounded-none transition-all duration-200 ease-in-out checked:bg-primary checked:translate-x-full" id="toggle1" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-4 bg-slate-900 cursor-pointer border border-slate-800" for="toggle1"></label>
+</div>
+</div>
+<div class="flex items-center justify-between group py-1">
+<span class="text-xs text-slate-400 font-mono tracking-widest group-hover:text-secondary transition-colors shadow-secondary/50">ERRORS ONLY</span>
+<div class="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
+<input class="toggle-checkbox absolute block w-4 h-4 bg-black border border-slate-600 appearance-none cursor-pointer rounded-none transition-all duration-200 ease-in-out checked:translate-x-full" id="toggle2" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-4 bg-slate-900 cursor-pointer border border-slate-800" for="toggle2"></label>
+</div>
+</div>
+<div class="flex items-center justify-between group py-1">
+<span class="text-xs text-slate-400 font-mono tracking-widest group-hover:text-yellow-400 transition-colors">WARNINGS</span>
+<div class="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
+<input class="toggle-checkbox absolute block w-4 h-4 bg-black border border-slate-600 appearance-none cursor-pointer rounded-none transition-all duration-200 ease-in-out checked:translate-x-full" id="toggle3" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-4 bg-slate-900 cursor-pointer border border-slate-800" for="toggle3"></label>
+</div>
+</div>
+<div class="flex items-center justify-between group py-1">
+<span class="text-xs text-slate-400 font-mono tracking-widest group-hover:text-blue-400 transition-colors">INFO STREAM</span>
+<div class="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
+<input class="toggle-checkbox absolute block w-4 h-4 bg-black border border-slate-600 appearance-none cursor-pointer rounded-none transition-all duration-200 ease-in-out checked:bg-blue-400 checked:border-blue-400 checked:translate-x-full shadow-[0_0_10px_rgba(0,0,0,0.5)]" id="toggle4" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-4 bg-slate-900 cursor-pointer border border-slate-800" for="toggle4"></label>
+</div>
+</div>
+</div>
+<div class="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-2"></div>
+<div class="flex flex-col gap-3">
+<p class="text-slate-500 font-display text-xs uppercase tracking-[0.2em] mb-2 text-right">Operation Modes</p>
+<button class="w-full border border-primary/40 text-primary bg-primary/5 hover:bg-primary/10 py-2.5 px-4 text-[10px] font-mono uppercase tracking-[0.15em] transition-all flex items-center justify-between shadow-[0_0_10px_rgba(0,240,255,0.05)] group">
+<span class="group-hover:translate-x-1 transition-transform">Live Tail</span>
+<span class="material-symbols-outlined text-[14px] animate-spin group-hover:text-white transition-colors">sync</span>
+</button>
+<button class="w-full border border-slate-800 text-slate-500 hover:text-white hover:border-white/20 bg-transparent py-2.5 px-4 text-[10px] font-mono uppercase tracking-[0.15em] transition-all flex items-center justify-between group">
+<span class="group-hover:translate-x-1 transition-transform">Debug Mode</span>
+<span class="material-symbols-outlined text-[14px] group-hover:text-white transition-colors">bug_report</span>
+</button>
+</div>
+<div class="mt-auto bg-[#030303] border border-white/10 p-4 relative overflow-hidden group">
+<div class="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(0,240,255,0.03)_50%,transparent_75%,transparent_100%)] bg-[length:250%_250%,100%_100%] bg-[position:-100%_0,0_0] bg-no-repeat transition-[background-position_0s_ease] hover:bg-[position:200%_0,0_0] duration-1000"></div>
+<div class="flex items-center justify-between mb-3 relative z-10">
+<span class="text-[10px] text-primary font-display tracking-widest">BUFFER_CAPACITY</span>
+<span class="text-[10px] text-primary font-mono">24%</span>
+</div>
+<div class="flex gap-0.5 h-1.5 w-full">
+<div class="flex-1 bg-primary shadow-[0_0_5px_#00f0ff]"></div>
+<div class="flex-1 bg-primary shadow-[0_0_5px_#00f0ff]"></div>
+<div class="flex-1 bg-primary shadow-[0_0_5px_#00f0ff]"></div>
+<div class="flex-1 bg-primary/20"></div>
+<div class="flex-1 bg-primary/20"></div>
+<div class="flex-1 bg-primary/20"></div>
+<div class="flex-1 bg-primary/20"></div>
+<div class="flex-1 bg-primary/20"></div>
+<div class="flex-1 bg-primary/20"></div>
+<div class="flex-1 bg-primary/20"></div>
+</div>
+<div class="mt-2 text-[8px] text-slate-600 font-mono text-right">SYS_ID: 8X-99</div>
+</div>
+</aside>
+<div class="flex-1 flex flex-col bg-transparent relative overflow-hidden hud-perspective">
+<div class="flex items-center justify-between px-6 py-2 border-b border-white/10 bg-black/80 backdrop-blur z-10 shrink-0">
+<div class="flex items-center gap-4">
+<h1 class="text-lg font-display tracking-[0.2em] text-white uppercase drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">Telemetry Stream</h1>
+<span class="px-2 py-0.5 bg-secondary/10 border border-secondary/30 text-[9px] text-secondary font-mono tracking-wider animate-pulse">SECURE CHANNEL // ENCRYPTED</span>
+</div>
+<div class="flex gap-2">
+<button class="p-1.5 text-primary hover:bg-primary/10 border border-transparent hover:border-primary/30 transition-colors" title="Download Logs">
+<span class="material-symbols-outlined text-[18px]">download</span>
+</button>
+<button class="p-1.5 text-secondary hover:bg-secondary/10 border border-transparent hover:border-secondary/30 transition-colors" title="Clear Console">
+<span class="material-symbols-outlined text-[18px]">delete_sweep</span>
+</button>
+<button class="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/30 transition-colors" title="Pause Stream">
+<span class="material-symbols-outlined text-[18px]">pause</span>
+</button>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto overflow-x-hidden p-8 font-mono text-sm leading-relaxed scroll-smooth relative" id="terminal-content">
+<div class="w-full max-w-7xl mx-auto hud-tilted min-h-full backdrop-blur-sm relative p-10 pb-20">
+<div class="absolute top-0 left-0 w-16 h-16 border-t border-l border-primary/60"></div>
+<div class="absolute top-0 right-0 w-16 h-16 border-t border-r border-primary/60"></div>
+<div class="absolute bottom-0 left-0 w-16 h-16 border-b border-l border-primary/60"></div>
+<div class="absolute bottom-0 right-0 w-16 h-16 border-b border-r border-primary/60"></div>
+<div class="absolute top-2 left-2 text-[9px] text-primary/40 font-mono">COORD: 45.21, 12.90</div>
+<div class="absolute bottom-2 right-2 text-[9px] text-primary/40 font-mono">HUD_VER: 4.2</div>
+<div class="flex flex-col gap-0.5 w-full relative z-10">
+<div class="log-line flex gap-4 hover:bg-white/5 p-1 px-4 transition-colors group items-center border-l-2 border-transparent hover:border-primary/50">
+<span class="text-slate-600 font-mono w-36 shrink-0 text-[10px] mt-0.5 tracking-wider opacity-70">2023-10-27 14:02:01.452</span>
+<span class="text-primary font-bold w-12 shrink-0 tracking-wider text-xs">[INFO]</span>
+<span class="text-slate-500 w-28 shrink-0 font-mono uppercase text-[10px] tracking-widest">Worker-01</span>
+<span class="text-slate-300 group-hover:text-primary transition-colors font-light text-xs">Process initiated. Neural bridge sequence: <span class="text-green-400 font-bold">OK</span></span>
+</div>
+<div class="log-line flex gap-4 hover:bg-white/5 p-1 px-4 transition-colors group items-center border-l-2 border-transparent hover:border-primary/50">
+<span class="text-slate-600 font-mono w-36 shrink-0 text-[10px] mt-0.5 tracking-wider opacity-70">2023-10-27 14:02:05.112</span>
+<span class="text-primary font-bold w-12 shrink-0 tracking-wider text-xs">[INFO]</span>
+<span class="text-slate-500 w-28 shrink-0 font-mono uppercase text-[10px] tracking-widest">Worker-01</span>
+<span class="text-slate-300 group-hover:text-primary transition-colors font-light text-xs">Loading asset bundle: <span class="text-white bg-white/10 px-1 border border-white/20">cosmic_dust.mp4</span> (Size: 450MB)</span>
+</div>
+<div class="log-line flex gap-4 hover:bg-yellow-500/5 p-1 px-4 transition-colors group items-center border-l-2 border-transparent hover:border-yellow-500/50">
+<span class="text-slate-600 font-mono w-36 shrink-0 text-[10px] mt-0.5 tracking-wider opacity-70">2023-10-27 14:02:12.890</span>
+<span class="text-yellow-500 font-bold w-12 shrink-0 tracking-wider text-xs">[WARN]</span>
+<span class="text-slate-500 w-28 shrink-0 font-mono uppercase text-[10px] tracking-widest">Mem_Gate</span>
+<span class="text-yellow-100/80 group-hover:text-yellow-400 transition-colors font-light text-xs">High usage detected: 85% capacity. Garbage collection recommended.</span>
+</div>
+<div class="log-line flex gap-4 hover:bg-white/5 p-1 px-4 transition-colors group items-center border-l-2 border-transparent hover:border-primary/50">
+<span class="text-slate-600 font-mono w-36 shrink-0 text-[10px] mt-0.5 tracking-wider opacity-70">2023-10-27 14:02:14.221</span>
+<span class="text-primary font-bold w-12 shrink-0 tracking-wider text-xs">[INFO]</span>
+<span class="text-slate-500 w-28 shrink-0 font-mono uppercase text-[10px] tracking-widest">Sys_Core</span>
+<span class="text-slate-300 group-hover:text-primary transition-colors font-light text-xs">Optimizing render queue. 14 tasks pending.</span>
+</div>
+<div class="log-line flex gap-4 bg-secondary/5 hover:bg-secondary/10 p-3 px-4 my-2 transition-all group items-center border border-secondary/40 shadow-[0_0_20px_-5px_rgba(255,0,255,0.4)] relative overflow-hidden error-shake">
+<div class="absolute inset-0 bg-secondary/5 animate-pulse"></div>
+<div class="absolute top-0 bottom-0 left-0 w-1 bg-secondary animate-pulse"></div>
+<span class="text-secondary/60 font-mono w-36 shrink-0 text-[10px] mt-0.5 tracking-wider relative z-10">2023-10-27 14:03:00.005</span>
+<span class="text-secondary font-bold w-12 shrink-0 tracking-wider relative z-10 text-xs">[ERR]</span>
+<span class="text-secondary/80 w-28 shrink-0 font-mono uppercase relative z-10 text-[10px] tracking-widest">API_Gate</span>
+<span class="text-white relative z-10 glitch-text text-xs font-bold tracking-wide" data-text="HTTP 401: Unauthorized access attempt detected from IP 192.168.1.45.">HTTP 401: Unauthorized access attempt detected from IP 192.168.1.45.</span>
+</div>
+<div class="log-line flex gap-4 hover:bg-white/5 p-1 px-4 transition-colors group items-center border-l-2 border-transparent hover:border-primary/50">
+<span class="text-slate-600 font-mono w-36 shrink-0 text-[10px] mt-0.5 tracking-wider opacity-70">2023-10-27 14:03:05.334</span>
+<span class="text-primary font-bold w-12 shrink-0 tracking-wider text-xs">[INFO]</span>
+<span class="text-slate-500 w-28 shrink-0 font-mono uppercase text-[10px] tracking-widest">Retry_Mod</span>
+<span class="text-slate-300 group-hover:text-primary transition-colors font-light text-xs">Attempting reconnection (1/3)...</span>
+</div>
+<div class="log-line flex gap-4 hover:bg-white/5 p-1 px-4 transition-colors group items-center border-l-2 border-transparent hover:border-primary/50">
+<span class="text-slate-600 font-mono w-36 shrink-0 text-[10px] mt-0.5 tracking-wider opacity-70">2023-10-27 14:03:08.110</span>
+<span class="text-primary font-bold w-12 shrink-0 tracking-wider text-xs">[INFO]</span>
+<span class="text-slate-500 w-28 shrink-0 font-mono uppercase text-[10px] tracking-widest">Worker-02</span>
+<span class="text-slate-300 group-hover:text-primary transition-colors font-light text-xs">Standby mode engaged. Waiting for load balancer assignment.</span>
+</div>
+<div class="log-line flex gap-4 hover:bg-green-500/5 p-1 px-4 transition-colors group items-center border-l-2 border-transparent hover:border-green-500/50">
+<span class="text-slate-600 font-mono w-36 shrink-0 text-[10px] mt-0.5 tracking-wider opacity-70">2023-10-27 14:03:10.552</span>
+<span class="text-green-500 font-bold w-12 shrink-0 tracking-wider text-xs">[OK]</span>
+<span class="text-slate-500 w-28 shrink-0 font-mono uppercase text-[10px] tracking-widest">Auth_Svc</span>
+<span class="text-green-100/80 group-hover:text-green-400 transition-colors font-light text-xs">Token refreshed successfully. Session valid for 3600s.</span>
+</div>
+<div class="log-line flex gap-4 hover:bg-yellow-500/5 p-1 px-4 transition-colors group items-center border-l-2 border-transparent hover:border-yellow-500/50">
+<span class="text-slate-600 font-mono w-36 shrink-0 text-[10px] mt-0.5 tracking-wider opacity-70">2023-10-27 14:03:15.678</span>
+<span class="text-yellow-500 font-bold w-12 shrink-0 tracking-wider text-xs">[WARN]</span>
+<span class="text-slate-500 w-28 shrink-0 font-mono uppercase text-[10px] tracking-widest">Render_C</span>
+<span class="text-yellow-100/80 group-hover:text-yellow-400 transition-colors font-light text-xs">Frame drop detected in sector 7. GPU throttling active.</span>
+</div>
+<div class="log-line flex gap-4 hover:bg-white/5 p-1 px-4 transition-colors group items-center border-l-2 border-transparent hover:border-primary/50">
+<span class="text-slate-600 font-mono w-36 shrink-0 text-[10px] mt-0.5 tracking-wider opacity-70">2023-10-27 14:03:22.901</span>
+<span class="text-primary font-bold w-12 shrink-0 tracking-wider text-xs">[INFO]</span>
+<span class="text-slate-500 w-28 shrink-0 font-mono uppercase text-[10px] tracking-widest">Sys_Mon</span>
+<span class="text-slate-300 group-hover:text-primary transition-colors font-light text-xs">All systems nominal. Diagnostic cycle complete.</span>
+</div>
+<div class="log-line flex gap-4 hover:bg-white/5 p-1 px-4 transition-colors group items-center border-l-2 border-transparent hover:border-slate-500/30 opacity-50 hover:opacity-100">
+<span class="text-slate-700 font-mono w-36 shrink-0 text-[10px] mt-0.5 tracking-wider opacity-70">2023-10-27 14:03:23.004</span>
+<span class="text-slate-500 font-bold w-12 shrink-0 tracking-wider text-xs">[DBG]</span>
+<span class="text-slate-600 w-28 shrink-0 font-mono uppercase text-[10px] tracking-widest">Net_Lyr</span>
+<span class="text-slate-500 font-light text-xs">Packet inspection: HEADER[0x4F] PAYLOAD[ENCRYPTED]</span>
+</div>
+<div class="log-line flex gap-4 bg-secondary/5 hover:bg-secondary/10 p-3 px-4 my-2 transition-all group items-center border border-secondary/40 shadow-[0_0_20px_-5px_rgba(255,0,255,0.4)] relative overflow-hidden error-shake">
+<div class="absolute inset-0 bg-secondary/5 animate-pulse"></div>
+<div class="absolute top-0 bottom-0 left-0 w-1 bg-secondary animate-pulse"></div>
+<span class="text-secondary/60 font-mono w-36 shrink-0 text-[10px] mt-0.5 tracking-wider relative z-10">2023-10-27 14:03:28.445</span>
+<span class="text-secondary font-bold w-12 shrink-0 tracking-wider relative z-10 text-xs">[ERR]</span>
+<span class="text-secondary/80 w-28 shrink-0 font-mono uppercase relative z-10 text-[10px] tracking-widest">DB_Conn</span>
+<span class="text-white relative z-10 glitch-text text-xs font-bold tracking-wide" data-text="Connection timeout on shard-04. Retrying... (Attempt 2/5)">Connection timeout on shard-04. Retrying... (Attempt 2/5)</span>
+</div>
+<div class="log-line flex gap-4 p-2 px-4 mt-6 transition-colors group items-center border border-primary/40 bg-primary/5 shadow-[0_0_20px_-5px_rgba(0,240,255,0.4)]">
+<span class="text-primary/70 font-mono w-36 shrink-0 text-[10px] mt-0.5 tracking-wider">2023-10-27 14:03:30.000</span>
+<span class="text-primary font-bold w-12 shrink-0 tracking-wider text-xs">[INFO]</span>
+<span class="text-primary/70 w-28 shrink-0 font-mono uppercase text-[10px] tracking-widest">System</span>
+<span class="text-white font-bold text-scan-effect uppercase tracking-widest text-xs">Live log stream active... <span class="animate-ping text-primary">_</span></span>
+</div>
+</div>
+</div>
+</div>
+<div class="shrink-0 bg-black/90 backdrop-blur border-t border-white/10 px-6 py-3 flex items-center justify-between text-xs font-mono z-30">
+<div class="flex items-center gap-8">
+<span class="flex items-center gap-2 text-primary drop-shadow-[0_0_5px_rgba(0,240,255,0.5)]">
+<span class="size-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(0,240,255,0.8)]"></span>
+<span class="tracking-widest text-[10px] uppercase">Stream: wss://api.synapse.ai/v1/stream</span>
+</span>
+<span class="text-slate-500 text-[10px] uppercase tracking-wider">LATENCY: <span class="text-white font-bold">45ms</span></span>
+</div>
+<div class="flex items-center gap-8 text-slate-500 text-[10px] uppercase tracking-wider">
+<span>MEM: <span class="text-white">12.4GB</span> <span class="text-slate-700 mx-1">/</span> 32GB</span>
+<span>CPU: <span class="text-white">34%</span></span>
+<span class="text-secondary drop-shadow-[0_0_5px_rgba(255,0,255,0.5)]">UPTIME: 14d 02h 12m</span>
+</div>
+</div>
+</div></main>
+</div>
+</body></html>

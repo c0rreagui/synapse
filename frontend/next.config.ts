@@ -9,9 +9,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  experimental: {
-    instrumentationHook: true,
-  },
+  turbopack: {},
   async rewrites() {
     return [
       {

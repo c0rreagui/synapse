@@ -1,97 +1,75 @@
 @import "tailwindcss";
 
 :root {
-  /* Background - Deep Cerebral Interior */
-  --cmd-bg: #05040a;
-  --cmd-surface: #0f0a15;
-  --cmd-card: #151020;
-  /* Deep Violet Card */
-  --cmd-border: #2a1b3d;
-  --cmd-border-hover: #4c1d95;
+  /* Background - Cosmic Void */
+  --cmd-bg: #030305;
+  --cmd-surface: #08080C;
+  --cmd-card: #0C0C14;
+  --cmd-border: rgba(255, 255, 255, 0.05);
+  --cmd-border-hover: rgba(6, 182, 212, 0.4);
 
-  /* Semantic Colors - Neural Signals */
-  --cmd-green: #34d399;
-  /* Emerald Green (keep distinct for success, but cooler) */
-  --cmd-green-bg: rgba(52, 211, 153, 0.1);
-  --cmd-green-border: rgba(52, 211, 153, 0.2);
+  /* Semantic Colors - Star Mapping */
+  --cmd-green: #10b981;
+  --cmd-green-bg: rgba(16, 185, 129, 0.1);
+  --cmd-green-border: rgba(16, 185, 129, 0.2);
 
-  --cmd-red: #fb7185;
-  /* Rose Red */
-  --cmd-red-bg: rgba(251, 113, 133, 0.1);
-  --cmd-red-border: rgba(251, 113, 133, 0.3);
+  --cmd-red: #ef4444;
+  --cmd-red-bg: rgba(239, 68, 68, 0.1);
+  --cmd-red-border: rgba(239, 68, 68, 0.2);
 
-  --cmd-yellow: #f472b6;
-  /* Pinkish Warning */
-  --cmd-yellow-bg: rgba(244, 114, 182, 0.1);
-  --cmd-yellow-border: rgba(244, 114, 182, 0.3);
+  --cmd-yellow: #f59e0b;
+  --cmd-yellow-bg: rgba(245, 158, 11, 0.1);
+  --cmd-yellow-border: rgba(245, 158, 11, 0.2);
 
-  --cmd-blue: #a78bfa;
-  /* Soft Violet (Used for info) */
-  --cmd-blue-bg: rgba(167, 139, 250, 0.1);
-  --cmd-blue-border: rgba(167, 139, 250, 0.3);
+  --cmd-blue: #3b82f6;
+  --cmd-blue-bg: rgba(59, 130, 246, 0.1);
+  --cmd-blue-border: rgba(59, 130, 246, 0.2);
 
-  --cmd-purple: #c084fc;
-  /* Bright Violet */
-  --cmd-purple-bg: rgba(192, 132, 252, 0.15);
+  --cmd-cyan: #06b6d4;
+  --cmd-cyan-bg: rgba(6, 182, 212, 0.1);
 
-  --cmd-pink: #e879f9;
-  /* Neural Flash Pink */
+  --cmd-purple: #8b5cf6;
+  --cmd-purple-bg: rgba(139, 92, 246, 0.1);
 
-  /* Text */
-  --cmd-text: #e9d5ff;
-  /* Pale Purple Text */
-  --cmd-text-muted: #a78bfa;
-  --cmd-text-faint: #6b21a8;
+  /* Text - Stardust */
+  --cmd-text: #f8fafc;
+  --cmd-text-muted: #94a3b8;
+  --cmd-text-faint: #475569;
 
-  /* Gradients */
-  --gradient-glass: linear-gradient(135deg, rgba(15, 10, 21, 0.9) 0%, rgba(5, 4, 10, 0.95) 100%);
-  --gradient-card: linear-gradient(180deg, #151020 0%, #0f0a15 100%);
-  --gradient-brand: linear-gradient(135deg, #d946ef 0%, #8b5cf6 50%, #6366f1 100%);
-  /* Magenta -> Violet -> Indigo */
-  --gradient-green: linear-gradient(135deg, #34d399 0%, #10b981 100%);
-  --gradient-blue: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
+  /* Cosmic Gradients */
+  --gradient-glass: linear-gradient(135deg, rgba(8, 8, 12, 0.8) 0%, rgba(3, 3, 5, 0.95) 100%);
+  --gradient-card: linear-gradient(180deg, #0C0C14 0%, #08080C 100%);
+  --gradient-brand: linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #8b5cf6 100%);
 
-  /* Shadows - Neon Glows */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.6);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.7);
-  --shadow-glow-purple: 0 0 25px rgba(139, 92, 246, 0.2);
-  --shadow-glow-pink: 0 0 25px rgba(217, 70, 239, 0.2);
-  --shadow-glow-green: 0 0 15px rgba(52, 211, 153, 0.2);
+  /* Space Void Shadows */
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.8);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.9);
+  --shadow-glow-cyan: 0 0 20px rgba(6, 182, 212, 0.25);
+  --shadow-glow-purple: 0 0 20px rgba(139, 92, 246, 0.25);
 
-  /* Spacing */
-  --space-xs: 4px;
+  /* Structure */
   --space-sm: 8px;
   --space-md: 16px;
   --space-lg: 24px;
   --space-xl: 32px;
 
-  /* Border Radius */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-full: 9999px;
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-glass: 24px;
 
-  /* Transitions */
-  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Smooth Engine Transitions */
+  --transition-fast: 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-normal: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* Ambient Light Animations */
-  @keyframes pulse {
-
-    0%,
-    100% {
-      opacity: 0.05;
-    }
-
-    50% {
-      opacity: 0.15;
-    }
+  /* Ambient Cosmos Pulse */
+  @keyframes voidPulse {
+    0%, 100% { opacity: 0.02; }
+    50% { opacity: 0.08; }
   }
-
   .animate-pulse-slow {
-    animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    animation: voidPulse 6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
   }
 }
 
@@ -127,20 +105,33 @@
 }
 
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   DEEP SPACE ARCHITECTURE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 body {
-  background: radial-gradient(circle at 50% -20%, var(--mood-color-start, #1a1025) 0%, var(--mood-color-end, #05040a) 100%);
+  background: radial-gradient(circle at 50% 0%, var(--mood-color-start, #0f172a) 0%, var(--mood-color-end, #030305) 100%);
   background-attachment: fixed;
-  color: #c9d1d9;
+  color: #f8fafc;
   font-family: 'Inter', system-ui, sans-serif;
   overflow-x: hidden;
   min-height: 100vh;
-  transition: --mood-color-start 1s ease, --mood-color-end 1s ease;
+  transition: --mood-color-start 1.5s ease-in-out, --mood-color-end 1.5s ease-in-out;
 }
 
-/* MOOD VARIABLES */
+/* Constellation Grid Pattern */
+.bg-grid-pattern {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 64px 64px;
+  background-position: center top;
+}
+
+/* Cosmic Moods */
 .mood-idle {
-  --mood-color-start: #1a1025;
-  --mood-color-end: #05040a;
+  --mood-color-start: #0f172a; /* Slate 800 - distant stars */
+  --mood-color-end: #030305;   /* Void */
 }
 
 .mood-processing {
@@ -333,32 +324,29 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PREMIUM VISUAL EFFECTS - WOW FACTOR
+   PREMIUM VISUAL EFFECTS - COSMIC GLASS
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Glass Card with Glow */
+/* Glass Viewport (Space Station Window) */
 .glass-card {
-  background: rgba(18, 20, 28, 0.7);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(157, 0, 255, 0.1);
-  /* Subtle Purple tint */
-  border-radius: 16px;
-  box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(255, 255, 255, 0.02) inset;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(8, 8, 12, 0.6);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.05); /* Starlight border */
+  border-radius: var(--radius-glass);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03); /* Top surface reflection */
+  transition: all var(--transition-normal);
 }
 
 .glass-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(0, 229, 255, 0.3);
-  /* Cyan hover */
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.8),
-    0 0 25px rgba(157, 0, 255, 0.1),
-    /* Purple glow */
-    0 0 0 1px rgba(0, 229, 255, 0.1) inset;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.9),
+    0 0 30px rgba(6, 182, 212, 0.1), /* Cyan aura */
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 /* Stat Card with Gradient Glow */
@@ -588,32 +576,51 @@ body {
   background-clip: text;
 }
 
-/* Action Buttons Row */
+/* Floating Action Buttons / Modules */
 .action-bar {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: rgba(22, 27, 34, 0.8);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  border-radius: 12px;
-  border: 1px solid rgba(48, 54, 61, 0.5);
+  background: rgba(8, 8, 12, 0.85);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
 }
 
-/* Video Card */
+/* Celestial Video Card */
 .video-card {
-  background: linear-gradient(135deg, rgba(28, 33, 40, 0.9) 0%, rgba(22, 27, 34, 0.95) 100%);
-  border: 1px solid rgba(48, 54, 61, 0.6);
-  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(8, 8, 12, 0.95) 0%, rgba(3, 3, 5, 0.98) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
   padding: 16px;
-  transition: all 0.3s ease;
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+.video-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.3), transparent);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
 }
 
 .video-card:hover {
-  transform: scale(1.02);
-  border-color: rgba(88, 166, 255, 0.4);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  transform: scale(1.02) translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 16px 40px rgba(0, 0, 0, 0.9),
+    0 0 20px rgba(6, 182, 212, 0.15); /* Cyan glow from the engine */
+}
+
+.video-card:hover::before {
+  opacity: 1;
 }
 
 /* Count Up Animation */
