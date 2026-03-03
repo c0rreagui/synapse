@@ -13,14 +13,14 @@ export default function Home() {
         <div className="atmospheric-glass p-5 rounded-sm relative group overflow-hidden transition-all duration-300 hover:bg-white/5">
           <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
           <div className="flex justify-between items-start mb-4 relative z-10">
-            <span className="text-xs font-mono text-cyan-500/60 uppercase tracking-widest">Velocidade Orbital</span>
+            <span className="text-xs font-mono text-cyan-500/60 uppercase tracking-widest">Taxa de Ingestão</span>
             <span className="material-symbols-outlined text-white/20 group-hover:text-cyan-400 transition-colors animate-pulse">speed</span>
           </div>
           <div className="text-3xl font-display font-bold text-white mb-1 drop-shadow-[0_0_8px_rgba(0,240,255,0.3)]">
-            27.400 <span className="text-lg text-slate-500 font-normal">km/h</span>
+            27 <span className="text-lg text-slate-500 font-normal">vídeos/dia</span>
           </div>
           <div className="text-xs font-mono text-emerald-400 flex items-center gap-1">
-            <span className="material-symbols-outlined text-[14px]">arrow_upward</span> Delta-V Ideal
+            <span className="material-symbols-outlined text-[14px]">arrow_upward</span> Fluxo Contínuo
           </div>
           <div className="absolute top-0 left-0 w-2 h-2 border-l border-t border-cyan-500/50"></div>
           <div className="absolute bottom-0 right-0 w-2 h-2 border-r border-b border-cyan-500/50"></div>
@@ -29,14 +29,14 @@ export default function Home() {
         <div className="atmospheric-glass p-5 rounded-sm relative group overflow-hidden hover:bg-white/5 transition-all">
           <div className="absolute inset-0 bg-gradient-to-br from-magenta-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
           <div className="flex justify-between items-start mb-4 relative z-10">
-            <span className="text-xs font-mono text-magenta-500/60 uppercase tracking-widest">Integridade do Casco</span>
-            <span className="material-symbols-outlined text-white/20 group-hover:text-magenta-400 transition-colors">shield</span>
+            <span className="text-xs font-mono text-magenta-500/60 uppercase tracking-widest">Espaço em Disco</span>
+            <span className="material-symbols-outlined text-white/20 group-hover:text-magenta-400 transition-colors">dns</span>
           </div>
           <div className="text-3xl font-display font-bold text-white mb-1 drop-shadow-[0_0_8px_rgba(255,0,85,0.3)]">
-            99.8 <span className="text-lg text-slate-500 font-normal">%</span>
+            42.8 <span className="text-lg text-slate-500 font-normal">GB Livre</span>
           </div>
           <div className="w-full bg-slate-800/50 h-1 mt-2 rounded-full overflow-hidden">
-            <div className="bg-gradient-to-r from-magenta-600 to-purple-500 h-full w-[99.8%] shadow-[0_0_20px_rgba(255,0,85,0.3)] relative">
+            <div className="bg-gradient-to-r from-magenta-600 to-purple-500 h-full w-[65%] shadow-[0_0_20px_rgba(255,0,85,0.3)] relative">
               <div className="absolute top-0 right-0 h-full w-2 bg-white/80 blur-[2px] animate-pulse"></div>
             </div>
           </div>
@@ -44,28 +44,28 @@ export default function Home() {
 
         <div className="atmospheric-glass flex-1 p-5 rounded-sm relative flex flex-col overflow-hidden hover:bg-white/5 transition-all min-h-[200px]">
           <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-2">
-            <span className="text-xs font-display font-bold text-white uppercase tracking-wider text-cyan-200">Sondas Ativas</span>
-            <span className="text-[10px] font-mono text-slate-500 animate-pulse">AUTO-CICLO</span>
+            <span className="text-xs font-display font-bold text-white uppercase tracking-wider text-cyan-200">Nós de Publicação</span>
+            <span className="text-[10px] font-mono text-slate-500 animate-pulse">AUTO-SYNC</span>
           </div>
           <div className="space-y-3 font-mono text-xs overflow-y-auto pr-2 custom-scrollbar relative z-10">
             <div className="flex items-center justify-between p-2 bg-white/5 border-l-2 border-cyan-500 hover:bg-cyan-500/10 transition-colors cursor-pointer group/item">
               <div>
-                <div className="text-cyan-300 font-bold group-hover/item:text-white group-hover/item:shadow-[0_0_10px_rgba(255,255,255,0.4)] transition-all">SONDA-alfa</div>
-                <div className="text-slate-500 text-[10px]">Setor 4 // Mineração</div>
+                <div className="text-cyan-300 font-bold group-hover/item:text-white group-hover/item:shadow-[0_0_10px_rgba(255,255,255,0.4)] transition-all">@opiniao_viral</div>
+                <div className="text-slate-500 text-[10px]">TikTok // Fazendo Upload</div>
               </div>
               <div className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e] animate-pulse"></div>
             </div>
             <div className="flex items-center justify-between p-2 bg-white/5 border-l-2 border-slate-700 hover:bg-indigo-500/10 transition-colors cursor-pointer group/item">
               <div>
-                <div className="text-slate-300 font-bold group-hover/item:text-white">SONDA-beta</div>
-                <div className="text-slate-500 text-[10px]">Setor 9 // Ócio</div>
+                <div className="text-slate-300 font-bold group-hover/item:text-white">@vibe.cortes</div>
+                <div className="text-slate-500 text-[10px]">Insta Reels // Ocioso</div>
               </div>
               <div className="h-1.5 w-1.5 rounded-full bg-yellow-500 shadow-[0_0_5px_#eab308]"></div>
             </div>
             <div className="flex items-center justify-between p-2 bg-white/5 border-l-2 border-magenta-500 hover:bg-magenta-500/10 transition-colors cursor-pointer group/item">
               <div>
-                <div className="text-magenta-300 font-bold group-hover/item:text-white">SONDA-gama</div>
-                <div className="text-slate-500 text-[10px]">Espaço Profundo // Perdida</div>
+                <div className="text-magenta-300 font-bold group-hover/item:text-white">@corte.celestial</div>
+                <div className="text-slate-500 text-[10px]">Shorts // Falha de Sessão</div>
               </div>
               <div className="h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444] animate-ping"></div>
             </div>
@@ -113,10 +113,10 @@ export default function Home() {
             <div className="absolute inset-0 rounded-full border border-cyan-500/40 bg-black/60 backdrop-blur-sm z-10"></div>
             <div className="absolute w-20 h-20 bg-cyan-400 rounded-full blur-xl opacity-40 animate-heartbeat z-0"></div>
 
-            <div className="text-center z-30 relative">
-              <div className="text-[10px] font-mono text-cyan-300 tracking-[0.2em] mb-1 opacity-70">NÚCLEO NEURAL</div>
+            <div className="text-center z-30 relative mt-6">
+              <div className="text-[10px] font-mono text-cyan-300 tracking-[0.2em] mb-1 opacity-70">NÚCLEO NEURAL (CPU)</div>
               <div className="text-4xl font-display font-bold text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] chromatic-text" data-text="84%">84%</div>
-              <div className="text-[9px] font-mono text-indigo-300 mt-1">PROCESSAMENTO</div>
+              <div className="text-[9px] font-mono text-indigo-300 mt-1">EM PROCESSAMENTO</div>
             </div>
 
             <div className="absolute inset-[-10px] border-l-2 border-r-2 border-cyan-500/60 rounded-full animate-[spin_4s_linear_infinite] z-20"></div>
@@ -134,12 +134,12 @@ export default function Home() {
           </div>
 
           <div className="absolute top-20 right-10 animate-pulse text-xs font-mono text-cyan-500/50 text-right">
-            Alvo: ALPHA-CENTAURI<br />
-            Dist: 4.37 AL
+            Main Node: 46.225.62.76<br />
+            Latência: 12ms
           </div>
           <div className="absolute bottom-32 left-10 text-left text-xs font-mono text-indigo-400/60">
-            <span className="animate-pulse">/// TRANSMISSÃO_ATIVA</span><br />
-            Perda Pacotes: 0.002%
+            <span className="animate-pulse">/// POOL DE PROXIES ATIVO</span><br />
+            Rota Confiável: US-East
           </div>
         </div>
 
@@ -188,24 +188,24 @@ export default function Home() {
               <div className="absolute inset-0 flex flex-col items-center justify-center space-y-6">
                 <div className="w-[200px] bg-cyan-900/20 border border-cyan-500/30 p-3 backdrop-blur-sm transform hover:scale-105 transition-all shadow-glow-cyan">
                   <div className="flex justify-between text-[9px] font-mono text-cyan-300 mb-1 border-b border-cyan-500/20 pb-1">
-                    <span>[SYS_INIT]</span>
+                    <span>[SYS_AUT]</span>
                     <span>10:42:01</span>
                   </div>
-                  <div className="text-[11px] text-white drop-shadow-[0_0_3px_rgba(0,240,255,0.8)]">Sequência Alfa iniciada.</div>
+                  <div className="text-[11px] text-white drop-shadow-[0_0_3px_rgba(0,240,255,0.8)]">Sessão validada para @opiniao_viral.</div>
                 </div>
                 <div className="w-[190px] bg-black/40 border border-indigo-500/30 p-3 backdrop-blur-sm opacity-90 hover:opacity-100 transition-opacity">
                   <div className="flex justify-between text-[9px] font-mono text-indigo-300 mb-1 pb-1">
                     <span>[NET_WARN]</span>
                     <span>10:42:15</span>
                   </div>
-                  <div className="text-[11px] text-slate-300">Pico de latência no Nó_7.</div>
+                  <div className="text-[11px] text-slate-300">Proxy US-East-1 apresentando lentidão.</div>
                 </div>
                 <div className="w-[180px] bg-magenta-900/10 border border-magenta-500/30 p-3 backdrop-blur-sm opacity-70 hover:opacity-100 transition-opacity">
                   <div className="flex justify-between text-[9px] font-mono text-magenta-300 mb-1 pb-1">
-                    <span>[ERR_CRIT]</span>
+                    <span>[JOB_OK]</span>
                     <span>10:42:44</span>
                   </div>
-                  <div className="text-[11px] text-magenta-100">Falha no redirecionamento. Tentando novamente...</div>
+                  <div className="text-[11px] text-magenta-100">Vídeo VCL_2393 publicado em @vibe.cortes!</div>
                 </div>
               </div>
             </div>
