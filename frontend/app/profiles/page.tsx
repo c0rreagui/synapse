@@ -392,211 +392,205 @@ export default function ProfilesPage() {
                 </StitchCard>
             )}
 
-            {/* Profiles Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-24">
+            <div className="text-center mb-16 relative">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[200px] bg-synapse-primary/10 blur-[80px] rounded-full -z-10"></div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1a363a]/30 border border-synapse-primary/20 backdrop-blur-sm text-synapse-primary text-[10px] font-mono tracking-[0.2em] uppercase mb-4">
+                    <span className="w-1.5 h-1.5 rounded-full bg-synapse-primary animate-pulse"></span>
+                    Topologia de Contas
+                </div>
+                <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tighter uppercase mb-2">Node Wall</h1>
+                <p className="text-slate-500 font-mono text-xs tracking-widest">Matriz de Distribuição • {profiles.length} Nodes</p>
+            </div>
+
+            {/* Profiles Main Grid Structure - CSS inside styles/globals.css is needed (hex-cell, hex-border, etc.) */}
+            <div className="flex flex-wrap w-full justify-center items-center max-w-[1200px] mx-auto relative pb-24">
+
+                {/* Using a flex wrap layout manually creating "rows" is complex dynamically without strict math, 
+                    we can adapt it to a standard grid that mimics the flex wrap offsets using negative margins in mapping 
+                    but the Stitch design uses flex-wrap with negative top margins.
+                */}
+
                 {loading ? (
                     <p className="text-gray-500 col-span-full text-center py-12">Carregando perfis...</p>
                 ) : profiles.length > 0 ? (
-                    profiles.map((profile, i) => {
-                        if (pendingDeletes.has(profile.id)) return null;
-                        const health = getHealthStatus(profile);
-                        const isSelected = selectedIds.has(profile.id);
-                        const refreshError = refreshErrors[profile.id];
-                        const isRefreshing = refreshingProfiles[profile.id];
+                    <div className="flex flex-wrap justify-center w-full gap-x-5 gap-y-5">
+                        {profiles.map((profile, i) => {
+                            if (pendingDeletes.has(profile.id)) return null;
+                            const health = getHealthStatus(profile);
+                            const isSelected = selectedIds.has(profile.id);
+                            const refreshError = refreshErrors[profile.id];
+                            const isRefreshing = refreshingProfiles[profile.id];
 
-                        return (
-                            <StitchCard
-                                key={i}
-                                className={clsx(
-                                    "p-6 relative group transition-all duration-300",
-                                    isSelected ? "border-synapse-primary/50 bg-synapse-primary/5" : ""
+                            return (
+                                <div key={i} className={clsx(
+                                    "group relative w-[300px] h-[340px] m-2 transition-all duration-400 flex justify-center items-center",
+                                    "clip-path-hex bg-[#0a1114]/40 backdrop-blur-md hover:z-20 hover:scale-105 hover:bg-[#0f1a1d]/60",
+                                    isSelected ? "shadow-[0_0_20px_rgba(7,182,213,0.4)] bg-[#0f1a1d]/60 scale-105" : "",
                                 )}
-                            >
-                                {/* Checkbox Overlay */}
-                                <div className="absolute top-4 right-4 z-10">
-                                    <input
-                                        type="checkbox"
-                                        checked={isSelected}
-                                        onChange={() => handleSelect(profile.id)}
-                                        className="w-4 h-4 rounded border-gray-600 bg-black/50 text-synapse-primary focus:ring-synapse-primary cursor-pointer accent-synapse-primary"
-                                    />
-                                </div>
+                                    onClick={(e) => {
+                                        // only trigger auto select if not clicking buttons inside
+                                        const target = e.target as HTMLElement;
+                                        if (!target.closest('button') && !target.closest('input')) {
+                                            handleSelect(profile.id);
+                                        }
+                                    }}
+                                >
 
-                                {/* ERROR OVERLAY */}
-                                {refreshError && (
-                                    <div className="absolute inset-0 z-30 bg-black/90 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in border border-red-500/30">
-                                        <ExclamationTriangleIcon className="w-8 h-8 text-red-500 mb-3 animate-pulse" />
-                                        <p className="text-sm text-white font-bold mb-1">Falha na Atualização</p>
-                                        <p className="text-xs text-red-300 mb-4 leading-tight opacity-90 font-mono bg-red-900/20 p-2 rounded">{refreshError}</p>
+                                    <div className="absolute inset-0 bg-gradient-to-b from-synapse-primary/30 to-synapse-primary/5 clip-path-hex z-0 p-[1px]">
+                                        <div className="bg-[#050b0d] w-full h-full clip-path-hex relative flex flex-col">
 
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); setRefreshErrors(prev => ({ ...prev, [profile.id]: null })); }}
-                                                className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-xs text-white font-bold transition-all border border-white/5 hover:border-white/20"
-                                            >
-                                                FECHAR
-                                            </button>
+                                            {/* Background Image / Overlay */}
+                                            <div className="absolute inset-0 bg-cover bg-center opacity-40 group-hover:opacity-60 transition-opacity duration-500"
+                                                style={{ backgroundImage: profile.avatar_url ? `url('${profile.avatar_url}')` : 'none' }}></div>
+                                            <div className="absolute inset-0 bg-gradient-to-t from-[#030608] via-[#030608]/80 to-transparent"></div>
 
-                                            {/* RENEW BUTTON */}
-                                            {refreshError.includes("cookies") && (
-                                                <NeonButton
-                                                    variant="primary"
-                                                    onClick={(e) => { e.stopPropagation(); setRepairProfile(profile); }}
-                                                    className="!py-1 !px-4 !text-[10px]"
-                                                >
-                                                    RENOVAR COOKIES
-                                                </NeonButton>
+                                            {/* CRT Scanline */}
+                                            <div className="absolute top-0 left-0 w-full h-1 bg-synapse-primary/50 shadow-[0_0_10px_rgba(7,182,213,0.8)] opacity-50 animate-[scan_4s_linear_infinite] z-10 pointer-events-none"></div>
+
+                                            {/* Error OVERLAY */}
+                                            {refreshError && (
+                                                <div className="absolute inset-0 z-30 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in border-4 border-red-500/30 clip-path-hex">
+                                                    <ExclamationTriangleIcon className="w-8 h-8 text-red-500 mb-3 animate-pulse" />
+                                                    <p className="text-xs text-white font-bold mb-1 uppercase tracking-wider">Falha</p>
+                                                    <p className="text-[10px] text-red-300 mb-4 leading-tight opacity-90 font-mono bg-red-900/20 p-2 rounded">{refreshError}</p>
+
+                                                    <div className="flex gap-2 flex-col">
+                                                        <button onClick={(e) => { e.stopPropagation(); setRefreshErrors(prev => ({ ...prev, [profile.id]: null })); }} className="px-4 py-2 bg-white/10 hover:bg-white/20 text-[10px] text-white font-bold transition-all border border-white/5">
+                                                            FECHAR
+                                                        </button>
+                                                        {refreshError.includes("cookies") && (
+                                                            <button onClick={(e) => { e.stopPropagation(); setRepairProfile(profile); }} className="px-4 py-2 bg-amber-500/20 text-amber-500 hover:bg-amber-500/30 text-[10px] font-bold border border-amber-500/50">
+                                                                RENOVAR
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             )}
-                                        </div>
-                                    </div>
-                                )}
 
-                                {/* REFRESHING FULL OVERLAY (with text) */}
-                                {isRefreshing && (
-                                    <div className="absolute inset-0 z-20 bg-black/80 backdrop-blur-[2px] rounded-xl flex flex-col items-center justify-center animate-in fade-in duration-300">
-                                        <ArrowPathIcon className="w-8 h-8 text-synapse-primary animate-spin mb-3" />
-                                        <p className="text-xs font-bold text-white tracking-wider animate-pulse">ATUALIZANDO...</p>
-                                        <p className="text-[10px] text-synapse-primary/70 mt-1 font-mono">Verificando sessão</p>
-                                    </div>
-                                )}
+                                            {/* Updating Overlay */}
+                                            {isRefreshing && (
+                                                <div className="absolute inset-0 z-20 bg-black/80 flex flex-col items-center justify-center clip-path-hex">
+                                                    <ArrowPathIcon className="w-8 h-8 text-synapse-primary animate-spin mb-3" />
+                                                    <p className="text-[10px] font-bold text-white tracking-[0.2em] animate-pulse">UPDATING</p>
+                                                </div>
+                                            )}
 
-                                <div className="flex items-center justify-between mb-4 pr-6">
-                                    <div className="flex items-center gap-3">
-                                        {/* Avatar Logic */}
-                                        <div className="relative">
-                                            {profile.avatar_url ? (
-                                                <img
-                                                    src={profile.avatar_url}
-                                                    alt={profile.label}
-                                                    className={clsx(
-                                                        "w-12 h-12 rounded-full object-cover bg-[#30363d] ring-2 ring-transparent group-hover:ring-synapse-primary/50 transition-all",
-                                                        isRefreshing && "blur-[2px] opacity-50"
+                                            <div className="relative z-10 w-full h-full flex flex-col justify-between p-6 pt-10 pb-12">
+
+                                                {/* Header Status Row */}
+                                                <div className="flex justify-between items-start">
+                                                    <div className={clsx(
+                                                        "bg-[#0a1114]/80 backdrop-blur border px-2 py-1 rounded text-[10px] font-mono",
+                                                        health === 'healthy' ? "border-synapse-primary text-synapse-primary" :
+                                                            health === 'expired' || health === 'error' ? "border-red-500/30 text-red-500" :
+                                                                "border-gray-500/50 text-gray-500"
+                                                    )}>
+                                                        {health === 'healthy' ? `ND-${profile.id.slice(0, 4).toUpperCase()}` :
+                                                            health === 'inactive' ? 'INATIVO' : 'ERR:404'}
+                                                    </div>
+
+                                                    {/* Select Checkbox */}
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={() => handleSelect(profile.id)}
+                                                        className="w-4 h-4 rounded border-synapse-primary bg-black/50 text-synapse-primary focus:ring-synapse-primary cursor-pointer accent-synapse-primary z-50 absolute right-6 top-10"
+                                                    />
+
+                                                    {health === 'healthy' ? (
+                                                        <span className="material-symbols-outlined text-white/50 text-xl"></span>
+                                                    ) : (
+                                                        <span className="material-symbols-outlined text-red-500/80 text-xl animate-pulse"></span>
                                                     )}
-                                                    onError={(e) => {
-                                                        // Fallback on error
-                                                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${profile.label}&background=random`;
-                                                    }}
-                                                />
-                                            ) : (
-                                                <span className="text-4xl">{getProfileIcon(profile.id, profile.icon)}</span>
-                                            )}
-                                            {/* HEALTH INDICATOR */}
-                                            <div className={clsx(
-                                                "absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#161b22]",
-                                                health === 'healthy' ? "bg-emerald-500" :
-                                                    health === 'expired' || health === 'error' ? "bg-red-500" : "bg-gray-500"
-                                            )}>
-                                                {health === 'healthy' && (
-                                                    <div className="absolute inset-0 bg-emerald-500 rounded-full animate-ping opacity-75" />
-                                                )}
+                                                </div>
+
+                                                <div className="flex flex-col items-center text-center">
+                                                    <div className={clsx(
+                                                        "size-12 mb-3 bg-black/50 rounded-lg flex items-center justify-center border shadow-[0_0_15px_rgba(0,0,0,0.3)]",
+                                                        health === 'healthy' ? "border-synapse-primary/30 shadow-[0_0_15px_rgba(7,182,213,0.3)]" : "border-red-500/50 shadow-[0_0_15px_rgba(255,42,42,0.3)]"
+                                                    )}>
+                                                        <span className="text-2xl">{getProfileIcon(profile.id, profile.icon)}</span>
+                                                    </div>
+
+                                                    <h3 className="text-lg font-bold text-white tracking-tight truncate w-full max-w-[140px] uppercase">{profile.label}</h3>
+                                                    {profile.username && <p className="text-[10px] font-mono text-synapse-primary/70 -mt-1 tracking-widest">@{profile.username}</p>}
+
+                                                    <div className="w-full h-px bg-white/10 my-3"></div>
+
+                                                    <div className="flex justify-between w-full text-[9px] font-mono text-slate-400">
+                                                        <span>STATUS</span>
+                                                        <span className={health === 'healthy' ? "text-[#00ff9d]" : "text-red-500"}>
+                                                            {health === 'healthy' ? "OPTIMAL" : "FAILED"}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="flex justify-between w-full text-[9px] font-mono text-slate-400 mt-1 relative z-50">
+                                                        <span>ACTIONS</span>
+                                                        <div className="flex gap-2">
+                                                            {(health === 'error' || health === 'expired' || health === 'inactive') ? (
+                                                                <button onClick={(e) => { e.stopPropagation(); setRepairProfile(profile); }} className="text-amber-500 hover:text-amber-400 transition-colors uppercase font-bold tracking-wider">Reparar</button>
+                                                            ) : (
+                                                                <button onClick={(e) => { e.stopPropagation(); handleRefreshAvatar(profile.id); }} className="text-synapse-primary hover:text-white transition-colors uppercase font-bold tracking-wider">Sync</button>
+                                                            )}
+                                                            <button onClick={(e) => { e.stopPropagation(); promptDelete(profile.id); }} className="text-red-500 hover:text-white transition-colors uppercase font-bold tracking-wider ml-2">Del</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-32 h-1 bg-[#1a363a] rounded-full overflow-hidden">
+                                                    <div className={clsx(
+                                                        "h-full w-[90%]",
+                                                        health === 'healthy' ? "bg-[#00ff9d] shadow-[0_0_8px_#00ff9d]" : "bg-red-500 shadow-[0_0_8px_#ff2a2a] w-[10%]"
+                                                    )}></div>
+                                                </div>
+
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            )
+                        })}
 
-                                        <div>
-                                            <h3 className="text-base font-bold text-white m-0 truncate max-w-[120px]">{profile.label}</h3>
-                                            {profile.username && (
-                                                <p className="text-xs text-gray-400 m-0 mt-0.5 truncate max-w-[120px]">@{profile.username}</p>
-                                            )}
+                        {/* Add Profile Hex */}
+                        <div className="group relative w-[300px] h-[340px] m-2 transition-all duration-400 flex justify-center items-center z-10 cursor-pointer"
+                            onClick={() => {
+                                setImportLabel('');
+                                setImportCookies('');
+                                setImportUsername('');
+                                setImportAvatar('');
+                                setShowImportModal(true);
+                            }}
+                        >
+                            <div className="absolute inset-0 bg-transparent border border-dashed border-synapse-primary/50 group-hover:border-synapse-primary transition-colors duration-300 clip-path-hex z-0 p-[1px]">
+                                <div className="bg-[#0a1114]/90 w-full h-full clip-path-hex relative flex flex-col items-center justify-center overflow-hidden">
+                                    <div className="absolute inset-0 bg-synapse-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-pulse"></div>
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <div className="w-[80%] h-[80%] border border-synapse-primary/20 rounded-full animate-[spin_10s_linear_infinite]"></div>
+                                    </div>
+                                    <div className="relative z-10 flex flex-col items-center">
+                                        <div className="size-16 rounded-full border-2 border-synapse-primary/50 bg-[#030608] flex items-center justify-center group-hover:scale-110 transition-transform duration-300 mb-4 shadow-[0_0_20px_rgba(7,182,213,0.4)]">
+                                            <span className="material-symbols-outlined text-3xl text-synapse-primary">satellite_alt</span>
                                         </div>
+                                        <h3 className="text-xl font-bold text-white uppercase tracking-wider group-hover:text-synapse-primary transition-colors">Deploy</h3>
+                                        <p className="text-[10px] text-synapse-primary font-mono mt-1 opacity-70">INIT_NEW_NODE</p>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
 
-                                {/* Health Status Text */}
-                                <div className="flex gap-2 mb-4">
-                                    <div className={clsx(
-                                        "px-2 py-1.5 rounded text-[10px] font-bold uppercase inline-flex items-center gap-1.5 border flex-1 justify-center",
-                                        health === 'healthy' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
-                                            health === 'expired' || health === 'error' ? "bg-red-500/10 text-red-400 border-red-500/20" :
-                                                "bg-gray-500/10 text-gray-400 border-gray-500/20"
-                                    )}>
-                                        {health === 'healthy' ? (
-                                            <><CheckCircleIcon className="w-3 h-3" /> ATIVO</>
-                                        ) : health === 'expired' ? (
-                                            <><div className="w-2 h-2 rounded-full bg-red-500" /> EXPIRADO</>
-                                        ) : health === 'error' ? (
-                                            <><div className="w-2 h-2 rounded-full bg-red-500" /> ERRO</>
-                                        ) : (
-                                            <><div className="w-2 h-2 rounded-full bg-gray-500" /> INATIVO</>
-                                        )}
-                                    </div>
-
-                                    {/* VIEW ERROR BUTTON */}
-                                    {profile.last_error_screenshot && (
-                                        <button
-                                            onClick={() => setViewerImage(`${getApiUrl()}${profile.last_error_screenshot}`)}
-                                            className="px-2 py-1.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] font-bold hover:bg-red-500/20 transition-colors"
-                                            title="Ver Print do Erro"
-                                        >
-                                            VER ERRO
-                                        </button>
-                                    )}
-                                </div>
-
-                                {/* [SYN-UX] Error Recovery Actions */}
-                                {health === 'error' || health === 'expired' || health === 'inactive' ? ( // Show for error, expired AND inactive
-                                    <div className="flex gap-2 mb-4 animate-in fade-in">
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); setRepairProfile(profile); }}
-                                            className="flex-1 px-3 py-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] font-bold hover:bg-amber-500/20 transition-all flex items-center justify-center gap-1.5 shadow-[0_0_10px_rgba(245,158,11,0.1)]"
-                                        >
-                                            <ExclamationTriangleIcon className="w-3 h-3" />
-                                            REPARAR SESSÃO
-                                        </button>
-                                    </div>
-                                ) : null}
-
-
-                                <div className="grid grid-cols-2 gap-3 mb-4">
-                                    <div className="p-3 rounded-lg bg-black/30 border border-white/5">
-                                        <p className="text-[10px] text-gray-500 m-0 uppercase font-mono">UPLOADS</p>
-                                        <p className="text-sm text-white font-medium m-0 mt-1">—</p>
-                                    </div>
-                                    <div className="p-3 rounded-lg bg-black/30 border border-white/5 flex flex-col justify-center">
-                                        <p className="text-[10px] text-gray-500 m-0 uppercase font-mono">NICHE</p>
-                                        <p className="text-xs text-white/50 m-0 mt-1 truncate">{profile.niche || "Geral"}</p>
-                                    </div>
-                                </div>
-
-                                <div className="flex gap-2">
-                                    <NeonButton variant="primary" className="flex-1 text-xs">
-                                        Usar Perfil
-                                    </NeonButton>
-
-                                    {/* Refresh Avatar Button */}
-                                    <button
-                                        onClick={() => handleRefreshAvatar(profile.id)}
-                                        disabled={isRefreshing}
-                                        className={clsx(
-                                            "p-2.5 rounded-lg bg-[#1c2128] border border-white/10 text-gray-400 hover:text-white hover:border-synapse-primary/50 transition-all",
-                                            isRefreshing && "opacity-20 cursor-not-allowed"
-                                        )}
-                                        title="Atualizar avatar do TikTok"
-                                    >
-                                        <ArrowPathIcon
-                                            className={clsx(
-                                                "w-4 h-4",
-                                                isRefreshing && "animate-spin text-synapse-primary"
-                                            )}
-                                        />
-                                    </button>
-
-                                    <button
-                                        title="Excluir perfil"
-                                        onClick={() => promptDelete(profile.id)}
-                                        className="p-2.5 rounded-lg bg-[#1c2128] border border-white/10 text-gray-400 hover:text-red-400 hover:border-red-500/50 transition-all"
-                                    >
-                                        <TrashIcon className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </StitchCard>
-                        )
-                    })
+                    </div>
                 ) : (
-                    <StitchCard className="p-12 text-center col-span-full flex flex-col items-center justify-center">
-                        <UserGroupIcon className="w-12 h-12 text-gray-600 mb-4" />
-                        <p className="text-gray-400 m-0">Nenhum perfil encontrado</p>
-                        <p className="text-xs text-gray-600 mt-2">Adicione sessões TikTok em backend/data/sessions/</p>
-                    </StitchCard>
+                    <div className="col-span-full flex flex-col items-center justify-center py-20 pointer-events-auto">
+                        <div className="size-24 rounded-full border-4 border-dashed border-synapse-primary/20 flex items-center justify-center mb-6">
+                            <span className="material-symbols-outlined text-5xl text-synapse-primary/50">hub</span>
+                        </div>
+                        <h2 className="text-2xl text-white font-bold tracking-widest uppercase">Nenhum Nó Ativo</h2>
+                        <p className="text-xs text-synapse-primary/60 font-mono mt-2 mb-8">INIT_NEW_NODE_SEQ para começar</p>
+
+                        <NeonButton variant="primary" onClick={() => setShowImportModal(true)}>
+                            Deploy Novo Nó
+                        </NeonButton>
+                    </div>
                 )}
 
                 {/* Floating Bulk Actions Bar */}
@@ -661,21 +655,6 @@ export default function ProfilesPage() {
                             </button>
                         </div>
                     </div>
-                </div>
-
-                {/* Add Profile Card */}
-                <div
-                    onClick={() => {
-                        setImportLabel('');
-                        setImportCookies('');
-                        setImportUsername('');
-                        setImportAvatar('');
-                        setShowImportModal(true);
-                    }}
-                    className="p-6 rounded-xl bg-white/5 border-2 border-dashed border-white/10 flex flex-col items-center justify-center min-h-[200px] cursor-pointer hover:border-synapse-primary/50 hover:bg-white/10 transition-all group"
-                >
-                    <PlusIcon className="w-8 h-8 text-gray-500 group-hover:text-synapse-primary mb-3 transition-colors" />
-                    <p className="text-gray-500 group-hover:text-gray-300 transition-colors m-0">Importar Novo Perfil</p>
                 </div>
             </div>
 
