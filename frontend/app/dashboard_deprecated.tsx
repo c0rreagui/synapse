@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sidebar } from "./components";
+import { NeoSidebar as Sidebar } from "./components/design-system/NeoSidebar";
+import Header from "./components/Header";
 
 interface QueuedFile {
   id: number;

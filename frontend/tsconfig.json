@@ -40,6 +40,10 @@
     "./**/*.mts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "stories",
+    "**/*.stories.tsx",
+    "**/*.test.tsx",
+    "**/*.test.ts"
   ]
 }

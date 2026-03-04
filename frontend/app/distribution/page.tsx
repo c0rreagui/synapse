@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Sidebar, Header, StatCard } from "../components";
+import { Header, StatCard } from "../components";
+import { NeoSidebar } from "../components/design-system/NeoSidebar";
 import { CpuChipIcon, BoltIcon, ServerIcon } from "@heroicons/react/24/outline";
 
 interface DataPathway {
@@ -78,7 +79,7 @@ export default function DistributionPage() {
             <div className="fixed inset-0 bg-glow-radial pointer-events-none z-0" />
             <div className="fixed inset-0 bg-cyber-grid pointer-events-none opacity-30 z-0" />
 
-            <Sidebar />
+            <NeoSidebar />
 
             <div className="flex-1 flex flex-col h-screen overflow-hidden">
                 <Header title="Distribution Flow" subtitle="RELAY_NETWORK" />

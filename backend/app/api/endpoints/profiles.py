@@ -178,3 +178,231 @@ async def delete_profile_endpoint(profile_id: str):
         
     return {"status": "success", "message": f"Perfil {profile_id} removido."}
 
+
+# ─── SYN-88: Bulk Endpoints ─────────────────────────────────────────────
+
+class BulkProfileRequest(BaseModel):
+    profile_ids: List[str]
+
+
+@router.post("/bulk-refresh")
+async def bulk_refresh_endpoint(request: BulkProfileRequest, background_tasks: BackgroundTasks):
+    """
+    Refresh de metadados (avatar, status) em lote.
+    Enfileira cada perfil sequencialmente no background para evitar
+    race conditions no SQLite com múltiplos threads simultâneos.
+    """
+    from fastapi.concurrency import run_in_threadpool
+    from core.session_manager import update_profile_metadata_async
+
+    if not request.profile_ids:
+        raise HTTPException(status_code=400, detail="Lista de profile_ids vazia")
+
+    for pid in request.profile_ids:
+        background_tasks.add_task(run_in_threadpool, update_profile_metadata_async, pid)
+
+    return {
+        "status": "refreshing",
+        "count": len(request.profile_ids),
+        "message": f"Refresh iniciado para {len(request.profile_ids)} perfis em background.",
+    }
+
+
+@router.post("/bulk-delete")
+async def bulk_delete_endpoint(request: BulkProfileRequest):
+    """
+    Deleção em lote de perfis.
+    Loop transacional interno: deleta um a um dentro do mesmo request,
+    evitando race conditions de 'Database is locked' no SQLite.
+    """
+    from core.session_manager import delete_session
+
+    if not request.profile_ids:
+        raise HTTPException(status_code=400, detail="Lista de profile_ids vazia")
+
+    results = {"deleted": [], "failed": []}
+
+    for pid in request.profile_ids:
+        try:
+            success = delete_session(pid)
+            if success:
+                results["deleted"].append(pid)
+            else:
+                results["failed"].append({"id": pid, "reason": "Perfil não encontrado"})
+        except Exception as e:
+            results["failed"].append({"id": pid, "reason": str(e)})
+
+    return {
+        "status": "completed",
+        "deleted_count": len(results["deleted"]),
+        "failed_count": len(results["failed"]),
+        "details": results,
+    }
+
+
+# ─── SYN-83: Proxy Management per Profile ────────────────────────────────
+
+class ProxyConfigRequest(BaseModel):
+    proxy_server: str           # Ex: "http://123.45.67.89:8080"
+    proxy_username: Optional[str] = None
+    proxy_password: Optional[str] = None
+
+
+@router.get("/{profile_id}/proxy")
+async def get_proxy_config(profile_id: str):
+    """
+    Retorna a configuração de proxy de um perfil.
+    Mascara a senha por segurança.
+    """
+    from core.database import SessionLocal
+    from core.models import Profile
+    from fastapi.concurrency import run_in_threadpool
+
+    def _get():
+        db = SessionLocal()
+        try:
+            profile = db.query(Profile).filter(
+                (Profile.slug == profile_id) | (Profile.username == profile_id)
+            ).first()
+            if not profile:
+                return None
+            return {
+                "proxy_server": profile.proxy_server,
+                "proxy_username": profile.proxy_username,
+                "proxy_password": ("***" + profile.proxy_password[-4:]) if profile.proxy_password and len(profile.proxy_password) > 4 else ("***" if profile.proxy_password else None),
+                "has_proxy": bool(profile.proxy_server),
+            }
+        finally:
+            db.close()
+
+    result = await run_in_threadpool(_get)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Perfil não encontrado")
+    return result
+
+
+@router.put("/{profile_id}/proxy")
+async def set_proxy_config(profile_id: str, request: ProxyConfigRequest):
+    """
+    Define ou atualiza o proxy de um perfil.
+    """
+    from core.database import SessionLocal
+    from core.models import Profile
+    from fastapi.concurrency import run_in_threadpool
+
+    def _update():
+        db = SessionLocal()
+        try:
+            profile = db.query(Profile).filter(
+                (Profile.slug == profile_id) | (Profile.username == profile_id)
+            ).first()
+            if not profile:
+                return False
+            profile.proxy_server = request.proxy_server
+            profile.proxy_username = request.proxy_username
+            profile.proxy_password = request.proxy_password
+            db.commit()
+            return True
+        finally:
+            db.close()
+
+    success = await run_in_threadpool(_update)
+    if not success:
+        raise HTTPException(status_code=404, detail="Perfil não encontrado")
+    return {"status": "success", "message": f"Proxy configurado para {profile_id}"}
+
+
+@router.delete("/{profile_id}/proxy")
+async def remove_proxy_config(profile_id: str):
+    """
+    Remove o proxy de um perfil (limpa todas as credenciais).
+    """
+    from core.database import SessionLocal
+    from core.models import Profile
+    from fastapi.concurrency import run_in_threadpool
+
+    def _clear():
+        db = SessionLocal()
+        try:
+            profile = db.query(Profile).filter(
+                (Profile.slug == profile_id) | (Profile.username == profile_id)
+            ).first()
+            if not profile:
+                return False
+            profile.proxy_server = None
+            profile.proxy_username = None
+            profile.proxy_password = None
+            db.commit()
+            return True
+        finally:
+            db.close()
+
+    success = await run_in_threadpool(_clear)
+    if not success:
+        raise HTTPException(status_code=404, detail="Perfil não encontrado")
+    return {"status": "success", "message": f"Proxy removido de {profile_id}"}
+
+
+@router.post("/{profile_id}/test-proxy")
+async def test_proxy_config(profile_id: str):
+    """
+    Testa a conectividade do proxy configurado para um perfil.
+    Faz um GET em https://httpbin.org/ip via o proxy para verificar se funciona.
+    """
+    import httpx
+    from core.database import SessionLocal
+    from core.models import Profile
+    from fastapi.concurrency import run_in_threadpool
+
+    def _get_proxy():
+        db = SessionLocal()
+        try:
+            profile = db.query(Profile).filter(
+                (Profile.slug == profile_id) | (Profile.username == profile_id)
+            ).first()
+            if not profile:
+                return None
+            if not profile.proxy_server:
+                return {"error": "Nenhum proxy configurado"}
+            return {
+                "server": profile.proxy_server,
+                "username": profile.proxy_username,
+                "password": profile.proxy_password,
+            }
+        finally:
+            db.close()
+
+    proxy_info = await run_in_threadpool(_get_proxy)
+    if proxy_info is None:
+        raise HTTPException(status_code=404, detail="Perfil não encontrado")
+    if "error" in proxy_info:
+        raise HTTPException(status_code=400, detail=proxy_info["error"])
+
+    # Build proxy URL
+    server = proxy_info["server"]
+    if proxy_info.get("username") and proxy_info.get("password"):
+        # Insert auth into URL: http://user:pass@host:port
+        protocol = "http://"
+        if server.startswith("http://"):
+            server = server[7:]
+        elif server.startswith("https://"):
+            protocol = "https://"
+            server = server[8:]
+        proxy_url = f"{protocol}{proxy_info['username']}:{proxy_info['password']}@{server}"
+    else:
+        proxy_url = server
+
+    try:
+        async with httpx.AsyncClient(proxy=proxy_url, timeout=10.0) as client:
+            resp = await client.get("https://httpbin.org/ip")
+            data = resp.json()
+            return {
+                "status": "success",
+                "proxy_ip": data.get("origin", "unknown"),
+                "message": f"Proxy funcional. IP: {data.get('origin', '?')}",
+            }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Proxy falhou: {str(e)}",
+        }

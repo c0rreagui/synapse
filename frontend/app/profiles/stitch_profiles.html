@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Synapse Honeycomb Node Wall</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#07b6d5",
+              "primary-hover": "#059ab5",
+              "background-light": "#f5f8f8",
+              "background-dark": "#030608",
+              "surface-dark": "#0a1114",
+              "surface-border": "#1a363a",
+              "status-success": "#00ff9d",
+              "status-error": "#ff2a2a",
+              "status-warn": "#ffb02a",
+            },
+            fontFamily: {
+              "display": ["Space Grotesk", "sans-serif"],
+              "mono": ["JetBrains Mono", "monospace"]
+            },
+            backgroundImage: {
+               'deep-space': "radial-gradient(circle at 50% 0%, #0c1e22 0%, #030608 100%)",
+               'hex-pattern': "url('data:image/svg+xml,%3Csvg width=\\'24\\' height=\\'40\\' viewBox=\\'0 0 24 40\\' xmlns=\\'http://www.w3.org/2000/svg\\'%3E%3Cpath d=\\'M0 40c5.523 0 10-4.477 10-10V10c0-5.523 4.477-10 10-10s10 4.477 10 10v20c0 5.523-4.477 10-10 10S0 35.523 0 30V10C0 4.477 4.477 0 10 0s10 4.477 10 10v30\\' fill=\\'none\\' stroke=\\'%231a363a\\' stroke-opacity=\\'0.1\\'/%3E%3C/svg%3E')"
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .starfield {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            background-image: 
+                radial-gradient(1px 1px at 20px 30px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(1px 1px at 40px 70px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(1px 1px at 50px 160px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(1.5px 1.5px at 90px 40px, #ffffff, rgba(0,0,0,0)),
+                radial-gradient(1.5px 1.5px at 130px 80px, #ffffff, rgba(0,0,0,0));
+            background-repeat: repeat;
+            background-size: 200px 200px;
+            opacity: 0.3;
+        }
+        .honeycomb-grid {
+            display: flex;
+            flex-wrap: wrap;
+            width: 100%;
+            justify-content: center;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+        }
+        .honeycomb-row {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            margin-top: -35px;}
+        .honeycomb-row:first-child {
+            margin-top: 0;
+        }
+        .hex-cell {
+            position: relative;
+            width: 300px;
+            height: 340px; 
+            margin: 0 10px;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            background: rgba(10, 17, 20, 0.4);
+            backdrop-filter: blur(8px);
+            transition: all 0.4s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .hex-cell:hover {
+            z-index: 20;
+            filter: drop-shadow(0 0 20px rgba(7, 182, 213, 0.4));
+            transform: scale(1.05);
+            background: rgba(15, 26, 29, 0.6);
+        }
+        .hex-border {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(7,182,213,0.3), rgba(7,182,213,0.05));
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            z-index: 1;
+            padding: 1px;}
+        .hex-inner {
+            background: #050b0d;
+            width: 100%;
+            height: 100%;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        .chromatic-aberration:hover {
+            animation: glitch 0.3s cubic-bezier(.25, .46, .45, .94) both infinite;
+            color: #07b6d5;
+            text-shadow: 2px 0 #ff2a2a, -2px 0 #00ff9d;
+        }
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: rgba(7, 182, 213, 0.5);
+            box-shadow: 0 0 10px rgba(7, 182, 213, 0.8);
+            opacity: 0.5;
+            animation: scan 4s linear infinite;
+            z-index: 10;
+            pointer-events: none;
+        }
+        @keyframes scan {
+            0% { top: 0%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }.connection-svg {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 110%;
+            height: 110%;
+            pointer-events: none;
+            z-index: -1;
+            opacity: 0.4;
+        }
+    </style>
+</head>
+<body class="bg-background-dark text-slate-100 font-display min-h-screen flex flex-col overflow-x-hidden bg-deep-space relative selection:bg-primary/30">
+<div class="starfield"></div>
+<div class="absolute inset-0 bg-hex-pattern opacity-10 pointer-events-none"></div>
+<header class="sticky top-0 z-50 w-full border-b border-white/5 bg-background-dark/80 backdrop-blur-md">
+<div class="max-w-[1600px] mx-auto px-6 h-20 flex items-center justify-between">
+<div class="flex items-center gap-3 text-white">
+<div class="size-10 text-primary relative">
+<div class="absolute inset-0 bg-primary/20 blur-lg rounded-full"></div>
+<svg class="w-full h-full relative z-10" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path clip-rule="evenodd" d="M39.475 21.6262C40.358 21.4363 40.6863 21.5589 40.7581 21.5934C40.7876 21.655 40.8547 21.857 40.8082 22.3336C40.7408 23.0255 40.4502 24.0046 39.8572 25.2301C38.6799 27.6631 36.5085 30.6631 33.5858 33.5858C30.6631 36.5085 27.6632 38.6799 25.2301 39.8572C24.0046 40.4502 23.0255 40.7407 22.3336 40.8082C21.8571 40.8547 21.6551 40.7875 21.5934 40.7581C21.5589 40.6863 21.4363 40.358 21.6262 39.475C21.8562 38.4054 22.4689 36.9657 23.5038 35.2817C24.7575 33.2417 26.5497 30.9744 28.7621 28.762C30.9744 26.5497 33.2417 24.7574 35.2817 23.5037C36.9657 22.4689 38.4054 21.8562 39.475 21.6262ZM4.41189 29.2403L18.7597 43.5881C19.8813 44.7097 21.4027 44.9179 22.7217 44.7893C24.0585 44.659 25.5148 44.1631 26.9723 43.4579C29.9052 42.0387 33.2618 39.5667 36.4142 36.4142C39.5667 33.2618 42.0387 29.9052 43.4579 26.9723C44.1631 25.5148 44.659 24.0585 44.7893 22.7217C44.9179 21.4027 44.7097 19.8813 43.5881 18.7597L29.2403 4.41187C27.8527 3.02428 25.8765 3.02573 24.2861 3.36776C22.6081 3.72863 20.7334 4.58419 18.8396 5.74801C16.4978 7.18716 13.9881 9.18353 11.5858 11.5858C9.18354 13.988 7.18717 16.4978 5.74802 18.8396C4.58421 20.7334 3.72865 22.6081 3.36778 24.2861C3.02574 25.8765 3.02429 27.8527 4.41189 29.2403Z" fill="currentColor" fill-rule="evenodd"></path>
+</svg>
+</div>
+<h2 class="text-2xl font-bold tracking-tight uppercase">Synapse <span class="text-primary text-sm font-normal normal-case ml-2 tracking-widest opacity-70">/// OS v4.2</span></h2>
+</div>
+<nav class="hidden md:flex items-center gap-10">
+<a class="text-slate-400 hover:text-primary transition-all text-xs font-mono font-medium uppercase tracking-widest" href="#">Dashboard</a>
+<a class="text-primary text-xs font-bold uppercase tracking-widest relative after:absolute after:-bottom-7 after:left-1/2 after:-translate-x-1/2 after:h-0.5 after:w-12 after:bg-primary after:shadow-[0_0_15px_rgba(7,182,213,0.8)]" href="#">Node Wall</a>
+<a class="text-slate-400 hover:text-primary transition-all text-xs font-mono font-medium uppercase tracking-widest" href="#">Analytics</a>
+</nav>
+<div class="flex items-center gap-6">
+<div class="flex flex-col items-end mr-2">
+<span class="text-[10px] text-primary font-mono leading-none">SYS.STATUS</span>
+<span class="text-xs text-white font-bold tracking-widest leading-tight">OPTIMAL</span>
+</div>
+<div class="size-10 rounded-full bg-surface-dark border border-surface-border overflow-hidden ring-1 ring-primary/30 p-0.5">
+<div class="rounded-full w-full h-full overflow-hidden">
+<img alt="User Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC0sTkU6s7QFBcdyjzV2x0aXaBqV7owdSfCVnRjCWpR3TQxMkNqA8WHInm74Ipy7EZ8KeMzT2BHI7aDY7wHwhZfl0Y5Pvx91-m0L88aXTekYKtE3lSNLipKCZi2bguM4XTKsqPetTBuL9enXdiJgECqk_3gYfUr7Mb624z4GWayXrIuLFi0hV9yUKurEBdwEYBmjbS-1x4YmhDEaoizj_FIvvongivk925D1nxU_hEIfWuk9iGQH_BZhZagZhiwuErxLffpVQOUQZM"/>
+</div>
+</div>
+</div>
+</div>
+</header>
+<main class="flex-1 w-full max-w-[1600px] mx-auto px-4 py-8 relative z-10 flex flex-col items-center">
+<div class="text-center mb-16 relative">
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[200px] bg-primary/10 blur-[80px] rounded-full -z-10"></div>
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-border/30 border border-primary/20 backdrop-blur-sm text-primary text-[10px] font-mono tracking-[0.2em] uppercase mb-4">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+            Live Topology
+        </div>
+<h1 class="text-4xl md:text-6xl font-bold text-white tracking-tighter uppercase mb-2">Node Wall</h1>
+<p class="text-slate-500 font-mono text-xs tracking-widest">Global Distribution Matrix • Latency: 14ms</p>
+</div>
+<div class="honeycomb-grid pb-20">
+<div class="honeycomb-row">
+<div class="hex-cell group">
+<div class="hex-border">
+<div class="hex-inner">
+<div class="absolute inset-0 bg-cover bg-center opacity-60 group-hover:opacity-80 transition-opacity duration-500" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuB2myCd4GwxhEXICQ0bs7Py5RqYCXOzal7beVruc0k-CI5_b0Ovd9VHIoDMTJu8EnXJAVzOcHMIpvwj08ltXAJBJiF8iIyYY4jKNI61AVbfvKwB2nWLFhDN9pRYu0lUrjTZXvFirwWcnjH7uh3fMvfiCNB6TQMuopx2E6fzEwA83szfFS-blY7z2G05f1ENpdlvCjyARqfEZbqPYiXIDwlNl48gIkliroAPT64PIFkTVcxFx5gnav1ZVpj-bJhVfdAa5zDmL2nldP4');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/60 to-transparent"></div>
+<div class="scan-line"></div>
+<div class="relative z-10 w-full h-full flex flex-col justify-between p-8 pt-12 pb-14">
+<div class="flex justify-between items-start">
+<div class="bg-surface-dark/80 backdrop-blur border border-white/10 px-2 py-1 rounded text-[10px] font-mono text-primary">TK-8821</div>
+<span class="material-symbols-outlined text-white/50 text-xl">wifi</span>
+</div>
+<div class="flex flex-col items-center text-center">
+<div class="size-10 mb-3 bg-black/50 rounded-lg flex items-center justify-center border border-primary/30 shadow-[0_0_15px_rgba(7,182,213,0.3)]">
+<svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"></path></svg>
+</div>
+<h3 class="text-lg font-bold text-white tracking-tight">@SpaceTrav</h3>
+<div class="w-full h-px bg-white/10 my-3"></div>
+<div class="flex justify-between w-full text-[10px] font-mono text-slate-400">
+<span>RATE</span>
+<span class="text-status-success">98%</span>
+</div>
+<div class="flex justify-between w-full text-[10px] font-mono text-slate-400 mt-1">
+<span>SYNC</span>
+<span class="text-white">2m ago</span>
+</div>
+</div>
+<div class="absolute bottom-6 left-1/2 -translate-x-1/2 w-32 h-1 bg-surface-border rounded-full overflow-hidden">
+<div class="h-full bg-status-success w-[90%] shadow-[0_0_8px_#00ff9d]"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="hex-cell group">
+<div class="hex-border">
+<div class="hex-inner">
+<div class="absolute inset-0 bg-cover bg-center opacity-40 group-hover:opacity-60 transition-opacity duration-500 grayscale group-hover:grayscale-0" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCb__V17ebtTz7PHtjMOT_tGq6NF1BB30fS3OqtEUYYYFl2d94xDRMzbh-TgRW7UZz2lhVC7RZJ97w4nR1E7tFYmKUqxeqSb_LBU27hFKEetKKiPgO0LXj9Z7oefIn5Vvj5lDZdzJms8EcjN8C3wkkAm6vAELxi_PeqipH41BunxmnE6nwtx5xrDNG4inxLXbZPJnwdiFsYxOfA0vXL8Gw2ulZwL2lZg1PuyZEe9pQClZGm09ktWkBNGr1GTydDbcRrylW76HpfMIs');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/80 to-transparent"></div>
+<div class="relative z-10 w-full h-full flex flex-col justify-between p-8 pt-12 pb-14">
+<div class="flex justify-between items-start">
+<div class="bg-surface-dark/80 backdrop-blur border border-status-error/30 px-2 py-1 rounded text-[10px] font-mono text-status-error">ERR:404</div>
+<span class="material-symbols-outlined text-status-error/80 text-xl animate-pulse">wifi_off</span>
+</div>
+<div class="flex flex-col items-center text-center">
+<div class="size-10 mb-3 bg-black/50 rounded-lg flex items-center justify-center border border-status-error/50 shadow-[0_0_15px_rgba(255,42,42,0.3)]">
+<svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"></path></svg>
+</div>
+<h3 class="text-lg font-bold text-white tracking-tight">CosmosDaily</h3>
+<div class="w-full h-px bg-status-error/20 my-3"></div>
+<div class="text-[10px] font-mono text-status-error uppercase tracking-wider mb-2">Token Expired</div>
+<button class="text-[9px] bg-status-error/10 border border-status-error text-status-error px-3 py-1 uppercase tracking-widest hover:bg-status-error hover:text-white transition-colors">Reconnect</button>
+</div>
+<div class="absolute bottom-6 left-1/2 -translate-x-1/2 w-32 h-1 bg-surface-border rounded-full overflow-hidden">
+<div class="h-full bg-status-error w-[10%]"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="honeycomb-row">
+<div class="hex-cell group">
+<div class="hex-border">
+<div class="hex-inner">
+<div class="absolute inset-0 bg-cover bg-center opacity-60 group-hover:opacity-80 transition-opacity duration-500" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCxbIc0bJxpUhQbWVjsMH71RlQb_DGwNImBfYLfcbhoshL-B9wp_RuiURTi_7rxjFO93tRifh07lKqBRqdLSP1g6RGFj4TS_xQodg0XqSKHBNkB3VQMMznDIGWueTsVwyP_fI5DYZZK1F-jkgYfzU18lLWhNT-FLUu3X-PDTDR0KwH20e2SFAVEPZRD-HvrC1pJsgpXJnyRVWoPB6s-LU_IvQyH6myH1jisuMSZ7EEfnXLIBHRarWJZ9poUEje0EcP2flMQ-m6MeLA');"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/60 to-transparent"></div>
+<div class="relative z-10 w-full h-full flex flex-col justify-between p-8 pt-12 pb-14">
+<div class="flex justify-between items-start">
+<div class="bg-surface-dark/80 backdrop-blur border border-white/10 px-2 py-1 rounded text-[10px] font-mono text-primary">IG-4490</div>
+<span class="material-symbols-outlined text-white/50 text-xl">network_check</span>
+</div>
+<div class="flex flex-col items-center text-center">
+<div class="size-10 mb-3 bg-black/50 rounded-lg flex items-center justify-center border border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+<svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.645.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"></path></svg>
+</div>
+<h3 class="text-lg font-bold text-white tracking-tight">@StarDust_Ofcl</h3>
+<div class="w-full h-px bg-white/10 my-3"></div>
+<div class="flex justify-between w-full text-[10px] font-mono text-slate-400">
+<span>POSTS</span>
+<span class="text-white">Active</span>
+</div>
+<div class="flex justify-between w-full text-[10px] font-mono text-slate-400 mt-1">
+<span>LATENCY</span>
+<span class="text-status-success">45ms</span>
+</div>
+</div>
+<div class="absolute bottom-6 left-1/2 -translate-x-1/2 w-32 h-1 bg-surface-border rounded-full overflow-hidden">
+<div class="h-full bg-status-success w-[75%] shadow-[0_0_8px_#00ff9d]"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="hex-cell group cursor-pointer z-10">
+<div class="hex-border !bg-none border border-dashed border-primary/50 group-hover:border-primary transition-colors duration-300">
+<div class="hex-inner !bg-surface-dark/90 flex flex-col items-center justify-center relative overflow-hidden">
+<div class="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-pulse"></div>
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-[80%] h-[80%] border border-primary/20 rounded-full animate-[spin_10s_linear_infinite]"></div>
+</div>
+<div class="relative z-10 flex flex-col items-center">
+<div class="size-16 rounded-full border-2 border-primary/50 bg-background-dark flex items-center justify-center group-hover:scale-110 transition-transform duration-300 mb-4 shadow-[0_0_20px_rgba(7,182,213,0.4)]">
+<span class="material-symbols-outlined text-3xl text-primary chromatic-aberration">satellite</span>
+</div>
+<h3 class="text-xl font-bold text-white uppercase tracking-wider group-hover:text-primary transition-colors">Deploy</h3>
+<p class="text-[10px] text-primary font-mono mt-1 opacity-70">INIT_NEW_NODE_SEQ</p>
+</div>
+</div>
+</div>
+</div>
+<div class="hex-cell group">
+<div class="hex-border">
+<div class="hex-inner">
+<div class="absolute inset-0 bg-gradient-to-br from-slate-800 to-black opacity-80"></div>
+<div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4xKSIvPjwvc3ZnPg==')] opacity-30 bg-cover"></div>
+<div class="relative z-10 w-full h-full flex flex-col justify-between p-8 pt-12 pb-14">
+<div class="flex justify-between items-start">
+<div class="bg-surface-dark/80 backdrop-blur border border-white/10 px-2 py-1 rounded text-[10px] font-mono text-primary">X-9012</div>
+<span class="material-symbols-outlined text-status-warn text-xl">warning</span>
+</div>
+<div class="flex flex-col items-center text-center">
+<div class="size-10 mb-3 bg-black/50 rounded-lg flex items-center justify-center border border-slate-500/50">
+<svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
+</div>
+<h3 class="text-lg font-bold text-white tracking-tight">@Synapse_AI</h3>
+<div class="w-full h-px bg-white/10 my-3"></div>
+<div class="flex justify-between w-full text-[10px] font-mono text-slate-400">
+<span>STATUS</span>
+<span class="text-status-warn">Rate Limit</span>
+</div>
+<div class="flex justify-between w-full text-[10px] font-mono text-slate-400 mt-1">
+<span>QUEUE</span>
+<span class="text-white">12 Pending</span>
+</div>
+</div>
+<div class="absolute bottom-6 left-1/2 -translate-x-1/2 w-32 h-1 bg-surface-border rounded-full overflow-hidden">
+<div class="h-full bg-status-warn w-[100%]"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="honeycomb-row">
+<div class="hex-cell group">
+<div class="hex-border">
+<div class="hex-inner">
+<div class="absolute inset-0 bg-gradient-to-b from-blue-900/20 to-background-dark"></div>
+<div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4xKSIvPjwvc3ZnPg==')] opacity-20 bg-cover mix-blend-overlay"></div>
+<div class="relative z-10 w-full h-full flex flex-col justify-between p-8 pt-12 pb-14">
+<div class="flex justify-between items-start">
+<div class="bg-surface-dark/80 backdrop-blur border border-white/10 px-2 py-1 rounded text-[10px] font-mono text-primary">LI-2201</div>
+<span class="material-symbols-outlined text-white/50 text-xl">wifi</span>
+</div>
+<div class="flex flex-col items-center text-center">
+<div class="size-10 mb-3 bg-black/50 rounded-lg flex items-center justify-center border border-blue-400/50 shadow-[0_0_15px_rgba(59,130,246,0.3)]">
+<svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"></path></svg>
+</div>
+<h3 class="text-lg font-bold text-white tracking-tight">Synapse Corp</h3>
+<div class="w-full h-px bg-white/10 my-3"></div>
+<div class="flex justify-between w-full text-[10px] font-mono text-slate-400">
+<span>TARGET</span>
+<span class="text-status-success">Enterprise</span>
+</div>
+<div class="flex justify-between w-full text-[10px] font-mono text-slate-400 mt-1">
+<span>POSTS</span>
+<span class="text-white">Scheduled</span>
+</div>
+</div>
+<div class="absolute bottom-6 left-1/2 -translate-x-1/2 w-32 h-1 bg-surface-border rounded-full overflow-hidden">
+<div class="h-full bg-blue-500 w-[60%] shadow-[0_0_8px_#3b82f6]"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="hex-cell group">
+<div class="hex-border">
+<div class="hex-inner">
+<div class="absolute inset-0 bg-gradient-to-b from-red-900/20 to-background-dark"></div>
+<div class="relative z-10 w-full h-full flex flex-col justify-between p-8 pt-12 pb-14">
+<div class="flex justify-between items-start">
+<div class="bg-surface-dark/80 backdrop-blur border border-white/10 px-2 py-1 rounded text-[10px] font-mono text-primary">PT-1109</div>
+<span class="material-symbols-outlined text-white/50 text-xl">wifi</span>
+</div>
+<div class="flex flex-col items-center text-center">
+<div class="size-10 mb-3 bg-black/50 rounded-lg flex items-center justify-center border border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+<svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.345-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.399.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.951-7.252 4.173 0 7.41 2.967 7.41 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.354-.629-2.758-1.379l-.749 2.848c-.269 1.045-1.004 2.352-1.498 3.146 1.123.345 2.306.535 3.55.535 6.607 0 11.985-5.365 11.985-11.987C23.97 5.367 18.62 0 12.017 0z"></path></svg>
+</div>
+<h3 class="text-lg font-bold text-white tracking-tight">MoodBoard</h3>
+<div class="w-full h-px bg-white/10 my-3"></div>
+<div class="flex justify-between w-full text-[10px] font-mono text-slate-400">
+<span>PINS</span>
+<span class="text-status-success">Auto-Sync</span>
+</div>
+<div class="flex justify-between w-full text-[10px] font-mono text-slate-400 mt-1">
+<span>REACH</span>
+<span class="text-white">Low</span>
+</div>
+</div>
+<div class="absolute bottom-6 left-1/2 -translate-x-1/2 w-32 h-1 bg-surface-border rounded-full overflow-hidden">
+<div class="h-full bg-red-500 w-[45%] shadow-[0_0_8px_#ef4444]"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<div class="fixed bottom-0 w-full bg-surface-dark/95 backdrop-blur border-t border-white/5 py-3 px-6 flex justify-between items-center text-[10px] font-mono text-slate-500 uppercase z-40">
+<div class="flex gap-6">
+<span class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-primary rounded-full"></span> Server: US-EAST-1</span>
+<span>Latency: 14ms</span>
+<span>Mem: 42%</span>
+</div>
+<div class="flex gap-4">
+<span class="text-primary animate-pulse">● System Nominal</span>
+<span>V4.2.0 Build 8922</span>
+</div>
+</div>
+
+</body></html>

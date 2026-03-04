@@ -1,8 +1,63 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { toast } from 'sonner';
+import { getApiUrl } from '../utils/apiClient';
 
 export default function SettingsPage() {
+    const [threads, setThreads] = useState(12);
+    const [vram, setVram] = useState(24);
+    const [nasaKey, setNasaKey] = useState("");
+    const [esaKey, setEsaKey] = useState("");
+    const [jaxKey, setJaxKey] = useState("");
+    const [health, setHealth] = useState("VERIFYING");
+
+    useEffect(() => {
+        const loadUplink = async () => {
+            try {
+                const healthRes = await axios.get(`${getApiUrl()}/api/v1/system/health`);
+                setHealth(healthRes.data.status === 'online' ? 'OPTIMAL' : 'DEGRADED');
+            } catch (e) {
+                setHealth('OFFLINE');
+            }
+
+            try {
+                const res = await axios.get(`${getApiUrl()}/api/v1/system/settings`);
+                const s = res.data;
+                if (s?.system?.max_concurrent_tasks) setThreads(s.system.max_concurrent_tasks);
+                if (s?.integrations?.openai_api_key) setNasaKey(s.integrations.openai_api_key);
+                if (s?.integrations?.groq_api_key) setEsaKey(s.integrations.groq_api_key);
+                if (s?.integrations?.gemini_api_key) setJaxKey(s.integrations.gemini_api_key);
+            } catch (e) {
+                toast.error("Telemetry Uplink Failed: Couldn't fetch settings");
+            }
+        };
+        loadUplink();
+    }, []);
+
+    const saveSettings = async () => {
+        try {
+            const payloadFields: any = {
+                system: { max_concurrent_tasks: threads },
+                integrations: {}
+            };
+
+            if (nasaKey && !nasaKey.includes('sk-...')) payloadFields.integrations.openai_api_key = nasaKey;
+            if (esaKey && !esaKey.includes('...')) payloadFields.integrations.groq_api_key = esaKey;
+            if (jaxKey && !jaxKey.includes('...')) payloadFields.integrations.gemini_api_key = jaxKey;
+
+            if (Object.keys(payloadFields.integrations).length === 0) {
+                delete payloadFields.integrations;
+            }
+
+            await axios.post(`${getApiUrl()}/api/v1/system/settings`, { settings: payloadFields });
+            toast.success("Matrix parameters updated successfully.");
+        } catch (e) {
+            toast.error("Failed to sequence Matrix override.");
+        }
+    };
+
     return (
         <div className="flex-1 overflow-x-hidden min-h-screen flex flex-col relative text-slate-100 bg-[#020408] selection:bg-cyan-500/30 selection:text-cyan-500 font-display">
             {/* Background elements */}
@@ -49,7 +104,10 @@ export default function SettingsPage() {
                                 <button className="ripple-btn px-5 py-2.5 border border-slate-700 bg-[#0f172a] text-slate-400 text-[11px] font-mono hover:text-white hover:border-white/30 transition-all uppercase tracking-widest clip-path-slant shadow-lg">
                                     [ Reset_Defaults ]
                                 </button>
-                                <button className="ripple-btn px-8 py-2.5 bg-sky-500/10 border border-sky-500 text-sky-500 font-bold text-[11px] font-mono hover:bg-sky-500 hover:text-[#0b0f11] hover:shadow-[0_0_15px_-3px_rgba(14,165,233,0.4)] transition-all uppercase tracking-widest clip-path-slant flex items-center gap-3 group shadow-[0_0_15px_-5px_#0ea5e9]">
+                                <button
+                                    onClick={saveSettings}
+                                    className="ripple-btn px-8 py-2.5 bg-sky-500/10 border border-sky-500 text-sky-500 font-bold text-[11px] font-mono hover:bg-sky-500 hover:text-[#0b0f11] hover:shadow-[0_0_15px_-3px_rgba(14,165,233,0.4)] transition-all uppercase tracking-widest clip-path-slant flex items-center gap-3 group shadow-[0_0_15px_-5px_#0ea5e9]"
+                                >
                                     <span className="material-symbols-outlined text-[18px] group-hover:animate-bounce">save</span>
                                     Save_Config
                                 </button>
@@ -109,7 +167,7 @@ export default function SettingsPage() {
                                                     </div>
                                                 </div>
                                                 <div className="absolute inset-0 z-10 flex items-center px-4 bg-[#020408]">
-                                                    <input className="w-full bg-transparent border-none text-sky-500 font-mono tracking-[0.2em] text-sm focus:ring-0 p-0 shadow-[0_0_15px_-5px_rgba(14,165,233,0.5)] outline-none" readOnly type="text" value="XK93-2949-ABCS-2933" />
+                                                    <input className="w-full bg-transparent border-none text-sky-500 font-mono tracking-[0.2em] text-sm focus:ring-0 p-0 shadow-[0_0_15px_-5px_rgba(14,165,233,0.5)] outline-none" type="text" value={nasaKey} onChange={e => setNasaKey(e.target.value)} />
                                                     <button className="text-sky-500/40 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full">
                                                         <span className="material-symbols-outlined text-[16px]">content_copy</span>
                                                     </button>
@@ -139,12 +197,42 @@ export default function SettingsPage() {
                                                     </div>
                                                 </div>
                                                 <div className="absolute inset-0 z-10 flex items-center px-4 bg-[#020408]">
-                                                    <input className="w-full bg-transparent border-none text-indigo-500 font-mono tracking-[0.2em] text-sm focus:ring-0 p-0 shadow-[0_0_15px_-5px_rgba(99,102,241,0.5)] outline-none" readOnly type="text" value="8821-XKFZ-9932-MNQQ" />
+                                                    <input className="w-full bg-transparent border-none text-indigo-500 font-mono tracking-[0.2em] text-sm focus:ring-0 p-0 shadow-[0_0_15px_-5px_rgba(99,102,241,0.5)] outline-none" type="text" placeholder="GROQ_KEY" value={esaKey} onChange={e => setEsaKey(e.target.value)} />
                                                     <button className="text-indigo-500/40 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full">
                                                         <span className="material-symbols-outlined text-[16px]">content_copy</span>
                                                     </button>
                                                 </div>
                                                 <div className="absolute inset-0 bg-indigo-500/0 z-0 group-hover/input:bg-indigo-500/5 group-hover/input:shadow-[inset_0_0_30px_rgba(99,102,241,0.15)] transition-all duration-500"></div>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3 group/input relative md:col-span-2">
+                                            <div className="flex justify-between items-end">
+                                                <label className="text-[11px] font-bold text-rose-400 uppercase tracking-widest font-mono flex items-center gap-2">
+                                                    <span className="material-symbols-outlined text-[12px]">network_node</span>
+                                                    JAX_NEURAL_LINK
+                                                </label>
+                                                <span className="text-[9px] text-emerald-500 font-mono opacity-0 group-hover/input:opacity-100 transition-opacity tracking-wider">[ ENCRYPTED_AES-256 ]</span>
+                                            </div>
+                                            <div className="relative h-16 bg-[#050a14] border border-slate-800 overflow-hidden group-hover/input:border-sky-500/50 transition-colors shadow-inner">
+                                                <div className="absolute inset-0 z-20 bg-[#0b101b] vault-door flex items-center justify-center transition-transform duration-500 ease-out group-hover/input:-translate-y-full border-b border-sky-500/50 shadow-lg">
+                                                    <div className="flex flex-col items-center gap-1">
+                                                        <div className="flex items-center gap-2 text-gray-500">
+                                                            <span className="material-symbols-outlined text-sm">lock</span>
+                                                            <span className="text-[9px] font-mono uppercase tracking-widest">LOCKED</span>
+                                                        </div>
+                                                        <div className="h-0.5 w-16 bg-gray-700/50 relative overflow-hidden">
+                                                            <div className="absolute top-0 left-0 h-full w-full bg-gradient-to-r from-transparent via-gray-500 to-transparent -translate-x-full group-hover/input:animate-[shimmer_1s_infinite]"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="absolute inset-0 z-10 flex items-center px-4 bg-[#020408]">
+                                                    <input className="w-full bg-transparent border-none text-rose-500 font-mono tracking-[0.2em] text-sm focus:ring-0 p-0 shadow-[0_0_15px_-5px_rgba(244,63,94,0.5)] outline-none" type="text" placeholder="GEMINI_KEY" value={jaxKey} onChange={e => setJaxKey(e.target.value)} />
+                                                    <button className="text-rose-500/40 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full">
+                                                        <span className="material-symbols-outlined text-[16px]">content_copy</span>
+                                                    </button>
+                                                </div>
+                                                <div className="absolute inset-0 bg-rose-500/0 z-0 group-hover/input:bg-rose-500/5 group-hover/input:shadow-[inset_0_0_30px_rgba(244,63,94,0.15)] transition-all duration-500"></div>
                                             </div>
                                         </div>
                                     </div>
@@ -186,7 +274,9 @@ export default function SettingsPage() {
                                             </div>
                                             <div className="flex flex-col items-end border-r-2 border-green-500/30 pr-3">
                                                 <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest">SYS_STATUS</span>
-                                                <span className="text-xs font-mono text-green-400 font-bold shadow-[0_0_10px_rgba(74,222,128,0.2)]">OPTIMAL</span>
+                                                <span className={`text-xs font-mono font-bold ${health === 'OPTIMAL' ? 'text-green-400 shadow-[0_0_10px_rgba(74,222,128,0.2)]' : 'text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.2)]'}`}>
+                                                    {health}
+                                                </span>
                                             </div>
                                         </div>
 
@@ -196,7 +286,7 @@ export default function SettingsPage() {
                                                     <label className="text-[11px] font-bold text-sky-400 uppercase font-mono tracking-wider flex items-center">
                                                         <span className="mr-2 text-sky-500">&gt;&gt;</span>Thread_Count
                                                     </label>
-                                                    <span className="text-xl font-bold font-mono text-white tracking-widest shadow-[0_0_15px_-3px_rgba(14,165,233,0.4)] px-2">12<span className="text-xs text-slate-400 ml-1">/64</span></span>
+                                                    <span className="text-xl font-bold font-mono text-white tracking-widest shadow-[0_0_15px_-3px_rgba(14,165,233,0.4)] px-2">{threads}<span className="text-xs text-slate-400 ml-1">/64</span></span>
                                                 </div>
                                                 <div className="relative w-full h-10 bg-[#050a14] border border-slate-800 flex items-center px-1 shadow-inner overflow-hidden">
                                                     <div className="absolute inset-0 flex justify-between px-2 opacity-20 pointer-events-none z-0">
@@ -206,8 +296,8 @@ export default function SettingsPage() {
                                                         <div className="w-px h-full bg-white"></div>
                                                         <div className="w-px h-full bg-white"></div>
                                                     </div>
-                                                    <input className="w-full h-full bg-transparent appearance-none cursor-pointer z-20 hover:opacity-100 opacity-0 absolute inset-0" title="Slide" max="64" min="1" type="range" defaultValue="12" />
-                                                    <div className="absolute left-0 top-0 bottom-0 w-[18%] bg-sky-500/20 border-r-2 border-sky-500 pointer-events-none z-10 flex justify-end items-center pr-1">
+                                                    <input className="w-full h-full bg-transparent appearance-none cursor-pointer z-20 hover:opacity-100 opacity-0 absolute inset-0" title="Slide" max="64" min="1" type="range" value={threads} onChange={(e) => setThreads(parseInt(e.target.value))} />
+                                                    <div className="absolute left-0 top-0 bottom-0 bg-sky-500/20 border-r-2 border-sky-500 pointer-events-none z-10 flex justify-end items-center pr-1" style={{ width: `${(threads / 64) * 100}%` }}>
                                                         <div className="w-4 h-8 bg-sky-500 border border-white/50 box-shadow-[0_0_15px_#0ea5e9]"></div>
                                                     </div>
                                                 </div>
@@ -218,7 +308,7 @@ export default function SettingsPage() {
                                                     <label className="text-[11px] font-bold text-sky-400 uppercase font-mono tracking-wider flex items-center">
                                                         <span className="mr-2 text-indigo-500">&gt;&gt;</span>VRAM_Allocation
                                                     </label>
-                                                    <span className="text-xl font-bold font-mono text-white tracking-widest shadow-[0_0_15px_-5px_rgba(99,102,241,0.5)] px-2">24<span className="text-xs text-slate-400 ml-1">GB</span></span>
+                                                    <span className="text-xl font-bold font-mono text-white tracking-widest shadow-[0_0_15px_-5px_rgba(99,102,241,0.5)] px-2">{vram}<span className="text-xs text-slate-400 ml-1">GB</span></span>
                                                 </div>
                                                 <div className="relative w-full h-10 bg-[#050a14] border border-slate-800 flex items-center px-1 shadow-inner overflow-hidden">
                                                     <div className="absolute inset-0 flex justify-between px-2 opacity-20 pointer-events-none z-0">
@@ -228,8 +318,8 @@ export default function SettingsPage() {
                                                         <div className="w-px h-full bg-white"></div>
                                                         <div className="w-px h-full bg-white"></div>
                                                     </div>
-                                                    <input className="w-full h-full bg-transparent appearance-none cursor-pointer z-20 hover:opacity-100 opacity-0 absolute inset-0" title="Slide" max="48" min="1" type="range" defaultValue="24" />
-                                                    <div className="absolute left-0 top-0 bottom-0 w-[50%] bg-indigo-500/20 border-r-2 border-indigo-500 pointer-events-none z-10 flex justify-end items-center pr-1">
+                                                    <input className="w-full h-full bg-transparent appearance-none cursor-pointer z-20 hover:opacity-100 opacity-0 absolute inset-0" title="Slide" max="48" min="1" type="range" value={vram} onChange={(e) => setVram(parseInt(e.target.value))} />
+                                                    <div className="absolute left-0 top-0 bottom-0 bg-indigo-500/20 border-r-2 border-indigo-500 pointer-events-none z-10 flex justify-end items-center pr-1" style={{ width: `${(vram / 48) * 100}%` }}>
                                                         <div className="w-4 h-8 bg-indigo-500 border border-white/50 box-shadow-[0_0_15px_#6366f1]"></div>
                                                     </div>
                                                 </div>

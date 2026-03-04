@@ -19,7 +19,7 @@ DEFAULT_SETTINGS = {
     "integrations": {
         "openai_api_key": "",
         "groq_api_key": "",
-        "tiktok_cookie_path": "cookies.json"
+        "gemini_api_key": ""
     },
     "niche": {
         "default_niche": "General",
@@ -76,7 +76,7 @@ class SettingsManager:
             import copy
             safe_data = copy.deepcopy(data)
             ints = safe_data.get("integrations", {})
-            for key in ["openai_api_key", "groq_api_key"]:
+            for key in ["openai_api_key", "groq_api_key", "gemini_api_key"]:
                 if ints.get(key):
                     ints[key] = "sk-..." + ints[key][-4:]
             safe_data["integrations"] = ints

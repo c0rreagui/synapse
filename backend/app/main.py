@@ -67,7 +67,15 @@ async def startup_event():
         else:
             print("SYSTEM: Scheduler disabled by env var (Running in separate container)")
         
-        print("SYSTEM: Background workers (Factory + Queue + Oracle + Scheduler) started.")
+        
+        # Start Garbage Collector (120h TTL)
+        try:
+            from core.garbage_collector import start_gc_loop
+            asyncio.create_task(start_gc_loop())
+        except ImportError as e:
+            print(f"ERROR loading garbage collector: {e}")
+        
+        print("SYSTEM: Background workers (Factory + Queue + Oracle + Scheduler + GC) started.")
     except Exception as e:
         print(f"ERROR starting workers: {e}")
 
@@ -106,6 +114,7 @@ app.add_middleware(
         "http://127.0.0.1:8000",
         "http://localhost:3001",
         "http://127.0.0.1:3001",
+        "http://46.225.62.76:3000",
         # "*",  <-- REMOVED: Cannot use wildcard with allow_credentials=True
     ],
     allow_credentials=True,
@@ -115,7 +124,7 @@ app.add_middleware(
 
 from fastapi.staticfiles import StaticFiles
 import os
-from .api.endpoints import content, ingestion, profiles, logs, queue, videos, status, scheduler, oracle, analytics, viral_sounds, audio, logic, batch, templates, validate_cookies, settings, health, auto_scheduler
+from .api.endpoints import content, ingestion, profiles, logs, queue, videos, status, scheduler, oracle, analytics, viral_sounds, audio, logic, batch, templates, validate_cookies, settings, health, auto_scheduler, telemetry
 from .api import debug_router
 from .api import websocket as ws_router
 
@@ -124,6 +133,12 @@ static_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 if not os.path.exists(static_path):
     os.makedirs(static_path)
 app.mount("/static", StaticFiles(directory=static_path), name="static")
+
+# Mount exports for final videos serving to frontend
+exports_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "exports")
+if not os.path.exists(exports_path):
+    os.makedirs(exports_path)
+app.mount("/exports", StaticFiles(directory=exports_path), name="exports")
 
 app.include_router(content.router, prefix="/api/v1/content", tags=["content"])
 app.include_router(ingestion.router, prefix="/api/v1/ingest", tags=["ingestion"])
@@ -145,10 +160,19 @@ app.include_router(templates.router, prefix="/api/v1/templates", tags=["template
 app.include_router(settings.router, prefix="/api/v1/settings", tags=["settings"])
 app.include_router(health.router, prefix="/api/health", tags=["health"]) # Sonar
 app.include_router(auto_scheduler.router, prefix="/api/v1", tags=["auto-scheduler"])
+app.include_router(telemetry.router, prefix="/api/v1/telemetry", tags=["telemetry"])
 app.include_router(debug_router.router, prefix="/api/v1", tags=["debug"])
 from .api.endpoints.clipper import router as clipper_router
 app.include_router(clipper_router, prefix="/api/clipper", tags=["clipper"])
+from .api.endpoints.factory import router as factory_router
+app.include_router(factory_router, prefix="/api/v1/factory", tags=["factory"])
 app.include_router(ws_router.router, tags=["websocket"])
+
+# Mount clipper output for video preview serving
+clipper_output_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "clipper", "output")
+if not os.path.exists(clipper_output_path):
+    os.makedirs(clipper_output_path)
+app.mount("/clipper-output", StaticFiles(directory=clipper_output_path), name="clipper-output")
 
 @app.get("/")
 def read_root():

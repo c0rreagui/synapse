@@ -28,6 +28,7 @@ class CreateBatchRequest(BaseModel):
     viral_music_enabled: bool = Field(False, description="Ativar música viral")
     sound_id: Optional[str] = Field(None, description="ID da música viral")
     sound_title: Optional[str] = Field(None, description="Título da música")
+    mix_viral_sounds: bool = Field(False, description="Auto-Mix: cada vídeo recebe uma música viral diferente (round-robin)")
 
 
 class ExecuteBatchRequest(BaseModel):
@@ -90,7 +91,8 @@ async def create_batch(request: CreateBatchRequest):
         interval_minutes=request.interval_minutes,
         viral_music_enabled=request.viral_music_enabled,
         sound_id=request.sound_id,
-        sound_title=request.sound_title
+        sound_title=request.sound_title,
+        mix_viral_sounds=request.mix_viral_sounds
     )
     
     # Retornar batch criado com status

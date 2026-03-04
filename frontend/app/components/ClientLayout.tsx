@@ -6,8 +6,8 @@ import { MoodProvider } from '../context/MoodContext';
 import AmbientBackground from './AmbientBackground';
 import SplashScreen from './SplashScreen';
 import { Toaster } from 'sonner';
-import { NeoSidebar } from '@/components/design-system/NeoSidebar';
-import { NeoHeader } from '@/components/design-system/NeoHeader';
+import { NeoSidebar } from './design-system/NeoSidebar';
+import { NeoHeader } from './design-system/NeoHeader';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
     // State removed for new UI

@@ -86,6 +86,8 @@ interface BatchContextType {
     setPostsPerDay: (n: number) => void;
     scheduleHours: number[];           // Ex: [12, 18] - horarios exatos
     setScheduleHours: (hours: number[]) => void;
+    autoStartHour: number;
+    setAutoStartHour: (hour: number) => void;
     handleAutoSchedule: () => Promise<void>;
 }
 
@@ -212,6 +214,7 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
     // [SYN-67] Auto-Schedule
     const [postsPerDay, setPostsPerDay] = useState(1);
     const [scheduleHours, setScheduleHours] = useState<number[]>([18]);
+    const [autoStartHour, setAutoStartHour] = useState(18);
 
     // --- Logic ---
 
@@ -523,6 +526,7 @@ export function BatchProvider({ children, existingProfiles, initialFiles = [], i
         generateProgress, setGenerateProgress,
         postsPerDay, setPostsPerDay,
         scheduleHours, setScheduleHours,
+        autoStartHour, setAutoStartHour,
         handleAutoSchedule,
     };
 

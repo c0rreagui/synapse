@@ -147,11 +147,36 @@ async def process_clip_job(ctx, job_id: int):
             job.output_path = stitch_res.get("output_path")
             job.completed_at = datetime.now(timezone.utc)
             job.duration_seconds = stitch_res.get("duration", 0)
+            db.commit()
+
+            # ── SYN-86: Injetar na fila de curadoria (PendingApproval) ──
+            try:
+                from core.models import PendingApproval
+                import os
+
+                output_path = stitch_res.get("output_path")
+                file_size = os.path.getsize(output_path) if output_path and os.path.exists(output_path) else 0
+
+                with safe_session() as db2:
+                    approval = PendingApproval(
+                        clip_job_id=job_id,
+                        video_path=output_path,
+                        streamer_name=channel_name,
+                        title=f"Clip #{job_id}",
+                        duration_seconds=int(stitch_res.get("duration", 0)),
+                        file_size_bytes=file_size,
+                        status="pending",
+                    )
+                    db2.add(approval)
+                    db2.commit()
+                    logger.info(f"✅ Job #{job_id} inserido na fila de curadoria (PendingApproval #{approval.id})")
+            except Exception as e:
+                logger.error(f"⚠️ Job #{job_id} concluído mas falhou ao inserir na curadoria: {e}")
         else:
             job.status = "failed"
             job.current_step = "Falha na costura."
             job.error_message = f"Stitch error: {stitch_res.get('error')}"
-        db.commit()
+            db.commit()
 
 
 async def startup(ctx):

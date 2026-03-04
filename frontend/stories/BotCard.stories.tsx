@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { BotCard } from '../app/components/BotCard';
+import BotCard from '../app/components/BotCard';
 
 const meta = {
     title: 'Molecules/BotCard',
@@ -11,11 +11,12 @@ const meta = {
     argTypes: {
         status: {
             control: 'select',
-            options: ['active', 'paused', 'error', 'idle'],
+            options: ['online', 'offline', 'error', 'sleeping'],
         },
-        performance: {
-            control: { type: 'range', min: 0, max: 100 },
-        },
+        role: {
+            control: 'select',
+            options: ['UPLOADER', 'FACTORY', 'MONITOR', 'SCHEDULER'],
+        }
     },
 } satisfies Meta<typeof BotCard>;
 
@@ -24,64 +25,48 @@ type Story = StoryObj<typeof meta>;
 
 export const Active: Story = {
     args: {
-        bot: {
-            id: '1',
-            name: 'Atlas Hunter',
-            type: 'ARCHIVIST',
-            status: 'active',
-            performance: 98,
-            uptime: '24h 12m',
-            last_action: 'Scanned 120 posts',
-            next_scheduled: 'in 5m',
-            logs: [],
-        },
+        id: '1',
+        name: 'Atlas Hunter',
+        role: 'FACTORY',
+        status: 'online',
+        uptime: '24h 12m',
+        currentTask: 'Processing video',
+        description: 'Generating optimized clips for TikTok',
     },
 };
 
-export const Paused: Story = {
+export const Sleeping: Story = {
     args: {
-        bot: {
-            id: '2',
-            name: 'Forge Writer',
-            type: 'WRITER',
-            status: 'paused',
-            performance: 0,
-            uptime: '12h 30m',
-            last_action: 'Paused by user',
-            next_scheduled: 'Manually',
-            logs: [],
-        },
+        id: '2',
+        name: 'Forge Writer',
+        role: 'UPLOADER',
+        status: 'sleeping',
+        uptime: '12h 30m',
+        currentTask: 'SYSTEM_READY',
+        description: 'Waiting for scheduled upload window',
     },
 };
 
 export const ErrorState: Story = {
     args: {
-        bot: {
-            id: '3',
-            name: 'Watcher Eye',
-            type: 'WATCHER',
-            status: 'error',
-            performance: 45,
-            uptime: '2h 15m',
-            last_action: 'Connection failed',
-            next_scheduled: 'Retry in 1m',
-            logs: [],
-        },
+        id: '3',
+        name: 'Watcher Eye',
+        role: 'MONITOR',
+        status: 'error',
+        uptime: '2h 15m',
+        currentTask: 'OFFLINE',
+        description: 'Connection to Target Failed',
     },
 };
 
-export const Idle: Story = {
+export const Offline: Story = {
     args: {
-        bot: {
-            id: '4',
-            name: 'Oracle Predictor',
-            type: 'PREDICTOR',
-            status: 'idle',
-            performance: 0,
-            uptime: '48h 00m',
-            last_action: 'Waiting for jobs',
-            next_scheduled: 'in 15m',
-            logs: [],
-        },
+        id: '4',
+        name: 'Oracle Predictor',
+        role: 'SCHEDULER',
+        status: 'offline',
+        uptime: '0h',
+        currentTask: 'OFFLINE',
+        description: 'System is shut down',
     },
 };

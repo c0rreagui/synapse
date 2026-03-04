@@ -140,6 +140,34 @@ class VideoQueue(Base):
     scheduled_at = Column(DateTime, nullable=True)
 
 
+class PendingApproval(Base):
+    """
+    Fila de curadoria Tinder-style.
+    Vídeos finalizados pelo Clipper caem aqui para aprovação humana
+    antes de serem injetados no scheduler via batch_manager/smart_logic.
+    
+    Created by: SYN-86 (Autonomous Twitch Pipeline)
+    """
+    __tablename__ = "pending_approvals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    clip_job_id = Column(Integer, ForeignKey("clip_jobs.id"), nullable=True, index=True)
+    video_path = Column(String, nullable=False)
+    thumbnail_path = Column(String, nullable=True)
+    
+    # Metadata do streamer/clipe
+    streamer_name = Column(String, nullable=True)
+    title = Column(String, nullable=True)
+    duration_seconds = Column(Integer, nullable=True)
+    file_size_bytes = Column(Integer, nullable=True)
+    
+    # Estado da curadoria
+    status = Column(String, default="pending", index=True)
+    # pending -> approved -> rejected
+
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 # ─── Clipper Module Models ──────────────────────────────────────────────
 # Importados aqui para garantir que o SQLAlchemy registre as tabelas
 # quando Base.metadata.create_all() for executado.

@@ -58,7 +58,8 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
                 setProgress(10);
 
                 try {
-                    const healthRes = await fetch('http://127.0.0.1:8000/health', {
+                    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+                    const healthRes = await fetch(`${apiUrl}/health`, {
                         signal: AbortSignal.timeout(5000)
                     });
                     if (healthRes.ok) {
@@ -87,7 +88,8 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
                 // Step 3: Load Profiles (Optional - proceed even if fails, but log it)
                 updateStep('profiles', 'loading');
                 try {
-                    await fetch('http://127.0.0.1:8000/api/v1/profiles', {
+                    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+                    await fetch(`${apiUrl}/api/v1/profiles`, {
                         signal: AbortSignal.timeout(5000)
                     });
                 } catch { /* ignore non-critical */ }
@@ -97,7 +99,8 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
                 // Step 4: Final Oracle Check
                 updateStep('final', 'loading');
                 try {
-                    await fetch('http://127.0.0.1:8000/api/v1/oracle/status', {
+                    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+                    await fetch(`${apiUrl}/api/v1/oracle/status`, {
                         signal: AbortSignal.timeout(3000)
                     });
                 } catch { /* ignore non-critical */ }
@@ -146,7 +149,7 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
                     </div>
                     <h2 className="text-2xl font-bold text-white mb-2 tracking-wide">SYSTEM OFFLINE</h2>
                     <p className="text-gray-400 mb-8 max-w-md text-center">
-                        Não foi possível conectar ao Núcleo Neural (Backend). Verifique se o servidor está rodando em 127.0.0.1:8000.
+                        Não foi possível conectar ao Núcleo Neural (Backend). Verifique se o servidor está rodando em {process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}.
                     </p>
                     <button
                         onClick={() => window.location.reload()}

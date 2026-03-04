@@ -4,7 +4,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import useWebSocket from '../hooks/useWebSocket';
 import { BackendStatus } from '../types';
 
-const API_BASE = 'http://localhost:8000/api/v1';
+import { getApiUrl } from '../utils/apiClient';
+import { toast } from 'sonner';
+
+const API_BASE = `${getApiUrl()}/api/v1`;
 
 export default function FactoryPage() {
     const [status, setStatus] = useState({ queued: 0, processing: 0, completed: 0, failed: 0 });
@@ -17,6 +20,7 @@ export default function FactoryPage() {
             if (res.ok) setStatus(await res.json());
         } catch (error) {
             console.error('Failed to fetch ingestion status', error);
+            // toast.error("Falha ao buscar status de ingestão"); // Retirado toast para não espamar a cada 5s
         }
     }, []);
 
@@ -30,9 +34,16 @@ export default function FactoryPage() {
     const triggerScan = async () => {
         setScanning(true);
         try {
-            await fetch(`${API_BASE}/content/scan`, { method: 'POST' });
+            const res = await fetch(`${API_BASE}/content/scan`, { method: 'POST' });
+            if (!res.ok) {
+                toast.error('Falha ao acionar Injeção manual.');
+            } else {
+                toast.success('Escaneamento iniciado!');
+            }
             await fetchStatus();
-        } catch (error) { }
+        } catch (error) {
+            toast.error('Erro de conexão com o painel de Factory.');
+        }
         setScanning(false);
     };
 
@@ -87,7 +98,11 @@ export default function FactoryPage() {
                         </div>
                         <div className="flex flex-col items-end border-l border-white/10 pl-6">
                             <span className="text-slate-500 text-[10px] font-mono uppercase tracking-widest">Eficiência</span>
-                            <span className="text-2xl font-mono text-emerald-400">98<span className="text-slate-500 text-sm">%</span></span>
+                            <span className="text-2xl font-mono text-emerald-400">
+                                {status.completed + status.failed > 0
+                                    ? Math.round((status.completed / ((status.completed + status.failed) || 1)) * 100)
+                                    : '--'}<span className="text-slate-500 text-sm">%</span>
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -120,28 +135,34 @@ export default function FactoryPage() {
                         </div>
 
                         <div className="md:w-[45%] md:mr-auto pl-16 md:pl-0 md:pr-12 relative">
-                            {/* Dummy Item 1 */}
-                            <div className="pod-card bg-black/40 border border-white/5 rounded-sm p-1 relative overflow-hidden group/pod backdrop-blur-sm">
-                                <div className="bg-white/5 px-3 py-2 flex justify-between items-center border-b border-white/5">
-                                    <span className="text-[10px] font-mono text-slate-400">ID: AX-8392</span>
-                                    <span className="text-[10px] font-mono text-cyan-400 animate-pulse">AGUARDANDO PROC</span>
-                                </div>
-                                <div className="p-3 flex gap-4">
-                                    <div className="relative w-24 h-16 bg-black border border-white/10 overflow-hidden group-hover/pod:border-cyan-500/50 transition-colors shrink-0">
-                                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
-                                        <div className="absolute top-0 w-full h-[2px] bg-cyan-500/50 shadow-[0_0_5px_#00f0ff] animate-laser-flow"></div>
+                            {/* Dynamic Queue Item or Empty State */}
+                            {status.queued > 0 ? (
+                                <div className="pod-card bg-black/40 border border-white/5 rounded-sm p-1 relative overflow-hidden group/pod backdrop-blur-sm">
+                                    <div className="bg-white/5 px-3 py-2 flex justify-between items-center border-b border-white/5">
+                                        <span className="text-[10px] font-mono text-slate-400">STATUS: QUEUED</span>
+                                        <span className="text-[10px] font-mono text-cyan-400 animate-pulse">AGUARDANDO PROC</span>
                                     </div>
-                                    <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
-                                        <div>
-                                            <h4 className="text-white font-bold text-sm truncate font-display">Project Alpha Intro</h4>
-                                            <p className="text-slate-500 text-[10px] font-mono mt-1">RAW_SOURCE: 4K_S-LOG3.mp4</p>
+                                    <div className="p-3 flex gap-4">
+                                        <div className="relative w-24 h-16 bg-black border border-white/10 overflow-hidden group-hover/pod:border-cyan-500/50 transition-colors shrink-0 flex items-center justify-center">
+                                            <span className="material-symbols-outlined text-cyan-500/30 text-2xl">movie</span>
+                                            <div className="absolute top-0 w-full h-[2px] bg-cyan-500/50 shadow-[0_0_5px_#00f0ff] animate-laser-flow"></div>
                                         </div>
-                                        <div className="flex items-center gap-2 mt-2">
-                                            <button className="text-[9px] font-mono border border-slate-700 hover:border-cyan-400 hover:text-cyan-400 hover:bg-cyan-400/5 px-2 py-1 transition-all rounded-sm uppercase">Injeção Prioritária</button>
+                                        <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
+                                            <div>
+                                                <h4 className="text-white font-bold text-sm truncate font-display">Itens em Fila</h4>
+                                                <p className="text-slate-500 text-[10px] font-mono mt-1">Lotes Brutos Detectados pelo Watcher</p>
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-2">
+                                                <button className="text-[9px] font-mono border border-slate-700 hover:border-cyan-400 hover:text-cyan-400 hover:bg-cyan-400/5 px-2 py-1 transition-all rounded-sm uppercase opacity-50 cursor-not-allowed">Injeção Padrão</button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <div className="pod-card bg-black/20 border border-white/5 border-dashed rounded-sm p-4 text-center">
+                                    <p className="text-slate-500 text-xs font-mono">Nenhum diretório pendente na fila primária.</p>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -168,16 +189,16 @@ export default function FactoryPage() {
                                     <div className="absolute inset-0 bg-[linear-gradient(rgba(0,240,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(0,240,255,0.1)_1px,transparent_1px)] bg-[size:40px_40px] perspective-[500px] rotate-x-12 opacity-30 animate-pulse"></div>
 
                                     <div className="absolute top-4 left-4 font-mono text-[10px] text-cyan-400 bg-black/80 px-2 py-1 border-l-2 border-cyan-400 shadow-[0_0_10px_rgba(0,240,255,0.2)]">
-                                        {activeJob ? activeJob.step.toUpperCase() : 'RENDERING::PASS_02'}
+                                        {activeJob ? activeJob.step.toUpperCase() : 'IDLE :: AGUARDANDO NODE'}
                                     </div>
 
                                     <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 flex items-center justify-center">
-                                        <div className="absolute inset-0 border border-cyan-400/20 rounded-full animate-[spin_4s_linear_infinite]"></div>
+                                        {activeJob && <div className="absolute inset-0 border border-cyan-400/20 rounded-full animate-[spin_4s_linear_infinite]"></div>}
                                         <div className="particle-ring absolute w-28 h-28"></div>
                                         <div className="relative w-24 h-24 rounded-full border border-cyan-400/30 flex items-center justify-center backdrop-blur-sm bg-black/40">
-                                            <div className="absolute inset-0 border-t-2 border-cyan-400 rounded-full animate-spin shadow-[0_0_15px_#00f0ff]"></div>
+                                            {activeJob && <div className="absolute inset-0 border-t-2 border-cyan-400 rounded-full animate-spin shadow-[0_0_15px_#00f0ff]"></div>}
                                             <span className="text-2xl font-bold font-mono text-white drop-shadow-[0_0_5px_#00f0ff]">
-                                                {activeJob ? activeJob.progress : '72'}
+                                                {activeJob ? activeJob.progress : '--'}
                                                 <span className="text-xs text-cyan-400">%</span>
                                             </span>
                                         </div>
@@ -186,18 +207,18 @@ export default function FactoryPage() {
 
                                 <div className="bg-black/60 backdrop-blur border-t border-cyan-400/20 p-4 grid grid-cols-2 gap-4">
                                     <div>
-                                        <h4 className="text-white font-bold text-sm truncate uppercase tracking-wide">{activeJob ? activeJob.name : 'Campanha Herói v4'}</h4>
-                                        <p className="text-slate-500 text-[9px] font-mono mt-0.5">ALVO: 4K_HEVC_10BIT</p>
+                                        <h4 className="text-white font-bold text-sm truncate uppercase tracking-wide">{activeJob ? activeJob.name : 'Nenhum Pacote Ativo'}</h4>
+                                        <p className="text-slate-500 text-[9px] font-mono mt-0.5">ALVO: {activeJob ? 'PROCESSAMENTO_VIDEO' : 'SISTEMA_STANDBY'}</p>
                                     </div>
                                     <div className="flex flex-col gap-1 justify-center">
                                         <div className="flex justify-between text-[9px] font-mono text-cyan-400/70 uppercase">
                                             <span>Uso de VRAM</span>
-                                            <span>11.2 GB</span>
+                                            <span>{activeJob ? '-- GB' : '0.0 GB'}</span>
                                         </div>
                                         <div className="h-1 bg-white/5 w-full rounded-full overflow-hidden relative">
                                             <div className="absolute inset-0 bg-cyan-400/20 animate-pulse"></div>
-                                            <div className={`h-full bg-cyan-400 shadow-[0_0_10px_#00f0ff] relative overflow-hidden`} style={{ width: `${activeJob ? activeJob.progress : 90}%` }}>
-                                                <div className="absolute inset-0 bg-white/30 skew-x-12 w-4 animate-laser-flow"></div>
+                                            <div className={`h-full bg-cyan-400 shadow-[0_0_10px_#00f0ff] relative overflow-hidden`} style={{ width: `${activeJob ? activeJob.progress : 0}%` }}>
+                                                {activeJob && <div className="absolute inset-0 bg-white/30 skew-x-12 w-4 animate-laser-flow"></div>}
                                             </div>
                                         </div>
                                     </div>
@@ -220,23 +241,32 @@ export default function FactoryPage() {
                         </div>
 
                         <div className="md:w-[45%] md:ml-auto pl-16 md:pl-12 md:pr-0 relative flex flex-col gap-4">
-                            <div className="pod-card bg-black/40 backdrop-blur-sm border border-emerald-900/50 hover:border-emerald-500 rounded-sm p-4 flex flex-col overflow-hidden group/done transition-all duration-300">
-                                <div>
-                                    <div className="flex justify-between items-start mb-1">
-                                        <h4 className="text-white font-bold text-sm truncate uppercase">Review Tech 2024</h4>
-                                        <span className="text-[9px] text-emerald-500 border border-emerald-900 bg-emerald-900/20 px-1.5 py-0.5 rounded font-mono shadow-[0_0_8px_rgba(16,185,129,0.2)]">CONCLUÍDO</span>
+                            {status.completed > 0 ? (
+                                <div className="pod-card bg-black/40 backdrop-blur-sm border border-emerald-900/50 hover:border-emerald-500 rounded-sm p-4 flex flex-col overflow-hidden group/done transition-all duration-300">
+                                    <div>
+                                        <div className="flex justify-between items-start mb-1">
+                                            <h4 className="text-white font-bold text-sm truncate uppercase">Aguardando Avaliação</h4>
+                                            <span className="text-[9px] text-amber-500 border border-amber-900 bg-amber-900/20 px-1.5 py-0.5 rounded font-mono shadow-[0_0_8px_rgba(245,158,11,0.2)]">PENDENTE</span>
+                                        </div>
+                                        <p className="text-slate-500 text-xs font-mono">Último Processamento Finalizado</p>
                                     </div>
-                                    <p className="text-slate-500 text-xs font-mono">SAÍDA: CDN_Link_v4.mp4 (245MB)</p>
+                                    <div className="flex gap-2 mt-4 flex-wrap">
+                                        <button className="flex-[1_1_100%] bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[10px] font-mono uppercase py-2 transition-all flex items-center justify-center gap-2 font-bold">
+                                            <span className="material-symbols-outlined text-[16px]">check_circle</span> Aprovar e Enfileirar
+                                        </button>
+                                        <button className="flex-1 bg-white/5 hover:bg-cyan-500/10 border border-white/10 hover:border-cyan-500/50 text-cyan-400 text-[10px] font-mono uppercase py-2 transition-all flex items-center justify-center gap-2">
+                                            <span className="material-symbols-outlined text-[16px]">shuffle</span> Inverter Ordem
+                                        </button>
+                                        <button className="flex-1 bg-white/5 hover:bg-red-500/10 border border-white/10 hover:border-red-500/50 text-red-500 text-[10px] font-mono uppercase py-2 transition-all flex items-center justify-center gap-2">
+                                            <span className="material-symbols-outlined text-[16px]">delete</span> Descartar
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="flex gap-2 mt-4">
-                                    <button className="flex-1 bg-white/5 hover:bg-emerald-900/30 border border-white/10 hover:border-emerald-500/50 text-slate-400 hover:text-white text-[10px] font-mono uppercase py-2 transition-all flex items-center justify-center gap-2">
-                                        <span className="material-symbols-outlined text-[14px]">download</span> Recuperar
-                                    </button>
-                                    <button className="flex-1 bg-white/5 hover:bg-cyan-500/10 border border-white/10 hover:border-cyan-500/50 text-slate-400 hover:text-white text-[10px] font-mono uppercase py-2 transition-all flex items-center justify-center gap-2">
-                                        <span className="material-symbols-outlined text-[14px]">share</span> Enviar
-                                    </button>
+                            ) : (
+                                <div className="pod-card bg-black/20 border border-white/5 border-dashed rounded-sm p-4 text-center">
+                                    <p className="text-slate-500 text-xs font-mono">Nenhum pipeline finalizado ainda.</p>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     </div>
 

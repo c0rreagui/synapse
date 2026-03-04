@@ -25,7 +25,7 @@ export const Interactive = {
                     label="New Password"
                     type="password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(val) => setPassword(typeof val === 'string' ? val : (val as any)?.target?.value || '')}
                     placeholder="Type to test strength..."
                 />
                 <PasswordStrength password={password} />

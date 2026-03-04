@@ -301,15 +301,110 @@ export default function ProfilesPage() {
         return '👤';
     };
 
-    // [SYN-UX] Repair Session Handler - Removed manual logic in favor of ProfileRepairModal
-    // New simplified handler (although direct setter can be used too)
-    const handleOpenRepair = (profile: TikTokProfile) => {
-        setRepairProfile(profile);
+
+    const handleBulkDelete = async () => {
+        if (selectedIds.size === 0) return;
+        setConfirmModal({
+            isOpen: true,
+            title: `Excluir ${selectedIds.size} perfis selecionados?`,
+            type: 'delete',
+            isLoading: false,
+            onConfirm: async () => {
+                setConfirmModal(prev => ({ ...prev, isLoading: true }));
+                try {
+                    const res = await fetch(`${API_BASE}/profiles/bulk-delete`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ profile_ids: Array.from(selectedIds) })
+                    });
+                    if (res.ok) {
+                        toast.success(`${selectedIds.size} perfis excluídos.`);
+                        setProfiles(prev => prev.filter(p => !selectedIds.has(p.id)));
+                        setSelectedIds(new Set());
+                    } else {
+                        const err = await res.json().catch(() => ({ detail: res.statusText }));
+                        toast.error('Erro na exclusão em lote', { description: err.detail });
+                    }
+                } catch (e) {
+                    toast.error('Erro de conexão');
+                } finally {
+                    setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+                }
+            }
+        });
+    };
+
+    const handleBulkRefresh = async () => {
+        if (selectedIds.size === 0) return;
+        setConfirmModal({
+            isOpen: true,
+            title: `Atualizar ${selectedIds.size} perfis selecionados?`,
+            type: 'success',
+            isLoading: false,
+            onConfirm: async () => {
+                setConfirmModal(prev => ({ ...prev, isLoading: true }));
+                try {
+                    const res = await fetch(`${API_BASE}/profiles/bulk-refresh`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ profile_ids: Array.from(selectedIds) })
+                    });
+                    if (res.ok) {
+                        toast.success(`Atualização em lote iniciada para ${selectedIds.size} perfis.`);
+                        setSelectedIds(new Set());
+                        fetchProfiles(); // reload to get new states
+                    } else {
+                        const err = await res.json().catch(() => ({ detail: res.statusText }));
+                        toast.error('Erro na atualização em lote', { description: err.detail });
+                    }
+                } catch (e) {
+                    toast.error('Erro de conexão');
+                } finally {
+                    setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
+                }
+            }
+        });
     };
 
     return (
         <>
 
+            {/* FLOATING BULK ACTION BAR */}
+            {selectedIds.size > 0 && (
+                <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-8 duration-300">
+                    <div className="bg-[#161b22]/90 backdrop-blur-xl border border-synapse-primary/30 px-6 py-4 rounded-2xl shadow-[0_0_40px_rgba(7,182,213,0.15)] flex items-center gap-6">
+                        <div className="text-white font-bold tracking-widest text-sm flex items-center gap-2">
+                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-synapse-primary/20 text-synapse-primary text-xs">
+                                {selectedIds.size}
+                            </span>
+                            Selecionados
+                        </div>
+                        <div className="w-px h-6 bg-white/10"></div>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleBulkRefresh}
+                                className="px-4 py-2 bg-synapse-primary/10 hover:bg-synapse-primary/20 text-synapse-primary text-xs font-bold uppercase tracking-wider rounded-lg transition-colors border border-synapse-primary/20 flex items-center gap-2"
+                            >
+                                <ArrowPathIcon className="w-4 h-4" />
+                                Sync Selecionados
+                            </button>
+                            <button
+                                onClick={handleBulkDelete}
+                                className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors border border-red-500/20 flex items-center gap-2"
+                            >
+                                <TrashIcon className="w-4 h-4" />
+                                Excluir Selecionados
+                            </button>
+                            <button
+                                onClick={() => setSelectedIds(new Set())}
+                                className="px-3 py-2 text-gray-400 hover:text-white uppercase text-[10px] font-bold tracking-widest"
+                            >
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* UNDO TOAST CONTAINER */}
             <div className="fixed bottom-8 right-8 z-50 flex flex-col gap-2 pointer-events-none">
@@ -342,7 +437,7 @@ export default function ProfilesPage() {
                     </Link>
                     <div>
                         <h2 className="text-2xl font-bold text-white m-0">Perfis TikTok</h2>
-                        <p className="text-sm text-gray-500 m-0">Gerenciar sessões de upload</p>
+                        <p className="text-sm text-gray-500 m-0">Gerenciar sessões de upload + Bulk actions</p>
                     </div>
                 </div>
 
@@ -354,37 +449,9 @@ export default function ProfilesPage() {
                     >
                         {selectedIds.size === profiles.length && profiles.length > 0 ? 'Desmarcar Todos' : 'Selecionar Todos'}
                     </NeonButton>
-                    <NeonButton
-                        variant="ghost"
-                        onClick={async () => {
-                            setConfirmModal({
-                                isOpen: true,
-                                title: "Atualizar todos os perfis sequencialmente?",
-                                type: 'success',
-                                isLoading: false,
-                                onConfirm: async () => {
-                                    setConfirmModal(prev => ({ ...prev, isLoading: true }));
-                                    setIsRefreshingAll(true);
-                                    try {
-                                        for (const p of profiles) {
-                                            await handleRefreshAvatar(p.id);
-                                        }
-                                        toast.success('Todos os perfis atualizados!');
-                                    } finally {
-                                        setIsRefreshingAll(false);
-                                        setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
-                                    }
-                                }
-                            });
-                        }}
-                        disabled={isRefreshingAll || Object.values(refreshingProfiles).some(v => v)}
-                        className="text-xs"
-                    >
-                        <ArrowPathIcon className={`w-4 h-4 ${isRefreshingAll ? 'animate-spin' : ''}`} />
-                        {isRefreshingAll ? 'Atualizando...' : 'Refresh All'}
-                    </NeonButton>
                 </div>
             </header>
+
 
             {error && (
                 <StitchCard className="p-4 mb-6 !bg-red-500/10 !border-red-500/30 text-red-400">
@@ -498,9 +565,20 @@ export default function ProfilesPage() {
                                                     />
 
                                                     {health === 'healthy' ? (
-                                                        <span className="material-symbols-outlined text-white/50 text-xl"></span>
+                                                        <span className="material-symbols-outlined text-[#00ff9d] text-base drop-shadow-[0_0_5px_#00ff9d]">check_circle</span>
                                                     ) : (
-                                                        <span className="material-symbols-outlined text-red-500/80 text-xl animate-pulse"></span>
+                                                        <span className="material-symbols-outlined text-red-500 text-base animate-pulse shadow-[0_0_5px_#ff2a2a] rounded-full">warning</span>
+                                                    )}
+
+                                                    {/* Screenshot Viewer Trigger Fix */}
+                                                    {profile.last_error_screenshot && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setViewerImage(profile.last_error_screenshot!); }}
+                                                            className="absolute right-12 top-[38px] bg-red-900/20 border border-red-500/30 hover:bg-red-500/20 rounded p-1 flex items-center justify-center text-red-400 hover:text-white transition-all z-50 shadow-[0_0_10px_rgba(255,42,42,0.2)]"
+                                                            title="Ver Captura de Tela do Erro"
+                                                        >
+                                                            <span className="material-symbols-outlined text-[14px]">visibility</span>
+                                                        </button>
                                                     )}
                                                 </div>
 
@@ -580,7 +658,7 @@ export default function ProfilesPage() {
 
                     </div>
                 ) : (
-                    <div className="col-span-full flex flex-col items-center justify-center py-20 pointer-events-auto">
+                    <div className="w-full flex flex-col items-center justify-center py-20 pointer-events-auto">
                         <div className="size-24 rounded-full border-4 border-dashed border-synapse-primary/20 flex items-center justify-center mb-6">
                             <span className="material-symbols-outlined text-5xl text-synapse-primary/50">hub</span>
                         </div>
@@ -756,6 +834,42 @@ export default function ProfilesPage() {
                     }
                 }}
             />
+
+            {/* Delete Confirmation Modal — SYN-52 */}
+            <Modal
+                isOpen={!!deleteConfirmationId}
+                onClose={() => setDeleteConfirmationId(null)}
+                title="Confirmar Exclusão"
+            >
+                <div className="text-center py-4">
+                    <div className="mb-4 flex justify-center">
+                        <div className="size-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center">
+                            <TrashIcon className="size-8 text-red-400" />
+                        </div>
+                    </div>
+                    <p className="text-slate-300 mb-2">
+                        Tem certeza que deseja excluir o perfil
+                        <span className="text-white font-bold ml-1">
+                            {profiles.find(p => p.id === deleteConfirmationId)?.label || deleteConfirmationId}
+                        </span>
+                        ?
+                    </p>
+                    <p className="text-slate-500 text-xs">
+                        O perfil será removido do sistema após 8 segundos. Você poderá desfazer via toast.
+                    </p>
+                </div>
+                <div className="flex justify-center gap-3 pt-2">
+                    <NeonButton variant="ghost" onClick={() => setDeleteConfirmationId(null)}>
+                        Cancelar
+                    </NeonButton>
+                    <button
+                        onClick={confirmDelete}
+                        className="px-6 py-2 bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 hover:text-red-300 text-xs font-bold uppercase tracking-widest transition-all"
+                    >
+                        Confirmar Exclusão
+                    </button>
+                </div>
+            </Modal>
 
             {/* Import Modal */}
             <Modal

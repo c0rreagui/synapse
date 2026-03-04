@@ -72,6 +72,7 @@ export const Interactive = {
                         console.log('Delete event', id);
                         setEvents(prev => prev.filter(e => e.id !== id));
                     }}
+                    onRetryEvent={(id) => console.log('Retry event', id)}
                 />
             </div>
         );

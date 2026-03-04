@@ -805,18 +805,18 @@ class SEOEngine:
         
         Tarefa:
         1. Crie uma LEGENDA (Caption) altamente engajadora.
-           - OBRIGATORIO: Terminar com um CTA de Crescimento (Ex: "Siga para mais", "Curte se concorda").
-           - Use ganchos de curiosidade.
+           - OBRIGATORIO: Terminar com um CTA de Crescimento focado em RETENCAO (Ex: "Siga para mais cortes", "Siga o perfil e nao perca o proximo!", "Curte e compartilha se voce concorda").
+           - Use ganchos de curiosidade logo no comeco.
            - IMPORTANTE: NAO inclua hashtags na legenda! As hashtags vao em campo separado.
-        2. Selecione 5-7 HASHTAGS otimizadas (MAXIMO 7):
-           - 2-3 Tags de Nicho (Especificas do conteudo)
-           - 2-3 Tags Virais (fyp, viral, foryou)
+        2. Selecione 5-7 HASHTAGS otimizadas que garantam tracao viral para este nicho especifico (MAXIMO 7):
+           - 2-3 Tags de Nicho (Especiais de cauda longa do assunto, ex: #marketingdigital, #tech)
+           - 2-3 Tags Virais Genéricas obrigatórias (#viral, #fyp, #foryou)
            - 1-2 Tags de Tendencia (se relevante do Contexto Viral)
         3. Estime um "Potencial Viral" (0-100).
         
         Responda APENAS JSON:
         {{
-            "suggested_caption": "Legenda aqui SEM hashtags (incluindo emojis e CTA)",
+            "suggested_caption": "Legenda aqui SEM hashtags (incluindo emojis e CTA OBRIGATÓRIO)",
             "hashtags": ["tag1", "tag2", "tag3"],
             "viral_score": 85,
             "viral_reason": "Explica por que este tema funciona"
@@ -840,8 +840,8 @@ class SEOEngine:
         except Exception as e:
             print(f"Content Gen Error: {e}")
             return {
-                "suggested_caption": f"{clean_name} - Siga para mais content! 👇",
-                "hashtags": ["#viral", "#fyp", f"#{niche.replace(' ', '')}"],
+                "suggested_caption": f"{clean_name} - Siga o perfil para não perder nenhuma novidade! 👇",
+                "hashtags": ["viral", "fyp", "foryou", niche.replace(' ', '')],
                 "viral_score": 50,
                 "viral_reason": f"Erro na IA: {str(e)}"
             }

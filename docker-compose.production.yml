@@ -67,7 +67,7 @@ services:
     container_name: synapse-backend
     restart: always
     ports:
-      - "127.0.0.1:8000:8000"
+      - "8000:8000"
     volumes:
       - ./backend:/app
       - ./brain:/app/brain
@@ -159,16 +159,15 @@ services:
 
   # Frontend
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.production
     container_name: synapse-frontend
     restart: always
     ports:
       - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://46.225.62.76:8000}
     depends_on:
       - backend
 

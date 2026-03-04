@@ -334,7 +334,16 @@ async def ensure_minimum_duration(
     total_duration = sum(durations)
 
     if output_path is None:
-        output_path = os.path.join(OUTPUT_DIR, "final_stitched.mp4")
+        from hashlib import md5
+        import time
+        hash_str = md5(str(time.time()).encode()).hexdigest()[:8]
+        
+        # Use dynamic EXPORTS directory instead of old OUTPUT_DIR
+        base_backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        exports_dir = os.path.join(base_backend_dir, "data", "exports")
+        os.makedirs(exports_dir, exist_ok=True)
+        
+        output_path = os.path.join(exports_dir, f"stitch_{hash_str}.mp4")
 
     logger.info(
         f"Stitcher: {len(valid_clips)} clipe(s), "

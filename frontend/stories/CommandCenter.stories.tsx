@@ -56,7 +56,13 @@ const MockProvider = ({ children, status, mood = 'IDLE' }: { children: React.Rea
     </WebSocketContext.Provider>
 );
 
-const meta: Meta<typeof CommandCenter> = {
+// Define custom args for the story
+interface StoryArgs extends React.ComponentProps<typeof CommandCenter> {
+    mockStatus?: BackendStatus;
+    mockMood?: string;
+}
+
+const meta: Meta<StoryArgs> = {
     title: 'App/Organisms/CommandCenter',
     component: CommandCenter,
     tags: ['autodocs'],
@@ -89,11 +95,7 @@ const meta: Meta<typeof CommandCenter> = {
     ],
 };
 
-// Define custom args for the story
-interface StoryArgs extends React.ComponentProps<typeof CommandCenter> {
-    mockStatus?: BackendStatus;
-    mockMood?: string;
-}
+// ... removed StoryArgs from here ...
 
 export default meta;
 type Story = StoryObj<StoryArgs>;

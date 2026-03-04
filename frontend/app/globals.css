@@ -65,9 +65,17 @@
 
   /* Ambient Cosmos Pulse */
   @keyframes voidPulse {
-    0%, 100% { opacity: 0.02; }
-    50% { opacity: 0.08; }
+
+    0%,
+    100% {
+      opacity: 0.02;
+    }
+
+    50% {
+      opacity: 0.08;
+    }
   }
+
   .animate-pulse-slow {
     animation: voidPulse 6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
   }
@@ -130,8 +138,10 @@ body {
 
 /* Cosmic Moods */
 .mood-idle {
-  --mood-color-start: #0f172a; /* Slate 800 - distant stars */
-  --mood-color-end: #030305;   /* Void */
+  --mood-color-start: #0f172a;
+  /* Slate 800 - distant stars */
+  --mood-color-end: #030305;
+  /* Void */
 }
 
 .mood-processing {
@@ -245,7 +255,9 @@ body {
   }
 
   @keyframes pingWave {
-    75%, 100% {
+
+    75%,
+    100% {
       transform: translate(-50%, -50%) scale(2);
       opacity: 0;
     }
@@ -332,20 +344,23 @@ body {
   background: rgba(8, 8, 12, 0.6);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.05); /* Starlight border */
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  /* Starlight border */
   border-radius: var(--radius-glass);
-  box-shadow: 
+  box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.8),
-    inset 0 1px 0 rgba(255, 255, 255, 0.03); /* Top surface reflection */
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  /* Top surface reflection */
   transition: all var(--transition-normal);
 }
 
 .glass-card:hover {
   transform: translateY(-2px);
   border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: 
+  box-shadow:
     0 12px 40px rgba(0, 0, 0, 0.9),
-    0 0 30px rgba(6, 182, 212, 0.1), /* Cyan aura */
+    0 0 30px rgba(6, 182, 212, 0.1),
+    /* Cyan aura */
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
@@ -604,7 +619,9 @@ body {
 .video-card::before {
   content: '';
   position: absolute;
-  top: 0; left: 0; right: 0;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.3), transparent);
   opacity: 0;
@@ -614,9 +631,10 @@ body {
 .video-card:hover {
   transform: scale(1.02) translateY(-4px);
   border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: 
+  box-shadow:
     0 16px 40px rgba(0, 0, 0, 0.9),
-    0 0 20px rgba(6, 182, 212, 0.15); /* Cyan glow from the engine */
+    0 0 20px rgba(6, 182, 212, 0.15);
+  /* Cyan glow from the engine */
 }
 
 .video-card:hover::before {
@@ -826,4 +844,32 @@ body {
   border-color: #d946ef;
   box-shadow: 0 0 0 2px rgba(217, 70, 239, 0.2);
   outline: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NODE WALL - HEXAGON & SCAN EFFECTS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.clip-path-hex {
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
+@keyframes scan {
+  0% {
+    top: 0%;
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 1;
+  }
+
+  90% {
+    opacity: 1;
+  }
+
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
 }
