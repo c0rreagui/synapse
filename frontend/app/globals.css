@@ -800,6 +800,182 @@ body {
   text-shadow: 0 0 10px rgba(217, 70, 239, 0.6);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   SATELLITE NODE WALL (STITCH CUSTOM)
+   Audit Fixes: responsive sizing, WCAG contrast, touch targets, reduced-motion
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.radial-card {
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 1/1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  cursor: pointer;
+  transition: transform 0.3s;
+}
+
+.radial-card:hover {
+  transform: scale(1.02);
+}
+
+.central-hub {
+  width: 55%;
+  aspect-ratio: 1/1;
+  max-width: 220px;
+  border-radius: 50%;
+  background: #050a0c;
+  border: 2px solid rgba(7, 182, 213, 0.1);
+  box-shadow: 0 0 50px rgba(7, 182, 213, 0.1);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1.5rem;
+  position: relative;
+}
+
+.segmented-glow {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 4px solid transparent;
+  border-style: dashed;
+  z-index: 39;
+  opacity: 0.6;
+}
+
+.segmented-glow.success {
+  border-color: #00ff9d;
+  box-shadow: 0 0 20px rgba(0, 255, 157, 0.2);
+}
+
+.segmented-glow.error {
+  border-color: #ff2a2a;
+  box-shadow: 0 0 20px rgba(255, 42, 42, 0.2);
+}
+
+.segmented-glow.warn {
+  border-color: #ffb02a;
+  box-shadow: 0 0 20px rgba(255, 176, 42, 0.2);
+}
+
+.circular-ticker-container {
+  position: absolute;
+  width: 90%;
+  aspect-ratio: 1/1;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ticker-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  animation: orbit-spin 30s linear infinite;
+}
+
+@keyframes orbit-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+
+  .ticker-svg,
+  .segmented-glow {
+    animation: none !important;
+  }
+}
+
+.ticker-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  fill: rgba(148, 163, 184, 0.65);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.orbital-outer {
+  position: absolute;
+  width: 100%;
+  aspect-ratio: 1/1;
+  border-radius: 50%;
+  border: 1px dashed rgba(7, 182, 213, 0.05);
+  z-index: 5;
+  pointer-events: none;
+}
+
+.action-orbit {
+  position: absolute;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  z-index: 45;
+}
+
+.proxy-select {
+  background: #0a1114;
+  border: 1px solid rgba(7, 182, 213, 0.3);
+  color: #94a3b8;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  appearance: none;
+  min-height: 36px;
+  min-width: 100px;
+}
+
+.proxy-select:focus {
+  outline: none;
+  border-color: #07b6d5;
+  box-shadow: 0 0 0 2px rgba(7, 182, 213, 0.3);
+}
+
+.orbital-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  border-radius: 1rem;
+  background: rgba(10, 17, 20, 0.95);
+  border: 1px solid rgba(7, 182, 213, 0.2);
+  min-width: 110px;
+  min-height: 44px;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+.orbital-button:hover {
+  border-color: #07b6d5;
+  background: rgba(7, 182, 213, 0.1);
+  box-shadow: 0 0 20px rgba(7, 182, 213, 0.3);
+  backdrop-filter: blur(8px);
+}
+
+.orbital-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(7, 182, 213, 0.5), 0 0 20px rgba(7, 182, 213, 0.3);
+}
+
 .text-glow-green {
   text-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
 }
@@ -872,4 +1048,154 @@ body {
     top: 100%;
     opacity: 0;
   }
+}
+
+/* ═══════════════════════════════════════════════ */
+/* TERMINAL MATRIX — Profiles Redesign            */
+/* Holographic Card System from Stitch Prototype   */
+/* ═══════════════════════════════════════════════ */
+
+.terminal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 2.5rem;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.holographic-card {
+  height: 620px;
+  background: rgba(10, 17, 20, 0.4);
+  border: 1px solid rgba(7, 182, 213, 0.15);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.8);
+  border-radius: 4px;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.holographic-card:hover {
+  border-color: rgba(7, 182, 213, 0.35);
+  box-shadow: 0 10px 60px -10px rgba(7, 182, 213, 0.15);
+}
+
+.holographic-card.card-error {
+  border-color: rgba(255, 42, 42, 0.3);
+}
+
+.holographic-card.card-warn {
+  border-color: rgba(255, 176, 42, 0.2);
+}
+
+.holographic-card.card-selected {
+  border-color: rgba(7, 182, 213, 0.5);
+  box-shadow: 0 0 30px rgba(7, 182, 213, 0.2);
+}
+
+.holographic-header {
+  position: absolute;
+  top: -15px;
+  left: 15px;
+  right: 15px;
+  z-index: 30;
+  background: rgba(15, 25, 30, 0.7);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(7, 182, 213, 0.4);
+  padding: 1rem;
+  box-shadow: 0 4px 20px rgba(7, 182, 213, 0.2);
+  border-radius: 4px;
+}
+
+.holographic-header.header-error {
+  border-color: rgba(255, 42, 42, 0.4);
+  box-shadow: 0 4px 20px rgba(255, 42, 42, 0.1);
+  background: rgba(255, 42, 42, 0.05);
+}
+
+.holographic-header.header-warn {
+  border-color: rgba(255, 176, 42, 0.3);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.log-stream-background {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(7, 182, 213, 0.2) transparent;
+  padding: 100px 1.5rem 80px 1.5rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
+}
+
+.log-stream-background::-webkit-scrollbar {
+  width: 3px;
+}
+
+.log-stream-background::-webkit-scrollbar-thumb {
+  background: rgba(7, 182, 213, 0.2);
+}
+
+.holographic-footer {
+  position: absolute;
+  bottom: 12px;
+  left: 20px;
+  right: 20px;
+  z-index: 30;
+  height: 48px;
+  background: rgba(10, 17, 20, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(7, 182, 213, 0.2);
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.4);
+  border-radius: 4px;
+}
+
+.terminal-proxy-select {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 2px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  outline: none;
+}
+
+.terminal-proxy-select:focus {
+  border-color: #07b6d5;
+}
+
+.glitch-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(transparent 50%, rgba(7, 182, 213, 0.03) 50%);
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 15;
+  opacity: 0.5;
+  border-radius: 4px;
+}
+
+.starfield-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(1px 1px at 20px 30px, #ffffff, rgba(0, 0, 0, 0)),
+    radial-gradient(1.5px 1.5px at 90px 40px, #ffffff, rgba(0, 0, 0, 0));
+  background-repeat: repeat;
+  background-size: 300px 300px;
+  opacity: 0.15;
 }

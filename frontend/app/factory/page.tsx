@@ -36,9 +36,9 @@ export default function FactoryPage() {
         try {
             const res = await fetch(`${API_BASE}/content/scan`, { method: 'POST' });
             if (!res.ok) {
-                toast.error('Falha ao acionar Injeção manual.');
+                toast.error('Falha ao acionar Sincronização de Fila.');
             } else {
-                toast.success('Escaneamento iniciado!');
+                toast.success('Varredura acionada no Motor!');
             }
             await fetchStatus();
         } catch (error) {
@@ -88,9 +88,9 @@ export default function FactoryPage() {
                             className={`flex items-center justify-center gap-2 rounded h-8 px-4 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/50 text-cyan-400 text-xs font-bold font-mono tracking-widest uppercase transition-all hover:shadow-[0_0_15px_rgba(0,240,255,0.3)] group ${scanning ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             <span className={`material-symbols-outlined text-[16px] ${scanning ? 'animate-spin' : 'group-hover:rotate-90 transition-transform'}`}>
-                                {scanning ? 'sync' : 'add'}
+                                {scanning ? 'sync' : 'bolt'}
                             </span>
-                            <span>{scanning ? 'Escaneando...' : 'Injetar Dados'}</span>
+                            <span>{scanning ? 'Sincronizando...' : 'Forçar Sincronização'}</span>
                         </button>
                         <div className="flex flex-col items-end border-l border-white/10 pl-6">
                             <span className="text-slate-500 text-[10px] font-mono uppercase tracking-widest">Pacotes Ativos</span>
@@ -160,7 +160,7 @@ export default function FactoryPage() {
                                 </div>
                             ) : (
                                 <div className="pod-card bg-black/20 border border-white/5 border-dashed rounded-sm p-4 text-center">
-                                    <p className="text-slate-500 text-xs font-mono">Nenhum diretório pendente na fila primária.</p>
+                                    <p className="text-slate-500 text-xs font-mono">Fila de Varredura Inativa. O Clipper auto-alimentará esta baia em breve.</p>
                                 </div>
                             )}
                         </div>
@@ -264,7 +264,7 @@ export default function FactoryPage() {
                                 </div>
                             ) : (
                                 <div className="pod-card bg-black/20 border border-white/5 border-dashed rounded-sm p-4 text-center">
-                                    <p className="text-slate-500 text-xs font-mono">Nenhum pipeline finalizado ainda.</p>
+                                    <p className="text-slate-500 text-xs font-mono">Nenhum pipeline finalizado. Aguardando saída do Motor de Rederização.</p>
                                 </div>
                             )}
                         </div>

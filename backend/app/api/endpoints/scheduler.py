@@ -19,10 +19,22 @@ class ScheduleRequest(BaseModel):
     privacy_level: str = "public"
 
 @router.get("/list")
-async def list_schedule():
+async def list_schedule(date: Optional[str] = None):
+    """
+    Lista eventos agendados. 
+    [SYN-79] Filtro opcional por data específica (YYYY-MM-DD).
+    """
     # [SYN-42] Auto-cleanup expired items before listing
     scheduler_service.cleanup_missed_schedules()
-    return scheduler_service.load_schedule()
+    items = scheduler_service.load_schedule()
+    
+    if date:
+        return [
+            item for item in items 
+            if item.get("scheduled_time") and item["scheduled_time"].startswith(date)
+        ]
+        
+    return items
 
 @router.get("/debug")
 def debug_pending_items():

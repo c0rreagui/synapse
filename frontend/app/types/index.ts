@@ -224,6 +224,14 @@ export interface TikTokProfile {
     session_valid?: boolean;
     niche?: string;
     last_error_screenshot?: string;
+    proxy_id?: number;
+    proxy?: {
+        id: number;
+        name: string;
+        nickname?: string;
+        server: string;
+        active: boolean;
+    };
 }
 
 // --- WEBSOCKET TYPES ---

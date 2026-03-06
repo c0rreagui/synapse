@@ -76,25 +76,37 @@ async def _get_twitch_token(client: httpx.AsyncClient) -> str:
 
 # ─── Resolucao de Canal ─────────────────────────────────────────────────
 
-def _extract_channel_name(url: str) -> str:
+def _extract_target_info(url: str) -> tuple[str, str]:
     """
-    Extrai o nome do canal de uma URL da Twitch.
+    Retorna uma tupla (target_type, slug_or_name)
     Aceita formatos:
-        https://www.twitch.tv/gaules
-        https://twitch.tv/gaules
-        twitch.tv/gaules
-        gaules (nome direto)
+        https://www.twitch.tv/directory/category/just-chatting/clips -> ('category', 'just-chatting')
+        https://twitch.tv/gaules -> ('channel', 'gaules')
+        gaules -> ('channel', 'gaules')
     """
-    url = url.strip().rstrip("/")
-    if "/" in url:
-        return url.split("/")[-1].lower()
-    return url.lower()
+    import urllib.parse
+    url = urllib.parse.unquote(url).strip()
+    url = url.split("?")[0].rstrip("/")
+
+    if "/category/" in url:
+        parts = url.split("/category/")[-1].split("/")
+        return "category", parts[0]
+    elif "twitch.tv/" in url:
+        parts = url.split("twitch.tv/")[-1].split("/")
+        return "channel", parts[0].lower()
+    elif "/" in url:
+        parts = url.split("/")
+        target = parts[-1].lower()
+        if target == "clips" and len(parts) > 1:
+            target = parts[-2].lower()
+        return "channel", target
+    return "channel", url.lower()
 
 
-async def _resolve_broadcaster_id(
+async def _resolve_broadcaster_info(
     client: httpx.AsyncClient, token: str, channel_name: str
-) -> Optional[str]:
-    """Resolve o nome do canal para broadcaster_id via Twitch Helix API."""
+) -> Optional[Dict[str, str]]:
+    """Resolve o nome do canal para broadcaster_id e profile_image_url via Twitch Helix API."""
     resp = await client.get(
         f"{TWITCH_HELIX_URL}/users",
         params={"login": channel_name},
@@ -111,37 +123,77 @@ async def _resolve_broadcaster_id(
         logger.warning(f"Canal '{channel_name}' nao encontrado na Twitch.")
         return None
 
-    return users[0]["id"]
+    return {
+        "id": users[0]["id"],
+        "name": users[0].get("display_name", channel_name),
+        "profile_image_url": users[0].get("profile_image_url", ""),
+        "offline_image_url": users[0].get("offline_image_url", "")
+    }
+
+async def _resolve_category_info(
+    client: httpx.AsyncClient, token: str, category_slug: str
+) -> Optional[Dict[str, str]]:
+    """Resolve o slug da categoria para category_id via Twitch Helix API."""
+    query = category_slug.replace("-", " ")
+    resp = await client.get(
+        f"{TWITCH_HELIX_URL}/search/categories",
+        params={"query": query},
+        headers={
+            "Client-Id": TWITCH_CLIENT_ID,
+            "Authorization": f"Bearer {token}",
+        },
+    )
+    resp.raise_for_status()
+    data = resp.json()
+
+    categories = data.get("data", [])
+    if not categories:
+        logger.warning(f"Categoria '{query}' nao encontrada na Twitch.")
+        return None
+
+    # Considera o primeiro resultado como o correto
+    return {
+        "id": categories[0]["id"],
+        "name": categories[0]["name"],
+        "box_art_url": categories[0].get("box_art_url", "").replace("{width}", "285").replace("{height}", "380")
+    }
 
 
 # ─── Busca de Clipes ────────────────────────────────────────────────────
 
+def _format_twitch_time(dt: datetime) -> str:
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
 async def fetch_top_clips(
     client: httpx.AsyncClient,
     token: str,
-    broadcaster_id: str,
+    target_id: str,
+    target_type: str = "channel",
     hours_lookback: int = 24,
     max_clips: int = 5,
     min_views: int = 100,
 ) -> List[Dict[str, Any]]:
     """
-    Busca os Top Clips de um broadcaster nas ultimas N horas.
-
-    Returns:
-        Lista de dicts com: id, url, title, view_count, duration, creator_name, created_at
+    Busca os Top Clips de um target (channel ou category) nas ultimas N horas.
     """
     now = datetime.now(timezone.utc)
-    started_at = (now - timedelta(hours=hours_lookback)).isoformat()
-    ended_at = now.isoformat()
+    started_at = _format_twitch_time(now - timedelta(hours=hours_lookback))
+    ended_at = _format_twitch_time(now)
+
+    params = {
+        "first": max_clips * 4,  # Pega extras para filtrar rigorosamente por views
+        "started_at": started_at,
+        "ended_at": ended_at,
+    }
+    
+    if target_type == "category":
+        params["game_id"] = target_id
+    else:
+        params["broadcaster_id"] = target_id
 
     resp = await client.get(
         f"{TWITCH_HELIX_URL}/clips",
-        params={
-            "broadcaster_id": broadcaster_id,
-            "first": max_clips * 2,  # Pega extras para filtrar por views
-            "started_at": started_at,
-            "ended_at": ended_at,
-        },
+        params=params,
         headers={
             "Client-Id": TWITCH_CLIENT_ID,
             "Authorization": f"Bearer {token}",
@@ -173,59 +225,90 @@ async def fetch_top_clips(
     return results
 
 
-# ─── Registro de Alvos ──────────────────────────────────────────────────
-
-async def register_target(channel_url: str) -> Dict[str, Any]:
+async def register_target(channel_url: str, army_id: Optional[int] = None) -> Dict[str, Any]:
     """
-    Cadastra um novo canal da Twitch para monitoramento.
-    Resolve automaticamente o broadcaster_id.
-
-    Returns:
-        Dict com dados do TwitchTarget criado.
+    Cadastra um novo canal ou categoria da Twitch para monitoramento.
     """
-    channel_name = _extract_channel_name(channel_url)
+    target_type, slug = _extract_target_info(channel_url)
 
     async with httpx.AsyncClient(timeout=15) as client:
         token = await _get_twitch_token(client)
-        broadcaster_id = await _resolve_broadcaster_id(client, token, channel_name)
+        
+        target_name = slug
+        broadcaster_id = None
+        category_id = None
+        profile_image_url = None
+        offline_image_url = None
 
-    if not broadcaster_id:
-        raise ValueError(f"Canal '{channel_name}' nao encontrado na Twitch API.")
+        if target_type == "category":
+            info = await _resolve_category_info(client, token, slug)
+            if not info:
+                raise ValueError(f"Categoria '{slug}' nao encontrada na Twitch API.")
+            category_id = info["id"]
+            target_name = info["name"]
+            profile_image_url = info["box_art_url"]
+        else:
+            info = await _resolve_broadcaster_info(client, token, slug)
+            if not info:
+                raise ValueError(f"Canal '{slug}' nao encontrado na Twitch API.")
+            broadcaster_id = info["id"]
+            target_name = info["name"]
+            profile_image_url = info["profile_image_url"]
+            offline_image_url = info.get("offline_image_url", "")
 
     with safe_session() as db:
-        # Verifica duplicata
-        existing = db.query(TwitchTarget).filter(
-            TwitchTarget.channel_name == channel_name
-        ).first()
+        # Verifica duplicata baseada no type
+        query = db.query(TwitchTarget).filter(TwitchTarget.target_type == target_type)
+        if target_type == "category":
+            query = query.filter(TwitchTarget.category_id == category_id)
+        else:
+            query = query.filter(TwitchTarget.broadcaster_id == broadcaster_id)
+            
+        existing = query.first()
 
         if existing:
-            # Reativar se desativado
             if not existing.active:
                 existing.active = True
-                existing.broadcaster_id = broadcaster_id
-                db.commit()
-                logger.info(f"Canal '{channel_name}' reativado.")
+            
+            existing.channel_name = target_name
+            existing.profile_image_url = profile_image_url
+            existing.offline_image_url = offline_image_url
+            if army_id is not None:
+                existing.army_id = army_id
+                
+            db.commit()
             return {
                 "id": existing.id,
+                "target_type": existing.target_type,
                 "channel_name": existing.channel_name,
                 "broadcaster_id": existing.broadcaster_id,
+                "category_id": existing.category_id,
+                "profile_image_url": existing.profile_image_url,
                 "status": "already_registered",
             }
 
         target = TwitchTarget(
             channel_url=channel_url.strip(),
-            channel_name=channel_name,
+            channel_name=target_name,
+            target_type=target_type,
             broadcaster_id=broadcaster_id,
+            category_id=category_id,
+            profile_image_url=profile_image_url,
+            offline_image_url=offline_image_url,
+            army_id=army_id,
+            active=True
         )
         db.add(target)
         db.commit()
         db.refresh(target)
 
-        logger.info(f"Canal '{channel_name}' (ID: {broadcaster_id}) cadastrado para monitoramento.")
         return {
             "id": target.id,
+            "target_type": target.target_type,
             "channel_name": target.channel_name,
             "broadcaster_id": target.broadcaster_id,
+            "category_id": target.category_id,
+            "profile_image_url": target.profile_image_url,
             "status": "created",
         }
 
@@ -243,18 +326,22 @@ async def check_target(target_id: int) -> Optional[int]:
             return None
 
         broadcaster_id = target.broadcaster_id
+        category_id = target.category_id
+        target_type = target.target_type
         channel_name = target.channel_name
         max_clips = target.max_clips_per_check
         min_views = target.min_clip_views
 
-    if not broadcaster_id:
-        logger.warning(f"Target {target_id} ({channel_name}) sem broadcaster_id. Pulando.")
+    twitch_target_id = category_id if target_type == "category" else broadcaster_id
+    if not twitch_target_id:
+        logger.warning(f"Target {target_id} sem ID identificador na API Twitch. Pulando.")
         return None
 
     async with httpx.AsyncClient(timeout=15) as client:
         token = await _get_twitch_token(client)
         clips = await fetch_top_clips(
-            client, token, broadcaster_id,
+            client, token, twitch_target_id,
+            target_type=target_type,
             hours_lookback=24,
             max_clips=max_clips,
             min_views=min_views,

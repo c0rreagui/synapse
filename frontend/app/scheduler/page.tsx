@@ -216,7 +216,7 @@ export default function SchedulerPage() {
             const API = getApiUrl();
             if (draggedEvent.id && draggedEvent.status !== 'ready') {
                 // Update existing event time
-                await axios.put(`${API}/api/v1/scheduler/${draggedEvent.id}`, {
+                await axios.patch(`${API}/api/v1/scheduler/${draggedEvent.id}`, {
                     scheduled_time: isoTime,
                 });
                 toast.success(`Evento movido para ${day.day}/${viewDate.getMonth() + 1}`);
@@ -258,7 +258,7 @@ export default function SchedulerPage() {
     const handleEditSave = async (eventId: string, data: any) => {
         try {
             const API = getApiUrl();
-            await axios.put(`${API}/api/v1/scheduler/${eventId}`, data);
+            await axios.patch(`${API}/api/v1/scheduler/${eventId}`, data);
             toast.success('Evento atualizado');
             setEditingEvent(null);
             await fetchEvents();
@@ -327,6 +327,15 @@ export default function SchedulerPage() {
                             <div className={`flex-1 grid grid-cols-7 grid-rows-${rows} gap-3 pb-12`}>
                                 {calendarDays.map((cd, idx) => {
                                     const isDragTarget = dragOverDate === dateKey(cd.date);
+
+                                    // Calculate Rate Limit (SYN-100)
+                                    // A profile can only have 3 posts per day.
+                                    const maxEventsOnSingleProfile = cd.events.reduce((acc, ev) => {
+                                        acc[ev.profile_id] = (acc[ev.profile_id] || 0) + 1;
+                                        return acc;
+                                    }, {} as Record<string, number>);
+                                    const profileRateLimitReached = Object.values(maxEventsOnSingleProfile).some(count => count >= 3);
+
                                     return (
                                         <div
                                             key={idx}
@@ -343,6 +352,7 @@ export default function SchedulerPage() {
                                                         : 'bg-[#060b0c]/20 border border-white/5'
                                                 }
                                                 ${isDragTarget ? 'border-cyan-400 bg-cyan-400/10 scale-[1.02]' : ''}
+                                                ${profileRateLimitReached ? 'ring-1 ring-red-500/50' : ''}
                                             `}
                                         >
                                             {/* Today beam */}
@@ -364,6 +374,9 @@ export default function SchedulerPage() {
                                                 {cd.events.length > 0 && !cd.isToday && (
                                                     <span className="text-[8px] text-slate-500 font-mono">{cd.events.length}</span>
                                                 )}
+                                                {profileRateLimitReached && (
+                                                    <span className="material-symbols-outlined text-[10px] text-red-400 opacity-80" aria-label="Rate Limit Atingido p/ Perfil (3/dia)">warning</span>
+                                                )}
                                             </div>
 
                                             {/* Event Crystals (max 2 visible) */}
@@ -375,7 +388,7 @@ export default function SchedulerPage() {
                                                         key={ev.id || evi}
                                                         draggable
                                                         onDragStart={(e) => { e.stopPropagation(); handleDragStart(ev); }}
-                                                        className="time-crystal mt-2 p-2 rounded-sm cursor-grab active:cursor-grabbing"
+                                                        className="time-crystal mt-2 p-2 rounded-sm cursor-grab active:cursor-grabbing hover:brightness-125 transition-all"
                                                         style={{ '--crystal-color': crystal.color } as React.CSSProperties}
                                                     >
                                                         <div className="chronos-connector" style={{ '--color': crystal.color } as React.CSSProperties}></div>
@@ -390,7 +403,14 @@ export default function SchedulerPage() {
                                                 );
                                             })}
                                             {cd.events.length > 2 && (
-                                                <div className="text-[9px] text-slate-500 font-mono mt-1 text-center">+{cd.events.length - 2} mais</div>
+                                                <div className="text-[9px] text-slate-500 font-mono mt-1 text-center font-bold">+{cd.events.length - 2} mais</div>
+                                            )}
+
+                                            {/* Empty State Visual Hint for Drag & Drop */}
+                                            {cd.events.length === 0 && cd.isCurrentMonth && (
+                                                <div className="absolute inset-0 m-auto w-8 h-8 rounded-full border border-dashed border-cyan-400/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-cyan-400 pointer-events-none mt-10">
+                                                    <span className="material-symbols-outlined text-[16px]">add</span>
+                                                </div>
                                             )}
                                         </div>
                                     );

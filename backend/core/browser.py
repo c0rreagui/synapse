@@ -152,6 +152,16 @@ async def launch_browser(
             }
             if SYSTEM_CHROMIUM_PATH:
                 launch_kwargs["executable_path"] = SYSTEM_CHROMIUM_PATH
+            
+            # CRITICAL: Inject proxy into launch_kwargs (was silently dropped before!)
+            if proxy:
+                launch_kwargs["proxy"] = {
+                    "server": proxy.get("server"),
+                    "username": proxy.get("username"),
+                    "password": proxy.get("password"),
+                }
+                logger.info(f"[BROWSER] Proxy INJECTED into launch_kwargs: {proxy.get('server')}")
+            
             browser = await p.chromium.launch(**launch_kwargs)
             process_manager.register(browser) # Register Browser
             

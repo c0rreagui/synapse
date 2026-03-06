@@ -1,6 +1,6 @@
 import { Fragment, useState, useEffect } from 'react';
 import { Dialog, Transition, Tab } from '@headlessui/react';
-import { XMarkIcon, DocumentIcon, ClockIcon, ExclamationTriangleIcon, CheckCircleIcon, CubeTransparentIcon, ArrowPathIcon, TrashIcon, EyeIcon, PlayIcon, CalendarIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, DocumentIcon, ClockIcon, ExclamationTriangleIcon, CheckCircleIcon, CubeTransparentIcon, ArrowPathIcon, TrashIcon, EyeIcon, PlayIcon, CalendarIcon, PencilIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import { format } from 'date-fns';
 import { useWebSocketContext } from '../context/WebSocketContext';
@@ -20,7 +20,9 @@ interface MetricsModalProps {
     onViewDetails?: (file: FileItem) => void;
 }
 
-const API_BASE = 'http://localhost:8000/api/v1';
+import { getApiUrl } from '../utils/apiClient';
+
+const API_BASE = `${getApiUrl()}/api/v1`;
 
 export default function MetricsModal({ isOpen, onClose, initialTab = 'processing', onViewDetails }: MetricsModalProps) {
     const [files, setFiles] = useState<Record<string, FileItem[]>>({
@@ -159,6 +161,32 @@ export default function MetricsModal({ isOpen, onClose, initialTab = 'processing
         }
     };
 
+    const handleExportCSV = () => {
+        const rows = ['Tipo,Nome/ID,Perfil,Tamanho,Status,Data'];
+
+        scheduledEvents.forEach(event => {
+            rows.push(`Agendado,${event.video_path || event.id},${event.profile_id},N/A,${event.status},${new Date(event.scheduled_time).toLocaleString('pt-BR')}`);
+        });
+
+        Object.entries(files).forEach(([status, items]) => {
+            items.forEach((item: any) => {
+                rows.push(`${status},${item.name},N/A,${formatSize(item.size)},${status},${new Date(item.modified).toLocaleString('pt-BR')}`);
+            });
+        });
+
+        const csvContent = rows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `synapse_telemetry_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success('Telemetria exportada (CSV) com sucesso!');
+    };
+
     return (
         <Transition show={isOpen} as={Fragment}>
             <Dialog onClose={onClose} className="relative z-50">
@@ -191,9 +219,16 @@ export default function MetricsModal({ isOpen, onClose, initialTab = 'processing
                                     <DocumentIcon className="w-6 h-6 text-synapse-primary" />
                                     <span>Detalhes do Pipeline</span>
                                 </Dialog.Title>
-                                <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
-                                    <XMarkIcon className="w-6 h-6" />
-                                </button>
+                                <div className="flex items-center gap-4">
+                                    <button onClick={handleExportCSV} className="text-gray-400 hover:text-synapse-cyan transition-colors group flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-white/10 hover:border-synapse-cyan/50" title="Exportar Telemetria (CSV)">
+                                        <ArrowDownTrayIcon className="w-4 h-4" />
+                                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider group-hover:text-synapse-cyan">Exportar CSV</span>
+                                    </button>
+                                    <div className="w-[1px] h-6 bg-white/10 hidden sm:block"></div>
+                                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+                                        <XMarkIcon className="w-6 h-6" />
+                                    </button>
+                                </div>
                             </div>
 
                             <Tab.Group selectedIndex={selectedIndex} onChange={setSelectedIndex}>

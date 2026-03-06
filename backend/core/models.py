@@ -1,7 +1,46 @@
-from sqlalchemy import Column, Integer, String, Boolean, JSON, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, JSON, ForeignKey, DateTime, Table
 from sqlalchemy.orm import relationship
 from .database import Base
 from datetime import datetime, timezone
+
+army_profiles = Table(
+    "army_profiles",
+    Base.metadata,
+    Column("army_id", Integer, ForeignKey("armies.id", ondelete="CASCADE"), primary_key=True),
+    Column("profile_id", Integer, ForeignKey("profiles.id", ondelete="CASCADE"), primary_key=True),
+)
+
+class Army(Base):
+    __tablename__ = "armies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True, nullable=False)
+    description = Column(String, nullable=True)
+    color = Column(String, default="#00f0ff")
+    icon = Column(String, default="swords")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    profiles = relationship("Profile", secondary=army_profiles, back_populates="armies")
+
+class Proxy(Base):
+    __tablename__ = "proxies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, default="Proxy Node")
+    nickname = Column(String, nullable=True)  # User-friendly display name (e.g. "BR-São Paulo")
+    server = Column(String, nullable=False) # e.g. "http://123.45.67.89:8080"
+    username = Column(String, nullable=True)
+    password = Column(String, nullable=True)
+    active = Column(Boolean, default=True)
+
+    # --- Fingerprint Overrides (Optional default per proxy node) ---
+    fingerprint_ua = Column(String, nullable=True)
+    geolocation_latitude = Column(String, nullable=True)
+    geolocation_longitude = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    profiles = relationship("Profile", back_populates="proxy")
 
 class Profile(Base):
     __tablename__ = "profiles"
@@ -20,10 +59,13 @@ class Profile(Base):
     oracle_best_times = Column(JSON, default=list) # List of dicts
     last_seo_audit = Column(JSON, default=dict) # The BIG audit object
     
-    # --- Anti-Detect: Proxy Identity (Per-Profile Isolation) ---
-    proxy_server = Column(String, nullable=True)    # Ex: "http://123.45.67.89:8080"
-    proxy_username = Column(String, nullable=True)
-    proxy_password = Column(String, nullable=True)
+    # --- Anti-Detect: Proxy Identity (Relational) ---
+    proxy_id = Column(Integer, ForeignKey("proxies.id"), nullable=True)
+    proxy_server = Column(String, nullable=True)     # Legacy
+    proxy_password = Column(String, nullable=True)   # Legacy
+
+    proxy = relationship("Proxy", back_populates="profiles")
+    armies = relationship("Army", secondary=army_profiles, back_populates="profiles")
 
     # --- Anti-Detect: Browser Fingerprint (Per-Profile) ---
     fingerprint_ua = Column(String, nullable=True)          # User-Agent fixo para este perfil

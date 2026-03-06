@@ -23,8 +23,17 @@ class TwitchTarget(Base):
     channel_url = Column(String, unique=True, nullable=False)
     channel_name = Column(String, index=True, nullable=False)
 
+    # Tipo de alvo: "channel" ou "category"
+    target_type = Column(String, default="channel", index=True)
+
+    # Roteamento Multi-Agência (Exército de Cortes vinculado a um Perfil)
+    army_id = Column(Integer, ForeignKey("armies.id", ondelete="SET NULL"), nullable=True)
+
     # Twitch API identifiers (preenchidos automaticamente no primeiro fetch)
     broadcaster_id = Column(String, nullable=True, index=True)
+    category_id = Column(String, nullable=True, index=True) # Para type="category"
+    profile_image_url = Column(String, nullable=True)
+    offline_image_url = Column(String, nullable=True)
 
     # Configuracao de monitoramento
     active = Column(Boolean, default=True)

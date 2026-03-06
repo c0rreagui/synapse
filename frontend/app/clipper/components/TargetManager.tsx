@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { GlassPanel } from '@/components/design-system/GlassPanel';
 import { Link as LinkIcon, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { getApiUrl } from '../../utils/apiClient';
 
 interface TwitchTarget {
     id: number;
@@ -18,12 +19,13 @@ interface TwitchTarget {
 export function TargetManager() {
     const [url, setUrl] = useState('');
     const queryClient = useQueryClient();
+    const API = getApiUrl();
 
     // GET Targets
     const { data: targets, isLoading, error } = useQuery<TwitchTarget[]>({
         queryKey: ['clipper-targets'],
         queryFn: async () => {
-            const res = await fetch('http://localhost:8000/api/clipper/targets');
+            const res = await fetch(`${API}/api/clipper/targets`);
             if (!res.ok) throw new Error('Falha ao carregar targets');
             return res.json();
         },
@@ -33,7 +35,7 @@ export function TargetManager() {
     // POST Target
     const createTarget = useMutation({
         mutationFn: async (channel_url: string) => {
-            const res = await fetch('http://localhost:8000/api/clipper/targets', {
+            const res = await fetch(`${API}/api/clipper/targets`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ channel_url })
@@ -57,7 +59,7 @@ export function TargetManager() {
     // DELETE Target
     const deleteTarget = useMutation({
         mutationFn: async (id: number) => {
-            const res = await fetch(`http://localhost:8000/api/clipper/targets/${id}`, {
+            const res = await fetch(`${API}/api/clipper/targets/${id}`, {
                 method: 'DELETE'
             });
             if (!res.ok) throw new Error('Erro ao deletar target');

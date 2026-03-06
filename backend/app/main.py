@@ -124,7 +124,7 @@ app.add_middleware(
 
 from fastapi.staticfiles import StaticFiles
 import os
-from .api.endpoints import content, ingestion, profiles, logs, queue, videos, status, scheduler, oracle, analytics, viral_sounds, audio, logic, batch, templates, validate_cookies, settings, health, auto_scheduler, telemetry
+from .api.endpoints import content, ingestion, profiles, logs, queue, armies, videos, status, scheduler, oracle, analytics, viral_sounds, audio, logic, batch, templates, validate_cookies, settings, health, auto_scheduler, telemetry, proxies
 from .api import debug_router
 from .api import websocket as ws_router
 
@@ -147,6 +147,7 @@ app.include_router(validate_cookies.router, prefix="/api/v1/profiles", tags=["pr
 # app.include_router(stats.router, prefix="/api/v1/stats", tags=["stats"]) # Removed: Not found
 app.include_router(logs.router, prefix="/api/v1/logs", tags=["logs"])
 app.include_router(queue.router, prefix="/api/v1/queue", tags=["queue"])
+app.include_router(armies.router, prefix="/api/v1/armies", tags=["armies"])
 app.include_router(videos.router, prefix="/api/v1/videos", tags=["videos"])
 app.include_router(status.router, prefix="/api/v1/status", tags=["status"])
 app.include_router(scheduler.router, prefix="/api/v1/scheduler", tags=["scheduler"])
@@ -161,6 +162,7 @@ app.include_router(settings.router, prefix="/api/v1/settings", tags=["settings"]
 app.include_router(health.router, prefix="/api/health", tags=["health"]) # Sonar
 app.include_router(auto_scheduler.router, prefix="/api/v1", tags=["auto-scheduler"])
 app.include_router(telemetry.router, prefix="/api/v1/telemetry", tags=["telemetry"])
+app.include_router(proxies.router, prefix="/api/v1/proxies", tags=["proxies"])
 app.include_router(debug_router.router, prefix="/api/v1", tags=["debug"])
 from .api.endpoints.clipper import router as clipper_router
 app.include_router(clipper_router, prefix="/api/clipper", tags=["clipper"])

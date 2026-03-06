@@ -82,3 +82,47 @@ async def debug_paths():
         "files_in_dir": files,
         "list_available_sessions_output": sm.list_available_sessions()
     }
+
+
+class CliRequest(BaseModel):
+    command: str
+
+class CliResponse(BaseModel):
+    lines: list[dict]
+
+@router.post("/cli", response_model=CliResponse)
+async def cli_execute(request: CliRequest):
+    """
+    Executa comandos do Terminal Interativo Central (CLI).
+    """
+    cmd = request.command.strip().lower()
+    
+    lines = []
+    
+    if cmd == "/ping":
+        lines.append({"type": "success", "text": "Pong! Sistema Backend Operante."})
+        
+    elif cmd == "/status":
+        from core.database import SessionLocal
+        from core.models import Profile, Proxy
+        db = SessionLocal()
+        try:
+            profile_count = db.query(Profile).count()
+            proxy_count = db.query(Proxy).count()
+            lines.append({"type": "system", "text": "Sistema Nominal."})
+            lines.append({"type": "info", "text": f"Bando de Dados: OK (SQLite)"})
+            lines.append({"type": "info", "text": f"Perfis: {profile_count} | Proxies: {proxy_count}"})
+        except Exception as e:
+            lines.append({"type": "error", "text": f"Falha no Banco de Dados: {str(e)}"})
+            
+    elif cmd == "/help":
+        lines.append({"type": "system", "text": "Comandos Suportados:"})
+        lines.append({"type": "info", "text": "  /ping   - Verifica conectividade com servidor"})
+        lines.append({"type": "info", "text": "  /status - Resumo da infraestrutura (DB, Perfis)"})
+        lines.append({"type": "info", "text": "  /clear  - Limpa o terminal local"})
+        lines.append({"type": "info", "text": "  /help   - Mostra esta mensagem"})
+        
+    else:
+        lines.append({"type": "error", "text": f"Comando não reconhecido pelo servidor: {cmd}"})
+        
+    return CliResponse(lines=lines)

@@ -126,17 +126,27 @@ export default function MetricsPage() {
     const formatTimestamp = (ts?: string) => {
         if (!ts) return new Date().toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
         try {
+            // Try to parse. If it says 'Invalid Date', fallback to string directly
             const d = new Date(ts);
+            if (isNaN(d.getTime())) return ts; // Return original string safely
             return d.toLocaleString('pt-BR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
         } catch {
-            return ts.slice(0, 23);
+            return String(ts).slice(0, 23);
         }
     };
 
     const filteredLogs = logs.filter(log => {
         const l = log.level.toUpperCase();
+
+        // If "Apenas Erros" is checked, ONLY show errors
         if (filterErrors && !(l.includes('ERR') || l.includes('CRITICAL'))) return false;
+
+        // If "Avisos" is disabled, hide warnings
         if (!filterWarnings && l.includes('WARN')) return false;
+
+        // If "Todos os Sistemas" is disabled, and it's info/debug, hide it
+        if (!showAll && !(l.includes('ERR') || l.includes('CRITICAL') || l.includes('WARN'))) return false;
+
         return true;
     });
 
@@ -239,8 +249,8 @@ export default function MetricsPage() {
                         </div>
                     </div>
 
-                    <div ref={terminalRef} className="flex-1 overflow-y-auto overflow-x-hidden p-8 font-mono text-sm leading-relaxed scroll-smooth relative" id="terminal-content">
-                        <div className="w-full max-w-7xl mx-auto hud-tilted min-h-[800px] h-full backdrop-blur-sm relative p-10 pb-20">
+                    <div ref={terminalRef} className="flex-1 overflow-y-auto overflow-x-hidden p-8 font-mono text-sm leading-relaxed relative" id="terminal-content">
+                        <div className="w-full max-w-7xl mx-auto min-h-[800px] h-full backdrop-blur-sm relative p-10 pb-20">
                             <div className="absolute top-0 left-0 w-16 h-16 border-t border-l border-cyan-400/60"></div>
                             <div className="absolute top-0 right-0 w-16 h-16 border-t border-r border-cyan-400/60"></div>
                             <div className="absolute bottom-0 left-0 w-16 h-16 border-b border-l border-cyan-400/60"></div>
@@ -289,13 +299,13 @@ export default function MetricsPage() {
 
                     <div className="shrink-0 bg-black/90 backdrop-blur border-t border-white/10 px-6 py-3 flex items-center justify-between text-xs font-mono z-30">
                         <div className="flex items-center gap-8">
-                            <span className="flex items-center gap-2 text-cyan-400 drop-shadow-[0_0_5px_rgba(0,240,255,0.5)]">
-                                <span className={`size-2 rounded-full ${wsStatus === 'connected' ? 'bg-cyan-400 animate-pulse shadow-[0_0_8px_rgba(0,240,255,0.8)]' : 'bg-red-500'}`}></span>
-                                <span className="tracking-widest text-[10px] uppercase">
+                            <span className="flex items-center gap-2 text-cyan-400 drop-shadow-[0_0_5px_rgba(0,240,255,0.5)] truncate max-w-[400px]">
+                                <span className={`shrink-0 size-2 rounded-full ${wsStatus === 'connected' ? 'bg-cyan-400 animate-pulse shadow-[0_0_8px_rgba(0,240,255,0.8)]' : 'bg-red-500'}`}></span>
+                                <span className="tracking-widest text-[10px] uppercase truncate">
                                     Stream: {API.replace('http', 'ws')}/api/v1/telemetry/stream
                                 </span>
                             </span>
-                            <span className="text-slate-500 text-[10px] uppercase tracking-wider">
+                            <span className="text-slate-500 text-[10px] uppercase tracking-wider shrink-0">
                                 LOGS: <span className="text-white font-bold">{filteredLogs.length}</span>
                             </span>
                         </div>

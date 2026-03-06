@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getApiUrl } from '../utils/apiClient';
 
 // Rotas para prefetch
 const ROUTES_TO_PREFETCH = [
@@ -58,7 +59,7 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
                 setProgress(10);
 
                 try {
-                    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+                    const apiUrl = getApiUrl();
                     const healthRes = await fetch(`${apiUrl}/health`, {
                         signal: AbortSignal.timeout(5000)
                     });
@@ -80,7 +81,7 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
                 for (let i = 0; i < ROUTES_TO_PREFETCH.length; i++) {
                     router.prefetch(ROUTES_TO_PREFETCH[i]);
                     setProgress(25 + Math.floor((i / ROUTES_TO_PREFETCH.length) * 30));
-                    await new Promise(r => setTimeout(r, 100)); // Small delay for visual effect
+                    await new Promise(r => setTimeout(r, 10)); // Reduced delay
                 }
                 updateStep('routes', 'done');
                 setProgress(55);
@@ -88,8 +89,8 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
                 // Step 3: Load Profiles (Optional - proceed even if fails, but log it)
                 updateStep('profiles', 'loading');
                 try {
-                    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-                    await fetch(`${apiUrl}/api/v1/profiles`, {
+                    const apiUrl = getApiUrl();
+                    await fetch(`${apiUrl}/api/v1/profiles/list`, {
                         signal: AbortSignal.timeout(5000)
                     });
                 } catch { /* ignore non-critical */ }
@@ -99,7 +100,7 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
                 // Step 4: Final Oracle Check
                 updateStep('final', 'loading');
                 try {
-                    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+                    const apiUrl = getApiUrl();
                     await fetch(`${apiUrl}/api/v1/oracle/status`, {
                         signal: AbortSignal.timeout(3000)
                     });
@@ -111,7 +112,7 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
                 sessionStorage.setItem('synapse_initialized', 'true');
 
                 // Small delay before showing app
-                await new Promise(r => setTimeout(r, 500));
+                await new Promise(r => setTimeout(r, 50));
                 clearInterval(timer);
                 setIsReady(true);
 

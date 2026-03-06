@@ -122,9 +122,8 @@ export default function AnalyticsPage() {
                             <Sparkles className="w-12 h-12 mb-4" />
                             <p>Crunching Data...</p>
                         </div>
-                    ) : data ? (
+                    ) : data && !('error' in data) && data.summary ? (
                         <>
-                            {/* KPI Grid */}
                             {/* KPI Grid */}
                             <div key={selectedProfileId} className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -194,8 +193,11 @@ export default function AnalyticsPage() {
                             </div>
                         </>
                     ) : (
-                        <div className="h-64 flex items-center justify-center text-gray-500">
-                            Select a profile to view analytics.
+                        <div className="h-64 flex flex-col items-center justify-center text-gray-500">
+                            {data && 'error' in data ? (
+                                <p className="text-red-400 mb-2">Error: {(data as any).error}</p>
+                            ) : null}
+                            Select a profile to view analytics, or acquire more data points.
                         </div>
                     )}
                 </div>

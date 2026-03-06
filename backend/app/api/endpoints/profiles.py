@@ -36,20 +36,70 @@ class ImportProfileRequest(BaseModel):
     cookies: str
     username: str | None = None
     avatar_url: str | None = None
+    fingerprint_ua: str | None = None
+    proxy_id: int | None = None           # Select existing proxy by ID
+    # --- Inline Proxy Creation (SYN-105) ---
+    proxy_server: str | None = None       # e.g. "http://200.234.150.63:50100"
+    proxy_username: str | None = None
+    proxy_password: str | None = None
+    proxy_nickname: str | None = None
+
 
 @router.post("/import")
 async def import_profile_endpoint(request: ImportProfileRequest, background_tasks: BackgroundTasks):
     """
     Importa um novo perfil a partir de um JSON de cookies.
     Se o label não for fornecido, tenta extrair dos cookies.
+    SYN-105: Suporta criação inline de proxy quando proxy_server é fornecido.
     """
     from fastapi import HTTPException
     from fastapi.concurrency import run_in_threadpool
     from core.session_manager import import_session, get_profile_metadata, update_profile_metadata_async
+    from core.database import SessionLocal
+    from core.models import Profile, Proxy
     
     try:
         # Se label for None, import_session vai gerar um temporário
-        profile_id = await run_in_threadpool(import_session, request.label, request.cookies, request.username, request.avatar_url)
+        profile_id = await run_in_threadpool(import_session, request.label, request.cookies, request.username, request.avatar_url, request.fingerprint_ua)
+        
+        # --- SYN-105: Inline Proxy Binding ---
+        resolved_proxy_id = request.proxy_id
+        
+        # If inline proxy data was provided, create a new Proxy record
+        if request.proxy_server and not resolved_proxy_id:
+            def _create_proxy():
+                db = SessionLocal()
+                try:
+                    proxy = Proxy(
+                        name=f"Proxy {request.proxy_server.split('//')[-1].split(':')[0]}",
+                        nickname=request.proxy_nickname,
+                        server=request.proxy_server if request.proxy_server.startswith('http') else f"http://{request.proxy_server}",
+                        username=request.proxy_username,
+                        password=request.proxy_password,
+                        active=True
+                    )
+                    db.add(proxy)
+                    db.commit()
+                    db.refresh(proxy)
+                    return proxy.id
+                finally:
+                    db.close()
+            resolved_proxy_id = await run_in_threadpool(_create_proxy)
+        
+        # Bind proxy to profile if we have one
+        if resolved_proxy_id:
+            def _bind_proxy():
+                db = SessionLocal()
+                try:
+                    profile = db.query(Profile).filter(
+                        (Profile.slug == profile_id) | (Profile.username == profile_id)
+                    ).first()
+                    if profile:
+                        profile.proxy_id = resolved_proxy_id
+                        db.commit()
+                finally:
+                    db.close()
+            await run_in_threadpool(_bind_proxy)
         
         # Trigger background metadata fetch
         background_tasks.add_task(run_in_threadpool, update_profile_metadata_async, profile_id)
@@ -58,7 +108,7 @@ async def import_profile_endpoint(request: ImportProfileRequest, background_task
         # Simplificando erro
         raise HTTPException(status_code=500, detail=str(e))
         
-    return {"profile_id": profile_id, "status": "imported", "message": "Importação iniciada. Metadados serão atualizados em breve."}
+    return {"profile_id": profile_id, "status": "imported", "proxy_bound": resolved_proxy_id is not None, "message": "Importação iniciada. Metadados serão atualizados em breve."}
 
 
 @router.post("/validate/{profile_id}")
@@ -178,6 +228,37 @@ async def delete_profile_endpoint(profile_id: str):
         
     return {"status": "success", "message": f"Perfil {profile_id} removido."}
 
+class UpdateProfileRequest(BaseModel):
+    proxy_id: Optional[int] = None
+
+@router.put("/{profile_id}")
+async def update_profile_endpoint(profile_id: str, request: UpdateProfileRequest):
+    """
+    Atualiza dados de um perfil, como proxy_id.
+    """
+    from fastapi import HTTPException
+    from fastapi.concurrency import run_in_threadpool
+    from core.database import SessionLocal
+    from core.models import Profile
+    
+    def _update():
+        db = SessionLocal()
+        try:
+            profile = db.query(Profile).filter(
+                (Profile.slug == profile_id) | (Profile.username == profile_id)
+            ).first()
+            if not profile:
+                return False
+            profile.proxy_id = request.proxy_id
+            db.commit()
+            return True
+        finally:
+            db.close()
+            
+    success = await run_in_threadpool(_update)
+    if not success:
+        raise HTTPException(status_code=404, detail="Perfil não encontrado.")
+    return {"status": "success", "message": f"Perfil {profile_id} atualizado."}
 
 # ─── SYN-88: Bulk Endpoints ─────────────────────────────────────────────
 

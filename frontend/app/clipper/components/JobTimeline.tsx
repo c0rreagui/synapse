@@ -4,6 +4,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { GlassPanel } from '@/components/design-system/GlassPanel';
 import { Activity, Clock, CheckCircle2, AlertTriangle, Play, RefreshCw, Layers } from 'lucide-react';
+import { getApiUrl } from '../../utils/apiClient';
 
 interface ClipJob {
     id: number;
@@ -17,11 +18,13 @@ interface ClipJob {
 }
 
 export function JobTimeline() {
+    const API = getApiUrl();
+
     // GET Jobs with intelligent polling
     const { data: jobs, isLoading } = useQuery<ClipJob[]>({
         queryKey: ['clipper-jobs'],
         queryFn: async () => {
-            const res = await fetch('http://localhost:8000/api/clipper/jobs');
+            const res = await fetch(`${API}/api/clipper/jobs`);
             if (!res.ok) throw new Error('Falha ao carregar jobs');
             return res.json();
         },
@@ -97,8 +100,8 @@ export function JobTimeline() {
                                     {getStatusIcon(job.status)}
                                 </div>
                                 <div className={`border rounded-xl p-4 flex flex-col gap-2 transition-all ${isCompleted ? 'bg-emerald-500/5 border-emerald-500/20' :
-                                        isFailed ? 'bg-red-500/5 border-red-500/20' :
-                                            'bg-blue-500/5 border-blue-500/20'
+                                    isFailed ? 'bg-red-500/5 border-red-500/20' :
+                                        'bg-blue-500/5 border-blue-500/20'
                                     }`}>
                                     <div className="flex items-center justify-between">
                                         <div className="font-bold text-white text-sm">

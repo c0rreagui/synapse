@@ -76,6 +76,7 @@ export default {
             },
             backgroundImage: {
                 'celestial-gradient': 'radial-gradient(circle at 50% 50%, #0c0e16 0%, #010103 100%)',
+                'deep-space': 'radial-gradient(circle at 50% 50%, #0c1e22 0%, #030608 100%)',
                 'grid-perspective': "linear-gradient(to bottom, transparent 0%, rgba(0, 240, 255, 0.03) 100%)",
                 'scanline': "linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06))",
             },
@@ -244,6 +245,8 @@ export default {
                 sans: ['Inter', 'system-ui', 'sans-serif'],
                 display: ["Space Grotesk", "sans-serif"],
                 mono: ['JetBrains Mono', 'Consolas', 'monospace'],
+                distressed: ['Rubik Glitch', 'cursive'],
+                outline: ['Bungee Outline', 'cursive'],
             },
         },
     },

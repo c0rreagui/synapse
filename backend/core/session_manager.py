@@ -267,12 +267,14 @@ def list_available_sessions() -> List[Dict[str, str]]:
     # Iterate DB profiles and enrich with session status from file
     for p in db_profiles:
         profile_data = {
+            "db_id": p.id,
             "id": p.slug,
             "label": p.label or p.slug,
             "username": p.username or "",
             "avatar_url": p.avatar_url or "",
             "icon": p.icon or "",
             "status": "active" if p.active else "inactive",
+            "proxy_id": p.proxy_id,
             "session_valid": False # Default
         }
         
@@ -294,50 +296,12 @@ def list_available_sessions() -> List[Dict[str, str]]:
             
         sessions.append(profile_data)
             
-    # 2. Scan Files for sessions missing in DB (Legacy/Sync fallback)
-    try:
-        json_files = glob.glob(os.path.join(SESSIONS_DIR, "*.json"))
-        for file_path in json_files:
-            try:
-                slug = os.path.splitext(os.path.basename(file_path))[0]
-                
-                # Skip if already in DB results
-                if any(s['id'] == slug for s in sessions):
-                    continue
-
-                # Read file to get metadata
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                
-                if not isinstance(data, dict):
-                     # Could be raw list
-                     if isinstance(data, list):
-                         # Wrap it implicitly for logic below or normalize
-                         data = {"cookies": data}
-                     else:
-                        data = {}
-
-                meta = data.get("synapse_meta", {})
-                cookies = data.get("cookies", []) if "cookies" in data else (data if isinstance(data, list) else [])
-
-                is_valid = False
-                if isinstance(cookies, list):
-                    is_valid = check_cookies_validity(cookies)
-                
-                sessions.append({
-                    "id": slug,
-                    "label": meta.get("display_name") or slug,
-                    "username": meta.get("username") or "",
-                    "avatar_url": meta.get("avatar_url") or "",
-                    "icon": "👤",
-                    "status": "active",
-                    "session_valid": is_valid
-                })
-            except Exception as e:
-                print(f"Error processing session file {file_path}: {str(e)}")
-                
-    except Exception as e:
-        print(f"Critical Error scanning session files: {str(e)}")
+    # [SYN-FIX] Legacy JSON fallback scan REMOVED.
+    # Previously this block scanned all .json files in data/sessions/ and
+    # re-added profiles that existed on disk but not in SQLite. This caused
+    # deleted profiles to resurrect after page refresh whenever the .json 
+    # file wasn't cleaned up (common on Windows due to file locks).
+    # The SQLite DB is now the single source of truth for profile listing.
 
     # Merge with DB data (if available) & Real-time Stats
     # [SYN-FIX] Bulletproof Stats: Always fetch real count from DB
@@ -396,7 +360,7 @@ def list_available_sessions() -> List[Dict[str, str]]:
     sessions.sort(key=lambda x: x['id'])
     return sessions
 
-def import_session(label: str | None, cookies_json: str, username: str | None = None, avatar_url: str | None = None) -> str:
+def import_session(label: str | None, cookies_json: str, username: str | None = None, avatar_url: str | None = None, fingerprint: str | None = None) -> str:
     """
     Imports a new session from a cookies JSON string.
     Generates a unique profile ID and creates DB entry.
@@ -449,7 +413,10 @@ def import_session(label: str | None, cookies_json: str, username: str | None = 
         from core.network_utils import get_random_user_agent
         
         # [SYN-74] Assign a persistent User-Agent for this profile
-        persistent_ua = get_random_user_agent()
+        if fingerprint:
+             persistent_ua = fingerprint
+        else:
+             persistent_ua = get_random_user_agent()
         
         content_to_dump = cookies_data
         if isinstance(cookies_data, list):

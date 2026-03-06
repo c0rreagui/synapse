@@ -21,6 +21,7 @@ const API_BASE = `${getApiUrl()}/api/v1`;
 
 export default function ProfilesPage() {
     const [profiles, setProfiles] = useState<TikTokProfile[]>([]);
+    const [proxies, setProxies] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showImportModal, setShowImportModal] = useState(false);
     const [importLabel, setImportLabel] = useState('');
@@ -29,6 +30,11 @@ export default function ProfilesPage() {
     const [refreshingProfiles, setRefreshingProfiles] = useState<Record<string, boolean>>({});
     const [refreshErrors, setRefreshErrors] = useState<Record<string, string | null>>({});
     const [isRefreshingAll, setIsRefreshingAll] = useState(false);
+
+    // INLINE EDIT STATE
+    const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+    const [editLabel, setEditLabel] = useState('');
+    const [editUsername, setEditUsername] = useState('');
 
     // BULK ACTIONS STATE
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -44,10 +50,28 @@ export default function ProfilesPage() {
     // IMPORT STATE EXTENDED
     const [importUsername, setImportUsername] = useState('');
     const [importAvatar, setImportAvatar] = useState('');
+    const [importFingerprint, setImportFingerprint] = useState('');
+    const [importProxyId, setImportProxyId] = useState<number | null>(null);
     const [validatingCookies, setValidatingCookies] = useState(false);
+
+    // SYN-105: Inline Proxy State
+    const [proxyMode, setProxyMode] = useState<'existing' | 'new'>('existing');
+    const [importProxyServer, setImportProxyServer] = useState('');
+    const [importProxyUser, setImportProxyUser] = useState('');
+    const [importProxyPass, setImportProxyPass] = useState('');
+    const [importProxyNickname, setImportProxyNickname] = useState('');
 
     // [SYN-UX] Repair Modal State (Replaces old manual/auto states)
     const [repairProfile, setRepairProfile] = useState<TikTokProfile | null>(null);
+
+    // BACKEND INTEGRATION: Proxy Validation State
+    const [validatingProxy, setValidatingProxy] = useState(false);
+    const [proxyLocation, setProxyLocation] = useState<{ city: string, region: string, country: string } | null>(null);
+    const [proxyError, setProxyError] = useState<string | null>(null);
+
+    // [TELEMETRY & LOGS]
+    const [systemVitals, setSystemVitals] = useState<any>(null);
+    const [realLogs, setRealLogs] = useState<any[]>([]);
 
     // CONFIRM MODAL STATE (Missing in original file but used in render? Added for safety)
     const [confirmModal, setConfirmModal] = useState<{
@@ -128,7 +152,7 @@ export default function ProfilesPage() {
 
             // Cleanup timer ref
             delete deleteTimers.current[id];
-        }, 8000);
+        }, 30000); // [SYN-111] Expanded from 15s to 30s for A11y safety
 
         deleteTimers.current[id] = timer;
     };
@@ -158,6 +182,88 @@ export default function ProfilesPage() {
         });
     };
 
+    useEffect(() => {
+        // 1. Fetch system vitals periodically
+        const fetchVitals = async () => {
+            try {
+                const res = await fetch(`${API_BASE}/telemetry/vitals`);
+                if (res.ok) setSystemVitals(await res.json());
+            } catch (e) {
+                // silent
+            }
+        };
+        fetchVitals();
+        const interval = setInterval(fetchVitals, 5000);
+
+        // [SYN-109] 2. Connect to real-time log stream with graceful retry
+        let ws: WebSocket | null = null;
+        let wsRetryCount = 0;
+        let wsReconnectTimer: NodeJS.Timeout | null = null;
+        let wsPingInterval: NodeJS.Timeout | null = null;
+        let isMounted = true;
+
+        const connectWs = () => {
+            if (!isMounted) return;
+            try {
+                const wsUrl = getApiUrl().replace('http', 'ws').replace('https', 'wss') + '/api/v1/telemetry/stream';
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    wsRetryCount = 0; // Reset backoff on success
+                    // Keepalive ping
+                    wsPingInterval = setInterval(() => {
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                            ws.send('ping');
+                        }
+                    }, 30000);
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.type === 'log_entry') {
+                            setRealLogs(prev => {
+                                const newLogs = [...prev, data.data].slice(-50);
+                                return newLogs;
+                            });
+                        }
+                    } catch (e) { }
+                };
+
+                ws.onclose = () => {
+                    if (wsPingInterval) clearInterval(wsPingInterval);
+                    wsPingInterval = null;
+                    if (!isMounted) return;
+                    // Exponential backoff: 3s -> 6s -> 12s -> 24s -> 30s (max)
+                    const delay = Math.min(3000 * Math.pow(2, wsRetryCount), 30000);
+                    wsRetryCount++;
+                    wsReconnectTimer = setTimeout(connectWs, delay);
+                };
+
+                ws.onerror = () => {
+                    // Silently let onclose handle reconnect — no console spam
+                };
+            } catch (e) {
+                // [SYN-109] Graceful: if WebSocket constructor itself fails, retry silently
+                if (isMounted) {
+                    const delay = Math.min(3000 * Math.pow(2, wsRetryCount), 30000);
+                    wsRetryCount++;
+                    wsReconnectTimer = setTimeout(connectWs, delay);
+                }
+            }
+        };
+
+        connectWs();
+
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+            if (wsPingInterval) clearInterval(wsPingInterval);
+            if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
+            if (ws) ws.close();
+        };
+    }, []);
+
     async function fetchProfiles() {
         setLoading(true);
         setError(null);
@@ -170,6 +276,24 @@ export default function ProfilesPage() {
             setError('Não foi possível conectar ao servidor. Verifique se o backend está rodando.');
         }
         setLoading(false);
+    }
+
+    async function loadProxies() {
+        try {
+            const res = await fetch(`${API_BASE}/proxies`);
+            if (res.ok) {
+                setProxies(await res.json());
+            } else {
+                toast.error('Grave: Falha na comunicação', {
+                    description: 'Não foi possivel carregar a lista de proxies.'
+                });
+            }
+        } catch (err) {
+            console.error("Failed to load proxies", err);
+            toast.error('Erro de Servidor', {
+                description: 'Falha grave ao contatar o endpoint de proxies.'
+            });
+        }
     }
 
     useWebSocket({
@@ -185,8 +309,59 @@ export default function ProfilesPage() {
     });
 
     useEffect(() => {
+        loadProxies();
         fetchProfiles();
     }, []);
+
+    const updateProxy = async (profileId: string, proxyId: number | null) => {
+        try {
+            const res = await fetch(`${API_BASE}/profiles/${profileId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ proxy_id: proxyId || null })
+            });
+
+            if (res.ok) {
+                toast.success('Nó de conexão atualizado com sucesso');
+                setProfiles(prev => prev.map(p => {
+                    if (p.id === profileId) {
+                        return { ...p, proxy_id: proxyId || undefined };
+                    }
+                    return p;
+                }));
+            } else {
+                toast.error('Erro ao atualizar nó de conexão');
+            }
+        } catch (e) {
+            toast.error('Grave: Falha na comunicação');
+        }
+    };
+
+    const handleEditSave = async (profileId: string) => {
+        try {
+            const res = await fetch(`${API_BASE}/profiles/${profileId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ label: editLabel, username: editUsername })
+            });
+
+            if (res.ok) {
+                toast.success('Perfil atualizado com sucesso');
+                setProfiles(prev => prev.map(p => {
+                    if (p.id === profileId) {
+                        return { ...p, label: editLabel, username: editUsername };
+                    }
+                    return p;
+                }));
+            } else {
+                toast.error('Erro ao atualizar perfil');
+            }
+        } catch (e) {
+            toast.error('Grave: Falha na comunicação');
+        }
+        setEditingProfileId(null);
+    };
+
 
     const handleValidateCookies = async () => {
         if (!importCookies) return;
@@ -232,15 +407,34 @@ export default function ProfilesPage() {
             // Validate JSON basics
             JSON.parse(importCookies);
 
+            const payload: Record<string, any> = {
+                label: importLabel,
+                cookies: importCookies,
+                username: importUsername,
+                avatar_url: importAvatar,
+                fingerprint_ua: importFingerprint ? importFingerprint : undefined
+            };
+
+            // SYN-105: Send either existing proxy_id or inline proxy data
+            if (proxyMode === 'existing' && importProxyId) {
+                payload.proxy_id = importProxyId;
+            } else if (proxyMode === 'new' && importProxyServer.trim()) {
+                payload.proxy_server = importProxyServer.trim();
+                payload.proxy_username = importProxyUser.trim() || undefined;
+                payload.proxy_password = importProxyPass.trim() || undefined;
+
+                // Priorize user-typed nickname. Fallback to location-based one if validated
+                if (importProxyNickname.trim()) {
+                    payload.proxy_nickname = importProxyNickname.trim();
+                } else if (proxyLocation) {
+                    payload.proxy_nickname = `${proxyLocation.country}-${proxyLocation.region} (${proxyLocation.city})`;
+                }
+            }
+
             const res = await fetch(`${API_BASE}/profiles/import`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    label: importLabel,
-                    cookies: importCookies,
-                    username: importUsername, // New field 
-                    avatar_url: importAvatar    // New field
-                })
+                body: JSON.stringify(payload)
             });
 
             if (res.ok) {
@@ -249,7 +443,17 @@ export default function ProfilesPage() {
                 setImportCookies('');
                 setImportUsername('');
                 setImportAvatar('');
+                setImportFingerprint('');
+                setImportProxyId(null);
+                setImportProxyServer('');
+                setImportProxyUser('');
+                setImportProxyPass('');
+                setImportProxyNickname('');
+                setProxyLocation(null);
+                setProxyError(null);
+                setProxyMode('existing');
                 fetchProfiles(); // Refresh list
+                loadProxies(); // Refresh proxies list
             } else {
                 const err = await res.json();
                 toast.error('Erro ao importar', {
@@ -261,6 +465,45 @@ export default function ProfilesPage() {
             toast.error('Erro de validacao', {
                 description: 'JSON invalido ou erro de conexao'
             });
+        }
+    };
+
+    const handleValidateProxy = async () => {
+        if (!importProxyServer) {
+            toast.error("Preencha o servidor do proxy (IP:Porta)");
+            return;
+        }
+        setValidatingProxy(true);
+        setProxyLocation(null);
+        setProxyError(null);
+
+        try {
+            const res = await fetch(`${API_BASE}/proxies/validate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    server: importProxyServer,
+                    username: importProxyUser || null,
+                    password: importProxyPass || null
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.status === 'success') {
+                toast.success(data.message);
+                setProxyLocation({
+                    city: data.city,
+                    region: data.region,
+                    country: data.country
+                });
+            } else {
+                toast.error(data.message || 'Falha ao conectar no proxy');
+                setProxyError(data.message || 'Falha ao conectar no proxy');
+            }
+        } catch (e: any) {
+            toast.error('Erro de conexão ao testar proxy');
+            setProxyError('Erro de conexão');
+        } finally {
+            setValidatingProxy(false);
         }
     };
 
@@ -304,9 +547,10 @@ export default function ProfilesPage() {
 
     const handleBulkDelete = async () => {
         if (selectedIds.size === 0) return;
+        const msg = selectedIds.size === 1 ? 'Excluir 1 perfil selecionado?' : `Excluir ${selectedIds.size} perfis selecionados?`;
         setConfirmModal({
             isOpen: true,
-            title: `Excluir ${selectedIds.size} perfis selecionados?`,
+            title: msg,
             type: 'delete',
             isLoading: false,
             onConfirm: async () => {
@@ -428,20 +672,20 @@ export default function ProfilesPage() {
                 })}
             </div>
 
-            <header className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-4">
-                    <Link href="/">
-                        <div className="w-10 h-10 rounded-lg bg-[#1c2128] border border-white/10 flex items-center justify-center cursor-pointer hover:border-synapse-primary/50 transition-colors group">
-                            <ArrowLeftIcon className="w-5 h-5 text-gray-400 group-hover:text-synapse-primary" />
+            {/* ═══ TERMINAL MATRIX HEADER ═══ */}
+            <div className="mb-16">
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-4">
+                        <Link href="/">
+                            <div className="w-10 h-10 rounded-lg bg-[#1c2128] border border-white/10 flex items-center justify-center cursor-pointer hover:border-synapse-primary/50 transition-colors group">
+                                <ArrowLeftIcon className="w-5 h-5 text-gray-400 group-hover:text-synapse-primary" />
+                            </div>
+                        </Link>
+                        <div>
+                            <h1 className="text-4xl font-black text-white tracking-tighter uppercase">Terminal Matrix</h1>
+                            <p className="text-synapse-primary font-mono text-xs tracking-widest uppercase opacity-60">Continuous Chronological Stream Node Grid</p>
                         </div>
-                    </Link>
-                    <div>
-                        <h2 className="text-2xl font-bold text-white m-0">Perfis TikTok</h2>
-                        <p className="text-sm text-gray-500 m-0">Gerenciar sessões de upload + Bulk actions</p>
                     </div>
-                </div>
-
-                <div className="flex gap-3">
                     <NeonButton
                         variant="ghost"
                         onClick={handleSelectAll}
@@ -450,8 +694,7 @@ export default function ProfilesPage() {
                         {selectedIds.size === profiles.length && profiles.length > 0 ? 'Desmarcar Todos' : 'Selecionar Todos'}
                     </NeonButton>
                 </div>
-            </header>
-
+            </div>
 
             {error && (
                 <StitchCard className="p-4 mb-6 !bg-red-500/10 !border-red-500/30 text-red-400">
@@ -459,280 +702,372 @@ export default function ProfilesPage() {
                 </StitchCard>
             )}
 
-            <div className="text-center mb-16 relative">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[200px] bg-synapse-primary/10 blur-[80px] rounded-full -z-10"></div>
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1a363a]/30 border border-synapse-primary/20 backdrop-blur-sm text-synapse-primary text-[10px] font-mono tracking-[0.2em] uppercase mb-4">
-                    <span className="w-1.5 h-1.5 rounded-full bg-synapse-primary animate-pulse"></span>
-                    Topologia de Contas
-                </div>
-                <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tighter uppercase mb-2">Node Wall</h1>
-                <p className="text-slate-500 font-mono text-xs tracking-widest">Matriz de Distribuição • {profiles.length} Nodes</p>
-            </div>
+            {/* ═══ TERMINAL GRID ═══ */}
+            {loading ? (
+                <p className="text-gray-500 text-center py-12 font-mono">Carregando nós...</p>
+            ) : profiles.length > 0 ? (
+                <div className="terminal-grid pb-24">
+                    {profiles.map((profile) => {
+                        if (pendingDeletes.has(profile.id)) return null;
+                        const health = getHealthStatus(profile);
+                        const isSelected = selectedIds.has(profile.id);
+                        const isRefreshing = refreshingProfiles[profile.id];
 
-            {/* Profiles Main Grid Structure - CSS inside styles/globals.css is needed (hex-cell, hex-border, etc.) */}
-            <div className="flex flex-wrap w-full justify-center items-center max-w-[1200px] mx-auto relative pb-24">
+                        // Status color mapping
+                        const statusColor = health === 'healthy' ? 'success' : health === 'error' ? 'error' : 'warn';
+                        const statusLabel = health === 'healthy' ? 'IDEAL' : health === 'error' ? 'FAILED' : 'INACTIVE';
+                        const statusDot = health === 'healthy' ? 'bg-[#00ff9d]' : health === 'error' ? 'bg-[#ff2a2a]' : 'bg-[#ffb02a]';
+                        const statusText = health === 'healthy' ? 'text-[#00ff9d]' : health === 'error' ? 'text-[#ff2a2a]' : 'text-[#ffb02a]';
 
-                {/* Using a flex wrap layout manually creating "rows" is complex dynamically without strict math, 
-                    we can adapt it to a standard grid that mimics the flex wrap offsets using negative margins in mapping 
-                    but the Stitch design uses flex-wrap with negative top margins.
-                */}
+                        // Map real logs to the profile
+                        const profileLogs = realLogs.filter(l => {
+                            if (!l || !l.message) return false;
+                            const msg = l.message.toLowerCase();
+                            // Filter logic: match profile label, username, or id
+                            return msg.includes(profile.label.toLowerCase()) ||
+                                (profile.username && msg.includes(profile.username.toLowerCase())) ||
+                                msg.includes(profile.id.toLowerCase());
+                        });
 
-                {loading ? (
-                    <p className="text-gray-500 col-span-full text-center py-12">Carregando perfis...</p>
-                ) : profiles.length > 0 ? (
-                    <div className="flex flex-wrap justify-center w-full gap-x-5 gap-y-5">
-                        {profiles.map((profile, i) => {
-                            if (pendingDeletes.has(profile.id)) return null;
-                            const health = getHealthStatus(profile);
-                            const isSelected = selectedIds.has(profile.id);
-                            const refreshError = refreshErrors[profile.id];
-                            const isRefreshing = refreshingProfiles[profile.id];
+                        // Fallback to global logs if no specific logs are found
+                        const displayLogs = profileLogs.length > 0 ? profileLogs.slice(-10) : realLogs.slice(-10);
 
-                            return (
-                                <div key={i} className={clsx(
-                                    "group relative w-[300px] h-[340px] m-2 transition-all duration-400 flex justify-center items-center",
-                                    "clip-path-hex bg-[#0a1114]/40 backdrop-blur-md hover:z-20 hover:scale-105 hover:bg-[#0f1a1d]/60",
-                                    isSelected ? "shadow-[0_0_20px_rgba(7,182,213,0.4)] bg-[#0f1a1d]/60 scale-105" : "",
+                        const fakeLogs = displayLogs.length > 0 ? displayLogs.map(l => {
+                            let date = new Date(l.timestamp);
+                            if (isNaN(date.getTime())) {
+                                date = new Date();
+                            }
+                            const time = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`;
+                            const isErr = l.level?.toLowerCase() === 'error';
+                            const isWarn = l.level?.toLowerCase() === 'warning';
+
+                            return {
+                                time,
+                                type: isErr ? 'ERR ' : isWarn ? 'WARN' : 'INFO',
+                                typeColor: isErr ? 'text-[#ff2a2a] font-bold' : isWarn ? 'text-[#ffb02a]' : 'text-synapse-primary font-bold',
+                                msg: l.message
+                            };
+                        }) : (health === 'healthy' ? [
+                            { time: '14:22:01', type: 'INIT', typeColor: 'text-synapse-primary font-bold', msg: 'SYNC Sequence started...' },
+                            { time: '14:22:10', type: 'DATA', typeColor: 'text-[#00ff9d]/80', msg: 'Table update: records synced.' },
+                            { time: '14:26:12', type: 'OKAY', typeColor: 'text-[#00ff9d]/80', msg: 'Heartbeat active. Node stable.' },
+                        ] : health === 'error' ? [
+                            { time: '10:00:15', type: 'INIT', typeColor: 'text-synapse-primary', msg: 'Booting node...' },
+                            { time: '10:00:17', type: 'WARN', typeColor: 'text-[#ffb02a]', msg: 'Slow response from gateway.' },
+                        ] : [
+                            { time: '08:30:00', type: 'INIT', typeColor: 'text-synapse-primary', msg: 'Session persistence check...' },
+                            { time: '09:12:00', type: 'WARN', typeColor: 'text-[#ffb02a]', msg: '429: Too Many Requests.' },
+                            { time: '10:12:01', type: 'WAIT', typeColor: 'text-slate-400', msg: 'Cooldown active.' },
+                        ]);
+
+                        return (
+                            <div
+                                key={profile.id}
+                                className={clsx(
+                                    "holographic-card",
+                                    statusColor === 'error' && 'card-error',
+                                    statusColor === 'warn' && 'card-warn',
+                                    isSelected && 'card-selected',
                                 )}
-                                    onClick={(e) => {
-                                        // only trigger auto select if not clicking buttons inside
-                                        const target = e.target as HTMLElement;
-                                        if (!target.closest('button') && !target.closest('input')) {
-                                            handleSelect(profile.id);
-                                        }
-                                    }}
-                                >
+                                role="article"
+                                aria-label={`Perfil ${profile.label}`}
+                                onClick={(e) => {
+                                    const target = e.target as HTMLElement;
+                                    if (!target.closest('button') && !target.closest('select') && !target.closest('input') && !target.closest('[data-edit-zone]')) {
+                                        handleSelect(profile.id);
+                                    }
+                                }}
+                            >
+                                {/* Scanline Overlay */}
+                                <div className={clsx("glitch-overlay", statusColor === 'error' && 'opacity-80')}></div>
 
-                                    <div className="absolute inset-0 bg-gradient-to-b from-synapse-primary/30 to-synapse-primary/5 clip-path-hex z-0 p-[1px]">
-                                        <div className="bg-[#050b0d] w-full h-full clip-path-hex relative flex flex-col">
+                                {/* ═══ FLOATING HEADER ═══ */}
+                                <div className={clsx(
+                                    "holographic-header",
+                                    statusColor === 'error' && 'header-error',
+                                    statusColor === 'warn' && 'header-warn',
+                                )}>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-4">
+                                            {/* Platform Icon */}
+                                            <div className={clsx(
+                                                "size-12 rounded-sm border flex items-center justify-center relative",
+                                                statusColor === 'error' ? "bg-[#ff2a2a]/10 border-[#ff2a2a]/30" :
+                                                    statusColor === 'warn' ? "bg-[#ffb02a]/5 border-[#ffb02a]/20" :
+                                                        "bg-synapse-primary/10 border-synapse-primary/30"
+                                            )}>
+                                                <div className={clsx(
+                                                    "absolute inset-0 animate-pulse",
+                                                    statusColor === 'error' ? "bg-[#ff2a2a]/5" :
+                                                        statusColor === 'warn' ? "bg-[#ffb02a]/5" :
+                                                            "bg-synapse-primary/5"
+                                                )}></div>
+                                                <span className="text-2xl relative z-10">{getProfileIcon(profile.id, profile.icon)}</span>
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-0.5">
+                                                    <span className={clsx(
+                                                        "font-mono text-[9px] px-1.5 py-0.5 rounded leading-none",
+                                                        statusColor === 'error' ? "text-[#ff2a2a] bg-[#ff2a2a]/20" :
+                                                            statusColor === 'warn' ? "text-[#ffb02a] bg-[#ffb02a]/20" :
+                                                                "text-synapse-primary bg-synapse-primary/20"
+                                                    )}>
+                                                        ND-{profile.id.slice(0, 4).toUpperCase()}
+                                                    </span>
+                                                    <button
+                                                        data-edit-zone="true"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setEditingProfileId(profile.id);
+                                                            setEditLabel(profile.label);
+                                                            setEditUsername(profile.username || '');
+                                                        }}
+                                                        className="cursor-pointer hover:text-white transition-colors"
+                                                        aria-label={`Editar ${profile.label}`}
+                                                    >
+                                                        <span className="material-symbols-outlined text-[14px] text-synapse-primary/60">edit</span>
+                                                    </button>
+                                                </div>
+                                                {editingProfileId === profile.id ? (
+                                                    <div className="flex flex-col gap-1" data-edit-zone="true">
+                                                        <input
+                                                            className="bg-black/60 border border-synapse-primary/50 focus:border-synapse-primary text-white text-xs px-2 py-1 rounded uppercase w-[160px] outline-none"
+                                                            value={editLabel}
+                                                            onChange={(e) => setEditLabel(e.target.value)}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') handleEditSave(profile.id);
+                                                                if (e.key === 'Escape') setEditingProfileId(null);
+                                                            }}
+                                                            autoFocus
+                                                        />
+                                                        <input
+                                                            className="bg-black/60 border border-slate-700 text-synapse-primary text-[10px] font-mono px-2 py-1 rounded w-[160px] outline-none"
+                                                            value={editUsername}
+                                                            onChange={(e) => setEditUsername(e.target.value)}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') handleEditSave(profile.id);
+                                                                if (e.key === 'Escape') setEditingProfileId(null);
+                                                            }}
+                                                            placeholder="@username"
+                                                        />
+                                                        <div className="flex gap-1">
+                                                            <button onClick={(e) => { e.stopPropagation(); handleEditSave(profile.id); }} className="text-[#00ff9d] text-[9px] font-bold bg-[#00ff9d]/10 px-2 py-1 rounded border border-[#00ff9d]/30 hover:bg-[#00ff9d]/30 transition-colors uppercase">OK</button>
+                                                            <button onClick={(e) => { e.stopPropagation(); setEditingProfileId(null); }} className="text-red-400 text-[9px] font-bold bg-red-400/10 px-2 py-1 rounded border border-red-400/30 hover:bg-red-400/30 transition-colors">X</button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <h3 className="font-bold text-sm text-white tracking-wide truncate max-w-[160px]" title={profile.label}>{profile.label}</h3>
+                                                        <p className={clsx(
+                                                            "font-mono text-[10px] leading-none",
+                                                            statusColor === 'error' ? "text-[#ff2a2a]/60" :
+                                                                statusColor === 'warn' ? "text-[#ffb02a]/60" :
+                                                                    "text-synapse-primary/40"
+                                                        )}>
+                                                            {profile.username ? `@${profile.username}` : health === 'error' ? 'TOKEN_EXPIRED' : health === 'inactive' ? 'RATE_LIMITED' : profile.username || 'CONNECTED'}
+                                                        </p>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="flex items-center gap-1.5 justify-end">
+                                                {profile.proxy_id && (
+                                                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-synapse-primary/10 border border-synapse-primary/20 mr-1" title={`Proxy Node Linked (ID: ${profile.proxy_id})`}>
+                                                        <span className="material-symbols-outlined text-[11px] text-synapse-primary glow-text">security</span>
+                                                        <span className="text-[8px] tracking-widest uppercase font-mono text-synapse-primary font-bold">SECURE</span>
+                                                    </div>
+                                                )}
+                                                <span className={clsx("w-1.5 h-1.5 rounded-full", statusDot, health === 'error' && 'shadow-[0_0_8px_#ff2a2a]')}></span>
+                                                <span className={clsx("text-[10px] font-mono font-bold uppercase tracking-widest", statusText)}>{statusLabel}</span>
+                                            </div>
+                                            <label className="flex justify-end mt-2 cursor-pointer" aria-label={`Selecionar ${profile.label}`}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={(e) => { e.stopPropagation(); handleSelect(profile.id); }}
+                                                    className={clsx(
+                                                        "size-3.5 rounded bg-black/50 cursor-pointer",
+                                                        statusColor === 'error' ? "border-[#ff2a2a]/30 text-[#ff2a2a] focus:ring-[#ff2a2a]/50" :
+                                                            statusColor === 'warn' ? "border-[#ffb02a]/30 text-[#ffb02a] focus:ring-[#ffb02a]/50" :
+                                                                "border-synapse-primary/30 text-synapse-primary focus:ring-synapse-primary/50"
+                                                    )}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
 
-                                            {/* Background Image / Overlay */}
-                                            <div className="absolute inset-0 bg-cover bg-center opacity-40 group-hover:opacity-60 transition-opacity duration-500"
-                                                style={{ backgroundImage: profile.avatar_url ? `url('${profile.avatar_url}')` : 'none' }}></div>
-                                            <div className="absolute inset-0 bg-gradient-to-t from-[#030608] via-[#030608]/80 to-transparent"></div>
-
-                                            {/* CRT Scanline */}
-                                            <div className="absolute top-0 left-0 w-full h-1 bg-synapse-primary/50 shadow-[0_0_10px_rgba(7,182,213,0.8)] opacity-50 animate-[scan_4s_linear_infinite] z-10 pointer-events-none"></div>
-
-                                            {/* Error OVERLAY */}
-                                            {refreshError && (
-                                                <div className="absolute inset-0 z-30 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center animate-in fade-in zoom-in border-4 border-red-500/30 clip-path-hex">
-                                                    <ExclamationTriangleIcon className="w-8 h-8 text-red-500 mb-3 animate-pulse" />
-                                                    <p className="text-xs text-white font-bold mb-1 uppercase tracking-wider">Falha</p>
-                                                    <p className="text-[10px] text-red-300 mb-4 leading-tight opacity-90 font-mono bg-red-900/20 p-2 rounded">{refreshError}</p>
-
-                                                    <div className="flex gap-2 flex-col">
-                                                        <button onClick={(e) => { e.stopPropagation(); setRefreshErrors(prev => ({ ...prev, [profile.id]: null })); }} className="px-4 py-2 bg-white/10 hover:bg-white/20 text-[10px] text-white font-bold transition-all border border-white/5">
-                                                            FECHAR
-                                                        </button>
-                                                        {refreshError.includes("cookies") && (
-                                                            <button onClick={(e) => { e.stopPropagation(); setRepairProfile(profile); }} className="px-4 py-2 bg-amber-500/20 text-amber-500 hover:bg-amber-500/30 text-[10px] font-bold border border-amber-500/50">
-                                                                RENOVAR
+                                {/* ═══ LOG STREAM BACKGROUND ═══ */}
+                                <div className="log-stream-background">
+                                    <div className={clsx("space-y-2", statusColor === 'success' && 'opacity-60', statusColor === 'warn' && 'opacity-70')}>
+                                        {fakeLogs.map((log, idx) => (
+                                            <div key={idx} className="text-slate-500">
+                                                <span className={clsx(
+                                                    statusColor === 'error' ? "text-[#ff2a2a]/50" :
+                                                        statusColor === 'warn' ? "text-[#ffb02a]/50" :
+                                                            "text-synapse-primary/70"
+                                                )}>[{log.time}]</span>{' '}
+                                                <span className={log.typeColor}>{log.type}</span>{' '}
+                                                {log.msg}
+                                            </div>
+                                        ))}
+                                        {/* Critical exception block for error state */}
+                                        {health === 'error' && (
+                                            <>
+                                                <div className="p-3 my-4 bg-[#ff2a2a]/10 border-l-2 border-[#ff2a2a] backdrop-blur-sm relative group">
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <span className="text-[#ff2a2a] font-bold text-[9px] uppercase tracking-tighter">CRITICAL_EXCEPTION</span>
+                                                        {profile.last_error_screenshot && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); setViewerImage(profile.last_error_screenshot!); }}
+                                                                className="cursor-pointer hover:text-white transition-all"
+                                                            >
+                                                                <span className="material-symbols-outlined text-[16px] text-synapse-primary">visibility</span>
                                                             </button>
                                                         )}
                                                     </div>
-                                                </div>
-                                            )}
-
-                                            {/* Updating Overlay */}
-                                            {isRefreshing && (
-                                                <div className="absolute inset-0 z-20 bg-black/80 flex flex-col items-center justify-center clip-path-hex">
-                                                    <ArrowPathIcon className="w-8 h-8 text-synapse-primary animate-spin mb-3" />
-                                                    <p className="text-[10px] font-bold text-white tracking-[0.2em] animate-pulse">UPDATING</p>
-                                                </div>
-                                            )}
-
-                                            <div className="relative z-10 w-full h-full flex flex-col justify-between p-6 pt-10 pb-12">
-
-                                                {/* Header Status Row */}
-                                                <div className="flex justify-between items-start">
-                                                    <div className={clsx(
-                                                        "bg-[#0a1114]/80 backdrop-blur border px-2 py-1 rounded text-[10px] font-mono",
-                                                        health === 'healthy' ? "border-synapse-primary text-synapse-primary" :
-                                                            health === 'expired' || health === 'error' ? "border-red-500/30 text-red-500" :
-                                                                "border-gray-500/50 text-gray-500"
-                                                    )}>
-                                                        {health === 'healthy' ? `ND-${profile.id.slice(0, 4).toUpperCase()}` :
-                                                            health === 'inactive' ? 'INATIVO' : 'ERR:404'}
+                                                    <div className="text-[#ff2a2a] text-[10px] leading-relaxed font-mono">
+                                                        [10:00:18] AuthFailure: OAuth token revoked by provider. System session terminated by upstream host.
                                                     </div>
-
-                                                    {/* Select Checkbox */}
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={isSelected}
-                                                        onChange={() => handleSelect(profile.id)}
-                                                        className="w-4 h-4 rounded border-synapse-primary bg-black/50 text-synapse-primary focus:ring-synapse-primary cursor-pointer accent-synapse-primary z-50 absolute right-6 top-10"
-                                                    />
-
-                                                    {health === 'healthy' ? (
-                                                        <span className="material-symbols-outlined text-[#00ff9d] text-base drop-shadow-[0_0_5px_#00ff9d]">check_circle</span>
-                                                    ) : (
-                                                        <span className="material-symbols-outlined text-red-500 text-base animate-pulse shadow-[0_0_5px_#ff2a2a] rounded-full">warning</span>
-                                                    )}
-
-                                                    {/* Screenshot Viewer Trigger Fix */}
-                                                    {profile.last_error_screenshot && (
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); setViewerImage(profile.last_error_screenshot!); }}
-                                                            className="absolute right-12 top-[38px] bg-red-900/20 border border-red-500/30 hover:bg-red-500/20 rounded p-1 flex items-center justify-center text-red-400 hover:text-white transition-all z-50 shadow-[0_0_10px_rgba(255,42,42,0.2)]"
-                                                            title="Ver Captura de Tela do Erro"
-                                                        >
-                                                            <span className="material-symbols-outlined text-[14px]">visibility</span>
-                                                        </button>
-                                                    )}
+                                                    <div className="absolute inset-0 bg-[#ff2a2a]/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
                                                 </div>
-
-                                                <div className="flex flex-col items-center text-center">
-                                                    <div className={clsx(
-                                                        "size-12 mb-3 bg-black/50 rounded-lg flex items-center justify-center border shadow-[0_0_15px_rgba(0,0,0,0.3)]",
-                                                        health === 'healthy' ? "border-synapse-primary/30 shadow-[0_0_15px_rgba(7,182,213,0.3)]" : "border-red-500/50 shadow-[0_0_15px_rgba(255,42,42,0.3)]"
-                                                    )}>
-                                                        <span className="text-2xl">{getProfileIcon(profile.id, profile.icon)}</span>
-                                                    </div>
-
-                                                    <h3 className="text-lg font-bold text-white tracking-tight truncate w-full max-w-[140px] uppercase">{profile.label}</h3>
-                                                    {profile.username && <p className="text-[10px] font-mono text-synapse-primary/70 -mt-1 tracking-widest">@{profile.username}</p>}
-
-                                                    <div className="w-full h-px bg-white/10 my-3"></div>
-
-                                                    <div className="flex justify-between w-full text-[9px] font-mono text-slate-400">
-                                                        <span>STATUS</span>
-                                                        <span className={health === 'healthy' ? "text-[#00ff9d]" : "text-red-500"}>
-                                                            {health === 'healthy' ? "OPTIMAL" : "FAILED"}
-                                                        </span>
-                                                    </div>
-
-                                                    <div className="flex justify-between w-full text-[9px] font-mono text-slate-400 mt-1 relative z-50">
-                                                        <span>ACTIONS</span>
-                                                        <div className="flex gap-2">
-                                                            {(health === 'error' || health === 'expired' || health === 'inactive') ? (
-                                                                <button onClick={(e) => { e.stopPropagation(); setRepairProfile(profile); }} className="text-amber-500 hover:text-amber-400 transition-colors uppercase font-bold tracking-wider">Reparar</button>
-                                                            ) : (
-                                                                <button onClick={(e) => { e.stopPropagation(); handleRefreshAvatar(profile.id); }} className="text-synapse-primary hover:text-white transition-colors uppercase font-bold tracking-wider">Sync</button>
-                                                            )}
-                                                            <button onClick={(e) => { e.stopPropagation(); promptDelete(profile.id); }} className="text-red-500 hover:text-white transition-colors uppercase font-bold tracking-wider ml-2">Del</button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-32 h-1 bg-[#1a363a] rounded-full overflow-hidden">
-                                                    <div className={clsx(
-                                                        "h-full w-[90%]",
-                                                        health === 'healthy' ? "bg-[#00ff9d] shadow-[0_0_8px_#00ff9d]" : "bg-red-500 shadow-[0_0_8px_#ff2a2a] w-[10%]"
-                                                    )}></div>
-                                                </div>
-
-                                            </div>
-                                        </div>
+                                                <div className="text-slate-500"><span className="text-[#ff2a2a]/50">[10:00:19]</span> <span className="text-[#ff2a2a]">FAIL</span> Auto-retry limit exceeded.</div>
+                                                <div className="text-slate-500 italic text-slate-400 border-t border-white/5 pt-2 mt-4 text-center">SYSTEM HALTED. WAITING FOR REPAIR.</div>
+                                            </>
+                                        )}
+                                        {health === 'inactive' && (
+                                            <div className="text-slate-600 border-t border-white/5 pt-2 mt-4">... [Awaiting system command]</div>
+                                        )}
+                                        {health === 'healthy' && (
+                                            <div className="text-slate-500 italic text-synapse-primary animate-pulse">_ EXEC_WAIT</div>
+                                        )}
                                     </div>
                                 </div>
-                            )
-                        })}
 
-                        {/* Add Profile Hex */}
-                        <div className="group relative w-[300px] h-[340px] m-2 transition-all duration-400 flex justify-center items-center z-10 cursor-pointer"
-                            onClick={() => {
-                                setImportLabel('');
-                                setImportCookies('');
-                                setImportUsername('');
-                                setImportAvatar('');
-                                setShowImportModal(true);
-                            }}
-                        >
-                            <div className="absolute inset-0 bg-transparent border border-dashed border-synapse-primary/50 group-hover:border-synapse-primary transition-colors duration-300 clip-path-hex z-0 p-[1px]">
-                                <div className="bg-[#0a1114]/90 w-full h-full clip-path-hex relative flex flex-col items-center justify-center overflow-hidden">
-                                    <div className="absolute inset-0 bg-synapse-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-pulse"></div>
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <div className="w-[80%] h-[80%] border border-synapse-primary/20 rounded-full animate-[spin_10s_linear_infinite]"></div>
+                                {/* ═══ FOOTER — Proxy + Actions ═══ */}
+                                <div className="holographic-footer">
+                                    <div className="flex items-center gap-2 flex-1">
+                                        <span className={clsx(
+                                            "material-symbols-outlined text-[16px]",
+                                            health === 'healthy' ? "text-[#00ff9d]/80" :
+                                                health === 'error' ? "text-slate-500" :
+                                                    "text-[#00ff9d]/60"
+                                        )}>
+                                            {profile.proxy_id ? 'verified_user' : 'public'}
+                                        </span>
+                                        <label className="sr-only" htmlFor={`proxy-tm-${profile.id}`}>Selecionar Proxy</label>
+                                        <select
+                                            id={`proxy-tm-${profile.id}`}
+                                            value={profile.proxy_id || ""}
+                                            onChange={(e) => updateProxy(profile.id, e.target.value ? parseInt(e.target.value) : null)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className={clsx(
+                                                "terminal-proxy-select",
+                                                statusColor === 'error' ? "border-slate-700" :
+                                                    statusColor === 'warn' ? "border-[#ffb02a]/10" :
+                                                        "border-synapse-primary/20 hover:border-synapse-primary/50 transition-colors"
+                                            )}
+                                            aria-label={`Proxy para ${profile.label}`}
+                                        >
+                                            <option value="">DIRECT_CON</option>
+                                            {proxies.map(proxy => (
+                                                <option key={proxy.id} value={proxy.id} title={proxy.name}>
+                                                    {proxy.nickname ? `${proxy.nickname} (${proxy.name})` : proxy.name}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
-                                    <div className="relative z-10 flex flex-col items-center">
-                                        <div className="size-16 rounded-full border-2 border-synapse-primary/50 bg-[#030608] flex items-center justify-center group-hover:scale-110 transition-transform duration-300 mb-4 shadow-[0_0_20px_rgba(7,182,213,0.4)]">
-                                            <span className="material-symbols-outlined text-3xl text-synapse-primary">satellite_alt</span>
-                                        </div>
-                                        <h3 className="text-xl font-bold text-white uppercase tracking-wider group-hover:text-synapse-primary transition-colors">Deploy</h3>
-                                        <p className="text-[10px] text-synapse-primary font-mono mt-1 opacity-70">INIT_NEW_NODE</p>
+                                    <div className="flex gap-1.5">
+                                        {(health === 'error' || health === 'expired') && (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setRepairProfile(profile); }}
+                                                className="px-3 py-1 bg-[#ffb02a]/10 hover:bg-[#ffb02a]/20 text-[#ffb02a] text-[9px] font-bold uppercase rounded border border-[#ffb02a]/30 flex items-center gap-1 transition-all"
+                                                aria-label={`Reparar perfil ${profile.label}`}
+                                            >
+                                                <span className="material-symbols-outlined text-[14px]">build</span> REPAIR
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleRefreshAvatar(profile.id); }}
+                                            disabled={isRefreshing}
+                                            className="px-3 py-1 bg-synapse-primary/10 hover:bg-synapse-primary/20 text-synapse-primary text-[9px] font-bold uppercase rounded border border-synapse-primary/30 flex items-center gap-1 transition-all disabled:opacity-50"
+                                            aria-label={isRefreshing ? 'Sincronizando nó' : 'Sincronizar nó'}
+                                        >
+                                            <span className={clsx("material-symbols-outlined text-[14px]", isRefreshing && "animate-spin")}>sync</span> {isRefreshing ? '...' : 'SYNC'}
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); promptDelete(profile.id); }}
+                                            className="px-3 py-1 bg-[#ff2a2a]/5 hover:bg-[#ff2a2a]/15 text-[#ff2a2a] text-[9px] font-bold uppercase rounded border border-[#ff2a2a]/20 flex items-center gap-1 transition-all"
+                                            aria-label={`Remover perfil ${profile.label}`}
+                                        >
+                                            <span className="material-symbols-outlined text-[14px]">delete</span> DROP
+                                        </button>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        );
+                    })}
 
-                    </div>
-                ) : (
-                    <div className="w-full flex flex-col items-center justify-center py-20 pointer-events-auto">
-                        <div className="size-24 rounded-full border-4 border-dashed border-synapse-primary/20 flex items-center justify-center mb-6">
-                            <span className="material-symbols-outlined text-5xl text-synapse-primary/50">hub</span>
-                        </div>
-                        <h2 className="text-2xl text-white font-bold tracking-widest uppercase">Nenhum Nó Ativo</h2>
-                        <p className="text-xs text-synapse-primary/60 font-mono mt-2 mb-8">INIT_NEW_NODE_SEQ para começar</p>
-
-                        <NeonButton variant="primary" onClick={() => setShowImportModal(true)}>
-                            Deploy Novo Nó
-                        </NeonButton>
-                    </div>
-                )}
-
-                {/* Floating Bulk Actions Bar */}
-                <div className={clsx(
-                    "fixed bottom-8 left-1/2 -translate-x-1/2 z-40 transition-all duration-300 transform",
-                    selectedIds.size > 0 ? "translate-y-0 opacity-100" : "translate-y-20 opacity-0 pointer-events-none"
-                )}>
-                    <div className="bg-[#161b22] border border-synapse-emerald/30 shadow-[0_0_30px_rgba(16,185,129,0.1)] rounded-full px-6 py-3 flex items-center gap-6">
-                        <span className="text-sm font-medium text-white">
-                            <span className="text-synapse-emerald font-bold">{selectedIds.size}</span> selecionado(s)
-                        </span>
-
-                        <div className="h-6 w-px bg-white/10" />
-
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={async () => {
-                                    setIsRefreshingAll(true);
-                                    try {
-                                        for (const id of Array.from(selectedIds)) {
-                                            await handleRefreshAvatar(id);
-                                        }
-                                        setSelectedIds(new Set());
-                                    } finally {
-                                        setIsRefreshingAll(false);
-                                    }
-                                }}
-                                disabled={isRefreshingAll}
-                                className={`p-2 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors ${isRefreshingAll ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                title="Atualizar Selecionados"
-                            >
-                                <ArrowPathIcon className={`w-5 h-5 ${isRefreshingAll ? 'animate-spin text-synapse-primary' : ''}`} />
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setConfirmModal({
-                                        isOpen: true,
-                                        title: `Excluir ${selectedIds.size} perfis selecionados?`,
-                                        type: 'delete',
-                                        isLoading: false,
-                                        onConfirm: async () => {
-                                            setConfirmModal(prev => ({ ...prev, isLoading: true }));
-                                            try {
-                                                await Promise.all(
-                                                    Array.from(selectedIds).map(id =>
-                                                        fetch(`${API_BASE}/profiles/${id}`, { method: 'DELETE' })
-                                                    )
-                                                );
-                                                await fetchProfiles();
-                                                setSelectedIds(new Set());
-                                                toast.success('Perfis excluídos com sucesso!');
-                                            } finally {
-                                                setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
-                                            }
-                                        }
-                                    });
-                                }}
-                                className="p-2 rounded-full hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
-                                title="Excluir Selecionados"
-                            >
-                                <TrashIcon className="w-5 h-5" />
-                            </button>
+                    {/* ═══ NEW NODE CARD ═══ */}
+                    <div
+                        className="holographic-card !border-dashed !border-synapse-primary/20 !bg-transparent flex items-center justify-center cursor-pointer group hover:!bg-synapse-primary/5 transition-all duration-500 overflow-hidden"
+                        role="button"
+                        aria-label="Adicionar novo perfil"
+                        tabIndex={0}
+                        onClick={() => {
+                            setImportLabel('');
+                            setImportCookies('');
+                            setImportUsername('');
+                            setImportAvatar('');
+                            setImportProxyId(null);
+                            setImportProxyServer('');
+                            setImportProxyUser('');
+                            setImportProxyPass('');
+                            setProxyMode('existing');
+                            setShowImportModal(true);
+                        }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') setShowImportModal(true); }}
+                    >
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(7,182,213,0.1)_0%,transparent_70%)] opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <div className="text-center p-8 z-20">
+                            <div className="size-24 rounded-full border border-synapse-primary/20 flex items-center justify-center mb-6 mx-auto group-hover:scale-110 group-hover:border-synapse-primary/50 group-hover:shadow-[0_0_30px_rgba(7,182,213,0.2)] transition-all duration-500 relative">
+                                <span className="material-symbols-outlined text-4xl text-synapse-primary/40 group-hover:text-synapse-primary transition-colors tracking-widest">add</span>
+                                <div className="absolute inset-0 rounded-full border border-synapse-primary/10 animate-ping opacity-20"></div>
+                            </div>
+                            <h3 className="font-outline text-2xl text-synapse-primary/30 group-hover:text-synapse-primary transition-colors tracking-[0.3em]">NEW_NODE</h3>
+                            <p className="font-mono text-[9px] text-synapse-primary/20 tracking-widest mt-4 uppercase group-hover:text-synapse-primary/40 transition-colors">Initialize deployment sequence</p>
                         </div>
                     </div>
+                </div>
+            ) : (
+                <div className="w-full flex flex-col items-center justify-center py-20">
+                    <div className="size-24 rounded-full border-4 border-dashed border-synapse-primary/20 flex items-center justify-center mb-6">
+                        <span className="material-symbols-outlined text-5xl text-synapse-primary/50">hub</span>
+                    </div>
+                    <h2 className="text-2xl text-white font-bold tracking-widest uppercase">Nenhum Nó Ativo</h2>
+                    <p className="text-xs text-synapse-primary/60 font-mono mt-2 mb-8">INIT_NEW_NODE_SEQ para começar</p>
+                    <NeonButton variant="primary" onClick={() => setShowImportModal(true)}>
+                        Deploy Novo Nó
+                    </NeonButton>
+                </div>
+            )}
+
+            <div className="fixed bottom-0 left-0 right-0 bg-[#030608]/90 backdrop-blur-xl border-t border-white/5 py-3 px-8 flex justify-between items-center text-[10px] font-mono text-slate-500 uppercase z-[100]">
+                <div className="flex gap-12">
+                    <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-synapse-primary rounded-full animate-pulse shadow-[0_0_8px_#07b6d5]"></span> UPLINK: {systemVitals ? systemVitals.uptime : 'SECURE'}</span>
+                    <span>NODES_ONLINE: {profiles.filter(p => !pendingDeletes.has(p.id) && getHealthStatus(p) === 'healthy').length.toString().padStart(2, '0')}</span>
+                    <span>TOTAL_NODES: {profiles.filter(p => !pendingDeletes.has(p.id)).length.toString().padStart(2, '0')}</span>
+                </div>
+                <div className="flex gap-8 items-center">
+                    <div className="flex items-center gap-2">
+                        <span className="text-synapse-primary/70">CORE_SYNC:</span>
+                        <span className="text-white bg-synapse-primary/20 px-2 py-0.5 rounded tracking-widest border border-synapse-primary/10">{systemVitals ? `CPU ${systemVitals.cpu_percent}%` : 'STABLE'}</span>
+                    </div>
+                    <span className="text-synapse-primary flex items-center gap-1.5"><span className="w-1 h-1 bg-synapse-primary rounded-full"></span> {systemVitals ? `MEM ${systemVitals.mem_percent}%` : 'System Operational'}</span>
                 </div>
             </div>
 
@@ -900,15 +1235,133 @@ export default function ProfilesPage() {
                     </div>
                 </div>
 
-                <div className="mb-4">
-                    <label className="block text-xs text-gray-400 mb-2 uppercase font-bold">Avatar URL <span className="text-xs opacity-50 lowercase float-right">(opcional)</span></label>
-                    <input
-                        type="text"
-                        value={importAvatar}
-                        onChange={(e) => setImportAvatar(e.target.value)}
-                        placeholder="https://..."
-                        className="w-full px-4 py-3 rounded-lg bg-black/50 border border-white/10 text-white focus:border-synapse-primary focus:ring-1 focus:ring-synapse-primary outline-none transition-all"
-                    />
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="block text-xs text-gray-400 mb-2 uppercase font-bold">Avatar URL <span className="text-xs opacity-50 lowercase float-right">(opcional)</span></label>
+                        <input
+                            type="text"
+                            value={importAvatar}
+                            onChange={(e) => setImportAvatar(e.target.value)}
+                            placeholder="https://..."
+                            className="w-full px-4 py-3 rounded-lg bg-black/50 border border-white/10 text-white focus:border-synapse-primary focus:ring-1 focus:ring-synapse-primary outline-none transition-all"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs text-gray-400 mb-2 uppercase font-bold">Fingerprint UA <span className="text-xs opacity-50 lowercase float-right">(opcional)</span></label>
+                        <select
+                            value={importFingerprint}
+                            onChange={(e) => setImportFingerprint(e.target.value)}
+                            className="w-full px-4 py-3 rounded-lg bg-black/50 border border-white/10 text-white focus:border-synapse-primary focus:ring-1 focus:ring-synapse-primary outline-none transition-all"
+                        >
+                            <option value="">[ DEFAULT ] (Windows Chrome 122)</option>
+                            <option value="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36">Windows Desktop (Chrome 125)</option>
+                            <option value="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.0.0">Windows Desktop (Edge 125)</option>
+                            <option value="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15">Mac OS X (Safari 17.4)</option>
+                            <option value="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36">Mac OS X (Chrome 125)</option>
+                        </select>
+                    </div>
+                    <div className="col-span-2">
+                        <label className="block text-xs text-gray-400 mb-2 uppercase font-bold">Sub-Rede Proxy <span className="text-xs opacity-50 lowercase float-right">(opcional)</span></label>
+                        {/* Mode Toggle */}
+                        <div className="flex gap-2 mb-3">
+                            <button
+                                type="button"
+                                onClick={() => setProxyMode('existing')}
+                                className={clsx(
+                                    "px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider border transition-all",
+                                    proxyMode === 'existing'
+                                        ? "bg-synapse-primary/20 border-synapse-primary/50 text-synapse-primary"
+                                        : "bg-black/30 border-white/10 text-gray-500 hover:text-gray-300"
+                                )}
+                            >
+                                Selecionar Existente
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setProxyMode('new')}
+                                className={clsx(
+                                    "px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider border transition-all",
+                                    proxyMode === 'new'
+                                        ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
+                                        : "bg-black/30 border-white/10 text-gray-500 hover:text-gray-300"
+                                )}
+                            >
+                                + Novo Proxy
+                            </button>
+                        </div>
+
+                        {proxyMode === 'existing' ? (
+                            <select
+                                value={importProxyId || ""}
+                                onChange={(e) => setImportProxyId(e.target.value ? parseInt(e.target.value) : null)}
+                                className="w-full px-4 py-3 rounded-lg bg-black/50 border border-white/10 text-white focus:border-synapse-primary focus:ring-1 focus:ring-synapse-primary outline-none transition-all"
+                            >
+                                <option value="">[ DIRECT ] (IP Local)</option>
+                                {proxies.map(proxy => (
+                                    <option key={proxy.id} value={proxy.id}>
+                                        {proxy.name} — {proxy.server}
+                                    </option>
+                                ))}
+                            </select>
+                        ) : (
+                            <div className="grid grid-cols-3 gap-2">
+                                <input
+                                    type="text"
+                                    value={importProxyServer}
+                                    onChange={(e) => setImportProxyServer(e.target.value)}
+                                    placeholder="IP:Porta (200.234.150.63:50100)"
+                                    className="col-span-3 px-4 py-3 rounded-lg bg-black/50 border border-emerald-500/20 text-white font-mono text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all placeholder:text-gray-600"
+                                />
+                                <input
+                                    type="text"
+                                    value={importProxyUser}
+                                    onChange={(e) => setImportProxyUser(e.target.value)}
+                                    placeholder="Usuário"
+                                    className="px-3 py-2 rounded-lg bg-black/50 border border-white/10 text-white text-xs focus:border-emerald-500 outline-none transition-all placeholder:text-gray-600"
+                                />
+                                <input
+                                    type="password"
+                                    value={importProxyPass}
+                                    onChange={(e) => setImportProxyPass(e.target.value)}
+                                    placeholder="Senha"
+                                    className="col-span-1 px-3 py-2 rounded-lg bg-black/50 border border-white/10 text-white text-xs focus:border-emerald-500 outline-none transition-all placeholder:text-gray-600"
+                                />
+                                <input
+                                    type="text"
+                                    value={importProxyNickname}
+                                    onChange={(e) => setImportProxyNickname(e.target.value)}
+                                    placeholder="Nickname (opcional)"
+                                    className="col-span-1 px-3 py-2 rounded-lg bg-black/50 border border-white/10 text-white text-xs focus:border-emerald-500 outline-none transition-all placeholder:text-gray-600"
+                                />
+                                <div className="col-span-3 flex items-center justify-between mt-1">
+                                    <div className="flex items-center text-[9px] text-emerald-500/50 font-mono">
+                                        <span className="material-symbols-outlined text-[14px] mr-1">shield_lock</span>
+                                        TUNNEL
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        {proxyLocation && (
+                                            <span className="text-[10px] text-emerald-400 font-bold px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded">
+                                                ✓ {proxyLocation.city}, {proxyLocation.region} ({proxyLocation.country})
+                                            </span>
+                                        )}
+                                        {proxyError && (
+                                            <span className="text-[10px] text-red-400 font-bold px-2 py-0.5 bg-red-500/10 border border-red-500/20 rounded">
+                                                ❌ {proxyError}
+                                            </span>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={handleValidateProxy}
+                                            disabled={!importProxyServer || validatingProxy}
+                                            className="text-[10px] font-bold text-emerald-500 hover:text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 rounded transition-colors disabled:opacity-50"
+                                        >
+                                            {validatingProxy ? "TESTANDO CONEXÃO..." : "TESTAR PROXY ✨"}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="mb-6">
@@ -938,8 +1391,7 @@ export default function ProfilesPage() {
                         Importar
                     </NeonButton>
                 </div>
-            </Modal>
+            </Modal >
         </>
     );
-
 }

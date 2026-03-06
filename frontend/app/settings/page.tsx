@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { getApiUrl } from '../utils/apiClient';
+import ProxySettings from '../components/ProxySettings';
 
 export default function SettingsPage() {
     const [threads, setThreads] = useState(12);
@@ -16,14 +17,14 @@ export default function SettingsPage() {
     useEffect(() => {
         const loadUplink = async () => {
             try {
-                const healthRes = await axios.get(`${getApiUrl()}/api/v1/system/health`);
+                const healthRes = await axios.get(`${getApiUrl()}/api/v1/settings/system/health`);
                 setHealth(healthRes.data.status === 'online' ? 'OPTIMAL' : 'DEGRADED');
             } catch (e) {
                 setHealth('OFFLINE');
             }
 
             try {
-                const res = await axios.get(`${getApiUrl()}/api/v1/system/settings`);
+                const res = await axios.get(`${getApiUrl()}/api/v1/settings/settings`);
                 const s = res.data;
                 if (s?.system?.max_concurrent_tasks) setThreads(s.system.max_concurrent_tasks);
                 if (s?.integrations?.openai_api_key) setNasaKey(s.integrations.openai_api_key);
@@ -51,7 +52,7 @@ export default function SettingsPage() {
                 delete payloadFields.integrations;
             }
 
-            await axios.post(`${getApiUrl()}/api/v1/system/settings`, { settings: payloadFields });
+            await axios.post(`${getApiUrl()}/api/v1/settings/settings`, { settings: payloadFields });
             toast.success("Matrix parameters updated successfully.");
         } catch (e) {
             toast.error("Failed to sequence Matrix override.");
@@ -461,7 +462,9 @@ export default function SettingsPage() {
                                     </div>
                                 </div>
 
-                                <div className="font-mono text-[10px] text-slate-500 opacity-60 p-3 border-l-2 border-slate-800 bg-slate-900/30">
+                                <ProxySettings />
+
+                                <div className="font-mono text-[10px] text-slate-500 opacity-60 p-3 border-l-2 border-slate-800 bg-slate-900/30 mt-8">
                                     <p className="mb-1 text-sky-500/70">&gt; System check complete.</p>
                                     <p className="mb-1">&gt; Telemetry uplink established [OK].</p>
                                     <p className="mb-1">&gt; Render farm at 42% capacity.</p>

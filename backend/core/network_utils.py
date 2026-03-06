@@ -139,8 +139,23 @@ def get_profile_identity(profile_slug: str) -> Dict[str, Any]:
         try:
             profile = db.query(Profile).filter(Profile.slug == profile_slug).first()
             if profile:
-                # Proxy
-                if profile.proxy_server:
+                # Proxy: check relationship first (modern), then legacy fields
+                if profile.proxy:
+                    identity["proxy"] = {
+                        "server": profile.proxy.server,
+                        "username": profile.proxy.username,
+                        "password": profile.proxy.password,
+                    }
+                    identity["has_proxy"] = True
+                    # If proxy has global fingerprint overrides, apply them
+                    if profile.proxy.fingerprint_ua:
+                        identity["user_agent"] = profile.proxy.fingerprint_ua
+                    if profile.proxy.geolocation_latitude and profile.proxy.geolocation_longitude:
+                        identity["geolocation"] = {
+                            "latitude": float(profile.proxy.geolocation_latitude),
+                            "longitude": float(profile.proxy.geolocation_longitude),
+                        }
+                elif profile.proxy_server:
                     identity["proxy"] = {
                         "server": profile.proxy_server,
                         "username": profile.proxy_username,
@@ -148,7 +163,7 @@ def get_profile_identity(profile_slug: str) -> Dict[str, Any]:
                     }
                     identity["has_proxy"] = True
 
-                # User-Agent (DB > session JSON > default)
+                # User-Agent (Profile override > Proxy > default)
                 if profile.fingerprint_ua:
                     identity["user_agent"] = profile.fingerprint_ua
 
@@ -164,7 +179,7 @@ def get_profile_identity(profile_slug: str) -> Dict[str, Any]:
                 if profile.fingerprint_timezone:
                     identity["timezone"] = profile.fingerprint_timezone
 
-                # Geolocation
+                # Geolocation (Profile override > Proxy)
                 if profile.geolocation_latitude and profile.geolocation_longitude:
                     identity["geolocation"] = {
                         "latitude": float(profile.geolocation_latitude),

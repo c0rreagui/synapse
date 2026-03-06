@@ -23,6 +23,8 @@ interface LogEntry {
 export default function OraclePage() {
     const [prompt, setPrompt] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
+    const [agentMode, setAgentMode] = useState<string>('Sense+Mind');
+    const [creative, setCreative] = useState<string>('Viral');
     const [result, setResult] = useState<AnalysisResult | null>(null);
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [phase, setPhase] = useState<'idle' | 'scanning' | 'done'>('idle');
@@ -43,48 +45,86 @@ export default function OraclePage() {
     const handleAnalyze = async () => {
         if (!prompt.trim()) return;
 
-        const username = prompt.trim().replace('@', '');
+        let username = prompt.trim().replace('@', '');
+
+        if (username.includes(' ')) {
+            addLog(`Aviso: O Oracle analisa usernames. Usando a primeira palavra.`, 'warn');
+            username = username.split(' ')[0];
+        }
+
         setIsProcessing(true);
         setPhase('scanning');
         setResult(null);
         setLogs([]);
 
         addLog(`Inicializando motor Oracle para @${username}...`, 'info');
+        addLog(`Modo: ${agentMode} | Criatividade: ${creative}`, 'info');
         addLog('Sense Faculty: Acionando web scraper TikTok...', 'info');
 
         try {
-            const res = await axios.post(`${API}/api/v1/oracle/analyze?username=${encodeURIComponent(username)}`);
+            const res = await axios.post(
+                `${API}/api/v1/oracle/analyze?username=${encodeURIComponent(username)}`,
+                null,
+                { timeout: 120000 } // [SYN-102] 2 min timeout for deep analysis
+            );
+
+            // [SYN-102] Strict validation to prevent UI crash on malformed data
+            if (!res.data || typeof res.data !== 'object') {
+                throw new Error("Formato de resposta do servidor inválido.");
+            }
+
+            const data = res.data as AnalysisResult;
 
             addLog('Sense Faculty: Dados coletados com sucesso.', 'success');
             addLog('Mind Faculty: Processando análise estratégica via Gemini...', 'info');
 
-            const data = res.data as AnalysisResult;
-            setResult(data);
+            // [SYN-102] Safe fallbacks for missing analysis structure
+            const safeData: AnalysisResult = {
+                profile: data.profile || username,
+                timestamp: data.timestamp || new Date().toISOString(),
+                raw_data: data.raw_data || {},
+                analysis: data.analysis || {},
+            };
 
-            const analysis = data.analysis || {};
-            const rawData = data.raw_data || {};
+            setResult(safeData);
 
-            // Log key insights
-            if (rawData && typeof rawData === 'object' && 'followers' in rawData) {
-                addLog(`Perfil: ${rawData.followers} seguidores | ${rawData.likes || '?'} curtidas`, 'success');
+            // Log key insights safely
+            const rawData = safeData.raw_data;
+            if (rawData && 'followers' in rawData) {
+                addLog(`Perfil: ${rawData.followers} seguidores | ${String(rawData.likes ?? '?')} curtidas`, 'success');
             }
-            if (analysis && typeof analysis === 'object' && 'best_times' in analysis) {
-                const times = analysis.best_times as string[];
-                addLog(`Melhores horários: ${times.slice(0, 3).join(', ')}`, 'success');
-            }
-            if (analysis && typeof analysis === 'object' && 'content_strategy' in analysis) {
-                addLog('Estratégia de conteúdo gerada.', 'success');
+
+            const analysis = safeData.analysis;
+            if (analysis && 'best_times' in analysis) {
+                const times = analysis.best_times as any[];
+                const timeStrings = times.map(t => typeof t === 'string' ? t : `${t.day} às ${t.hour}h`);
+                addLog(`Melhores horários: ${timeStrings.slice(0, 3).join(', ')}`, 'success');
             }
 
             addLog('Oracle: Varredura completa. Widgets renderizados.', 'success');
             setPhase('done');
             toast.success(`Análise de @${username} concluída!`);
 
-        } catch (err: unknown) {
-            const errMsg = err instanceof Error ? err.message : 'Erro desconhecido';
-            addLog(`FALHA: ${errMsg}`, 'error');
+        } catch (error: any) {
+            console.error("Oracle Analysis Error:", error);
+
+            // [SYN-102] Parse various error states gracefully
+            let errorMsg = 'Falha na conexão com o Oráculo.';
+
+            if (axios.isAxiosError(error) && error.response) {
+                errorMsg = error.response.data?.detail || `Erro do Servidor: ${error.response.status}`;
+            } else if (axios.isAxiosError(error) && error.request) {
+                errorMsg = 'Servidor não respondeu. Timeout ou Offline.';
+            } else if (error.message) {
+                errorMsg = error.message;
+            }
+
+            addLog(`FALHA CRÍTICA: ${errorMsg}`, 'error');
+            toast.error('Erro na Análise', { description: errorMsg, duration: 5000 });
+
+            // Reset to avoid partial broken state
+            setResult(null);
             setPhase('idle');
-            toast.error(`Falha ao analisar @${username}`);
         } finally {
             setIsProcessing(false);
         }
@@ -125,8 +165,16 @@ export default function OraclePage() {
 
     // Build strategy summary from analysis
     const strategy = result?.analysis || {};
-    const bestTimes = 'best_times' in strategy ? (strategy.best_times as string[]) : [];
-    const contentStrategy = 'content_strategy' in strategy ? (strategy.content_strategy as string) : '';
+    const bestTimesRaw = 'best_times' in strategy ? (strategy.best_times as any[]) : [];
+    const bestTimes = bestTimesRaw.map(t => typeof t === 'string' ? t : `${t.day} às ${t.hour}h - ${t.reason}`);
+
+    // In the new unified prompt, the content script goes under "suggested_next_video.concept" or "summary"
+    const contentStrategy = 'content_strategy' in strategy
+        ? (strategy.content_strategy as string)
+        : ('suggested_next_video' in strategy && typeof strategy.suggested_next_video === 'object' && strategy.suggested_next_video
+            ? (strategy.suggested_next_video as any).concept
+            : ('summary' in strategy ? strategy.summary as string : ''));
+
     const hashtags = 'recommended_hashtags' in strategy ? (strategy.recommended_hashtags as string[]) : [];
 
     return (
@@ -202,6 +250,29 @@ export default function OraclePage() {
                                     disabled={isProcessing}
                                 />
                             </div>
+                        </div>
+
+                        {/* Toggle Buttons */}
+                        <div className="flex items-center justify-center gap-4 mt-4 opacity-0 group-focus-within:opacity-100 transition-opacity duration-700">
+                            <button
+                                onClick={() => setAgentMode(prev => prev === 'Sense' ? 'Sense+Mind' : 'Sense')}
+                                className={`px-4 py-1.5 rounded-full border text-xs font-mono tracking-widest transition-all ${agentMode === 'Sense+Mind'
+                                    ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_10px_rgba(7,182,213,0.3)]'
+                                    : 'bg-black/40 border-slate-600 text-slate-400 hover:border-slate-400'
+                                    }`}
+                            >
+                                Modo Agente: {agentMode}
+                            </button>
+
+                            <button
+                                onClick={() => setCreative(prev => prev === 'Viral' ? 'Profissional' : 'Viral')}
+                                className={`px-4 py-1.5 rounded-full border text-xs font-mono tracking-widest transition-all ${creative === 'Viral'
+                                    ? 'bg-magenta-500/20 border-magenta-400 text-magenta-300 shadow-[0_0_10px_rgba(255,0,85,0.3)]'
+                                    : 'bg-black/40 border-slate-600 text-slate-400 hover:border-slate-400'
+                                    }`}
+                            >
+                                Criatividade: {creative}
+                            </button>
                         </div>
 
                         {phase === 'idle' && (
