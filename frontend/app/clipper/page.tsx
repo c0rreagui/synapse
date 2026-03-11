@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { getApiUrl } from '../utils/apiClient';
-import { toast } from 'sonner';
-import axios from 'axios';
+import { apiClient } from '../lib/api';
+import { toast } from '../utils/toast';
+
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface Target {
     id: number;
@@ -53,16 +54,31 @@ interface ClipJobResponse {
     progress_pct: number;
     error_message?: string;
     created_at: string;
-    updated_at: string;
+    started_at?: string;
+    completed_at?: string;
+    channel_name?: string;
 }
 
-type Tab = 'targets' | 'queue' | 'armies';
+interface PendingVideo {
+    id: number;
+    clip_job_id: number | null;
+    video_path: string;
+    thumbnail_path: string | null;
+    streamer_name: string | null;
+    title: string | null;
+    duration_seconds: number | null;
+    file_size_bytes: number | null;
+    status: string;
+    created_at: string;
+}
+
+type Tab = 'targets' | 'queue' | 'armies' | 'approval';
 
 export default function ClipperPage() {
-    const [activeTab, setActiveTab] = useState<Tab>('targets');
+    const [activeTab, setActiveTab] = useState<'targets' | 'queue' | 'armies' | 'approval'>('targets');
     const [targets, setTargets] = useState<Target[]>([]);
     const [urlInput, setUrlInput] = useState("");
-    const [selectedArmyId, setSelectedArmyId] = useState<string>("");
+    const [selectedArmyId, setSelectedArmyId] = useState<number | "">("");
     const [isLoading, setIsLoading] = useState(false);
     const [profiles, setProfiles] = useState<Profile[]>([]);
     const [armies, setArmies] = useState<Army[]>([]);
@@ -72,16 +88,27 @@ export default function ClipperPage() {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [queueLoading, setQueueLoading] = useState(true);
     const [vitals, setVitals] = useState<{ cpu_percent: number; uptime: string } | null>(null);
-    const [targetToDelete, setTargetToDelete] = useState<number | null>(null);
-    const [newArmy, setNewArmy] = useState({ name: '', color: '#00f0ff', icon: 'swords', profile_ids: [] as number[] });
 
-    const API = getApiUrl();
+    // Approval Queue Data
+    const [pendingVideos, setPendingVideos] = useState<PendingVideo[]>([]);
+    const [approvalLoading, setApprovalLoading] = useState(true);
+    const [selectedVideo, setSelectedVideo] = useState<PendingVideo | null>(null);
+    const [showApprovalModal, setShowApprovalModal] = useState(false);
+    const [postType, setPostType] = useState<'immediate' | 'scheduled'>('immediate');
+    const [selectedDate, setSelectedDate] = useState('');
+    const [selectedTime, setSelectedTime] = useState('12:00');
+    const [submittingApproval, setSubmittingApproval] = useState(false);
+    const [confirmReject, setConfirmReject] = useState<number | null>(null);
+
+    const [targetToDelete, setTargetToDelete] = useState<number | null>(null);
+    const [armyToDelete, setArmyToDelete] = useState<number | null>(null);
+    const [newArmy, setNewArmy] = useState({ name: '', color: '#00f0ff', icon: 'swords', profile_ids: [] as number[] });
 
     // ── Targets logic ──
     const fetchTargets = async () => {
         try {
-            const res = await fetch(`${API}/api/clipper/targets`);
-            if (res.ok) setTargets(await res.json());
+            const data = await apiClient.get<Target[]>('/api/clipper/targets');
+            setTargets(data);
         } catch (error) {
             console.error("Failed to fetch targets:", error);
         }
@@ -89,8 +116,8 @@ export default function ClipperPage() {
 
     const fetchProfiles = async () => {
         try {
-            const res = await axios.get(`${API}/api/v1/profiles/list`);
-            setProfiles(res.data || []);
+            const data = await apiClient.get<Profile[]>('/api/v1/profiles/list');
+            setProfiles(data || []);
         } catch (err) {
             console.error('Failed to fetch profiles:', err);
         }
@@ -98,8 +125,8 @@ export default function ClipperPage() {
 
     const fetchArmies = async () => {
         try {
-            const res = await axios.get(`${API}/api/v1/armies`);
-            setArmies(res.data || []);
+            const data = await apiClient.get<Army[]>('/api/v1/armies');
+            setArmies(data || []);
         } catch (err) {
             console.error('Failed to fetch armies:', err);
         }
@@ -119,24 +146,15 @@ export default function ClipperPage() {
         try {
             const payload: any = { channel_url: urlInput.trim() };
             if (selectedArmyId) {
-                payload.army_id = parseInt(selectedArmyId);
+                payload.army_id = selectedArmyId;
             }
 
-            const res = await fetch(`${API}/api/clipper/targets`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (res.ok) {
-                setUrlInput("");
-                toast.success("Novo alvo detectado e adicionado à órbita.");
-                await fetchTargets();
-            } else {
-                const errorData = await res.json();
-                toast.error(`Erro: ${errorData.detail}`);
-            }
-        } catch (error) {
-            toast.error("Erro de conexão com o painel orbital.");
+            await apiClient.post('/api/clipper/targets', payload);
+            setUrlInput("");
+            toast.success("Novo alvo detectado e adicionado à órbita.");
+            await fetchTargets();
+        } catch (error: any) {
+            toast.error(`Erro: ${error?.data?.detail || "Erro de conexão com o painel orbital."}`);
         } finally {
             setIsLoading(false);
         }
@@ -152,15 +170,11 @@ export default function ClipperPage() {
         setTargetToDelete(null); // Fecha o modal imediatamente para UX melhor
 
         try {
-            const res = await fetch(`${API}/api/clipper/targets/${id}`, { method: 'DELETE' });
-            if (res.ok) {
-                toast.success("Alvo removido da órbita.");
-                await fetchTargets();
-            } else {
-                toast.error("Falha ao remover o alvo.");
-            }
+            await apiClient.delete(`/api/clipper/targets/${id}`);
+            toast.success("Alvo removido da órbita.");
+            await fetchTargets();
         } catch (error) {
-            toast.error("Erro ao deletar o alvo.");
+            toast.error("Falha ao remover o alvo.");
         }
     };
 
@@ -171,12 +185,10 @@ export default function ClipperPage() {
         }
         setIsLoading(true);
         try {
-            const res = await axios.post(`${API}/api/v1/armies`, newArmy);
-            if (res.data) {
-                toast.success("Exército formado com sucesso!");
-                setNewArmy({ name: '', color: '#00f0ff', icon: 'swords', profile_ids: [] });
-                await fetchArmies();
-            }
+            await apiClient.post('/api/v1/armies', newArmy);
+            toast.success("Exército formado com sucesso!");
+            setNewArmy({ name: '', color: '#00f0ff', icon: 'swords', profile_ids: [] });
+            await fetchArmies();
         } catch (error) {
             toast.error("Falha ao criar o Exército.");
         } finally {
@@ -184,16 +196,27 @@ export default function ClipperPage() {
         }
     };
 
-    const handleDeleteArmy = async (id: number) => {
-        if (!confirm("Atenção: Ao dissolver este exército, os alvos vinculados a ele se tornarão Órfãos. Deseja prosseguir?")) return;
+    const requestDeleteArmy = (id: number) => {
+        setArmyToDelete(id);
+    };
+
+    const confirmDeleteArmy = async () => {
+        if (!armyToDelete) return;
+        const id = armyToDelete;
+        setArmyToDelete(null);
+
         try {
-            await axios.delete(`${API}/api/v1/armies/${id}`);
+            await apiClient.delete(`/api/v1/armies/${id}`);
             toast.success("Exército dissolvido.");
             await fetchArmies();
             await fetchTargets();
         } catch (error) {
             toast.error("Falha ao dissolver Exército.");
         }
+    };
+
+    const cancelDeleteArmy = () => {
+        setArmyToDelete(null);
     };
 
     const handleToggleProfileInArmy = async (armyId: number, profileDbId: number, isCurrentlyLinked: boolean) => {
@@ -208,7 +231,7 @@ export default function ClipperPage() {
         }
 
         try {
-            await axios.put(`${API}/api/v1/armies/${armyId}`, { profile_ids: newProfileIds });
+            await apiClient.put(`/api/v1/armies/${armyId}`, { profile_ids: newProfileIds });
             toast.success("Designação atualizada.");
             await fetchArmies();
         } catch (error) {
@@ -222,19 +245,11 @@ export default function ClipperPage() {
 
     const handleToggleTarget = async (id: number, currentActive: boolean) => {
         try {
-            const res = await fetch(`${API}/api/clipper/targets/${id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ active: !currentActive })
-            });
-            if (res.ok) {
-                toast.success(`Alvo ${!currentActive ? 'ativado' : 'desativado'} com sucesso.`);
-                await fetchTargets();
-            } else {
-                toast.error("Falha ao modificar o status do alvo.");
-            }
+            await apiClient.patch(`/api/clipper/targets/${id}`, { active: !currentActive });
+            toast.success(`Alvo ${!currentActive ? 'ativado' : 'desativado'} com sucesso.`);
+            await fetchTargets();
         } catch (error) {
-            toast.error("Erro de conexão ao modificar o alvo.");
+            toast.error("Falha ao modificar o status do alvo.");
         }
     };
 
@@ -242,16 +257,11 @@ export default function ClipperPage() {
         setIsLoading(true);
         toast.info("Iniciando varredura manual do radar...", { id: `force-${id}` });
         try {
-            const res = await fetch(`${API}/api/clipper/targets/${id}/check`, { method: 'POST' });
-            const data = await res.json();
-            if (res.ok) {
-                toast.success(data.message, { id: `force-${id}`, duration: 5000 });
-                await fetchTargets();
-            } else {
-                toast.error(`Falha: ${data.detail}`, { id: `force-${id}` });
-            }
-        } catch (error) {
-            toast.error("Erro de conexão ao forçar varredura.", { id: `force-${id}` });
+            const data = await apiClient.post<any>(`/api/clipper/targets/${id}/check`);
+            toast.success(data.message, { id: `force-${id}`, duration: 5000 });
+            await fetchTargets();
+        } catch (error: any) {
+            toast.error(`Falha: ${error?.data?.detail || "Erro de conexão ao forçar varredura."}`, { id: `force-${id}` });
         } finally {
             setIsLoading(false);
         }
@@ -260,28 +270,120 @@ export default function ClipperPage() {
     // ── Queue / Esteira logic ──
     const fetchPending = useCallback(async () => {
         try {
-            const res = await axios.get(`${API}/api/clipper/jobs`);
-            setItems(res.data || []);
+            const data = await apiClient.get<ClipJobResponse[]>('/api/clipper/jobs');
+            setItems(data || []);
             setCurrentIndex(0);
         } catch (err) {
             console.error('Fetch pending error:', err);
         } finally {
             setQueueLoading(false);
         }
-    }, [API]);
+    }, []);
+
+    // ── Approval Queue Logic ──
+    const fetchPendingVideos = useCallback(async () => {
+        try {
+            const data = await apiClient.get<PendingVideo[]>('/api/v1/factory/pending');
+            setPendingVideos(data);
+        } catch (error) {
+            console.error('Error fetching pending videos:', error);
+        } finally {
+            setApprovalLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
+        let interval: NodeJS.Timeout;
         if (activeTab === 'queue') {
             fetchPending();
+            interval = setInterval(() => {
+                fetchPending();
+            }, 3000);
+        } else if (activeTab === 'approval') {
+            setApprovalLoading(true);
+            fetchPendingVideos();
+            interval = setInterval(() => {
+                fetchPendingVideos();
+            }, 10000);
         }
-    }, [activeTab, fetchPending]);
+
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [activeTab, fetchPending, fetchPendingVideos]);
+
+    const handleApprove = async (video: PendingVideo) => {
+        try {
+            await apiClient.post(`/api/v1/factory/approve/${video.id}`);
+            toast.success(`Vídeo "${video.title}" aprovado e inserido na Smart Queue!`);
+            await fetchPendingVideos();
+        } catch (error: any) {
+            toast.error(error?.data?.detail || 'Erro ao aprovar vídeo');
+        }
+    };
+
+    const handleReject = async (videoId: number) => {
+        setConfirmReject(videoId);
+    };
+
+    const confirmRejectVideo = async () => {
+        if (!confirmReject) return;
+        try {
+            await apiClient.delete(`/api/v1/factory/reject/${confirmReject}`);
+            await fetchPendingVideos();
+            toast.info('Vídeo rejeitado e removido.');
+        } catch (error) {
+            toast.error('Erro ao rejeitar vídeo');
+        } finally {
+            setConfirmReject(null);
+        }
+    };
+
+    const handleConfirmVideo = async () => {
+        if (!selectedVideo) return;
+        setSubmittingApproval(true);
+
+        try {
+            const scheduleTime = postType === 'scheduled'
+                ? `${selectedDate}T${selectedTime}:00`
+                : null;
+
+            await apiClient.post('/api/v1/queue/approve', {
+                id: selectedVideo.id,
+                action: postType,
+                schedule_time: scheduleTime
+            });
+
+            setShowApprovalModal(false);
+            setSelectedVideo(null);
+            await fetchPendingVideos();
+            toast.success(
+                postType === 'immediate'
+                    ? 'Vídeo aprovado! Iniciando postagem imediata...'
+                    : `Vídeo agendado para ${selectedDate} às ${selectedTime}`
+            );
+        } catch (error) {
+            toast.error('Gargalo na aprovação. Tente novamente.');
+        } finally {
+            setSubmittingApproval(false);
+        }
+    };
+
+    const timeOptions = [];
+    for (let h = 0; h < 24; h++) {
+        for (let m = 0; m < 60; m += 5) {
+            const hour = h.toString().padStart(2, '0');
+            const minute = m.toString().padStart(2, '0');
+            timeOptions.push(`${hour}:${minute}`);
+        }
+    }
 
     // Fetch vitals for header
     useEffect(() => {
         const fetchVitals = async () => {
             try {
-                const res = await axios.get(`${API}/api/v1/telemetry/vitals`);
-                setVitals(res.data);
+                const data = await apiClient.get<any>('/api/v1/telemetry/vitals');
+                setVitals(data);
             } catch (err) {
                 // Ignore silent telemetry errors in UI
             }
@@ -289,7 +391,7 @@ export default function ClipperPage() {
         fetchVitals();
         const interval = setInterval(fetchVitals, 5000);
         return () => clearInterval(interval);
-    }, [API]);
+    }, []);
 
 
     // Group targets by army (instead of profile)
@@ -369,6 +471,20 @@ export default function ClipperPage() {
                         <span className="bg-cyan-500/20 text-cyan-400 text-[10px] px-1.5 py-0.5 rounded-md">{armies.length}</span>
                     )}
                 </button>
+                <div className="w-px h-6 bg-white/10 mx-2"></div>
+                <button
+                    onClick={() => setActiveTab('approval')}
+                    className={`px-5 py-2.5 text-xs font-mono font-bold uppercase tracking-widest rounded-lg transition-all duration-200 flex items-center gap-2 ${activeTab === 'approval'
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-[0_0_15px_-3px_rgba(16,185,129,0.3)]'
+                        : 'text-slate-500 hover:text-white hover:bg-white/5 border border-transparent'
+                        }`}
+                >
+                    <span className="material-symbols-outlined text-[18px]">done_all</span>
+                    Aprovação
+                    {pendingVideos.length > 0 && (
+                        <span className="bg-emerald-500/20 text-emerald-400 text-[10px] px-1.5 py-0.5 rounded-md">{pendingVideos.length}</span>
+                    )}
+                </button>
             </div>
 
             {/* ═══ TAB: ALVOS ═══ */}
@@ -401,7 +517,7 @@ export default function ClipperPage() {
                                     <div className="w-full max-w-[250px] flex flex-col gap-1">
                                         <select
                                             value={selectedArmyId}
-                                            onChange={(e) => setSelectedArmyId(e.target.value)}
+                                            onChange={(e) => setSelectedArmyId(e.target.value ? parseInt(e.target.value) : "")}
                                             className="bg-black/50 border border-cyan-900/50 text-cyan-400 text-xs font-mono uppercase rounded p-2 focus:outline-none focus:border-cyan-500 w-full"
                                             disabled={isLoading}
                                         >
@@ -453,7 +569,7 @@ export default function ClipperPage() {
 
                                 return (
                                     <div key={armyIdStr} className="flex flex-col gap-4">
-                                        <div className="flex items-center gap-3 pb-2 border-b border-white/5">
+                                        <div className="p-4 bg-gradient-to-b from-cyan-900/10 to-transparent border-b border-white/5">
                                             {isOrphan ? (
                                                 <div className="w-8 h-8 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center">
                                                     <span className="material-symbols-outlined text-slate-500 text-sm">public_off</span>
@@ -499,16 +615,22 @@ export default function ClipperPage() {
                                                     </div>
 
                                                     <div className="h-32 bg-[#06090e] border-b border-[#162730] relative flex items-center justify-center overflow-hidden">
-                                                        {/* Background blur */}
+                                                        {/* Banner / Capa do Canal */}
                                                         {target.offline_image_url || target.profile_image_url ? (
                                                             <>
-                                                                <img src={target.offline_image_url || target.profile_image_url} alt="Cover" className="absolute inset-0 w-full h-full object-cover opacity-20 blur-md scale-110" />
-                                                                <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f16] to-transparent"></div>
+                                                                <img
+                                                                    src={target.offline_image_url || target.profile_image_url}
+                                                                    alt="Cover"
+                                                                    className="absolute inset-0 w-full h-full object-cover opacity-40 scale-105 transition-transform duration-700 group-hover:scale-110"
+                                                                />
+                                                                <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f16] via-[#0a0f16]/60 to-transparent" />
                                                             </>
-                                                        ) : null}
+                                                        ) : (
+                                                            <div className="absolute inset-0 bg-[linear-gradient(135deg,#0a1520,#061218)]" />
+                                                        )}
 
                                                         {/* Avatar / Box Art */}
-                                                        <div className={`relative z-10 ${target.target_type === 'category' ? 'w-16 h-20 rounded-md' : 'w-16 h-16 rounded-full'} border ${target.active ? 'border-cyan-400/50 shadow-[0_0_15px_rgba(0,240,255,0.3)]' : 'border-slate-700'} bg-black overflow-hidden flex items-center justify-center mt-4`}>
+                                                        <div className={`relative z-10 ${target.target_type === 'category' ? 'w-16 h-20 rounded-md' : 'w-16 h-16 rounded-full'} border-2 ${target.active ? 'border-cyan-400/70 shadow-[0_0_18px_rgba(0,240,255,0.4)]' : 'border-slate-700'} bg-black overflow-hidden flex items-center justify-center mt-4 ring-2 ring-black`}>
                                                             {target.profile_image_url ? (
                                                                 <img src={target.profile_image_url} alt={target.channel_name} className="w-full h-full object-cover" />
                                                             ) : (
@@ -581,14 +703,34 @@ export default function ClipperPage() {
                     ) : items.length === 0 ? (
                         <div className="text-center max-w-md mt-20">
                             <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-slate-800/50 border border-white/5 flex items-center justify-center">
-                                <span className="material-symbols-outlined text-4xl text-slate-600">memory</span>
+                                <span className="material-symbols-outlined text-4xl text-slate-600">movie_filter</span>
                             </div>
-                            <h2 className="text-white text-2xl font-display font-bold mb-2">Nenhum Job Processando</h2>
-                            <p className="text-slate-500 font-mono text-sm">
-                                O processador de clipes está ocioso. Novos jobs aparecerão aqui quando o radar encontrar novos sinais da Twitch.
+                            <h2 className="text-white text-2xl font-display font-bold mb-2">Esteira Ociosa</h2>
+                            <p className="text-slate-500 font-mono text-sm leading-relaxed">
+                                Nenhum clip em processamento agora. O radar detecta clipes automaticamente — eles aparecerão aqui ao entrar na fila.
                             </p>
-                            <div className="mt-6 flex items-center justify-center gap-2 text-[10px] font-mono text-cyan-500/50">
-                                <span className="w-1.5 h-1.5 bg-cyan-500/50 rounded-full animate-pulse"></span>
+                            {/* Pipeline steps preview */}
+                            <div className="mt-8 flex items-center justify-center gap-1">
+                                {[
+                                    { icon: 'download', label: 'Download' },
+                                    { icon: 'mic', label: 'Whisper' },
+                                    { icon: 'closed_caption', label: 'Legendas' },
+                                    { icon: 'movie_edit', label: 'FFmpeg' },
+                                    { icon: 'join_inner', label: 'Stitch' },
+                                ].map((step, i, arr) => (
+                                    <React.Fragment key={step.icon}>
+                                        <div className="flex flex-col items-center gap-1">
+                                            <div className="w-8 h-8 rounded-full bg-slate-800/60 border border-white/5 flex items-center justify-center">
+                                                <span className="material-symbols-outlined text-[14px] text-slate-600">{step.icon}</span>
+                                            </div>
+                                            <span className="text-[8px] font-mono text-slate-700 uppercase">{step.label}</span>
+                                        </div>
+                                        {i < arr.length - 1 && <span className="w-5 h-px bg-white/5 mb-3 shrink-0" />}
+                                    </React.Fragment>
+                                ))}
+                            </div>
+                            <div className="mt-4 flex items-center justify-center gap-2 text-[10px] font-mono text-cyan-500/40">
+                                <span className="w-1.5 h-1.5 bg-cyan-500/40 rounded-full animate-pulse"></span>
                                 AGUARDANDO NOVOS EVENTOS
                             </div>
                         </div>
@@ -599,79 +741,132 @@ export default function ClipperPage() {
                                 <div className="flex items-center gap-3">
                                     <span className="material-symbols-outlined text-cyan-500/50 text-[20px]">movie_filter</span>
                                     <h3 className="text-xl font-display font-bold text-white tracking-widest">
-                                        FILA DE RENDERIZAÇÃO
+                                        PIPELINE DE RENDERIZAÇÃO
                                     </h3>
                                 </div>
                                 <span className="bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[10px] font-mono px-3 py-1 rounded">
-                                    {items.length} JOBS ATIVOS
+                                    {items.length} JOB{items.length !== 1 ? 'S' : ''}
                                 </span>
                             </div>
 
-                            <div className="space-y-4">
-                                {items.map((job) => (
-                                    <div key={job.id} className="relative bg-[#0a0a0a] border border-white/5 rounded-xl p-5 flex flex-col md:flex-row gap-6 group hover:border-cyan-500/30 hover:bg-[#0c1218] transition-colors items-center shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
+                            <div className="space-y-3">
+                                {items.map((job) => {
+                                    // Mapa de step → ícone + rótulo amigável
+                                    const PIPELINE_STEPS = [
+                                        { key: 'pending',     icon: 'schedule',       label: 'Aguardando na fila',   color: 'text-slate-400',   pct: 0  },
+                                        { key: 'downloading', icon: 'download',       label: 'Baixando clipes',      color: 'text-blue-400',    pct: 10 },
+                                        { key: 'transcribing',icon: 'mic',            label: 'Transcrevendo (Whisper)', color: 'text-violet-400', pct: 30 },
+                                        { key: 'editing',     icon: 'movie_edit',     label: 'Editando com FFmpeg',  color: 'text-amber-400',   pct: 50 },
+                                        { key: 'stitching',   icon: 'join_inner',     label: 'Costurando clipes',    color: 'text-orange-400',  pct: 90 },
+                                        { key: 'completed',   icon: 'check_circle',   label: 'Concluído',            color: 'text-emerald-400', pct: 100 },
+                                        { key: 'failed',      icon: 'error',          label: 'Falha no pipeline',    color: 'text-red-400',     pct: 0  },
+                                    ];
+                                    const stepInfo = PIPELINE_STEPS.find(s => s.key === job.status) || PIPELINE_STEPS[0];
+                                    const activeStepIdx = PIPELINE_STEPS.findIndex(s => s.key === job.status);
 
-                                        {/* Status Header */}
-                                        <div className="w-full md:w-auto flex md:flex-col justify-between items-start gap-2 border-b md:border-b-0 md:border-r border-white/5 pb-4 md:pb-0 md:pr-6 min-w-[140px]">
-                                            <div>
-                                                <div className="font-mono text-[10px] text-slate-500 flex items-center gap-1.5 mb-1">
-                                                    <span className="material-symbols-outlined text-[12px]">satellite_alt</span>
-                                                    ID_TARGET: {job.target_id}
+                                    return (
+                                        <div key={job.id} className="bg-[#0a0a0a] border border-white/5 rounded-xl p-5 group hover:border-cyan-500/20 hover:bg-[#0c1218] transition-colors shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
+                                            {/* Top row: canal + job id + status badge */}
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`material-symbols-outlined text-[18px] ${stepInfo.color}`}>{stepInfo.icon}</span>
+                                                        <div>
+                                                            {job.channel_name && (
+                                                                <div className="text-white font-mono font-bold text-sm leading-tight">{job.channel_name}</div>
+                                                            )}
+                                                            <div className="text-slate-600 font-mono text-[10px]">
+                                                                JOB #{job.id} · TARGET #{job.target_id}
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div className="text-white font-mono text-sm font-bold">
-                                                    JOB #{job.id}
-                                                </div>
+
+                                                {job.status === 'completed' ? (
+                                                    <span className="text-[10px] font-mono px-2.5 py-1 border border-emerald-500/30 text-emerald-400 rounded-full bg-emerald-500/10 flex items-center gap-1.5">
+                                                        <span className="material-symbols-outlined text-[11px]">check_circle</span>CONCLUÍDO
+                                                    </span>
+                                                ) : job.status === 'failed' ? (
+                                                    <span className="text-[10px] font-mono px-2.5 py-1 border border-red-500/30 text-red-400 rounded-full bg-red-500/10 flex items-center gap-1.5">
+                                                        <span className="material-symbols-outlined text-[11px]">error</span>FALHA
+                                                    </span>
+                                                ) : job.status === 'pending' ? (
+                                                    <span className="text-[10px] font-mono px-2.5 py-1 border border-slate-500/30 text-slate-400 rounded-full bg-slate-500/10 flex items-center gap-1.5">
+                                                        <span className="material-symbols-outlined text-[11px]">schedule</span>QUEUE
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[10px] font-mono px-2.5 py-1 border border-cyan-500/30 text-cyan-400 rounded-full bg-cyan-500/10 flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,240,255,0.1)]">
+                                                        <span className="size-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                                                        PROCESSANDO
+                                                    </span>
+                                                )}
                                             </div>
 
-                                            {job.status === 'completed' ? (
-                                                <span className="text-[10px] font-mono px-2 py-0.5 border border-emerald-500/30 text-emerald-500 rounded bg-emerald-500/10 shrink-0">CONCLUÍDO</span>
-                                            ) : job.status === 'failed' ? (
-                                                <span className="text-[10px] font-mono px-2 py-0.5 border border-red-500/30 text-red-500 rounded bg-red-500/10 shrink-0">FALHA</span>
-                                            ) : job.status === 'pending' ? (
-                                                <span className="text-[10px] font-mono px-2 py-0.5 border border-slate-500/30 text-slate-400 rounded bg-slate-500/10 shrink-0">AGUARDANDO</span>
-                                            ) : (
-                                                <span className="text-[10px] font-mono px-2 py-0.5 border border-cyan-500/30 text-cyan-500 rounded bg-cyan-500/10 flex items-center gap-1.5 shrink-0 shadow-[0_0_10px_rgba(0,240,255,0.1)]">
-                                                    <span className="size-1.5 rounded-full bg-cyan-500 animate-pulse"></span>
-                                                    {job.status.toUpperCase()}
+                                            {/* Pipeline step timeline */}
+                                            <div className="flex items-center gap-1 mb-4">
+                                                {['pending','downloading','transcribing','editing','stitching','completed'].map((s, i) => {
+                                                    const si = PIPELINE_STEPS.find(x => x.key === s)!;
+                                                    const isDone = activeStepIdx > i;
+                                                    const isCurrent = activeStepIdx === i && job.status !== 'failed';
+                                                    return (
+                                                        <>
+                                                            <div
+                                                                key={s}
+                                                                title={si.label}
+                                                                className={`flex flex-col items-center gap-0.5 flex-1 group/step cursor-default`}
+                                                            >
+                                                                <div className={`w-full h-1 rounded-full transition-all duration-500 ${
+                                                                    job.status === 'failed' ? 'bg-red-800/40'
+                                                                    : isDone ? 'bg-emerald-500/70'
+                                                                    : isCurrent ? 'bg-cyan-500 shadow-[0_0_6px_rgba(0,240,255,0.5)]'
+                                                                    : 'bg-white/5'
+                                                                }`} />
+                                                                <span className={`text-[8px] font-mono uppercase hidden md:block transition-colors ${
+                                                                    isDone ? 'text-emerald-600' : isCurrent ? 'text-cyan-400' : 'text-slate-700'
+                                                                }`}>{si.label.split(' ')[0]}</span>
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {/* Step label + progress bar */}
+                                            <div className="flex justify-between items-center mb-1.5">
+                                                <span className={`font-mono text-[11px] uppercase tracking-wider ${stepInfo.color}`}>
+                                                    {job.current_step || stepInfo.label}
                                                 </span>
-                                            )}
-                                        </div>
-
-                                        {/* Main Content */}
-                                        <div className="flex-1 w-full">
-                                            <div className="flex justify-between items-end mb-2">
-                                                <h4 className="text-cyan-400/80 font-mono text-[11px] uppercase tracking-wider">{job.current_step || 'Iniciando pipeline...'}</h4>
-                                                <span className="text-xs font-mono text-slate-400">{job.progress_pct}%</span>
+                                                <span className="text-xs font-mono text-slate-500">{job.progress_pct}%</span>
                                             </div>
-
-                                            {/* Progress Bar */}
-                                            <div className="w-full bg-[#151515] rounded-full h-2 mb-3 border border-[#222]">
+                                            <div className="w-full bg-[#151515] rounded-full h-1.5 border border-[#1e1e1e]">
                                                 <div
-                                                    className={`h-full rounded-full transition-all duration-1000 ${job.status === 'failed' ? 'bg-red-500 shadow-[0_0_8px_#ef4444]' : job.status === 'completed' ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-cyan-500 shadow-[0_0_8px_#06b6d4]'}`}
+                                                    className={`h-full rounded-full transition-all duration-1000 ${
+                                                        job.status === 'failed' ? 'bg-red-500 shadow-[0_0_6px_#ef4444]'
+                                                        : job.status === 'completed' ? 'bg-emerald-500 shadow-[0_0_6px_#10b981]'
+                                                        : 'bg-cyan-500 shadow-[0_0_6px_#06b6d4]'
+                                                    }`}
                                                     style={{ width: `${job.progress_pct}%` }}
-                                                ></div>
+                                                />
                                             </div>
 
                                             {job.error_message && (
-                                                <div className="mt-2 text-[10px] font-mono text-red-400 bg-red-500/5 border border-red-500/20 p-2 rounded break-all whitespace-pre-wrap" title={job.error_message}>
-                                                    [ERRO] {job.error_message}
+                                                <div className="mt-3 text-[10px] font-mono text-red-400 bg-red-500/5 border border-red-500/20 p-2.5 rounded break-all whitespace-pre-wrap">
+                                                    <span className="flex items-center gap-1.5 mb-1 text-red-500 font-bold">
+                                                        <span className="material-symbols-outlined text-[12px]">error</span>ERRO DO PIPELINE
+                                                    </span>
+                                                    {job.error_message}
                                                 </div>
                                             )}
-                                        </div>
 
-                                        {/* Timestamps */}
-                                        <div className="w-full md:w-auto flex flex-row md:flex-col justify-between items-end md:items-end gap-1 border-t md:border-t-0 md:border-l border-white/5 pt-4 md:pt-0 md:pl-6 text-[9px] font-mono text-slate-600 min-w-[120px]">
-                                            <div className="flex flex-col items-start md:items-end">
-                                                <span>Iníciado em</span>
-                                                <span className="text-slate-400">{new Date(job.created_at).toLocaleString('pt-BR')}</span>
-                                            </div>
-                                            <div className="flex flex-col items-start md:items-end">
-                                                <span>Último ping</span>
-                                                <span className="text-slate-500">{new Date(job.updated_at).toLocaleTimeString('pt-BR')}</span>
+                                            {/* Timestamps */}
+                                            <div className="mt-3 flex gap-4 text-[9px] font-mono text-slate-700 border-t border-white/5 pt-3">
+                                                <span>Criado: <span className="text-slate-500">{new Date(job.created_at).toLocaleString('pt-BR')}</span></span>
+                                                {job.completed_at && (
+                                                    <span>Concluído: <span className="text-emerald-700">{new Date(job.completed_at).toLocaleString('pt-BR')}</span></span>
+                                                )}
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
@@ -680,10 +875,10 @@ export default function ClipperPage() {
 
             {/* ═══ TAB: EXÉRCITOS ═══ */}
             {activeTab === 'armies' && (
-                <div className="flex-1 flex flex-col gap-8 px-4 md:px-8 py-8 overflow-y-auto custom-scrollbar">
+                <div className="flex-1 flex flex-col gap-8 px-4 md:px-8 py-8 overflow-y-auto custom-scrollbar w-full max-w-7xl mx-auto z-10">
 
                     {/* Header / Intro */}
-                    <div className="bg-cyan-950/20 border border-cyan-800/50 rounded-2xl p-6 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="glass-card p-6 relative flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,240,255,0.1),transparent_70%)] pointer-events-none"></div>
                         <div className="relative z-10 flex-1">
                             <h2 className="text-2xl font-display font-bold text-white tracking-widest flex items-center gap-3 mb-2">
@@ -691,7 +886,7 @@ export default function ClipperPage() {
                                 QUARTEL GENERAL
                             </h2>
                             <p className="text-slate-400 font-mono text-sm max-w-2xl">
-                                Agrupe seus alvos da Twitch em "Exércitos". Mapeie e delegue as contas do TikTok/YouTube (Perfis) que receberão as edições processadas de um determinado Exército.
+                                Agrupe seus alvos da Twitch em &quot;Exércitos&quot;. Mapeie e delegue as contas do TikTok/YouTube (Perfis) que receberão as edições processadas de um determinado Exército.
                             </p>
                         </div>
                     </div>
@@ -700,64 +895,55 @@ export default function ClipperPage() {
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
 
                         {/* Column 1: Create Army Form */}
-                        <div className="xl:col-span-1 bg-[#0a0a0a] border border-white/5 rounded-2xl p-6 h-fit sticky top-8 shadow-2xl">
-                            <h3 className="font-mono text-sm font-bold tracking-widest text-cyan-400 mb-6 flex items-center gap-2 border-b border-white/5 pb-2">
-                                <span className="material-symbols-outlined text-[16px]">add_circle</span> NOVA FORMAÇÃO
+                        <div className="glass-card p-6 flex flex-col gap-4 transition-all">
+                            <h3 className="font-display font-bold text-white text-lg tracking-widest flex items-center gap-2 mb-2">
+                                <span className="material-symbols-outlined text-cyan-400 text-xl">add_circle</span>
+                                Criar Exército
                             </h3>
-
-                            <div className="flex flex-col gap-5">
+                            <div className="space-y-3">
                                 <div>
-                                    <label className="text-[10px] text-slate-500 font-mono uppercase tracking-wider mb-1.5 block">Codinome do Exército</label>
+                                    <label className="text-[10px] font-mono text-slate-500 uppercase tracking-wider mb-1 block">Nome do Exército</label>
                                     <input
                                         type="text"
-                                        maxLength={30}
                                         value={newArmy.name}
-                                        onChange={(e) => setNewArmy({ ...newArmy, name: e.target.value })}
-                                        className="w-full bg-black/40 border border-cyan-900/50 focus:border-cyan-400 text-white font-mono text-sm p-3 rounded-xl focus:outline-none transition-colors"
-                                        placeholder="Ex: Tropa do Rato"
+                                        onChange={e => setNewArmy({ ...newArmy, name: e.target.value })}
+                                        placeholder="Ex: Louders BR"
+                                        className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-cyan-500/50 transition-colors placeholder:text-slate-600"
                                     />
                                 </div>
-
-                                <div>
-                                    <label className="text-[10px] text-slate-500 font-mono uppercase tracking-wider mb-1.5 block">Símbolo (Material Icon)</label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {['swords', 'bolt', 'flag', 'shield', 'visibility', 'skull', 'star', 'diamond', 'rocket', 'local_fire_department'].map(icon => (
-                                            <button
-                                                key={icon}
-                                                type="button"
-                                                onClick={() => setNewArmy({ ...newArmy, icon })}
-                                                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${newArmy.icon === icon ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 shadow-[0_0_10px_rgba(0,240,255,0.3)]' : 'bg-black/40 text-slate-400 border border-white/5 hover:border-cyan-900/50 hover:text-cyan-200'}`}
-                                            >
-                                                <span className="material-symbols-outlined text-[20px]">{icon}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="text-[10px] text-slate-500 font-mono uppercase tracking-wider mb-1.5 block">Estandarte (Cor)</label>
-                                    <div className="flex items-center gap-3">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-[10px] font-mono text-slate-500 uppercase tracking-wider mb-1 block">Cor</label>
                                         <input
                                             type="color"
                                             value={newArmy.color}
-                                            onChange={(e) => setNewArmy({ ...newArmy, color: e.target.value })}
-                                            className="h-10 w-12 rounded cursor-pointer bg-transparent border-0 p-0"
-                                        />
-                                        <input
-                                            type="text"
-                                            value={newArmy.color}
-                                            onChange={(e) => setNewArmy({ ...newArmy, color: e.target.value })}
-                                            className="flex-1 bg-black/40 border border-cyan-900/50 focus:border-cyan-400 text-white font-mono text-sm p-2 rounded-lg focus:outline-none transition-colors uppercase"
+                                            onChange={e => setNewArmy({ ...newArmy, color: e.target.value })}
+                                            className="w-full h-10 bg-black/60 border border-white/10 rounded-lg cursor-pointer"
                                         />
                                     </div>
+                                    <div>
+                                        <label className="text-[10px] font-mono text-slate-500 uppercase tracking-wider mb-1 block">Ícone</label>
+                                        <select
+                                            value={newArmy.icon}
+                                            onChange={e => setNewArmy({ ...newArmy, icon: e.target.value })}
+                                            className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-cyan-500/50 transition-colors"
+                                        >
+                                            <option value="swords">⚔️ Espadas</option>
+                                            <option value="shield">🛡️ Escudo</option>
+                                            <option value="rocket_launch">🚀 Foguete</option>
+                                            <option value="flash_on">⚡ Raio</option>
+                                            <option value="local_fire_department">🔥 Fogo</option>
+                                            <option value="diamond">💎 Diamante</option>
+                                            <option value="star">⭐ Estrela</option>
+                                            <option value="pets">🐾 Patas</option>
+                                        </select>
+                                    </div>
                                 </div>
-
                                 <button
                                     onClick={handleCreateArmy}
-                                    disabled={isLoading || !newArmy.name.trim()}
-                                    className="w-full mt-4 bg-cyan-500/10 hover:bg-cyan-500 hover:text-black text-cyan-400 border border-cyan-500/50 p-3 rounded-xl font-bold font-mono tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(0,240,255,0.1)] hover:shadow-[0_0_20px_rgba(0,240,255,0.4)]"
+                                    disabled={!newArmy.name.trim()}
+                                    className="w-full mt-2 px-4 py-3 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white font-mono font-bold text-sm tracking-widest rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-[0_0_20px_-5px_rgba(0,240,255,0.3)]"
                                 >
-                                    <span className="material-symbols-outlined text-[18px]">gavel</span>
                                     FORMAR EXÉRCITO
                                 </button>
                             </div>
@@ -773,7 +959,7 @@ export default function ClipperPage() {
                                 </div>
                             ) : (
                                 armies.map((army) => (
-                                    <div key={army.id} className="bg-[#0a0a0a] border border-white/5 rounded-2xl overflow-hidden hover:border-white/10 transition-colors shadow-lg">
+                                    <div key={army.id} className="glass-card overflow-hidden hover:border-white/10 transition-colors shadow-lg">
                                         <div className="p-5 border-b border-white/5 flex items-center justify-between" style={{ backgroundColor: `${army.color}08` }}>
                                             <div className="flex items-center gap-4">
                                                 <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-inner border border-white/10" style={{ backgroundColor: `${army.color}20`, color: army.color }}>
@@ -791,60 +977,39 @@ export default function ClipperPage() {
                                             </div>
 
                                             <button
-                                                onClick={() => handleDeleteArmy(army.id)}
+                                                onClick={() => requestDeleteArmy(army.id)}
                                                 className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 border border-transparent hover:border-red-500/30 flex items-center justify-center transition-all"
-                                                title="Dissolver Exército"
                                             >
-                                                <span className="material-symbols-outlined text-[18px]">group_remove</span>
+                                                <span className="material-symbols-outlined text-xl">delete</span>
                                             </button>
                                         </div>
 
-                                        <div className="p-5 flex flex-col gap-4">
-                                            <div className="text-[10px] font-mono text-cyan-500/70 border-b border-white/5 pb-2 uppercase tracking-widest">
-                                                Atribuição de Perfis <span className="text-slate-500">(Destino das Edições)</span>
+                                        {/* Profiles Section */}
+                                        <div className="p-5">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h4 className="text-sm font-mono text-slate-400 uppercase tracking-wider">Perfis Vinculados</h4>
                                             </div>
-
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                                                {profiles.map(profile => {
-                                                    const profileDbId = profile.db_id || -1;
-                                                    const isLinked = army.profiles.some((p: any) => p.id === profileDbId);
-                                                    return (
-                                                        <div
-                                                            key={profile.id}
-                                                            onClick={() => handleToggleProfileInArmy(army.id, profileDbId, isLinked)}
-                                                            className={`cursor-pointer p-3 rounded-xl border transition-all flex items-center gap-3 ${isLinked ? 'bg-cyan-500/10 border-cyan-500/40 opacity-100' : 'bg-white/5 border-transparent hover:border-white/10 opacity-60 hover:opacity-100'}`}
-                                                        >
-                                                            <div className="w-8 h-8 rounded-full overflow-hidden bg-black shrink-0 relative border border-white/10">
-                                                                {profile.avatar_url ? (
-                                                                    <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
-                                                                ) : (
-                                                                    <div className="w-full h-full flex items-center justify-center text-slate-500">
-                                                                        <span className="material-symbols-outlined text-sm">person</span>
-                                                                    </div>
-                                                                )}
-                                                                {isLinked && (
-                                                                    <div className="absolute inset-0 bg-cyan-500/20 flex items-center justify-center">
-                                                                        <span className="material-symbols-outlined text-white text-[16px] drop-shadow-md">check</span>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <div className={`font-mono text-xs font-bold truncate ${isLinked ? 'text-cyan-400' : 'text-slate-300'}`}>
-                                                                    {profile.username || profile.label}
+                                            {army.profiles.length === 0 ? (
+                                                <p className="text-slate-600 text-xs font-mono italic">Nenhum perfil vinculado a este exército ainda.</p>
+                                            ) : (
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                    {army.profiles.map((profile) => (
+                                                        <div key={profile.id} className="bg-black/40 border border-white/5 rounded-xl p-3 flex items-center gap-3 hover:border-white/10 transition-colors">
+                                                            {profile.avatar_url ? (
+                                                                <img src={profile.avatar_url} alt={profile.username} className="w-8 h-8 rounded-full object-cover" />
+                                                            ) : (
+                                                                <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center">
+                                                                    <span className="material-symbols-outlined text-slate-500 text-sm">person</span>
                                                                 </div>
-                                                                <div className="text-[9px] font-mono text-slate-500 truncate">
-                                                                    @{profile.slug}
-                                                                </div>
+                                                            )}
+                                                            <div className="min-w-0">
+                                                                <div className="text-white text-sm font-bold truncate">{profile.username || profile.slug}</div>
+                                                                <div className="text-slate-500 text-[10px] font-mono truncate">@{profile.slug}</div>
                                                             </div>
                                                         </div>
-                                                    )
-                                                })}
-                                                {profiles.length === 0 && (
-                                                    <div className="col-span-full text-[10px] font-mono text-slate-500 bg-white/5 p-4 rounded-xl text-center">
-                                                        Nenhum Perfil no Banco de Dados. Importe no Central de Comando primeiro.
-                                                    </div>
-                                                )}
-                                            </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))
@@ -853,34 +1018,312 @@ export default function ClipperPage() {
                     </div>
                 </div>
             )}
-            {/* Delete Confirmation Modal */}
-            {targetToDelete !== null && (
+
+            {/* ═══ TAB: APROVAÇÃO (CURATION) ═══ */}
+            {activeTab === 'approval' && (
+                <div className="flex-1 w-full max-w-7xl mx-auto px-6 py-6 z-10 space-y-6 animate-in fade-in zoom-in-95 duration-500 pb-32">
+                    <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/5">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                                <span className="material-symbols-outlined text-2xl">done_all</span>
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-display font-bold text-white tracking-widest uppercase">Fila de Aprovação</h2>
+                                <p className="text-[10px] font-mono text-emerald-500/70 border border-emerald-500/20 bg-emerald-500/5 px-2 py-0.5 rounded mt-1 inline-block">VÍDEOS FINALIZADOS PELO CLIPPER</p>
+                            </div>
+                        </div>
+                        {pendingVideos.length > 0 && (
+                            <button
+                                onClick={fetchPendingVideos}
+                                className="text-xs font-mono text-cyan-400 hover:text-white border border-cyan-400/30 hover:border-cyan-400 bg-cyan-400/5 px-4 py-2 rounded-lg flex items-center gap-2 transition-all hover:bg-cyan-400/20"
+                            >
+                                <span className="material-symbols-outlined text-[16px]">sync</span>
+                                ATT LISTA
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Loading State */}
+                    {approvalLoading ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {[1, 2, 3].map(i => (
+                                <div key={i} className="glass-card overflow-hidden animate-pulse">
+                                    <div className="w-full aspect-video bg-white/5"></div>
+                                    <div className="p-5 space-y-3">
+                                        <div className="h-4 bg-white/5 rounded w-3/4"></div>
+                                        <div className="h-3 bg-white/5 rounded w-1/2"></div>
+                                        <div className="h-16 bg-white/5 rounded"></div>
+                                        <div className="flex gap-2 pt-2">
+                                            <div className="h-10 bg-emerald-500/5 rounded-lg flex-1"></div>
+                                            <div className="h-10 bg-red-500/5 rounded-lg w-14"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : pendingVideos.length === 0 ? (
+                        <div className="bg-black/40 border border-emerald-500/10 rounded-2xl p-12 flex flex-col items-center justify-center text-center">
+                            <span className="material-symbols-outlined text-5xl text-emerald-500/20 mb-4 animate-pulse">check_circle</span>
+                            <h3 className="text-emerald-400 font-mono text-sm uppercase tracking-[0.2em] mb-2">Fila Vazia</h3>
+                            <p className="text-slate-500 text-xs">O Clipper ainda está processando os próximos recortes na esteira.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {pendingVideos.map((video) => (
+                                <div key={video.id} className="glass-card overflow-hidden group hover:border-emerald-500/30 transition-colors flex flex-col">
+                                    {/* Video Preview */}
+                                    <div className="relative w-full aspect-[9/16] max-h-[400px] bg-black border-b border-white/5 overflow-hidden flex items-center justify-center">
+                                        <span className="material-symbols-outlined text-white/5 text-6xl">play_circle</span>
+                                        <video
+                                            src={`${API}/exports/${video.video_path.split('/').pop()}`}
+                                            className="absolute inset-0 w-full h-full object-contain bg-black opacity-90 group-hover:opacity-100 transition-opacity z-20 cursor-pointer"
+                                            controls
+                                            preload="metadata"
+                                        />
+                                    </div>
+
+                                    <div className="p-4 flex-1 flex flex-col gap-3">
+                                        {/* Title + Status Badge */}
+                                        <div className="flex justify-between items-start gap-2">
+                                            <h3 className="text-white font-bold text-xs truncate uppercase tracking-wider flex-1" title={video.title || `Job #${video.clip_job_id}`}>
+                                                {video.title || `Clip Job #${video.clip_job_id}`}
+                                            </h3>
+                                            <span className="text-[9px] font-mono text-amber-500 border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 rounded whitespace-nowrap">PENDENTE</span>
+                                        </div>
+
+                                        {/* Streamer */}
+                                        <p className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5">
+                                            <span className="material-symbols-outlined text-[14px]">person</span>
+                                            {video.streamer_name || 'Desconhecido'}
+                                        </p>
+
+                                        {/* Duration + Size */}
+                                        <div className="flex items-center gap-3 text-[10px] text-slate-600 font-mono">
+                                            {video.duration_seconds && (
+                                                <span className="flex items-center gap-1">
+                                                    <span className="material-symbols-outlined text-[12px]">timer</span>
+                                                    {Math.floor(video.duration_seconds / 60)}:{String(video.duration_seconds % 60).padStart(2, '0')}
+                                                </span>
+                                            )}
+                                            {video.file_size_bytes && (
+                                                <span className="flex items-center gap-1">
+                                                    <span className="material-symbols-outlined text-[12px]">hard_drive</span>
+                                                    {(video.file_size_bytes / 1024 / 1024).toFixed(1)} MB
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="flex gap-2 mt-auto pt-1">
+                                            <button
+                                                onClick={() => handleApprove(video)}
+                                                className="flex-1 bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 hover:from-emerald-500 hover:to-emerald-400 hover:text-black border border-emerald-500/30 text-emerald-400 text-xs font-mono font-bold py-2.5 rounded-lg flex justify-center items-center gap-2 transition-all shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)]"
+                                                aria-label={`Aprovar vídeo ${video.title}`}
+                                            >
+                                                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                                                APROVAR
+                                            </button>
+                                            <button
+                                                onClick={() => handleReject(video.id)}
+                                                className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 hover:text-red-300 text-xs py-2.5 px-4 rounded-lg flex justify-center items-center transition-colors"
+                                                title="Rejeitar clipe (Deletar)"
+                                                aria-label={`Rejeitar vídeo ${video.title}`}
+                                            >
+                                                <span className="material-symbols-outlined text-[18px]">delete</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Modal de Confirmação de Exclusão do Alvo */}
+            {
+                targetToDelete !== null && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                        <div className="bg-slate-900 border border-red-500/30 p-6 max-w-md w-full shadow-2xl relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-red-900"></div>
+                            <div className="flex items-start gap-4 mb-6">
+                                <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                                    <span className="material-symbols-outlined text-red-400 text-xl">warning</span>
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-white font-display mb-1">Confirmar Exclusão</h3>
+                                    <p className="text-slate-400 text-sm">
+                                        Tem certeza que deseja remover este alvo da órbita do radar? Esta ação não desligará vídeos já baixados, mas impedirá novas buscas.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex justify-end gap-3 font-mono text-xs uppercase tracking-wider">
+                                <button
+                                    onClick={cancelDeleteTarget}
+                                    className="px-4 py-2 border border-white/10 text-slate-400 hover:bg-white/5 hover:text-white transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={confirmDeleteTarget}
+                                    className="px-4 py-2 bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+                                >
+                                    Remover Alvo
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+            {/* Delete Army Confirmation Modal */}
+            {
+                armyToDelete !== null && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                        <div className="bg-slate-900 border border-red-500/30 p-6 max-w-md w-full shadow-2xl relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-red-900"></div>
+                            <div className="flex items-start gap-4 mb-6">
+                                <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                                    <span className="material-symbols-outlined text-red-400 text-xl">warning</span>
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-white font-display mb-1">Dissolver Exército</h3>
+                                    <p className="text-slate-400 text-sm">
+                                        Atenção: Ao dissolver este exército, os alvos vinculados a ele se tornarão Órfãos. Deseja prosseguir?
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex justify-end gap-3 font-mono text-xs uppercase tracking-wider">
+                                <button
+                                    onClick={cancelDeleteArmy}
+                                    className="px-4 py-2 border border-white/10 text-slate-400 hover:bg-white/5 hover:text-white transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={confirmDeleteArmy}
+                                    className="px-4 py-2 bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+                                >
+                                    Dissolver
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Modal Aprovação de Vídeo */}
+            {showApprovalModal && selectedVideo && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div className="bg-slate-900 border border-red-500/30 p-6 max-w-md w-full shadow-2xl relative overflow-hidden">
+                    <div className="bg-slate-900 border border-emerald-500/30 p-6 max-w-md w-full shadow-2xl relative overflow-hidden rounded-xl">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-emerald-900"></div>
+                        <div className="mb-6">
+                            <h3 className="text-xl font-bold text-white font-display mb-1 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-emerald-400">rocket_launch</span>
+                                Lançar Edição
+                            </h3>
+                            <p className="text-slate-400 text-sm font-mono truncate">
+                                {selectedVideo.title || selectedVideo.video_path.split('/').pop()}
+                            </p>
+                        </div>
+
+                        <div className="space-y-4 mb-6">
+                            <div>
+                                <label className="text-[10px] uppercase font-mono text-slate-500 tracking-wider mb-2 block">Tipo de Lançamento</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        onClick={() => setPostType('immediate')}
+                                        className={`py-2 px-3 rounded text-xs font-mono border transition-all ${postType === 'immediate' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20'}`}
+                                    >
+                                        IMEDIATO
+                                    </button>
+                                    <button
+                                        onClick={() => setPostType('scheduled')}
+                                        className={`py-2 px-3 rounded text-xs font-mono border transition-all ${postType === 'scheduled' ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400' : 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20'}`}
+                                    >
+                                        PROGRAMADO
+                                    </button>
+                                </div>
+                            </div>
+
+                            {postType === 'scheduled' && (
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-[10px] uppercase font-mono text-slate-500 tracking-wider mb-1 block">Data</label>
+                                        <input
+                                            type="date"
+                                            value={selectedDate}
+                                            onChange={(e) => setSelectedDate(e.target.value)}
+                                            className="w-full bg-black/50 border border-white/10 rounded p-2 text-white font-mono text-sm focus:border-cyan-500 focus:outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] uppercase font-mono text-slate-500 tracking-wider mb-1 block">Hora</label>
+                                        <select
+                                            value={selectedTime}
+                                            onChange={(e) => setSelectedTime(e.target.value)}
+                                            className="w-full bg-black/50 border border-white/10 rounded p-2 text-white font-mono text-sm focus:border-cyan-500 focus:outline-none"
+                                        >
+                                            {timeOptions.map(time => (
+                                                <option key={time} value={time}>{time}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-8">
+                            <button
+                                onClick={() => { setShowApprovalModal(false); setSelectedVideo(null); }}
+                                className="px-4 py-2 text-sm font-mono text-slate-400 hover:text-white transition-colors"
+                            >
+                                CANCELAR
+                            </button>
+                            <button
+                                onClick={handleConfirmVideo}
+                                disabled={submittingApproval}
+                                className="px-6 py-2 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 border border-emerald-500/50 hover:border-emerald-400 rounded text-sm font-bold font-mono transition-all disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {submittingApproval ? (
+                                    <span className="material-symbols-outlined animate-spin text-[18px]">autorenew</span>
+                                ) : (
+                                    <span className="material-symbols-outlined text-[18px]">send</span>
+                                )}
+                                CONFIRMAR
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Confirmação de Rejeição */}
+            {confirmReject && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-slate-900 border border-red-500/30 p-6 max-w-sm w-full shadow-2xl relative overflow-hidden rounded-xl">
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-red-900"></div>
                         <div className="flex items-start gap-4 mb-6">
                             <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
-                                <span className="material-symbols-outlined text-red-400 text-xl">warning</span>
+                                <span className="material-symbols-outlined text-red-500 text-xl">delete_forever</span>
                             </div>
                             <div>
-                                <h3 className="text-xl font-bold text-white font-display mb-1">Confirmar Exclusão</h3>
+                                <h3 className="text-xl font-bold text-white font-display mb-1">Apagar Clipe?</h3>
                                 <p className="text-slate-400 text-sm">
-                                    Tem certeza que deseja remover este alvo da órbita do radar? Esta ação não desligará vídeos já baixados, mas impedirá novas buscas.
+                                    O vídeo será excluído permanentemente do servidor e removido da esteira.
                                 </p>
                             </div>
                         </div>
-                        <div className="flex justify-end gap-3 font-mono text-xs uppercase tracking-wider">
+                        <div className="flex justify-end gap-3">
                             <button
-                                onClick={cancelDeleteTarget}
-                                className="px-4 py-2 border border-white/10 text-slate-400 hover:bg-white/5 hover:text-white transition-colors"
+                                onClick={() => setConfirmReject(null)}
+                                className="px-4 py-2 text-sm font-mono text-slate-400 hover:text-white transition-colors"
                             >
-                                Cancelar
+                                CANCELAR
                             </button>
                             <button
-                                onClick={confirmDeleteTarget}
-                                className="px-4 py-2 bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+                                onClick={confirmRejectVideo}
+                                className="px-6 py-2 bg-red-500/20 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/50 hover:border-red-500 rounded text-sm font-bold font-mono transition-all"
                             >
-                                Remover Alvo
+                                APAGAR
                             </button>
                         </div>
                     </div>

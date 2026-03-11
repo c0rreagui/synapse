@@ -128,6 +128,28 @@ class ApiClient {
         }
     }
 
+    async patch<T, D = unknown>(
+        endpoint: string,
+        data?: D,
+        options?: RequestInit
+    ): Promise<T> {
+        try {
+            const response = await fetch(`${this.baseURL}${endpoint}`, {
+                method: "PATCH",
+                headers: { ...this.defaultHeaders, ...options?.headers },
+                body: data ? JSON.stringify(data) : undefined,
+                ...options,
+            });
+
+            return await this.handleResponse<T>(response);
+        } catch (error) {
+            if (error instanceof ApiError) {
+                throw error;
+            }
+            throw new NetworkError(`Network error during PATCH ${endpoint}: ${error}`);
+        }
+    }
+
     async delete<T>(endpoint: string, options?: RequestInit): Promise<T> {
         try {
             const response = await fetch(`${this.baseURL}${endpoint}`, {

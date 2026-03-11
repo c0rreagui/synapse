@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import axios from 'axios';
-import { getApiUrl } from '../utils/apiClient';
+import { apiClient } from '../lib/api';
 import { ScheduleEvent, TikTokProfile } from '../types';
 import { getSavedProfiles, SavedProfile } from '../../services/profileService';
 import ScheduledVideosModal from '../components/ScheduledVideosModal';
@@ -120,9 +119,8 @@ export default function SchedulerPage() {
 
     const fetchEvents = useCallback(async () => {
         try {
-            const API = getApiUrl();
-            const res = await axios.get(`${API}/api/v1/scheduler/list`);
-            setEvents(res.data || []);
+            const data = await apiClient.get<ScheduleEvent[]>('/api/v1/scheduler/list');
+            setEvents(data || []);
         } catch (err) {
             console.error('Error fetching schedule:', err);
         } finally {
@@ -213,25 +211,25 @@ export default function SchedulerPage() {
         const isoTime = targetDate.toISOString();
 
         try {
-            const API = getApiUrl();
             if (draggedEvent.id && draggedEvent.status !== 'ready') {
                 // Update existing event time
-                await axios.patch(`${API}/api/v1/scheduler/${draggedEvent.id}`, {
+                await apiClient.put(`/api/v1/scheduler/${draggedEvent.id}`, {
                     scheduled_time: isoTime,
                 });
                 toast.success(`Evento movido para ${day.day}/${viewDate.getMonth() + 1}`);
             } else {
                 // Schedule a ready item
-                await axios.post(`${API}/api/v1/scheduler`, {
+                await apiClient.post('/api/v1/scheduler', {
                     profile_id: draggedEvent.profile_id,
                     video_path: draggedEvent.video_path,
                     scheduled_time: isoTime,
                 });
+
                 toast.success(`Vídeo agendado para ${day.day}/${viewDate.getMonth() + 1}`);
             }
             await fetchEvents();
         } catch (err: any) {
-            const msg = err?.response?.data?.detail || 'Erro ao mover evento';
+            const msg = err?.data?.detail || err?.message || 'Erro ao mover evento';
             toast.error(msg);
         }
         setDraggedEvent(null);
@@ -246,9 +244,9 @@ export default function SchedulerPage() {
     // ─── Delete/Update Handlers for Modals ─────────────────
     const handleDeleteEvent = async (id: string) => {
         try {
-            const API = getApiUrl();
-            await axios.delete(`${API}/api/v1/scheduler/${id}`);
+            await apiClient.delete(`/api/v1/scheduler/${id}`);
             toast.success('Evento removido');
+
             await fetchEvents();
         } catch {
             toast.error('Erro ao remover evento');
@@ -257,9 +255,9 @@ export default function SchedulerPage() {
 
     const handleEditSave = async (eventId: string, data: any) => {
         try {
-            const API = getApiUrl();
-            await axios.patch(`${API}/api/v1/scheduler/${eventId}`, data);
+            await apiClient.put(`/api/v1/scheduler/${eventId}`, data);
             toast.success('Evento atualizado');
+
             setEditingEvent(null);
             await fetchEvents();
         } catch {

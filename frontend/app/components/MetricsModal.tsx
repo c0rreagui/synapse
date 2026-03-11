@@ -20,9 +20,10 @@ interface MetricsModalProps {
     onViewDetails?: (file: FileItem) => void;
 }
 
-import { getApiUrl } from '../utils/apiClient';
+import { apiClient } from '../lib/api';
+import ConfirmDialog from './ConfirmDialog';
 
-const API_BASE = `${getApiUrl()}/api/v1`;
+const API_BASE = '/api/v1';
 
 export default function MetricsModal({ isOpen, onClose, initialTab = 'processing', onViewDetails }: MetricsModalProps) {
     const [files, setFiles] = useState<Record<string, FileItem[]>>({
@@ -50,64 +51,51 @@ export default function MetricsModal({ isOpen, onClose, initialTab = 'processing
     const [deletingConfirm, setDeletingConfirm] = useState<{ id: string, type: string } | null>(null);
 
     const fetchFiles = async () => {
-        console.log("DEBUG: API_BASE is", API_BASE);
         setLoading(true);
         try {
             // Fetch ingestion files
-            const res = await fetch(`${API_BASE}/ingest/files`);
-            if (res.ok) {
-                const data = await res.json();
-                setFiles(data);
-            }
+            const filesData = await apiClient.get<Record<string, FileItem[]>>(`${API_BASE}/ingest/files`);
+            setFiles(filesData);
+
             // Fetch scheduled events
-            const schedRes = await fetch(`${API_BASE}/scheduler/list`);
-            if (schedRes.ok) {
-                const schedData = await schedRes.json();
-                setScheduledEvents(schedData || []);
-            }
+            const schedData = await apiClient.get<any[]>(`${API_BASE}/scheduler/list`);
+            setScheduledEvents(schedData || []);
         } catch (e) {
             console.error("Failed to fetch files details", e);
         }
         setLoading(false);
     };
 
-    const handleDelete = async (filename: string, status: string) => {
-        if (deletingConfirm?.id === filename && deletingConfirm?.type === status) {
-            try {
-                const res = await fetch(`${API_BASE}/ingest/files/${encodeURIComponent(filename)}?status=${status}`, {
-                    method: 'DELETE'
-                });
-                if (res.ok) {
-                    toast.success(`Removido: ${filename}`);
-                    fetchFiles(); // Refresh list
-                    setDeletingConfirm(null);
-                } else {
-                    const error = await res.json();
-                    toast.error(error.detail || 'Erro ao remover');
-                }
-            } catch (e) {
-                toast.error('Erro de conexão');
+    const handleDeleteClick = (filename: string, status: string) => {
+        setDeletingConfirm({ id: filename, type: status });
+    };
+
+    const confirmDelete = async () => {
+        if (!deletingConfirm) return;
+
+        try {
+            if (deletingConfirm.type === 'event') {
+                await apiClient.delete(`${API_BASE}/scheduler/${deletingConfirm.id}`);
+                toast.success('Evento removido');
+            } else {
+                await apiClient.delete(`${API_BASE}/ingest/files/${encodeURIComponent(deletingConfirm.id)}?status=${deletingConfirm.type}`);
+                toast.success(`Removido: ${deletingConfirm.id}`);
             }
-        } else {
-            setDeletingConfirm({ id: filename, type: status });
-            setTimeout(() => setDeletingConfirm(curr => (curr?.id === filename && curr?.type === status) ? null : curr), 3000);
+            fetchFiles(); // Refresh list
+        } catch (e: any) {
+            toast.error(e.message || 'Erro ao remover');
+        } finally {
+            setDeletingConfirm(null);
         }
     };
 
     const handleReprocess = async (filename: string) => {
         try {
-            const res = await fetch(`${API_BASE}/ingest/files/${encodeURIComponent(filename)}/reprocess`, {
-                method: 'POST'
-            });
-            if (res.ok) {
-                toast.success(`Reenviado para fila: ${filename}`);
-                fetchFiles(); // Refresh list
-            } else {
-                const error = await res.json();
-                toast.error(error.detail || 'Erro ao reprocessar');
-            }
-        } catch (e) {
-            toast.error('Erro de conexão');
+            await apiClient.post(`${API_BASE}/ingest/files/${encodeURIComponent(filename)}/reprocess`, {});
+            toast.success(`Reenviado para fila: ${filename}`);
+            fetchFiles(); // Refresh list
+        } catch (e: any) {
+            toast.error(e.message || 'Erro ao reprocessar');
         }
     };
 
@@ -141,24 +129,8 @@ export default function MetricsModal({ isOpen, onClose, initialTab = 'processing
         }
     };
 
-    const handleDeleteEvent = async (eventId: string) => {
-        if (deletingConfirm?.id === eventId && deletingConfirm?.type === 'event') {
-            try {
-                const res = await fetch(`${API_BASE}/scheduler/${eventId}`, { method: 'DELETE' });
-                if (res.ok) {
-                    toast.success('Evento removido');
-                    fetchFiles();
-                    setDeletingConfirm(null);
-                } else {
-                    toast.error('Erro ao remover evento');
-                }
-            } catch (e) {
-                toast.error('Erro de conexão');
-            }
-        } else {
-            setDeletingConfirm({ id: eventId, type: 'event' });
-            setTimeout(() => setDeletingConfirm(curr => (curr?.id === eventId) ? null : curr), 3000);
-        }
+    const handleDeleteEventClick = (eventId: string) => {
+        setDeletingConfirm({ id: eventId, type: 'event' });
     };
 
     const handleExportCSV = () => {
@@ -299,20 +271,11 @@ export default function MetricsModal({ isOpen, onClose, initialTab = 'processing
                                                                 </div>
                                                                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                     <button
-                                                                        onClick={() => handleDeleteEvent(event.id)}
-                                                                        className={clsx(
-                                                                            "p-2 rounded-lg transition-all border",
-                                                                            deletingConfirm?.id === event.id && deletingConfirm?.type === 'event'
-                                                                                ? "bg-red-500 text-white border-red-500"
-                                                                                : "bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500 hover:text-white"
-                                                                        )}
+                                                                        onClick={() => handleDeleteEventClick(event.id)}
+                                                                        className="p-2 rounded-lg transition-all border bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500 hover:text-white"
                                                                         title="Remover"
                                                                     >
-                                                                        {deletingConfirm?.id === event.id && deletingConfirm?.type === 'event' ? (
-                                                                            <span className="text-xs font-bold px-1">Confirmar?</span>
-                                                                        ) : (
-                                                                            <TrashIcon className="w-4 h-4" />
-                                                                        )}
+                                                                        <TrashIcon className="w-4 h-4" />
                                                                     </button>
                                                                 </div>
                                                             </div>
@@ -378,20 +341,11 @@ export default function MetricsModal({ isOpen, onClose, initialTab = 'processing
                                                                 </button>
                                                                 {(tab === 'queued' || tab === 'failed') && (
                                                                     <button
-                                                                        onClick={() => handleDelete(file.name, tab)}
-                                                                        className={clsx(
-                                                                            "p-2 rounded-lg transition-all border",
-                                                                            deletingConfirm?.id === file.name && deletingConfirm?.type === tab
-                                                                                ? "bg-red-500 text-white border-red-500"
-                                                                                : "bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500 hover:text-white"
-                                                                        )}
+                                                                        onClick={() => handleDeleteClick(file.name, tab)}
+                                                                        className="p-2 rounded-lg transition-all border bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500 hover:text-white"
                                                                         title="Remover"
                                                                     >
-                                                                        {deletingConfirm?.id === file.name && deletingConfirm?.type === tab ? (
-                                                                            <span className="text-xs font-bold px-1">Confirmar?</span>
-                                                                        ) : (
-                                                                            <TrashIcon className="w-4 h-4" />
-                                                                        )}
+                                                                        <TrashIcon className="w-4 h-4" />
                                                                     </button>
                                                                 )}
                                                             </div>
@@ -406,6 +360,16 @@ export default function MetricsModal({ isOpen, onClose, initialTab = 'processing
                         </Dialog.Panel>
                     </Transition.Child>
                 </div>
+                <ConfirmDialog
+                    isOpen={!!deletingConfirm}
+                    title="Remover Item"
+                    message={deletingConfirm?.type === 'event' ? "Tem certeza que deseja remover este evento?" : "Tem certeza que deseja remover este arquivo de métricas?"}
+                    onConfirm={confirmDelete}
+                    onCancel={() => setDeletingConfirm(null)}
+                    variant="danger"
+                    confirmLabel="Remover"
+                    cancelLabel="Cancelar"
+                />
             </Dialog>
         </Transition>
     );

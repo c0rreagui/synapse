@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { toast } from 'sonner';
-import { getApiUrl } from '../utils/apiClient';
+import { apiClient } from '../lib/api';
 import ProxySettings from '../components/ProxySettings';
 
 export default function SettingsPage() {
@@ -17,15 +16,14 @@ export default function SettingsPage() {
     useEffect(() => {
         const loadUplink = async () => {
             try {
-                const healthRes = await axios.get(`${getApiUrl()}/api/v1/settings/system/health`);
-                setHealth(healthRes.data.status === 'online' ? 'OPTIMAL' : 'DEGRADED');
+                const data = await apiClient.get<any>('/api/v1/settings/system/health');
+                setHealth(data.status === 'online' ? 'OPTIMAL' : 'DEGRADED');
             } catch (e) {
                 setHealth('OFFLINE');
             }
 
             try {
-                const res = await axios.get(`${getApiUrl()}/api/v1/settings/settings`);
-                const s = res.data;
+                const s = await apiClient.get<any>('/api/v1/settings/settings');
                 if (s?.system?.max_concurrent_tasks) setThreads(s.system.max_concurrent_tasks);
                 if (s?.integrations?.openai_api_key) setNasaKey(s.integrations.openai_api_key);
                 if (s?.integrations?.groq_api_key) setEsaKey(s.integrations.groq_api_key);
@@ -52,7 +50,7 @@ export default function SettingsPage() {
                 delete payloadFields.integrations;
             }
 
-            await axios.post(`${getApiUrl()}/api/v1/settings/settings`, { settings: payloadFields });
+            await apiClient.post('/api/v1/settings/settings', { settings: payloadFields });
             toast.success("Matrix parameters updated successfully.");
         } catch (e) {
             toast.error("Failed to sequence Matrix override.");

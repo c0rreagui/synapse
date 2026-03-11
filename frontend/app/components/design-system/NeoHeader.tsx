@@ -1,4 +1,5 @@
 import React from 'react';
+import { NotificationCenter } from '../NotificationCenter';
 
 export function NeoHeader({ title = "Comando Celestial Pro" }: { title?: string }) {
     return (
@@ -46,6 +47,9 @@ export function NeoHeader({ title = "Comando Celestial Pro" }: { title?: string 
                     ></div>
                     <div className="absolute inset-0 border border-cyan-500/0 group-hover:border-cyan-500/50 rounded-full transition-all duration-300 shadow-[0_0_10px_rgba(0,240,255,0.2)]"></div>
                 </div>
+
+                {/* Notifications */}
+                <NotificationCenter />
             </div>
         </header>
     );

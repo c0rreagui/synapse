@@ -10,11 +10,9 @@ import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import useWebSocket from '../hooks/useWebSocket';
 import { PendingVideo } from '../types';
-import { getApiUrl } from '../utils/apiClient';
+import { apiClient } from '../lib/api';
 
 // Interface moved to types/index.ts
-
-const API_URL = getApiUrl();
 
 export default function QueuePage() {
     const [pendingVideos, setPendingVideos] = useState<PendingVideo[]>([]);
@@ -45,8 +43,7 @@ export default function QueuePage() {
 
     const fetchPendingVideos = async () => {
         try {
-            const response = await fetch(`${API_URL}/api/v1/queue/pending`);
-            const data = await response.json();
+            const data = await apiClient.get<PendingVideo[]>('/api/v1/queue/pending');
             setPendingVideos(data);
         } catch (error) {
             console.error('Error fetching pending videos:', error);
@@ -71,9 +68,7 @@ export default function QueuePage() {
     const confirmRejectVideo = async () => {
         if (!confirmReject) return;
         try {
-            await fetch(`${API_URL}/api/v1/queue/${confirmReject}`, {
-                method: 'DELETE'
-            });
+            await apiClient.delete(`/api/v1/queue/${confirmReject}`);
             fetchPendingVideos();
             showToast('Vídeo rejeitado', 'info');
         } catch (error) {
@@ -94,29 +89,21 @@ export default function QueuePage() {
                 ? `${selectedDate}T${selectedTime}:00`
                 : null;
 
-            const response = await fetch(`${API_URL}/api/v1/queue/approve`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: selectedVideo.id,
-                    action: postType,
-                    schedule_time: scheduleTime
-                })
+            await apiClient.post('/api/v1/queue/approve', {
+                id: selectedVideo.id,
+                action: postType,
+                schedule_time: scheduleTime
             });
 
-            if (response.ok) {
-                setShowModal(false);
-                setSelectedVideo(null);
-                fetchPendingVideos(); // Refresh list
-                showToast(
-                    postType === 'immediate'
-                        ? 'Video aprovado! Bot iniciando execucao...'
-                        : `Video agendado para ${selectedDate} as ${selectedTime}`,
-                    'success'
-                );
-            } else {
-                throw new Error('Falha na aprovacao');
-            }
+            setShowModal(false);
+            setSelectedVideo(null);
+            fetchPendingVideos(); // Refresh list
+            showToast(
+                postType === 'immediate'
+                    ? 'Video aprovado! Bot iniciando execucao...'
+                    : `Video agendado para ${selectedDate} as ${selectedTime}`,
+                'success'
+            );
         } catch (error) {
             console.error('Error approving video:', error);
             showToast('Erro ao aprovar video', 'error');

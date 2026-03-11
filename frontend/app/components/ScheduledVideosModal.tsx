@@ -8,6 +8,8 @@ import { toast } from 'sonner';
 import clsx from 'clsx';
 import { ScheduleEvent, TikTokProfile } from '../types';
 import ProfileRepairModal from './ProfileRepairModal'; // [SYN-UX] Import Repair Modal
+import ConfirmDialog from './ConfirmDialog';
+import { apiClient } from '../lib/api';
 
 interface ScheduledVideosModalProps {
     isOpen: boolean;
@@ -24,28 +26,15 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
     // [SYN-UX] Repair Logic
     const [repairProfile, setRepairProfile] = useState<TikTokProfile | null>(null);
 
-    // Use centralized API Client for robust local connections
-    // Note: requires import { getApiUrl } from '../utils/apiClient'; - please ensure import is added.
-    const API_URL = (typeof window !== 'undefined' && window.location.hostname === 'localhost')
-        ? 'http://127.0.0.1:8000'
-        : (process.env.NEXT_PUBLIC_API_URL || '');
-
     const fetchEvents = async () => {
         setLoading(true);
         try {
-            // Direct fetch to backend to avoid proxy 500s
-            const res = await fetch(`${API_URL}/api/v1/scheduler/list`);
-
-            if (res.ok) {
-                const data = await res.json();
-                const sorted = data.sort((a: any, b: any) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime());
-                setEvents(sorted);
-            } else {
-                console.error("Failed to load events:", res.status);
-                toast.error("Erro de conexão com servidor (500)");
-            }
+            const data = await apiClient.get<ScheduleEvent[]>('/api/v1/scheduler/list');
+            const sorted = data.sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime());
+            setEvents(sorted);
         } catch (error) {
             console.error("Failed to load schedule", error);
+            // toast error handled by apiClient optionally, but we can keep fallback
             toast.error("Erro ao carregar agendamentos");
         } finally {
             setLoading(false);
@@ -61,26 +50,28 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
 
     const [deletingConfirmationId, setDeletingConfirmationId] = useState<string | null>(null);
 
-    const handleDelete = async (id: string) => {
-        if (deletingConfirmationId === id) {
-            try {
-                const res = await fetch(`${API_URL}/api/v1/scheduler/${id}`, { method: 'DELETE' });
-                if (res.ok) {
-                    setEvents(prev => prev.filter(e => e.id !== id));
-                    toast.success("Agendamento cancelado");
-                    if (onDelete) onDelete(id);
-                    if (onUpdate) onUpdate();
-                    setDeletingConfirmationId(null);
-                } else {
-                    toast.error("Erro ao cancelar");
-                }
-            } catch (e) {
-                toast.error("Erro ao conectar");
+    const handleDeleteClick = (id: string) => {
+        setDeletingConfirmationId(id);
+    };
+
+    const confirmDelete = async () => {
+        if (!deletingConfirmationId) return;
+        const id = deletingConfirmationId;
+        try {
+            // Se tiver onDelete (passado pelo parent), a responsabilidade do backend call pode estar no parent
+            // Vamos unificar aqui, delegando a responsabilidade de exclusão real para o apiClient se não for delegado
+            if (onDelete) {
+                onDelete(id); // O parent scheduler/page.tsx fará apiClient.delete
+            } else {
+                await apiClient.delete(`/api/v1/scheduler/${id}`);
             }
-        } else {
-            setDeletingConfirmationId(id);
-            // Reset after 3s
-            setTimeout(() => setDeletingConfirmationId(curr => curr === id ? null : curr), 3000);
+            setEvents(prev => prev.filter(e => e.id !== id));
+            toast.success("Agendamento cancelado");
+            if (onUpdate) onUpdate();
+        } catch (e) {
+            toast.error("Erro ao cancelar agendamento");
+        } finally {
+            setDeletingConfirmationId(null);
         }
     };
 
@@ -109,37 +100,18 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
 
             console.log("Updating event", id, "to", date.toISOString());
 
-            const url = `${API_URL}/api/v1/scheduler/${id}`;
-            console.log("Fetching URL:", url);
-            const res = await fetch(url, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ scheduled_time: date.toISOString() })
+            const updatedEvent = await apiClient.patch<ScheduleEvent>(`/api/v1/scheduler/${id}`, {
+                scheduled_time: date.toISOString()
             });
 
-            if (res.ok) {
-                const updatedEvent = await res.json();
-                setEvents(prev => prev.map(e => e.id === id ? updatedEvent : e));
-                toast.success("Horário atualizado com sucesso!");
-                setEditingId(null);
-                if (onUpdate) onUpdate(); // Trigger parent refresh
-            } else {
-                console.error("Update failed status:", res.status, res.statusText);
-                const text = await res.text();
-                console.error("Update failed body:", text);
+            setEvents(prev => prev.map(e => e.id === id ? updatedEvent : e));
+            toast.success("Horário atualizado com sucesso!");
+            setEditingId(null);
+            if (onUpdate) onUpdate(); // Trigger parent refresh
 
-                let detail = "Falha ao atualizar horário";
-                try {
-                    const json = JSON.parse(text);
-                    if (json.detail) detail = typeof json.detail === 'string' ? json.detail : JSON.stringify(json.detail);
-                } catch (e) {
-                    // Ignore json parse error
-                }
-                toast.error(detail);
-            }
         } catch (error: any) {
             console.error("Error saving time:", error);
-            toast.error(`Erro ao salvar: ${error.message || "Desconhecido"}`);
+            toast.error(`Erro ao salvar: ${error.message || error?.data?.detail || "Desconhecido"}`);
         }
     };
 
@@ -147,24 +119,16 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
         if (!newCaption.trim()) return;
 
         try {
-            const url = `${API_URL}/api/v1/scheduler/${id}`;
-            const res = await fetch(url, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ caption: newCaption })
+            const updatedEvent = await apiClient.patch<ScheduleEvent>(`/api/v1/scheduler/${id}`, {
+                caption: newCaption
             });
 
-            if (res.ok) {
-                const updatedEvent = await res.json();
-                setEvents(prev => prev.map(e => e.id === id ? updatedEvent : e));
-                toast.success("Legenda atualizada com sucesso!");
-                setEditingCaptionId(null);
-                if (onUpdate) onUpdate();
-            } else {
-                toast.error("Falha ao atualizar legenda");
-            }
+            setEvents(prev => prev.map(e => e.id === id ? updatedEvent : e));
+            toast.success("Legenda atualizada com sucesso!");
+            setEditingCaptionId(null);
+            if (onUpdate) onUpdate();
         } catch (error: any) {
-            toast.error("Erro interno ao atualizar legenda.");
+            toast.error("Falha ao atualizar legenda");
         }
     };
 
@@ -534,20 +498,11 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                                                                                 <div className="mt-3 flex items-center justify-end">
                                                                                     {/* Actions */}
                                                                                     <button
-                                                                                        onClick={() => handleDelete(event.id)}
-                                                                                        className={clsx(
-                                                                                            "p-1.5 rounded-lg transition-colors opacity-0 group-hover:opacity-100 flex items-center gap-2",
-                                                                                            deletingConfirmationId === event.id
-                                                                                                ? "bg-red-500 text-white hover:bg-red-600"
-                                                                                                : "text-gray-600 hover:text-red-500 hover:bg-red-500/10"
-                                                                                        )}
-                                                                                        title={deletingConfirmationId === event.id ? "Clique para confirmar" : "Remover"}
+                                                                                        onClick={() => handleDeleteClick(event.id)}
+                                                                                        className="p-1.5 rounded-lg transition-colors opacity-0 group-hover:opacity-100 flex items-center gap-2 text-gray-600 hover:text-red-500 hover:bg-red-500/10"
+                                                                                        title="Remover"
                                                                                     >
-                                                                                        {deletingConfirmationId === event.id ? (
-                                                                                            <span className="text-[10px] font-bold pr-1">Confirmar?</span>
-                                                                                        ) : (
-                                                                                            <TrashIcon className="w-4 h-4" />
-                                                                                        )}
+                                                                                        <TrashIcon className="w-4 h-4" />
                                                                                     </button>
                                                                                 </div>
                                                                             </div>
@@ -575,6 +530,17 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                         fetchEvents(); // Refresh list to see if statuses update (backend might need polling but good for now)
                         if (onUpdate) onUpdate();
                     }}
+                />
+
+                <ConfirmDialog
+                    isOpen={!!deletingConfirmationId}
+                    title="Remover Agendamento"
+                    message="Tem certeza que deseja remover este vídeo agendado? A ação não pode ser desfeita."
+                    onConfirm={confirmDelete}
+                    onCancel={() => setDeletingConfirmationId(null)}
+                    variant="danger"
+                    confirmLabel="Remover"
+                    cancelLabel="Cancelar"
                 />
             </Dialog>
         </Transition >

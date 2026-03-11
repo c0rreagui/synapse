@@ -16,6 +16,7 @@ import Modal from '../components/Modal';
 import ProfileRepairModal from '../components/ProfileRepairModal'; // [SYN-UX] New Import
 
 import { getApiUrl } from '../utils/apiClient';
+import { apiClient } from '../lib/api';
 
 const API_BASE = `${getApiUrl()}/api/v1`;
 
@@ -116,30 +117,22 @@ export default function ProfilesPage() {
         // 3. Start Timer for permanent deletion
         const timer = setTimeout(async () => {
             try {
-                const res = await fetch(`${API_BASE}/profiles/${id}`, { method: 'DELETE' });
-                if (res.ok) {
-                    setProfiles(prev => prev.filter(p => p.id !== id));
+                await apiClient.delete(`/api/v1/profiles/${id}`);
+                setProfiles(prev => prev.filter(p => p.id !== id));
 
-                    // Remove from selection if selected
-                    setSelectedIds(prev => {
-                        if (prev.has(id)) {
-                            const newSet = new Set(prev);
-                            newSet.delete(id);
-                            return newSet;
-                        }
-                        return prev;
-                    });
-                } else {
-                    const err = await res.json().catch(() => ({ detail: res.statusText }));
-                    console.error("Delete failed:", err);
-                    toast.error('Falha ao excluir', {
-                        description: err.detail || 'Erro desconhecido'
-                    });
-                }
-            } catch (e) {
+                // Remove from selection if selected
+                setSelectedIds(prev => {
+                    if (prev.has(id)) {
+                        const newSet = new Set(prev);
+                        newSet.delete(id);
+                        return newSet;
+                    }
+                    return prev;
+                });
+            } catch (e: any) {
                 console.error("Delete failed", e);
-                toast.error('Erro de conexao', {
-                    description: 'Falha ao excluir perfil'
+                toast.error('Erro ao excluir', {
+                    description: e?.data?.detail || 'Erro desconhecido'
                 });
             }
 
@@ -186,9 +179,10 @@ export default function ProfilesPage() {
         // 1. Fetch system vitals periodically
         const fetchVitals = async () => {
             try {
-                const res = await fetch(`${API_BASE}/telemetry/vitals`);
-                if (res.ok) setSystemVitals(await res.json());
+                const data = await apiClient.get<any>('/api/v1/telemetry/vitals');
+                setSystemVitals(data);
             } catch (e) {
+
                 // silent
             }
         };
@@ -268,9 +262,8 @@ export default function ProfilesPage() {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`${API_BASE}/profiles/list`);
-            if (!res.ok) throw new Error('Falha ao carregar perfis');
-            setProfiles(await res.json());
+            const data = await apiClient.get<TikTokProfile[]>('/api/v1/profiles/list');
+            setProfiles(data);
         } catch (err) {
             console.error(err);
             setError('Não foi possível conectar ao servidor. Verifique se o backend está rodando.');
@@ -280,14 +273,8 @@ export default function ProfilesPage() {
 
     async function loadProxies() {
         try {
-            const res = await fetch(`${API_BASE}/proxies`);
-            if (res.ok) {
-                setProxies(await res.json());
-            } else {
-                toast.error('Grave: Falha na comunicação', {
-                    description: 'Não foi possivel carregar a lista de proxies.'
-                });
-            }
+            const data = await apiClient.get<any[]>('/api/v1/proxies');
+            setProxies(data);
         } catch (err) {
             console.error("Failed to load proxies", err);
             toast.error('Erro de Servidor', {
@@ -315,47 +302,31 @@ export default function ProfilesPage() {
 
     const updateProxy = async (profileId: string, proxyId: number | null) => {
         try {
-            const res = await fetch(`${API_BASE}/profiles/${profileId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ proxy_id: proxyId || null })
-            });
+            await apiClient.put(`/api/v1/profiles/${profileId}`, { proxy_id: proxyId || null });
 
-            if (res.ok) {
-                toast.success('Nó de conexão atualizado com sucesso');
-                setProfiles(prev => prev.map(p => {
-                    if (p.id === profileId) {
-                        return { ...p, proxy_id: proxyId || undefined };
-                    }
-                    return p;
-                }));
-            } else {
-                toast.error('Erro ao atualizar nó de conexão');
-            }
-        } catch (e) {
-            toast.error('Grave: Falha na comunicação');
+            toast.success('Nó de conexão atualizado com sucesso');
+            setProfiles(prev => prev.map(p => {
+                if (p.id === profileId) {
+                    return { ...p, proxy_id: proxyId || undefined };
+                }
+                return p;
+            }));
+        } catch (e: any) {
+            toast.error('Grave: Falha na comunicação', { description: e?.message });
         }
     };
 
     const handleEditSave = async (profileId: string) => {
         try {
-            const res = await fetch(`${API_BASE}/profiles/${profileId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ label: editLabel, username: editUsername })
-            });
+            await apiClient.put(`/api/v1/profiles/${profileId}`, { label: editLabel, username: editUsername });
 
-            if (res.ok) {
-                toast.success('Perfil atualizado com sucesso');
-                setProfiles(prev => prev.map(p => {
-                    if (p.id === profileId) {
-                        return { ...p, label: editLabel, username: editUsername };
-                    }
-                    return p;
-                }));
-            } else {
-                toast.error('Erro ao atualizar perfil');
-            }
+            toast.success('Perfil atualizado com sucesso');
+            setProfiles(prev => prev.map(p => {
+                if (p.id === profileId) {
+                    return { ...p, label: editLabel, username: editUsername };
+                }
+                return p;
+            }));
         } catch (e) {
             toast.error('Grave: Falha na comunicação');
         }
@@ -370,13 +341,7 @@ export default function ProfilesPage() {
             // Basic JSON check
             JSON.parse(importCookies);
 
-            const res = await fetch(`${API_BASE}/profiles/validate-cookies`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cookies: importCookies })
-            });
-
-            const data = await res.json();
+            const data = await apiClient.post<any>('/api/v1/profiles/validate-cookies', { cookies: importCookies });
 
             if (data.valid) {
                 if (data.username) setImportUsername(data.username);
@@ -431,39 +396,28 @@ export default function ProfilesPage() {
                 }
             }
 
-            const res = await fetch(`${API_BASE}/profiles/import`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            await apiClient.post('/api/v1/profiles/import', payload);
 
-            if (res.ok) {
-                setShowImportModal(false);
-                setImportLabel('');
-                setImportCookies('');
-                setImportUsername('');
-                setImportAvatar('');
-                setImportFingerprint('');
-                setImportProxyId(null);
-                setImportProxyServer('');
-                setImportProxyUser('');
-                setImportProxyPass('');
-                setImportProxyNickname('');
-                setProxyLocation(null);
-                setProxyError(null);
-                setProxyMode('existing');
-                fetchProfiles(); // Refresh list
-                loadProxies(); // Refresh proxies list
-            } else {
-                const err = await res.json();
-                toast.error('Erro ao importar', {
-                    description: err.detail || 'Falha na importacao'
-                });
-            }
-        } catch (e) {
+            setShowImportModal(false);
+            setImportLabel('');
+            setImportCookies('');
+            setImportUsername('');
+            setImportAvatar('');
+            setImportFingerprint('');
+            setImportProxyId(null);
+            setImportProxyServer('');
+            setImportProxyUser('');
+            setImportProxyPass('');
+            setImportProxyNickname('');
+            setProxyLocation(null);
+            setProxyError(null);
+            setProxyMode('existing');
+            fetchProfiles(); // Refresh list
+            loadProxies(); // Refresh proxies list
+        } catch (e: any) {
             console.error(e);
-            toast.error('Erro de validacao', {
-                description: 'JSON invalido ou erro de conexao'
+            toast.error('Erro de validacao / importação', {
+                description: e?.data?.detail || 'JSON invalido ou erro de conexao'
             });
         }
     };
@@ -478,17 +432,12 @@ export default function ProfilesPage() {
         setProxyError(null);
 
         try {
-            const res = await fetch(`${API_BASE}/proxies/validate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    server: importProxyServer,
-                    username: importProxyUser || null,
-                    password: importProxyPass || null
-                })
+            const data = await apiClient.post<any>('/api/v1/proxies/validate', {
+                server: importProxyServer,
+                username: importProxyUser || null,
+                password: importProxyPass || null
             });
-            const data = await res.json();
-            if (res.ok && data.status === 'success') {
+            if (data.status === 'success') {
                 toast.success(data.message);
                 setProxyLocation({
                     city: data.city,
@@ -500,8 +449,9 @@ export default function ProfilesPage() {
                 setProxyError(data.message || 'Falha ao conectar no proxy');
             }
         } catch (e: any) {
-            toast.error('Erro de conexão ao testar proxy');
-            setProxyError('Erro de conexão');
+            const msg = e?.data?.message || 'Erro de conexão ao testar proxy';
+            toast.error(msg);
+            setProxyError(msg);
         } finally {
             setValidatingProxy(false);
         }
@@ -512,26 +462,19 @@ export default function ProfilesPage() {
         setRefreshErrors(prev => ({ ...prev, [profileId]: null })); // Clear errors
 
         try {
-            const res = await fetch(`${API_BASE}/profiles/refresh-avatar/${profileId}`, { method: 'POST' });
-            const data = await res.json().catch(() => ({}));
+            await apiClient.post(`/api/v1/profiles/refresh-avatar/${profileId}`);
+            fetchProfiles(); // Success
+        } catch (e: any) {
+            let errorMessage = e?.data?.detail || "Falha na comunicação com o TikTok";
 
-            if (res.ok) {
-                // Success - the WebSocket should handle the update, but we refetch to be sure
-                fetchProfiles();
-            } else {
-                let errorMessage = data.detail || "Falha na comunicação com o TikTok";
-
-                // Friendly error mapping
-                if (errorMessage.includes("Session Expired")) {
-                    errorMessage = "Sessão Expirada. Renove os cookies.";
-                } else if (errorMessage.includes("Target page, context or browser has been closed")) {
-                    errorMessage = "Navegador fechou. Tente novamente.";
-                }
-
-                setRefreshErrors(prev => ({ ...prev, [profileId]: errorMessage }));
+            // Friendly error mapping
+            if (errorMessage.includes("Session Expired")) {
+                errorMessage = "Sessão Expirada. Renove os cookies.";
+            } else if (errorMessage.includes("Target page, context or browser has been closed")) {
+                errorMessage = "Navegador fechou. Tente novamente.";
             }
-        } catch (e) {
-            setRefreshErrors(prev => ({ ...prev, [profileId]: "Erro de conexão com o Synapse." }));
+
+            setRefreshErrors(prev => ({ ...prev, [profileId]: errorMessage }));
         }
         setRefreshingProfiles(prev => ({ ...prev, [profileId]: false }));
     };
@@ -556,21 +499,12 @@ export default function ProfilesPage() {
             onConfirm: async () => {
                 setConfirmModal(prev => ({ ...prev, isLoading: true }));
                 try {
-                    const res = await fetch(`${API_BASE}/profiles/bulk-delete`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ profile_ids: Array.from(selectedIds) })
-                    });
-                    if (res.ok) {
-                        toast.success(`${selectedIds.size} perfis excluídos.`);
-                        setProfiles(prev => prev.filter(p => !selectedIds.has(p.id)));
-                        setSelectedIds(new Set());
-                    } else {
-                        const err = await res.json().catch(() => ({ detail: res.statusText }));
-                        toast.error('Erro na exclusão em lote', { description: err.detail });
-                    }
-                } catch (e) {
-                    toast.error('Erro de conexão');
+                    await apiClient.post('/api/v1/profiles/bulk-delete', { profile_ids: Array.from(selectedIds) });
+                    toast.success(`${selectedIds.size} perfis excluídos.`);
+                    setProfiles(prev => prev.filter(p => !selectedIds.has(p.id)));
+                    setSelectedIds(new Set());
+                } catch (e: any) {
+                    toast.error('Erro na exclusão em lote', { description: e?.data?.detail || 'Erro de conexão' });
                 } finally {
                     setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
                 }
@@ -588,21 +522,12 @@ export default function ProfilesPage() {
             onConfirm: async () => {
                 setConfirmModal(prev => ({ ...prev, isLoading: true }));
                 try {
-                    const res = await fetch(`${API_BASE}/profiles/bulk-refresh`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ profile_ids: Array.from(selectedIds) })
-                    });
-                    if (res.ok) {
-                        toast.success(`Atualização em lote iniciada para ${selectedIds.size} perfis.`);
-                        setSelectedIds(new Set());
-                        fetchProfiles(); // reload to get new states
-                    } else {
-                        const err = await res.json().catch(() => ({ detail: res.statusText }));
-                        toast.error('Erro na atualização em lote', { description: err.detail });
-                    }
-                } catch (e) {
-                    toast.error('Erro de conexão');
+                    await apiClient.post('/api/v1/profiles/bulk-refresh', { profile_ids: Array.from(selectedIds) });
+                    toast.success(`Atualização em lote iniciada para ${selectedIds.size} perfis.`);
+                    setSelectedIds(new Set());
+                    fetchProfiles(); // reload to get new states
+                } catch (e: any) {
+                    toast.error('Erro na atualização em lote', { description: e?.data?.detail || 'Erro de conexão' });
                 } finally {
                     setConfirmModal(prev => ({ ...prev, isOpen: false, isLoading: false }));
                 }

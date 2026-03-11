@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import axios from 'axios';
 import { getApiUrl } from '../utils/apiClient';
-
+import { apiClient } from '../lib/api';
 interface LogEntry {
     level: string;
     message: string;
@@ -36,8 +35,8 @@ export default function MetricsPage() {
     useEffect(() => {
         const fetchVitals = async () => {
             try {
-                const res = await axios.get(`${API}/api/v1/telemetry/vitals`);
-                setVitals(res.data);
+                const data = await apiClient.get<Vitals>('/api/v1/telemetry/vitals');
+                setVitals(data);
             } catch {
                 // silently fail
             }

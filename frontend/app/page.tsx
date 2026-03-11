@@ -1,5 +1,6 @@
 ﻿'use client';
 import React, { useState, useRef, useEffect } from 'react';
+import { apiClient } from './lib/api';
 
 interface TerminalLog {
   id: number;
@@ -43,16 +44,7 @@ export default function Home() {
     }
 
     try {
-      const API = typeof window !== 'undefined' ? localStorage.getItem('backend_url') || 'http://localhost:8000' : 'http://localhost:8000';
-      const res = await fetch(`${API}/api/v1/debug/cli`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command: cmd })
-      });
-
-      if (!res.ok) throw new Error(`Falha na API: ${res.status}`);
-
-      const data = await res.json();
+      const data = await apiClient.post<any>('/api/v1/debug/cli', { command: cmd });
 
       // Delay printing each line for a "terminal-like" feel
       data.lines.forEach((line: any, index: number) => {

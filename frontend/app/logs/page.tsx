@@ -11,6 +11,7 @@ import clsx from 'clsx';
 import { ComputerDesktopIcon } from '@heroicons/react/24/outline';
 
 import { getApiUrl } from '../utils/apiClient';
+import { apiClient } from '../lib/api';
 
 const API_BASE = `${getApiUrl()}/api/v1`;
 
@@ -79,20 +80,18 @@ export default function LogsPage() {
 
     const fetchLogs = useCallback(async () => {
         try {
-            const [logsRes, statusRes] = await Promise.all([
-                fetch(`${API_BASE}/logs/?limit=100`),
-                fetch(`${API_BASE}/status`)
+            const [logsData, statusData] = await Promise.all([
+                apiClient.get<any>('/api/v1/logs/?limit=100'),
+                apiClient.get<any>('/api/v1/status')
             ]);
 
-            if (logsRes.ok) {
-                const data = await logsRes.json();
+            if (logsData && logsData.logs) {
                 // API returns newest first, reverse for terminal (oldest top, newest bottom)
-                setLogs([...data.logs].reverse());
+                setLogs([...logsData.logs].reverse());
                 setLastUpdateTime(new Date().toLocaleTimeString());
             }
 
-            if (statusRes.ok) {
-                const statusData = await statusRes.json();
+            if (statusData) {
                 if (statusData.system) setSystemStats(statusData.system);
                 if (statusData.bots) setBots(statusData.bots);
             }
