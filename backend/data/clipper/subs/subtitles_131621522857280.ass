@@ -1,0 +1,32 @@
+[Script Info]
+Title: Synapse Auto Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Active,Inter Black,85,&H0000FFFF,&H0000FFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+Style: Inactive,Inter Black,85,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:00.00,Active,,0,0,0,,{\1c&H0000FFFF}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}I'm {\1c&H00FFFFFF}telling {\1c&H00FFFFFF}you
+Dialogue: 0,0:00:00.00,0:00:00.14,Active,,0,0,0,,{\1c&H00FFFFFF}I'm {\1c&H0000FFFF}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}telling {\1c&H00FFFFFF}you
+Dialogue: 0,0:00:00.14,0:00:00.26,Active,,0,0,0,,{\1c&H00FFFFFF}I'm {\1c&H00FFFFFF}telling {\1c&H0000FFFF}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}you
+Dialogue: 0,0:00:00.26,0:00:00.36,Active,,0,0,0,,{\1c&H0000FFFF}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}that {\1c&H00FFFFFF}I {\1c&H00FFFFFF}don't
+Dialogue: 0,0:00:00.36,0:00:00.48,Active,,0,0,0,,{\1c&H00FFFFFF}that {\1c&H0000FFFF}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}I {\1c&H00FFFFFF}don't
+Dialogue: 0,0:00:00.48,0:00:00.62,Active,,0,0,0,,{\1c&H00FFFFFF}that {\1c&H00FFFFFF}I {\1c&H0000FFFF}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}don't
+Dialogue: 0,0:00:00.62,0:00:00.76,Active,,0,0,0,,{\1c&H0000FFFF}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}have {\1c&H00FFFFFF}the {\1c&H00FFFFFF}grenades
+Dialogue: 0,0:00:00.76,0:00:01.02,Active,,0,0,0,,{\1c&H00FFFFFF}have {\1c&H0000FFFF}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}the {\1c&H00FFFFFF}grenades
+Dialogue: 0,0:00:01.02,0:00:01.36,Active,,0,0,0,,{\1c&H00FFFFFF}have {\1c&H00FFFFFF}the {\1c&H0000FFFF}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}grenades
+Dialogue: 0,0:00:01.36,0:00:01.72,Active,,0,0,0,,{\1c&H0000FFFF}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}made {\1c&H00FFFFFF}already
+Dialogue: 0,0:00:01.72,0:00:02.24,Active,,0,0,0,,{\1c&H00FFFFFF}made {\1c&H0000FFFF}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}already
+Dialogue: 0,0:00:07.80,0:00:08.08,Active,,0,0,0,,{\1c&H0000FFFF}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Damn {\1c&H00FFFFFF}bro
+Dialogue: 0,0:00:08.28,0:00:08.58,Active,,0,0,0,,{\1c&H00FFFFFF}Damn {\1c&H0000FFFF}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}bro
+Dialogue: 0,0:00:11.30,0:00:11.48,Active,,0,0,0,,{\1c&H0000FFFF}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Somebody {\1c&H00FFFFFF}clip {\1c&H00FFFFFF}that
+Dialogue: 0,0:00:11.48,0:00:11.72,Active,,0,0,0,,{\1c&H00FFFFFF}Somebody {\1c&H0000FFFF}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}clip {\1c&H00FFFFFF}that
+Dialogue: 0,0:00:11.72,0:00:11.72,Active,,0,0,0,,{\1c&H00FFFFFF}Somebody {\1c&H00FFFFFF}clip {\1c&H0000FFFF}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}that

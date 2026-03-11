@@ -16,17 +16,23 @@ if sys.platform == "win32":
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import sentry_sdk
+from core.limiter import limiter
 
 if os.getenv("SENTRY_DSN"):
     sentry_sdk.init(
         dsn=os.getenv("SENTRY_DSN"),
-        traces_sample_rate=1.0,
-        profiles_sample_rate=1.0,
+        traces_sample_rate=0.1,
+        profiles_sample_rate=0.1,
         environment=os.getenv("ENVIRONMENT", "production"),
     )
     print("SYSTEM: Sentry Monitoring Enabled 🚨")
 
 app = FastAPI(title="Auto Content Empire API")
+
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # Force Reload Trigger (Final Config)
 
 @app.on_event("startup")
@@ -38,8 +44,12 @@ async def startup_event():
     # Registra o callback para enviar atualizações via WebSocket
     status_manager.set_async_callback(notify_pipeline_update)
     logger.set_async_callback(notify_new_log)
-    logger.set_async_callback(notify_new_log)
     print("SYSTEM: Real-time updates handler registered.")
+
+    # 🛡️ Validar Variáveis de Ambiente no Boot (SYN-121)
+    from core.config import validate_environment
+    validate_environment()
+    print("SYSTEM: Environment variables validated successfully.")
 
     # 🛡️ PROCESS MANAGER (Cleanup Handlers)
     # Importing it ensures atexit/signal handlers are registered
@@ -123,7 +133,6 @@ app.add_middleware(
 )
 
 from fastapi.staticfiles import StaticFiles
-import os
 from .api.endpoints import content, ingestion, profiles, logs, queue, armies, videos, status, scheduler, oracle, analytics, viral_sounds, audio, logic, batch, templates, validate_cookies, settings, health, auto_scheduler, telemetry, proxies
 from .api import debug_router
 from .api import websocket as ws_router
@@ -176,9 +185,29 @@ if not os.path.exists(clipper_output_path):
     os.makedirs(clipper_output_path)
 app.mount("/clipper-output", StaticFiles(directory=clipper_output_path), name="clipper-output")
 
+# Mount pending queue for video preview in Curation tab
+pending_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "pending")
+if not os.path.exists(pending_path):
+    os.makedirs(pending_path)
+app.mount("/pending", StaticFiles(directory=pending_path), name="pending")
+
+# Mount approved queue for post-approval serving
+approved_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "approved")
+if not os.path.exists(approved_path):
+    os.makedirs(approved_path)
+app.mount("/approved", StaticFiles(directory=approved_path), name="approved")
+
+# /exports ja montado na linha 141 — mount duplicado removido (SYN-114 C05)
+
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the Synapse Factory"}
+    """Endpoint raiz — retorna informacoes basicas da API para health checks e debugging."""
+    return {
+        "project": "Synapse Factory",
+        "version": "1.0",
+        "status": "running",
+        "docs": "/docs",
+    }
 
 @app.get("/health")
 def health_check():

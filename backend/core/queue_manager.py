@@ -12,10 +12,11 @@ class QueueManager:
     @classmethod
     async def get_pool(cls):
         if cls._pool is None:
+            from core.config import REDIS_HOST, REDIS_PORT
             cls._pool = await create_pool(
                 RedisSettings(
-                    host=os.getenv("REDIS_HOST", "localhost"),
-                    port=int(os.getenv("REDIS_PORT", 6379))
+                    host=REDIS_HOST,
+                    port=REDIS_PORT
                 )
             )
         return cls._pool

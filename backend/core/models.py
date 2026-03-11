@@ -19,6 +19,7 @@ class Army(Base):
     color = Column(String, default="#00f0ff")
     icon = Column(String, default="swords")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     profiles = relationship("Profile", secondary=army_profiles, back_populates="armies")
 
@@ -39,6 +40,7 @@ class Proxy(Base):
     geolocation_longitude = Column(String, nullable=True)
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     profiles = relationship("Profile", back_populates="proxy")
 
@@ -61,8 +63,9 @@ class Profile(Base):
     
     # --- Anti-Detect: Proxy Identity (Relational) ---
     proxy_id = Column(Integer, ForeignKey("proxies.id"), nullable=True)
-    proxy_server = Column(String, nullable=True)     # Legacy
-    proxy_password = Column(String, nullable=True)   # Legacy
+    # proxy_server / proxy_password: removidos do ORM (SYN-122 dead code).
+    # Colunas podem existir no banco legado, mas são ignoradas pelo SQLAlchemy.
+    # Usar proxy_id + relação proxy para novos dados.
 
     proxy = relationship("Proxy", back_populates="profiles")
     armies = relationship("Army", secondary=army_profiles, back_populates="profiles")
@@ -93,7 +96,7 @@ class Audit(Base):
     __tablename__ = "audits"
 
     id = Column(Integer, primary_key=True, index=True)
-    profile_id = Column(Integer, ForeignKey("profiles.id"))
+    profile_id = Column(Integer, ForeignKey("profiles.id"), index=True)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     data = Column(JSON) # The full audit result snapshot
     score = Column(Integer) # Quick access to total score

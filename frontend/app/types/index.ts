@@ -49,6 +49,15 @@ export interface DarkProfile {
     };
 }
 
+export enum ClipJobStatus {
+    PENDING = 'pending',
+    DOWNLOADING = 'downloading',
+    TRANSCRIBING = 'transcribing',
+    EDITING = 'editing',
+    COMPLETED = 'completed',
+    FAILED = 'failed'
+}
+
 export interface AutomationRule {
     id: string;
     name: string;

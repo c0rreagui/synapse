@@ -232,74 +232,64 @@ def reject_item(item_id: int, db: Session = Depends(get_db)):
 @router.post("/invert/{item_id}")
 async def invert_item(item_id: int, db: Session = Depends(get_db)):
     """
-    Inverte o layout do vídeo: gameplay sobe pro topo, facecam desce.
-    Usa FFmpeg para cortar a imagem 1080x1920 pela metade e recombinar
-    com vstack invertido. Não precisa de Whisper ou re-download.
+    Inverte a ordem dos clipes originais no banco de dados e re-agenda o job.
+    Isso força a edição a rodar novamente sem re-baixar ou re-transcrever,
+    criando um resultado onde Clipes A+B viram Clipes B+A.
     """
     item = db.query(PendingApproval).filter(PendingApproval.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item não encontrado")
 
-    if not os.path.exists(item.video_path):
-        raise HTTPException(status_code=400, detail="Arquivo original não encontrado")
+    from core.models import ClipJob
+    job = db.query(ClipJob).filter(ClipJob.id == item.clip_job_id).first()
+    
+    if not job:
+        raise HTTPException(status_code=404, detail="Job associado não encontrado")
 
-    # Gerar caminho de saída
-    base, ext = os.path.splitext(item.video_path)
-    inverted_path = f"{base}_inverted{ext}"
+    if not job.clip_urls or len(job.clip_urls) <= 1:
+        raise HTTPException(status_code=400, detail="Este job não possui clipes suficientes para inverter a ordem.")
 
-    # FFmpeg: cortar metade superior (facecam 960px) e metade inferior (gameplay 960px)
-    # e empilhar na ordem inversa (gameplay no topo, facecam embaixo)
-    cmd = [
-        "ffmpeg", "-y",
-        "-i", item.video_path,
-        "-filter_complex",
-        "[0:v]crop=1080:960:0:0[top];"     # facecam (metade superior)
-        "[0:v]crop=1080:960:0:960[bottom];" # gameplay (metade inferior)
-        "[bottom][top]vstack=inputs=2[out]", # inverter: gameplay em cima, facecam embaixo
-        "-map", "[out]",
-        "-map", "0:a?",
-        "-c:v", "libx264",
-        "-preset", "fast",
-        "-crf", "20",
-        "-c:a", "copy",
-        "-movflags", "+faststart",
-        inverted_path,
-    ]
+    # Reverter arrays no job (mantendo a cópia atualizada no BD)
+    job.clip_urls = job.clip_urls[::-1]
+    
+    if job.clip_metadata:
+        job.clip_metadata = job.clip_metadata[::-1]
+    
+    if job.clip_local_paths:
+        job.clip_local_paths = job.clip_local_paths[::-1]
+        
+    if job.whisper_result:
+        job.whisper_result = job.whisper_result[::-1]
 
-    process = await asyncio.create_subprocess_exec(
-        *cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
+    # Resetar o status do job para pending para ser pego pelo Worker
+    job.status = "pending"
+    job.progress_pct = 0
+    job.current_step = "Re-agendado para inverter a ordem dos clipes"
+    job.output_path = None
+    
+    # Remover o arquivo físico gerado na primeira tentativa
+    if item.video_path and os.path.exists(item.video_path):
+        try:
+            os.remove(item.video_path)
+            logger.info(f"🗑️ Arquivo anterior do job #{job.id} removido: {item.video_path}")
+        except OSError as e:
+            logger.warning(f"Falha ao remover arquivo antigo do job #{job.id}: {e}")
 
-    try:
-        _, stderr = await asyncio.wait_for(process.communicate(), timeout=120)
-    except asyncio.TimeoutError:
-        process.kill()
-        raise HTTPException(status_code=500, detail="FFmpeg timeout na inversão")
-
-    if process.returncode != 0:
-        error = stderr.decode("utf-8", errors="replace").strip()[-200:]
-        raise HTTPException(status_code=500, detail=f"FFmpeg falhou: {error}")
-
-    if not os.path.exists(inverted_path):
-        raise HTTPException(status_code=500, detail="Arquivo invertido não foi gerado")
-
-    # Atualizar o path no DB para o novo arquivo
-    old_path = item.video_path
-    item.video_path = inverted_path
+    # Remover o registro do PendingApproval, pois ele não é mais válido
+    db.delete(item)
     db.commit()
 
-    # Remover o arquivo antigo
-    if os.path.exists(old_path):
-        try:
-            os.remove(old_path)
-        except OSError:
-            pass
-
-    logger.info(f"🔀 Item #{item_id} invertido com sucesso: {inverted_path}")
+    # Re-enfileirar o job no ARQ
+    from core.queue_manager import QueueManager
+    try:
+        pool = await QueueManager.get_pool()
+        await pool.enqueue_job("process_clip_job", job.id, _queue_name="clipper:queue")
+        logger.info(f"🔀 Job #{job.id} re-enfileirado com clipes invertidos.")
+    except Exception as e:
+        logger.error(f"Erro ao re-enfileirar job #{job.id}: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao enviar tarefa para processamento")
 
     return {
-        "message": "Layout invertido com sucesso",
-        "new_path": inverted_path,
+        "message": "Ordem dos clipes invertida com sucesso. O vídeo será recriado.",
+        "job_id": job.id,
     }

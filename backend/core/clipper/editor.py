@@ -27,6 +27,7 @@ Requisitos:
 
 import os
 import asyncio
+import json
 import logging
 from typing import Optional, Dict, Any, Tuple
 
@@ -278,12 +279,16 @@ async def edit_clip(
         )
     except asyncio.TimeoutError:
         process.kill()
+        if output_path and os.path.exists(output_path):
+            os.remove(output_path)
         return _error_result(f"FFmpeg timeout apos {timeout_seconds}s")
 
     if process.returncode != 0:
         error_log = stderr.decode("utf-8", errors="replace").strip()
         # Pegar as ultimas 5 linhas do log de erro
         error_lines = error_log.split("\n")[-5:]
+        if output_path and os.path.exists(output_path):
+            os.remove(output_path)
         return _error_result(f"FFmpeg exit code {process.returncode}: {' | '.join(error_lines)}")
 
     if not os.path.exists(output_path):

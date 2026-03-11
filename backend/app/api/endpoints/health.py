@@ -10,6 +10,8 @@ from core.queue_manager import QueueManager
 from core.storage import s3_storage
 from core.config import DATA_DIR
 import logging
+import subprocess
+import httpx
 
 router = APIRouter()
 logger = logging.getLogger("Health")
@@ -61,6 +63,35 @@ def check_scheduler():
     except Exception as e:
         return False, str(e)
 
+def check_ffmpeg():
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-version"], 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE, 
+            timeout=5
+        )
+        if result.returncode == 0:
+            return True, "installed"
+        return False, f"error_code_{result.returncode}"
+    except FileNotFoundError:
+        return False, "not_found"
+    except Exception as e:
+        return False, str(e)
+
+async def check_twitch():
+    try:
+        async with httpx.AsyncClient() as client:
+            # Pinging Twitch API without credentials returns 401 Unauthorized
+            # which proves network connectivity to Twitch is healthy.
+            response = await client.get("https://api.twitch.tv/helix/games/top", timeout=5)
+            if response.status_code in (200, 401) or response.status_code < 500:
+                return True, "reachable"
+            else:
+                return False, f"unreachable_{response.status_code}"
+    except Exception as e:
+        return False, str(e)
+
 @router.get("/")
 async def health_check():
     """
@@ -70,8 +101,10 @@ async def health_check():
     redis_ok, redis_msg = await check_redis()
     minio_ok, minio_msg = check_minio()
     sched_ok, sched_msg = check_scheduler()
+    ffmpeg_ok, ffmpeg_msg = check_ffmpeg()
+    twitch_ok, twitch_msg = await check_twitch()
     
-    status = "healthy" if all([db_ok, redis_ok, minio_ok]) else "unhealthy"
+    status = "healthy" if all([db_ok, redis_ok, minio_ok, ffmpeg_ok, twitch_ok]) else "unhealthy"
     
     return {
         "status": status,
@@ -80,7 +113,9 @@ async def health_check():
             "database": {"ok": db_ok, "message": db_msg},
             "redis": {"ok": redis_ok, "message": redis_msg},
             "minio": {"ok": minio_ok, "message": minio_msg},
-            "scheduler": {"ok": sched_ok, "message": sched_msg}
+            "scheduler": {"ok": sched_ok, "message": sched_msg},
+            "ffmpeg": {"ok": ffmpeg_ok, "message": ffmpeg_msg},
+            "twitch_api": {"ok": twitch_ok, "message": twitch_msg}
         }
     }
 

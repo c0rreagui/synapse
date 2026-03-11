@@ -167,7 +167,7 @@ class TranscriberContext:
     def transcribe_file(
         self,
         audio_path: str,
-        language: Optional[str] = None,
+        language: Optional[str] = "pt",
         game_name: Optional[str] = None,
         channel_name: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -294,13 +294,13 @@ async def extract_audio(video_path: str, output_path: Optional[str] = None) -> s
     return output_path
 
 
-async def transcribe_video(video_path: str, language: Optional[str] = None) -> Dict[str, Any]:
+async def transcribe_video(video_path: str, language: Optional[str] = "pt") -> Dict[str, Any]:
     """
     Pipeline completo: extrai audio do video e transcreve com word-level timestamps.
 
     Args:
         video_path: Caminho do arquivo de video
-        language: Idioma forcado (None = auto-detect)
+        language: Idioma forcado ("pt" = default)
 
     Returns:
         Dict com resultado word-level (ver TranscriberContext.transcribe_file)
@@ -321,7 +321,7 @@ async def transcribe_video(video_path: str, language: Optional[str] = None) -> D
         _cleanup_temp(audio_path)
 
 
-def _transcribe_sync(audio_path: str, language: Optional[str] = None) -> Dict[str, Any]:
+def _transcribe_sync(audio_path: str, language: Optional[str] = "pt") -> Dict[str, Any]:
     """Execucao sincrona da transcricao (para rodar em executor)."""
     with TranscriberContext() as ctx:
         return ctx.transcribe_file(audio_path, language=language)
@@ -408,8 +408,9 @@ async def transcribe_job_clips(job_id: int) -> Dict[str, Any]:
 
 
 def _update_job_progress(job_id: int, current: int, total: int) -> None:
-    """Atualiza progresso da transcricao no banco."""
-    progress = int((current / total) * 100)
+    """Atualiza progresso da transcricao no banco (Weight: 25-50%)."""
+    base_progress = 25
+    progress = base_progress + int((current / total) * 25)
     with safe_session() as db:
         j = db.query(ClipJob).filter(ClipJob.id == job_id).first()
         if j:

@@ -1,12 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from pydantic import BaseModel, HttpUrl
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
+from pydantic import BaseModel, HttpUrl, ConfigDict
 from typing import List, Optional
 from datetime import datetime
 
 from core.database import get_db, safe_session
 from sqlalchemy.orm import Session
-from core.clipper.models import TwitchTarget, ClipJob
+from core.clipper.models import TwitchTarget, ClipJob, JobStatus
 from core.clipper.monitor import register_target, check_target
+from core.limiter import limiter
+from core.logger import logger
 
 # Se for rodar a verificação sincronicamente na route, se n engatilha no redis
 # A arq pool pode ser injetada dps
@@ -16,8 +18,10 @@ router = APIRouter()
 class TargetCreate(BaseModel):
     channel_url: str
     army_id: Optional[int] = None
+    auto_approve: bool = False
 
 class TargetResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     channel_url: str
     channel_name: str
@@ -34,42 +38,37 @@ class TargetResponse(BaseModel):
     total_clips_processed: int = 0
     consecutive_empty_checks: int = 0
     min_clip_views: int = 100
-    max_clips_per_check: int = 5
+    max_clips_per_check: int = 100
     check_interval_minutes: int = 15
+    auto_approve: bool = False
+
+class ClipMetadataPydantic(BaseModel):
+    title: str
+    views: int
+    duration: float
+    creator: str
 
 class ClipJobResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     target_id: int
-    status: str
+    status: JobStatus
     current_step: str
     progress_pct: int
     error_message: Optional[str] = None
     created_at: datetime
-    updated_at: datetime
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    channel_name: Optional[str] = None
+    clip_metadata: Optional[List[ClipMetadataPydantic]] = None
 
 
-@router.get("/jobs", response_model=List[ClipJobResponse])
-def list_clip_jobs(db: Session = Depends(get_db)):
-    """
-    Lista o status dos jobs de cortes recentes para acompanhamento da esteira.
-    """
-    jobs = db.query(ClipJob).order_by(ClipJob.id.desc()).limit(20).all()
-    out = []
-    for j in jobs:
-        out.append(ClipJobResponse(
-            id=j.id,
-            target_id=j.target_id,
-            status=j.status,
-            current_step=j.current_step or "",
-            progress_pct=j.progress_pct,
-            error_message=j.error_message,
-            created_at=j.created_at,
-            updated_at=j.updated_at
-        ))
-    return out
+
+# /jobs route definida no final do arquivo (L240+)
 
 @router.post("/targets", response_model=TargetResponse)
-async def create_twitch_target(target: TargetCreate):
+@limiter.limit("5/minute")
+async def create_twitch_target(request: Request, target: TargetCreate):
     """
     Cadastra uma nova URL da Twitch para iniciar monitoramento contínuo.
     O backend descobre e guarda o broadcaster_id da Twitch usando OAuth2.
@@ -81,6 +80,9 @@ async def create_twitch_target(target: TargetCreate):
             id=res["id"],
             channel_url=target.channel_url,
             channel_name=res["channel_name"],
+            target_type=res.get("target_type", "channel"),
+            army_id=res.get("army_id", target.army_id),
+            category_id=res.get("category_id"),
             broadcaster_id=res.get("broadcaster_id"),
             profile_image_url=res.get("profile_image_url"),
             offline_image_url=res.get("offline_image_url"),
@@ -88,7 +90,8 @@ async def create_twitch_target(target: TargetCreate):
             status=res.get("status"),
             min_clip_views=100,
             max_clips_per_check=5,
-            check_interval_minutes=15
+            check_interval_minutes=15,
+            auto_approve=target.auto_approve
         )
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
@@ -101,30 +104,12 @@ def list_twitch_targets(db: Session = Depends(get_db)):
     """
     Lista todos os canais sendo monitorados.
     """
-    targets = db.query(TwitchTarget).order_by(TwitchTarget.id.desc()).all()
-    out = []
-    for t in targets:
-        out.append(TargetResponse(
-            id=t.id,
-            channel_url=t.channel_url,
-            channel_name=t.channel_name,
-            broadcaster_id=t.broadcaster_id,
-            profile_image_url=t.profile_image_url,
-            offline_image_url=t.offline_image_url,
-            active=t.active,
-            last_checked_at=t.last_checked_at,
-            last_clip_found_at=t.last_clip_found_at,
-            total_clips_processed=t.total_clips_processed,
-            consecutive_empty_checks=t.consecutive_empty_checks,
-            min_clip_views=t.min_clip_views,
-            max_clips_per_check=t.max_clips_per_check,
-            check_interval_minutes=t.check_interval_minutes
-        ))
-    return out
+    return db.query(TwitchTarget).order_by(TwitchTarget.id.desc()).all()
 
 
 @router.post("/targets/{target_id}/check")
-async def force_check_target(target_id: int, background_tasks: BackgroundTasks):
+@limiter.limit("10/minute")
+async def force_check_target(request: Request, target_id: int, background_tasks: BackgroundTasks):
     """
     Força a checagem imediata de clipes para um canal (para debug ou requisição on-demand).
     Aqui ele busca o clip e já enfilera se achar.
@@ -148,6 +133,7 @@ class TargetUpdate(BaseModel):
     check_interval_minutes: Optional[int] = None
     army_id: Optional[int] = None
     target_type: Optional[str] = None
+    auto_approve: Optional[bool] = None
 
 @router.patch("/targets/{target_id}", response_model=TargetResponse)
 async def update_twitch_target(target_id: int, target_update: TargetUpdate, db: Session = Depends(get_db)):
@@ -171,6 +157,8 @@ async def update_twitch_target(target_id: int, target_update: TargetUpdate, db: 
             target.army_id = target_update.army_id # Changed from profile_id to army_id
         if target_update.target_type is not None:
             target.target_type = target_update.target_type
+        if target_update.auto_approve is not None:
+            target.auto_approve = target_update.auto_approve
             
         db.commit()
         db.refresh(target)
@@ -184,15 +172,15 @@ async def update_twitch_target(target_id: int, target_update: TargetUpdate, db: 
             profile_image_url=target.profile_image_url,
             offline_image_url=target.offline_image_url,
             active=target.active,
-            status=target.status,
-            profile_id=target.profile_id,
+            army_id=target.army_id,
             last_checked_at=target.last_checked_at,
             last_clip_found_at=target.last_clip_found_at,
             total_clips_processed=target.total_clips_processed,
             consecutive_empty_checks=target.consecutive_empty_checks,
             min_clip_views=target.min_clip_views,
             max_clips_per_check=target.max_clips_per_check,
-            check_interval_minutes=target.check_interval_minutes
+            check_interval_minutes=target.check_interval_minutes,
+            auto_approve=target.auto_approve
         )
     except Exception as e:
         db.rollback()
@@ -216,6 +204,19 @@ async def delete_twitch_target(target_id: int, db: Session = Depends(get_db)):
         jobs = db.query(ClipJob).filter(ClipJob.target_id == target_id).all()
         job_ids = [j.id for j in jobs]
         
+        # H07: Deletar fisicamente os arquivos de midia alocados aos jobs para nao vazar storage
+        import os
+        for job in jobs:
+            try:
+                if job.output_path and os.path.exists(job.output_path):
+                    os.remove(job.output_path)
+                if job.clip_local_paths:
+                    for lp in job.clip_local_paths:
+                        if lp and os.path.exists(lp):
+                            os.remove(lp)
+            except Exception as e:
+                logger.warning(f"Erro ao tentar remover arquivo fisico do job {job.id}: {e}")
+
         if job_ids:
             # Free pending approvals
             db.query(PendingApproval).filter(PendingApproval.clip_job_id.in_(job_ids)).delete(synchronize_session=False)
@@ -229,22 +230,31 @@ async def delete_twitch_target(target_id: int, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/jobs", response_model=List[ClipJobResponse])
+@router.get("/pipeline", response_model=List[ClipJobResponse])
 def list_clip_jobs(db: Session = Depends(get_db)):
     """
     Lista status dos ultimos 50 Jobs do pipeline de edição.
+    Inclui channel_name via join com TwitchTarget para exibição na Esteira.
     """
-    jobs = db.query(ClipJob).order_by(ClipJob.created_at.desc()).limit(50).all()
-    out = []
-    for j in jobs:
-        out.append(ClipJobResponse(
-            id=j.id,
-            target_id=j.target_id,
-            status=j.status,
-            current_step=j.current_step,
-            progress_pct=j.progress_pct,
-            error_message=j.error_message,
-            created_at=j.created_at,
-            updated_at=j.updated_at
-        ))
-    return out
+    rows = (
+        db.query(ClipJob, TwitchTarget.channel_name)
+        .outerjoin(TwitchTarget, ClipJob.target_id == TwitchTarget.id)
+        .order_by(ClipJob.created_at.desc())
+        .limit(50)
+        .all()
+    )
+    return [
+        ClipJobResponse(
+            id=job.id,
+            target_id=job.target_id,
+            status=job.status,
+            current_step=job.current_step,
+            progress_pct=job.progress_pct,
+            error_message=job.error_message,
+            created_at=job.created_at,
+            started_at=job.started_at,
+            completed_at=job.completed_at,
+            channel_name=channel_name,
+        )
+        for job, channel_name in rows
+    ]

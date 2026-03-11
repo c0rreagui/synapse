@@ -168,6 +168,19 @@ db.query(ScheduleItem).delete()  # sem filtro!
 - Documentar sempre em `implementation_plan.md` antes de executar
 - Atualizar o Linear com o resultado apos concluir
 
+## 7. Gerenciamento de Janela de Contexto (Limite de Tokens)
+
+> **CRÍTICO: O limite absoluto de contexto (Context Window Limit) da plataforma Antigravity e modelos como Claude Opus/Gemini é de 200.000 tokens. Estourar este limite acarreta em erros fatais (HTTP 400 Bad Request).**
+
+Para evitar a sobrecarga de tokens (Context Bloat), todos os Agentes DEVEM adotar as seguintes estratégias de fragmentação progressiva:
+
+1. **Divisão por Fases (Chunking):** Nunca tente ler 30 arquivos de uma vez ou processar logs gigantescos de uma só vez.
+2. **Execução Modular:** Se uma análise for massiva, divida a varredura e entregue as resenhas/relatórios em partes (por módulo) em mensagens diferentes.
+3. **Mantenha os Prompts Limpos:** Ao gerar código, não recrie o arquivo inteiro a menos que seja um arquivo novo. Use ferramentas de `replace_file_content` ou scripts isolados para alterar *apenas as linhas que importam*.
+4. **Fechamento de Subsistemas:** Assim que um agente (ex: *QA Browser Subagent*) tiver coletado os dados necessários, ele deve ser finalizado e reportar um resumo otimizado ao invés de cuspir toda a árvore do DOM bruta na conversa atual.
+
+*(Se você notar que a conversa já alcançou vasta complexidade temporal, peça ao humano para consolidar a sessão ou resuma ativamente os dados para economizar espaço de prompt.)*
+
 ---
 
 ## Assinatura

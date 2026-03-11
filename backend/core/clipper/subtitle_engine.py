@@ -17,7 +17,10 @@ Formato ASS:
 """
 
 import os
+import uuid
 import logging
+import textwrap
+import re
 from typing import List, Dict, Any, Optional
 
 from core.config import DATA_DIR
@@ -31,10 +34,12 @@ os.makedirs(SUBS_DIR, exist_ok=True)
 
 # ─── Configuracao de Estilos ────────────────────────────────────────────
 
-# Cores ASS usam formato &HAABBGGRR (hex, invertido do RGB padrao)
+# Cores do Neo-Glass Design System (formato ASS: &HAABBGGRR)
 COLOR_WHITE = "&H00FFFFFF"
-COLOR_ACTIVE_YELLOW = "&H0000FFFF"      # Amarelo brilhante
-COLOR_ACTIVE_GREEN = "&H0000FF00"       # Verde neon
+COLOR_CYAN = "&H00D4B606"               # #06b6d4
+COLOR_GREEN = "&H0081B910"              # #10b981
+COLOR_YELLOW = "&H000B9EF5"             # #f59e0b
+COLOR_PURPLE = "&H00F65C8B"             # #8b5cf6
 COLOR_OUTLINE_BLACK = "&H00000000"
 COLOR_SHADOW = "&H80000000"             # Preto semi-transparente
 
@@ -71,7 +76,7 @@ class SubtitleStyle:
         name: str = "opus",
         font: str = DEFAULT_FONT,
         font_size: int = DEFAULT_FONT_SIZE,
-        active_color: str = COLOR_ACTIVE_YELLOW,
+        active_color: str = COLOR_YELLOW,
         inactive_color: str = COLOR_WHITE,
         outline_color: str = COLOR_OUTLINE_BLACK,
         outline_size: int = OUTLINE_SIZE,
@@ -99,14 +104,20 @@ class SubtitleStyle:
 STYLES = {
     "opus": SubtitleStyle(
         name="opus",
-        active_color=COLOR_ACTIVE_YELLOW,
+        active_color=COLOR_YELLOW,
         font_size=85,
     ),
     "neon": SubtitleStyle(
         name="neon",
-        active_color=COLOR_ACTIVE_GREEN,
+        active_color=COLOR_GREEN,
         font_size=90,
         outline_size=8,
+    ),
+    "cyan": SubtitleStyle(
+        name="cyan",
+        active_color=COLOR_CYAN,
+        font_size=85,
+        outline_size=7,
     ),
     "minimal": SubtitleStyle(
         name="minimal",
@@ -123,6 +134,8 @@ STYLES = {
 
 def _ass_timestamp(seconds: float) -> str:
     """Converte segundos para formato de timestamp ASS: h:mm:ss.cc"""
+    # Clamp para evitar timestamps negativos que quebram o formato ASS
+    seconds = max(0.0, seconds)
     h = int(seconds // 3600)
     m = int((seconds % 3600) // 60)
     s = int(seconds % 60)
@@ -235,17 +248,21 @@ def generate_ass(
     style = STYLES.get(style_name, STYLES["opus"])
     words = whisper_result.get("words", [])
 
-    import re
     # Filtro de Ruido Tipografico: remover , . ; : mantendo ? e !
+    # Compiled here to avoid recompiling it O(N) times inside the loop
+    clean_pattern = re.compile(r'[,.;:]')
     for w in words:
         if "word" in w:
-            w["word"] = re.sub(r'[,.;:]', '', w["word"])
+            w["word"] = clean_pattern.sub('', w["word"])
 
     if not words:
         logger.warning("Nenhuma palavra para gerar legendas. Gerando .ass vazio.")
 
     if output_path is None:
-        output_path = os.path.join(SUBS_DIR, f"subtitles_{id(whisper_result)}.ass")
+        # uuid4 garante unicidade sem collision (id() é não-determinístico)
+        output_path = os.path.join(SUBS_DIR, f"subtitles_{uuid.uuid4().hex}.ass")
+    
+    assert output_path is not None
 
     # Construir .ass
     ass_content = _build_ass_header(style, video_width, video_height)
@@ -267,7 +284,7 @@ def generate_ass(
 def _generate_dialogue_lines(blocks: List[List[Dict]], style: SubtitleStyle) -> List[str]:
     """
     Gera as linhas Dialogue do .ass para todos os blocos.
-    Cada bloco e uma unica linha de dialogo com tags por palavra.
+    Otimizado para nao rodar multiplicacoes quadraticas de array string.
     """
     lines = []
     popin_tag = _build_word_popin_tag(style)
@@ -284,29 +301,21 @@ def _generate_dialogue_lines(blocks: List[List[Dict]], style: SubtitleStyle) -> 
         # Hold padding: texto permanece visivel por +400ms apos o audio
         block_end = block_end + (HOLD_PADDING_MS / 1000.0)
 
-        start_ts = _ass_timestamp(block_start)
-        end_ts = _ass_timestamp(block_end)
+        # Pre-process static string list to avoid O(N^2) allocations per word slice
+        words_inactive = [f"{inactive_tag}{w['word']}" for w in block]
+        words_active = [f"{active_tag}{popin_tag}{w['word']}" for w in block]
 
-        # Para cada palavra no bloco, gerar uma linha Dialogue separada
-        # onde aquela palavra esta "ativa" (cor destaque + pop-in)
         for word_idx, active_word in enumerate(block):
             word_start = active_word["start"]
             word_end = active_word["end"]
 
-            # A dialogue line mostra durante o tempo da palavra ativa
             ws = _ass_timestamp(word_start)
             we = _ass_timestamp(word_end)
 
-            # Construir texto com todas as palavras do bloco
-            text_parts = []
-            for j, w in enumerate(block):
-                if j == word_idx:
-                    # Palavra ativa = cor destaque + pop-in
-                    text_parts.append(f"{active_tag}{popin_tag}{w['word']}")
-                else:
-                    # Palavra inativa = branco
-                    text_parts.append(f"{inactive_tag}{w['word']}")
-
+            # Build line instantly taking the active from words_active and others from inactive
+            text_parts = words_inactive[:]
+            text_parts[word_idx] = words_active[word_idx]
+            
             full_text = " ".join(text_parts)
             lines.append(f"Dialogue: 0,{ws},{we},Active,,0,0,0,,{full_text}")
 

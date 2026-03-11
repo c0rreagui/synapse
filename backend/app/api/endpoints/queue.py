@@ -6,6 +6,7 @@ import os
 import json
 import shutil
 import asyncio
+import ntpath
 from typing import List, Optional
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, BackgroundTasks
@@ -56,23 +57,33 @@ async def get_pending_videos():
             return []
         
         # List all video files in pending
-        for filename in os.listdir(PENDING_DIR):
-            if not filename.endswith('.mp4'):
+        for raw_filename in os.listdir(PENDING_DIR):
+            if not raw_filename.endswith('.mp4'):
                 continue
             
-            # Extract ID from filename (format: profile_id.mp4)
-            file_id = os.path.splitext(filename)[0]
+            # [FIX] Some files have full Windows paths as their literal filename
+            # e.g. "D:\\APPS...\\data\\approved\\file.mp4" — skip those that belong to other dirs
+            if 'approved' in raw_filename or 'exports' in raw_filename:
+                continue
             
-            # Load metadata if exists
-            metadata_path = os.path.join(PENDING_DIR, f"{filename}.json")
+            # Use ntpath.basename to handle Windows-style paths on Linux
+            clean_filename = ntpath.basename(raw_filename)
+            
+            # Extract ID from filename (format: profile_id.mp4)
+            file_id = os.path.splitext(clean_filename)[0]
+            
+            # Load metadata if exists (try both raw and clean filenames)
             metadata = {}
-            if os.path.exists(metadata_path):
-                with open(metadata_path, 'r', encoding='utf-8') as f:
-                    metadata = json.load(f)
+            for meta_candidate in [f"{raw_filename}.json", f"{clean_filename}.json"]:
+                metadata_path = os.path.join(PENDING_DIR, meta_candidate)
+                if os.path.exists(metadata_path):
+                    with open(metadata_path, 'r', encoding='utf-8') as f:
+                        metadata = json.load(f)
+                    break
             
             pending_videos.append(PendingVideo(
                 id=file_id,
-                filename=filename,
+                filename=clean_filename,
                 profile=metadata.get('profile_id', 'unknown'),
                 uploaded_at=metadata.get('uploaded_at', ''),
                 status='pending',
@@ -83,6 +94,36 @@ async def get_pending_videos():
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing pending videos: {str(e)}")
+
+
+@router.get("/pending/video/{filename}")
+async def stream_pending_video(filename: str):
+    """
+    Stream a pending video file. Handles corrupted filenames where
+    the actual file on disk may contain full Windows paths.
+    """
+    from fastapi.responses import FileResponse
+    
+    # Security: sanitize filename
+    safe_filename = ntpath.basename(filename)
+    if safe_filename != filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    
+    # Try direct match first
+    direct_path = os.path.join(PENDING_DIR, safe_filename)
+    if os.path.exists(direct_path):
+        return FileResponse(direct_path, media_type="video/mp4", filename=safe_filename)
+    
+    # Search for file with matching basename (handles corrupted full-path filenames)
+    for raw_filename in os.listdir(PENDING_DIR):
+        if not raw_filename.endswith('.mp4'):
+            continue
+        clean = ntpath.basename(raw_filename)
+        if clean == safe_filename:
+            full_path = os.path.join(PENDING_DIR, raw_filename)
+            return FileResponse(full_path, media_type="video/mp4", filename=safe_filename)
+    
+    raise HTTPException(status_code=404, detail=f"Video {filename} not found")
 
 
 @router.post("/approve")

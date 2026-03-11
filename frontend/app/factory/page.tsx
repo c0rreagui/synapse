@@ -255,7 +255,7 @@ export default function FactoryPage() {
                                             <span className="material-symbols-outlined text-[16px]">check_circle</span> Aprovar e Enfileirar
                                         </button>
                                         <button className="flex-1 bg-white/5 hover:bg-cyan-500/10 border border-white/10 hover:border-cyan-500/50 text-cyan-400 text-[10px] font-mono uppercase py-2 transition-all flex items-center justify-center gap-2">
-                                            <span className="material-symbols-outlined text-[16px]">shuffle</span> Inverter Ordem
+                                            <span className="material-symbols-outlined text-[16px]">shuffle</span> Inverter Clipes
                                         </button>
                                         <button className="flex-1 bg-white/5 hover:bg-red-500/10 border border-white/10 hover:border-red-500/50 text-red-500 text-[10px] font-mono uppercase py-2 transition-all flex items-center justify-center gap-2">
                                             <span className="material-symbols-outlined text-[16px]">delete</span> Descartar

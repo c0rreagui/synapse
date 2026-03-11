@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { apiClient } from '../lib/api';
 import { toast } from '../utils/toast';
+import { ClipJobStatus } from '../types';
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -49,7 +50,7 @@ interface Profile {
 interface ClipJobResponse {
     id: number;
     target_id: number;
-    status: string;
+    status: ClipJobStatus;
     current_step: string;
     progress_pct: number;
     error_message?: string;
@@ -110,7 +111,7 @@ export default function ClipperPage() {
             const data = await apiClient.get<Target[]>('/api/clipper/targets');
             setTargets(data);
         } catch (error) {
-            console.error("Failed to fetch targets:", error);
+            console.warn("Failed to fetch targets (API might be down)");
         }
     };
 
@@ -119,16 +120,16 @@ export default function ClipperPage() {
             const data = await apiClient.get<Profile[]>('/api/v1/profiles/list');
             setProfiles(data || []);
         } catch (err) {
-            console.error('Failed to fetch profiles:', err);
+            console.warn("Failed to fetch profiles (API might be down)");
         }
     };
 
     const fetchArmies = async () => {
         try {
-            const data = await apiClient.get<Army[]>('/api/v1/armies');
+            const data = await apiClient.get<Army[]>('/api/v1/armies/');
             setArmies(data || []);
         } catch (err) {
-            console.error('Failed to fetch armies:', err);
+            console.warn("Failed to fetch armies (API might be down)");
         }
     };
 
@@ -185,7 +186,7 @@ export default function ClipperPage() {
         }
         setIsLoading(true);
         try {
-            await apiClient.post('/api/v1/armies', newArmy);
+            await apiClient.post('/api/v1/armies/', newArmy);
             toast.success("Exército formado com sucesso!");
             setNewArmy({ name: '', color: '#00f0ff', icon: 'swords', profile_ids: [] });
             await fetchArmies();
@@ -270,7 +271,7 @@ export default function ClipperPage() {
     // ── Queue / Esteira logic ──
     const fetchPending = useCallback(async () => {
         try {
-            const data = await apiClient.get<ClipJobResponse[]>('/api/clipper/jobs');
+            const data = await apiClient.get<ClipJobResponse[]>('/api/clipper/pipeline');
             setItems(data || []);
             setCurrentIndex(0);
         } catch (err) {
@@ -336,6 +337,17 @@ export default function ClipperPage() {
             toast.error('Erro ao rejeitar vídeo');
         } finally {
             setConfirmReject(null);
+        }
+    };
+
+    const handleInvert = async (videoId: number) => {
+        const toastId = toast.loading('Re-agendando job...');
+        try {
+            const response = await apiClient.post(`/api/v1/factory/invert/${videoId}`);
+            await fetchPendingVideos();
+            toast.success(response.data?.message || 'Vídeo re-agendado com a ordem dos clipes invertida!', { id: toastId });
+        } catch (error: any) {
+            toast.error(error?.data?.detail || 'Erro ao inverter ordem dos clipes', { id: toastId });
         }
     };
 
@@ -454,8 +466,8 @@ export default function ClipperPage() {
                 >
                     <span className="material-symbols-outlined text-[18px]">movie_filter</span>
                     Esteira
-                    {items.length > 0 && (
-                        <span className="bg-amber-500/20 text-amber-400 text-[10px] px-1.5 py-0.5 rounded-md">{items.length}</span>
+                    {items.filter(job => job.status !== 'completed').length > 0 && (
+                        <span className="bg-amber-500/20 text-amber-400 text-[10px] px-1.5 py-0.5 rounded-md">{items.filter(job => job.status !== 'completed').length}</span>
                     )}
                 </button>
                 <button
@@ -593,7 +605,7 @@ export default function ClipperPage() {
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                             {armyTargets.map((target) => (
-                                                <div key={target.id} className={`group relative bg-[#0a0f16] border border-[#162730] hover:border-cyan-500/60 transition-all duration-300 overflow-hidden rounded-xl shadow-lg ${!target.active ? 'opacity-60 hover:opacity-100 grayscale contrast-125' : 'hover:shadow-[0_0_20px_rgba(0,240,255,0.15)]'}`}>
+                                                <div key={target.id} className={`group relative bg-cosmic-hull border border-cosmic-border hover:border-cosmic-glowBorder transition-all duration-300 overflow-hidden rounded-xl shadow-lg ${!target.active ? 'opacity-60 hover:opacity-100 grayscale contrast-125' : 'hover:shadow-[0_0_20px_rgba(0,240,255,0.15)]'}`}>
                                                     <div className="absolute inset-0 bg-[linear-gradient(transparent_0%,rgba(0,240,255,0.05)_50%,transparent_100%)] h-[200%] w-full -translate-y-1/2 group-hover:translate-y-0 transition-transform duration-1000 ease-in-out pointer-events-none z-20 opacity-0 group-hover:opacity-100"></div>
 
                                                     <div className="absolute top-0 left-0 w-full z-10 flex justify-between items-start p-3 pointer-events-none">
@@ -614,7 +626,7 @@ export default function ClipperPage() {
                                                         )}
                                                     </div>
 
-                                                    <div className="h-32 bg-[#06090e] border-b border-[#162730] relative flex items-center justify-center overflow-hidden">
+                                                    <div className="h-32 bg-cosmic-void border-b border-cosmic-border relative flex items-center justify-center overflow-hidden">
                                                         {/* Banner / Capa do Canal */}
                                                         {target.offline_image_url || target.profile_image_url ? (
                                                             <>
@@ -623,10 +635,10 @@ export default function ClipperPage() {
                                                                     alt="Cover"
                                                                     className="absolute inset-0 w-full h-full object-cover opacity-40 scale-105 transition-transform duration-700 group-hover:scale-110"
                                                                 />
-                                                                <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f16] via-[#0a0f16]/60 to-transparent" />
+                                                                <div className="absolute inset-0 bg-gradient-to-t from-cosmic-hull via-cosmic-hull/60 to-transparent" />
                                                             </>
                                                         ) : (
-                                                            <div className="absolute inset-0 bg-[linear-gradient(135deg,#0a1520,#061218)]" />
+                                                            <div className="absolute inset-0 bg-gradient-to-br from-cosmic-hull to-cosmic-void" />
                                                         )}
 
                                                         {/* Avatar / Box Art */}
@@ -745,7 +757,7 @@ export default function ClipperPage() {
                                     </h3>
                                 </div>
                                 <span className="bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[10px] font-mono px-3 py-1 rounded">
-                                    {items.length} JOB{items.length !== 1 ? 'S' : ''}
+                                    {items.filter(job => job.status !== 'completed').length} JOB{items.filter(job => job.status !== 'completed').length !== 1 ? 'S' : ''} ATIVO{items.filter(job => job.status !== 'completed').length !== 1 ? 'S' : ''}
                                 </span>
                             </div>
 
@@ -765,7 +777,7 @@ export default function ClipperPage() {
                                     const activeStepIdx = PIPELINE_STEPS.findIndex(s => s.key === job.status);
 
                                     return (
-                                        <div key={job.id} className="bg-[#0a0a0a] border border-white/5 rounded-xl p-5 group hover:border-cyan-500/20 hover:bg-[#0c1218] transition-colors shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
+                                        <div key={job.id} className="bg-cosmic-void border border-cosmic-border rounded-xl p-5 group hover:border-cosmic-glowBorder hover:bg-cosmic-hull transition-colors shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
                                             {/* Top row: canal + job id + status badge */}
                                             <div className="flex items-center justify-between mb-4">
                                                 <div className="flex items-center gap-3">
@@ -807,25 +819,23 @@ export default function ClipperPage() {
                                                 {['pending','downloading','transcribing','editing','stitching','completed'].map((s, i) => {
                                                     const si = PIPELINE_STEPS.find(x => x.key === s)!;
                                                     const isDone = activeStepIdx > i;
-                                                    const isCurrent = activeStepIdx === i && job.status !== 'failed';
+                                                    const isCurrent = activeStepIdx === i && job.status !== ClipJobStatus.FAILED;
                                                     return (
-                                                        <>
-                                                            <div
-                                                                key={s}
-                                                                title={si.label}
-                                                                className={`flex flex-col items-center gap-0.5 flex-1 group/step cursor-default`}
-                                                            >
-                                                                <div className={`w-full h-1 rounded-full transition-all duration-500 ${
-                                                                    job.status === 'failed' ? 'bg-red-800/40'
-                                                                    : isDone ? 'bg-emerald-500/70'
-                                                                    : isCurrent ? 'bg-cyan-500 shadow-[0_0_6px_rgba(0,240,255,0.5)]'
-                                                                    : 'bg-white/5'
-                                                                }`} />
-                                                                <span className={`text-[8px] font-mono uppercase hidden md:block transition-colors ${
-                                                                    isDone ? 'text-emerald-600' : isCurrent ? 'text-cyan-400' : 'text-slate-700'
-                                                                }`}>{si.label.split(' ')[0]}</span>
-                                                            </div>
-                                                        </>
+                                                        <div
+                                                            key={s}
+                                                            title={si.label}
+                                                            className={`flex flex-col items-center gap-0.5 flex-1 group/step cursor-default`}
+                                                        >
+                                                            <div className={`w-full h-1 rounded-full transition-all duration-500 ${
+                                                                job.status === ClipJobStatus.FAILED ? 'bg-red-800/40'
+                                                                : isDone ? 'bg-emerald-500/70'
+                                                                : isCurrent ? 'bg-cyan-500 shadow-[0_0_6px_rgba(0,240,255,0.5)]'
+                                                                : 'bg-white/5'
+                                                            }`} />
+                                                            <span className={`text-[8px] font-mono uppercase hidden md:block transition-colors ${
+                                                                isDone ? 'text-emerald-600' : isCurrent ? 'text-cyan-400' : 'text-slate-700'
+                                                            }`}>{si.label.split(' ')[0]}</span>
+                                                        </div>
                                                     );
                                                 })}
                                             </div>
@@ -837,11 +847,11 @@ export default function ClipperPage() {
                                                 </span>
                                                 <span className="text-xs font-mono text-slate-500">{job.progress_pct}%</span>
                                             </div>
-                                            <div className="w-full bg-[#151515] rounded-full h-1.5 border border-[#1e1e1e]">
+                                            <div className="w-full bg-cosmic-hull rounded-full h-1.5 border border-white/10">
                                                 <div
                                                     className={`h-full rounded-full transition-all duration-1000 ${
-                                                        job.status === 'failed' ? 'bg-red-500 shadow-[0_0_6px_#ef4444]'
-                                                        : job.status === 'completed' ? 'bg-emerald-500 shadow-[0_0_6px_#10b981]'
+                                                        job.status === ClipJobStatus.FAILED ? 'bg-red-500 shadow-[0_0_6px_#ef4444]'
+                                                        : job.status === ClipJobStatus.COMPLETED ? 'bg-emerald-500 shadow-[0_0_6px_#10b981]'
                                                         : 'bg-cyan-500 shadow-[0_0_6px_#06b6d4]'
                                                     }`}
                                                     style={{ width: `${job.progress_pct}%` }}
@@ -1021,7 +1031,7 @@ export default function ClipperPage() {
 
             {/* ═══ TAB: APROVAÇÃO (CURATION) ═══ */}
             {activeTab === 'approval' && (
-                <div className="flex-1 w-full max-w-7xl mx-auto px-6 py-6 z-10 space-y-6 animate-in fade-in zoom-in-95 duration-500 pb-32">
+                <div className="flex-1 w-full max-w-7xl mx-auto px-6 py-6 z-10 space-y-6 animate-in fade-in zoom-in-95 duration-500 overflow-y-auto custom-scrollbar pb-32">
                     <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/5">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
@@ -1122,6 +1132,14 @@ export default function ClipperPage() {
                                             >
                                                 <span className="material-symbols-outlined text-[16px]">check_circle</span>
                                                 APROVAR
+                                            </button>
+                                            <button
+                                                onClick={() => handleInvert(video.id)}
+                                                className="bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 hover:text-cyan-300 text-xs py-2.5 px-4 rounded-lg flex justify-center items-center transition-colors"
+                                                title="Inverter Ordem dos Clipes e Re-agendar"
+                                                aria-label={`Inverter vídeo ${video.title}`}
+                                            >
+                                                <span className="material-symbols-outlined text-[18px]">shuffle</span>
                                             </button>
                                             <button
                                                 onClick={() => handleReject(video.id)}

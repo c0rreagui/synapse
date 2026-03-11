@@ -67,6 +67,30 @@ def _detect_face_mtcnn(frame, detector) -> Optional[Tuple[float, int, int, int, 
     x1, y1, x2, y2 = int(best_box[0]), int(best_box[1]), int(best_box[2]), int(best_box[3])
     return (best_conf, x1, y1, x2 - x1, y2 - y1)
 
+# ── Singleton MTCNN ──────────────────────────────────────────────────────
+# Modelo carregado UMA vez e reutilizado entre chamadas (salva ~2-3s por clipe)
+_MTCNN_INSTANCE = None
+
+def _get_detector():
+    """Retorna a instancia singleton do MTCNN, criando na primeira chamada."""
+    global _MTCNN_INSTANCE
+    if _MTCNN_INSTANCE is None:
+        try:
+            from facenet_pytorch import MTCNN
+            import torch
+            device = torch.device("cpu")
+            _MTCNN_INSTANCE = MTCNN(
+                keep_all=True,
+                device=device,
+                thresholds=[0.7, 0.8, 0.9],  # P-Net, R-Net, O-Net
+                min_face_size=40,
+            )
+            logger.info("MTCNN singleton inicializado com sucesso.")
+        except Exception as e:
+            logger.error(f"Falha ao inicializar MTCNN: {e}")
+            return None
+    return _MTCNN_INSTANCE
+
 
 def detect_facecam_box(
     video_path: str,
@@ -86,17 +110,10 @@ def detect_facecam_box(
     Retorna None se nenhuma face real for encontrada.
     """
     try:
-        from facenet_pytorch import MTCNN
-        import torch
-
-        # MTCNN com threshold alto para evitar falsos positivos
-        device = torch.device("cpu")
-        detector = MTCNN(
-            keep_all=True,
-            device=device,
-            thresholds=[0.7, 0.8, 0.9],  # P-Net, R-Net, O-Net
-            min_face_size=40,
-        )
+        detector = _get_detector()
+        if detector is None:
+            logger.error("MTCNN nao disponivel. Pulando deteccao facial.")
+            return None
 
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
@@ -126,9 +143,6 @@ def detect_facecam_box(
 
         cap.release()
 
-        # Liberar detector da memoria
-        del detector
-
         if best_detection is None:
             logger.warning(
                 f"Nenhuma face real detectada em {len(SAMPLE_POSITIONS)} frames."
@@ -156,3 +170,4 @@ def detect_facecam_box(
     except Exception as e:
         logger.error(f"Falha no submodulo Vision: {e}")
         return None
+

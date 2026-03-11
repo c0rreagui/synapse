@@ -264,6 +264,7 @@ def _start_download_job(job_id: int):
     with safe_session() as db:
         job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
         if not job:
+            logger.error(f"Job #{job_id} nao encontrado em _start_download_job.")
             return None, None
         clip_urls = job.clip_urls or []
         clip_metadata = job.clip_metadata or []
@@ -275,8 +276,8 @@ def _start_download_job(job_id: int):
 
 
 def _update_job_progress(job_id: int, current: int, total: int) -> None:
-    """Atualiza o progresso de download no banco."""
-    progress = int((current / total) * 100)
+    """Atualiza o progresso de download no banco (Weight: 0-25%)."""
+    progress = int((current / total) * 25)
     with safe_session() as db:
         j = db.query(ClipJob).filter(ClipJob.id == job_id).first()
         if j:
@@ -292,6 +293,7 @@ def _finalize_job_download(
     with safe_session() as db:
         job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
         if not job:
+            logger.error(f"Job #{job_id} nao encontrado em _finalize_job_download.")
             return
         job.clip_local_paths = local_paths
         if local_paths:

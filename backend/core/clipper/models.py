@@ -6,10 +6,29 @@ TwitchTarget: Canal da Twitch monitorado pelo CronJob.
 ClipJob: Estado do pipeline de processamento para cada lote de clipes.
 """
 
-from sqlalchemy import Column, Integer, String, Boolean, JSON, ForeignKey, DateTime, Float
+from sqlalchemy import Column, Integer, String, Boolean, JSON, ForeignKey, DateTime, Float, UniqueConstraint
 from datetime import datetime, timezone
+from enum import Enum
+from typing import TypedDict, List
+from pydantic import BaseModel
 
 from core.database import Base
+
+class JobStatus(str, Enum):
+    PENDING = "pending"
+    DOWNLOADING = "downloading"
+    TRANSCRIBING = "transcribing"
+    EDITING = "editing"
+    STITCHING = "stitching"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+class ClipMetadataDict(TypedDict, total=False):
+    title: str
+    views: int
+    duration: float
+    creator: str
+    game: str
 
 
 class TwitchTarget(Base):
@@ -38,8 +57,9 @@ class TwitchTarget(Base):
     # Configuracao de monitoramento
     active = Column(Boolean, default=True)
     check_interval_minutes = Column(Integer, default=15)
-    max_clips_per_check = Column(Integer, default=5)
+    max_clips_per_check = Column(Integer, default=100)  # Maximo Twitch API = 100
     min_clip_views = Column(Integer, default=100)  # Filtro de qualidade
+    lookback_hours = Column(Integer, default=6)  # Janela de busca em horas (SYN-128: micro-lookbacks)
 
     # Estado do monitoramento
     last_checked_at = Column(DateTime, nullable=True)
@@ -67,35 +87,50 @@ class ClipJob(Base):
     """
     __tablename__ = "clip_jobs"
 
-    id = Column(Integer, primary_key=True, index=True)
-    target_id = Column(Integer, ForeignKey("twitch_targets.id"), nullable=False, index=True)
+    id = Column(Integer, primary_key=True)
+    target_id = Column(Integer, ForeignKey("twitch_targets.id"), nullable=False)
 
     # Clipes consumidos neste job
-    clip_urls = Column(JSON, default=list)          # ["https://clips.twitch.tv/..."]
-    clip_metadata = Column(JSON, default=list)      # [{title, views, duration, creator}]
+    clip_urls = Column(JSON, default=list) # Array of clip URLs to process
+    clip_metadata = Column(JSON, default=list)      # type: list[ClipMetadataDict] | None
     clip_local_paths = Column(JSON, default=list)   # Caminhos pos-download
 
     # Estado do pipeline
-    status = Column(String, default="pending", index=True)
-    # pending | downloading | transcribing | editing | stitching | completed | failed
+    status = Column(String, default=JobStatus.PENDING)  # pending, downloading, transcribing, editing, stitching, completed, failed
     current_step = Column(String, nullable=True)    # Detalhe do passo atual
     progress_pct = Column(Integer, default=0)       # 0-100
 
     # Resultados intermediarios
     whisper_result = Column(JSON, nullable=True)    # Transcricao word-level
-    ass_subtitle_path = Column(String, nullable=True)
 
     # Produto final
     output_path = Column(String, nullable=True)
     duration_seconds = Column(Float, nullable=True)
-    file_size_bytes = Column(Integer, nullable=True)
 
     # Erros
     error_message = Column(String, nullable=True)
-    retry_count = Column(Integer, default=0)
-    max_retries = Column(Integer, default=2)
 
     # Timestamps
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
+
+
+class TwitchKnownStreamer(Base):
+    """
+    Streamer PT-BR descoberto pelo Radar de Lives (SYN-126).
+    Mantém uma whitelist por categoria para coleta cirúrgica de clipes.
+    """
+    __tablename__ = "twitch_known_streamers"
+    __table_args__ = (
+        UniqueConstraint("broadcaster_id", "category_id", name="uq_streamer_category"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    broadcaster_id = Column(String, nullable=False, index=True)
+    broadcaster_name = Column(String, nullable=False)
+    category_id = Column(String, nullable=False, index=True)
+    language = Column(String, default="pt")
+    discovered_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    last_seen_live = Column(DateTime, nullable=True)
+    clip_count = Column(Integer, default=0)  # Total de clipes coletados deste streamer

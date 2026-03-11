@@ -29,11 +29,7 @@ services:
       - "6379:6379"
     volumes:
       - ./backend/data/redis:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+
 
   # 📦 MinIO: Armazenamento de Objetos (S3 Local)
   minio:
@@ -84,7 +80,7 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_healthy
+        condition: service_started
       minio:
         condition: service_started
 

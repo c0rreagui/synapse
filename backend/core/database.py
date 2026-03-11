@@ -59,11 +59,12 @@ from contextlib import contextmanager
 def safe_session():
     """
     Context manager for safe DB operations.
-    Ensures session is always closed.
+    Ensures session is committed on success and closed on exit.
     """
     db = SessionLocal()
     try:
         yield db
+        db.commit()
     except Exception as e:
         db.rollback()
         raise e
@@ -72,5 +73,8 @@ def safe_session():
 
 def get_db():
     """FastAPI Dependency."""
-    with safe_session() as db:
+    db = SessionLocal()
+    try:
         yield db
+    finally:
+        db.close()

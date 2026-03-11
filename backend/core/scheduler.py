@@ -619,6 +619,26 @@ class Scheduler:
         finally:
             db.close()
 
+    def update_video_path(self, old_path: str, new_path: str):
+        """Updates the video path for scheduled items when moving from pending to approved."""
+        db = SessionLocal()
+        try:
+            # Update ScheduleItem
+            updated = db.query(ScheduleItem).filter(
+                ScheduleItem.video_path == old_path
+            ).update({"video_path": new_path}, synchronize_session=False)
+            
+            # Since some paths might be stored normalized/absolute, also check ends_with or exact match:
+            # But exact match usually works because we store `os.path.join(...)`
+            
+            db.commit()
+            print(f"[SCHEDULER] Updated video path for {updated} items: {old_path} -> {new_path}")
+        except Exception as e:
+            db.rollback()
+            print(f"[SCHEDULER] Error updating video path: {e}")
+        finally:
+            db.close()
+
     async def execute_due_item(self, item: ScheduleItem, db):
         from core.queue_manager import QueueManager
         from core.consts import ScheduleStatus

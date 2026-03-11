@@ -16,6 +16,9 @@ from core.models import ScheduleItem
 from core.manual_executor import execute_approved_video
 from core.consts import ScheduleStatus
 from datetime import datetime
+import tempfile
+# Temporarily handled inside function to avoid circular, or put here if safe
+from core.storage import s3_storage
 
 # Logging
 logger = logging.getLogger("Worker")
@@ -127,8 +130,6 @@ async def upload_video_task(ctx, item_id: int, video_path: str, metadata: Dict[s
         # [SYN-FIX] S3 Support
         # If video_path starts with s3://, download it first
         if video_path.startswith("s3://"):
-             from core.storage import s3_storage
-             import tempfile
              
              # Parse bucket/key
              # Format: s3://bucket/key
@@ -188,13 +189,14 @@ async def upload_video_task(ctx, item_id: int, video_path: str, metadata: Dict[s
                 logger.error(f"Failed to cleanup temp file {local_video_path}: {cleanup_err}")
 
 # ARQ Settings
+from core.config import REDIS_HOST, REDIS_PORT
 class WorkerSettings:
     functions = [upload_video_task]
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = RedisSettings(
-        host=os.getenv("REDIS_HOST", "localhost"),
-        port=int(os.getenv("REDIS_PORT", 6379))
+        host=REDIS_HOST,
+        port=REDIS_PORT
     )
     max_jobs = 1  # Limit concurrency to 1 per worker to safe resources (Headless browser usage)
     job_timeout = 600 # 10 minutes hard timeout (prevents zombies)
