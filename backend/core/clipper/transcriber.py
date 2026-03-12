@@ -33,9 +33,10 @@ logger = logging.getLogger("ClipperTranscriber")
 AUDIO_TEMP_DIR = os.path.join(DATA_DIR, "clipper", "audio_temp")
 os.makedirs(AUDIO_TEMP_DIR, exist_ok=True)
 
-# Modelo padrao - "medium" equilibra qualidade e velocidade
+# Modelo padrao - "small" para CPU (medium demora 30min+ por clip em CPU)
+# Em GPU com VRAM suficiente, usar WHISPER_MODEL_SIZE=medium via env
 # Alternativas: "tiny", "base", "small", "medium", "large-v3"
-DEFAULT_MODEL_SIZE = os.getenv("WHISPER_MODEL_SIZE", "medium")
+DEFAULT_MODEL_SIZE = os.getenv("WHISPER_MODEL_SIZE", "small")
 
 # Roteamento de vocabulario por jogo (mantido curto p/ nao estourar tokens)
 GAME_PROMPTS = {
@@ -281,7 +282,7 @@ async def extract_audio(video_path: str, output_path: Optional[str] = None) -> s
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    _, stderr = await asyncio.wait_for(process.communicate(), timeout=60)
+    _, stderr = await asyncio.wait_for(process.communicate(), timeout=300)
 
     if process.returncode != 0:
         error = stderr.decode("utf-8", errors="replace").strip()
@@ -323,8 +324,12 @@ async def transcribe_video(video_path: str, language: Optional[str] = "pt") -> D
 
 def _transcribe_sync(audio_path: str, language: Optional[str] = "pt") -> Dict[str, Any]:
     """Execucao sincrona da transcricao (para rodar em executor)."""
-    with TranscriberContext() as ctx:
-        return ctx.transcribe_file(audio_path, language=language)
+    try:
+        with TranscriberContext() as ctx:
+            return ctx.transcribe_file(audio_path, language=language)
+    except Exception as e:
+        logger.error(f"Transcricao falhou para {audio_path}: {e}", exc_info=True)
+        raise
 
 
 def _cleanup_temp(path: str) -> None:

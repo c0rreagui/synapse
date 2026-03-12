@@ -206,6 +206,11 @@ class PendingApproval(Base):
     duration_seconds = Column(Integer, nullable=True)
     file_size_bytes = Column(Integer, nullable=True)
     
+    # Descrição gerada/editada para publicação
+    caption = Column(String, nullable=True)       # Texto da descrição do TikTok
+    hashtags = Column(JSON, default=list)          # Lista de hashtags ["#tag1", "#tag2"]
+    caption_generated = Column(Boolean, default=False)  # True se foi gerada pelo Oracle
+
     # Estado da curadoria
     status = Column(String, default="pending", index=True)
     # pending -> approved -> rejected
@@ -216,4 +221,4 @@ class PendingApproval(Base):
 # ─── Clipper Module Models ──────────────────────────────────────────────
 # Importados aqui para garantir que o SQLAlchemy registre as tabelas
 # quando Base.metadata.create_all() for executado.
-from core.clipper.models import TwitchTarget, ClipJob  # noqa: F401, E402
+from core.clipper.models import TwitchTarget, ClipJob, TwitchKnownStreamer  # noqa: F401, E402

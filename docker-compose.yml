@@ -138,8 +138,6 @@ services:
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-synapse_admin}
       - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-synapse_secret_key}
-      - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID:-}
-      - TWITCH_CLIENT_SECRET=${TWITCH_CLIENT_SECRET:-}
     depends_on:
       - db
       - redis

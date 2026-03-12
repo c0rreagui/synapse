@@ -51,6 +51,12 @@ async def startup_event():
     validate_environment()
     print("SYSTEM: Environment variables validated successfully.")
 
+    # 🗄️ Sync DB Schema — cria tabelas faltantes sem tocar as existentes (SYN-130)
+    from core.database import engine, Base
+    import core.models  # noqa: F401 — garante que todos os models estejam registrados
+    Base.metadata.create_all(bind=engine, checkfirst=True)
+    print("SYSTEM: Database schema synchronized.")
+
     # 🛡️ PROCESS MANAGER (Cleanup Handlers)
     # Importing it ensures atexit/signal handlers are registered
     from core.process_manager import process_manager

@@ -6,25 +6,25 @@ Usa facenet_pytorch.MTCNN para localizar faces humanas reais no video.
 MTCNN detecta landmarks faciais biometricos (olhos, nariz, boca), sendo
 imune a texturas de personagens de videogame (ex: GTA V).
 
-Testa 5 frames distintos (10%, 30%, 50%, 70%, 90%) e retorna a
-bounding box com maior confianca, expandida com padding geometrico
-para englobar o cenario da webcam (nao apenas o rosto).
+Testa 10 frames distribuídos e aplica Clusterização Geo-Temporal usando IoU.
+Faces voláteis (emotes, alertas) não ganham frequência de quadros e
+são purgadas matematicamente. O cluster mais presente na tela elege o Mestre.
 
 Retorna coordenadas (x, y, w, h) prontas para FFmpeg crop, ou None
-se nenhuma face real for encontrada (editor aplica fallback generico).
+se nenhuma face real consistente for encontrada.
 """
 
 import cv2
 import logging
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 
 logger = logging.getLogger("ClipperVision")
 
 # Frames a serem testados (% da duracao)
-SAMPLE_POSITIONS = [0.10, 0.30, 0.50, 0.70, 0.90]
+SAMPLE_POSITIONS = [0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95]
 
-# Confianca minima para MTCNN (alto threshold = face real confirmada)
-MIN_CONFIDENCE = 0.90
+# Confianca minima para pertinência inicial do MTCNN
+MIN_CONFIDENCE = 0.85
 
 
 def _read_frame_at(cap: cv2.VideoCapture, position: float):
@@ -37,11 +37,10 @@ def _read_frame_at(cap: cv2.VideoCapture, position: float):
     return frame if ret else None
 
 
-def _detect_face_mtcnn(frame, detector) -> Optional[Tuple[float, int, int, int, int]]:
+def _detect_all_faces_mtcnn(frame, detector) -> List[Tuple[float, int, int, int, int]]:
     """
-    Roda MTCNN no frame e retorna (confianca, x, y, w, h) da melhor
-    face biometrica detectada.
-    Retorna None se nenhuma face real encontrada.
+    Roda MTCNN no frame e retorna lista de (confianca, x, y, w, h)
+    para todas as faces com confianca >= MIN_CONFIDENCE.
     """
     # MTCNN espera RGB; OpenCV carrega BGR
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -49,23 +48,36 @@ def _detect_face_mtcnn(frame, detector) -> Optional[Tuple[float, int, int, int, 
     # Detectar faces com probabilidades
     boxes, probs = detector.detect(rgb_frame)
 
+    valid_faces = []
     if boxes is None or probs is None or len(boxes) == 0:
-        return None
-
-    # Filtrar por confianca minima e pegar a melhor
-    best_conf = -1.0
-    best_box = None
+        return valid_faces
 
     for box, prob in zip(boxes, probs):
-        if prob is not None and prob >= MIN_CONFIDENCE and prob > best_conf:
-            best_conf = float(prob)
-            best_box = box
+        if prob is not None and prob >= MIN_CONFIDENCE:
+            x1, y1, x2, y2 = int(box[0]), int(box[1]), int(box[2]), int(box[3])
+            # Validação geométrica básica
+            if x2 > x1 and y2 > y1:
+                valid_faces.append((float(prob), x1, y1, x2 - x1, y2 - y1))
 
-    if best_box is None:
-        return None
+    return valid_faces
 
-    x1, y1, x2, y2 = int(best_box[0]), int(best_box[1]), int(best_box[2]), int(best_box[3])
-    return (best_conf, x1, y1, x2 - x1, y2 - y1)
+
+def _compute_iou(boxA, boxB):
+    """Calcula a Intersection over Union (IoU) entre dois bounding boxes (x, y, w, h)."""
+    xA = max(boxA[0], boxB[0])
+    yA = max(boxA[1], boxB[1])
+    xB = min(boxA[0] + boxA[2], boxB[0] + boxB[2])
+    yB = min(boxA[1] + boxA[3], boxB[1] + boxB[3])
+
+    interArea = max(0, xB - xA) * max(0, yB - yA)
+    if interArea == 0:
+        return 0.0
+
+    boxAArea = boxA[2] * boxA[3]
+    boxBArea = boxB[2] * boxB[3]
+    iou = interArea / float(boxAArea + boxBArea - interArea)
+    return iou
+
 
 # ── Singleton MTCNN ──────────────────────────────────────────────────────
 # Modelo carregado UMA vez e reutilizado entre chamadas (salva ~2-3s por clipe)
@@ -100,14 +112,11 @@ def detect_facecam_box(
     **kwargs,
 ) -> Optional[Tuple[int, int, int, int]]:
     """
-    Testa 5 frames com MTCNN e retorna a bounding box (x, y, w, h)
-    da face real detectada.
+    Testa 10 frames com MTCNN, aplica Clusterização Geo-Temporal (IoU) e
+    retorna a bounding box (x, y, w, h) do cluster eleito da facecam autêntica.
 
-    Usa padding proporcional estrito. Margens altamente conservadoras para
-    isolar rosto e cadeira de streamer, sem vazar para a gameplay nativa
-    abaixo da borda natural da webcam (pad_down = 0).
-
-    Retorna None se nenhuma face real for encontrada.
+    Usa padding proporcional estrito. 
+    Retorna None se nenhuma face real e consistente for encontrada.
     """
     try:
         detector = _get_detector()
@@ -122,41 +131,80 @@ def detect_facecam_box(
 
         frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        total_area = frame_width * frame_height
+        
+        # Filtro de chão geométrico: rosto (sem o padding) deve ocupar >= 2% da tela.
+        # Descartamos áreas ínfimas (ruídos) mas NÃO impomos teto, permitindo "Just Chatting".
+        min_face_area = total_area * 0.02
 
-        best_detection = None  # (conf, x, y, w, h)
+        all_detections = []  # Lista de (conf, x, y, w, h)
+        frames_tested = 0
 
         for pos in SAMPLE_POSITIONS:
             frame = _read_frame_at(cap, pos)
             if frame is None:
-                logger.warning(f"Falha ao ler frame na posicao {pos:.0%}.")
                 continue
-
-            det = _detect_face_mtcnn(frame, detector)
-            if det:
-                conf, fx, fy, fw, fh = det
-                logger.info(
-                    f"Face detectada no frame {pos:.0%}: "
-                    f"x={fx}, y={fy}, dim={fw}x{fh}, conf={conf:.3f}"
-                )
-                if best_detection is None or conf > best_detection[0]:
-                    best_detection = det
+            
+            frames_tested += 1
+            faces = _detect_all_faces_mtcnn(frame, detector)
+            
+            for f in faces:
+                _, bx, by, bw, bh = f
+                face_area = bw * bh
+                if face_area >= min_face_area:
+                    all_detections.append(f)
+                    logger.info(
+                        f"Face detectada no frame {pos:.0%}: "
+                        f"x={bx}, y={by}, dim={bw}x{bh}, conf={f[0]:.3f}"
+                    )
 
         cap.release()
 
-        if best_detection is None:
-            logger.warning(
-                f"Nenhuma face real detectada em {len(SAMPLE_POSITIONS)} frames."
-            )
+        if not all_detections:
+            logger.warning(f"Nenhuma face real/valida detectada geometricamente em {frames_tested} frames lidos.")
             return None
 
+        # Clusterização Geo-Temporal baseada em Overlap de Coordenadas (IoU)
+        clusters = []  # Lista de listas contendo rostos: [ [face1, face2], [face3] ]
+        
+        for det in all_detections:
+            added = False
+            det_box = det[1:]  # Passando apenas (x, y, w, h)
+            
+            for cluster in clusters:
+                # Usa o arquétipo do primeiro rosto do cluster como Âncora referencial
+                ref_box = cluster[0][1:]
+                iou = _compute_iou(det_box, ref_box)
+                
+                # Tolerância branda de 30% de engajamento (absorve recline na cadeira/zoom do streamer)
+                if iou >= 0.30:
+                    cluster.append(det)
+                    added = True
+                    break
+                    
+            if not added:
+                # O rosto mora em uma area da tela nova, iniciamos um sub-grupo novo
+                clusters.append([det])
+
+        logger.info(f"Rostos consolidados em {len(clusters)} clusters espaciais.")
+
+        # Eleição por Frequência Absoluta
+        # Se empatar em votos (len), usa a soma das confianças como desempate matemático
+        best_cluster = max(clusters, key=lambda c: (len(c), sum(f[0] for f in c)))
+        
+        logger.info(f"Cluster vencedor eleito com {len(best_cluster)} quadros consistentes e presentes.")
+
+        # Dentro do cluster vencedor, pega cirurgicamente a captura com maior nota biométrica 
+        # para usar como centro perfeito de ancoragem visual
+        best_detection = max(best_cluster, key=lambda f: f[0])
         _, bx, by, bw, bh = best_detection
 
-        # Calcular padding em pixels relativo ao tamanho do rosto detectado
+        # Calcular padding em pixels relativo ao tamanho absoluto do rosto eleito
         pad_up = int(bh * padding_pct_up)
         pad_down = int(bh * padding_pct_down)
         pad_sides = int(bw * padding_pct_sides)
 
-        # Aplicar padding geometrico seguro
+        # Aplicar padding geométrico assegurando não desabar para fora da resolução nativa global
         x1 = max(0, bx - pad_sides)
         y1 = max(0, by - pad_up)
         x2 = min(frame_width, bx + bw + pad_sides)
@@ -164,10 +212,10 @@ def detect_facecam_box(
 
         box = (x1, y1, x2 - x1, y2 - y1)
         logger.info(f"Facecam Box computada (Tight): pad_up={pad_up}, pad_down={pad_down}, pad_sides={pad_sides}")
-        logger.info(f"Facecam Box final (MTCNN): {box}")
+        logger.info(f"Facecam Box final enquadrada (Cluster IoU): {box}")
+        
         return box
 
     except Exception as e:
-        logger.error(f"Falha no submodulo Vision: {e}")
+        logger.error(f"Falha critica no motor Vision MTCNN: {e}")
         return None
-

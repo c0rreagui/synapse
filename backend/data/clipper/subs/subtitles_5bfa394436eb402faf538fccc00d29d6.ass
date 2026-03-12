@@ -1,0 +1,41 @@
+[Script Info]
+Title: Synapse Auto Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Active,Inter Black,85,&H000B9EF5,&H000B9EF5,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+Style: Inactive,Inter Black,85,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:02.39,0:00:02.89,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Carregou {\1c&H00FFFFFF}mano {\1c&H00FFFFFF}agora
+Dialogue: 0,0:00:03.02,0:00:03.16,Active,,0,0,0,,{\1c&H00FFFFFF}Carregou {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}mano {\1c&H00FFFFFF}agora
+Dialogue: 0,0:00:03.47,0:00:03.67,Active,,0,0,0,,{\1c&H00FFFFFF}Carregou {\1c&H00FFFFFF}mano {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}agora
+Dialogue: 0,0:00:03.67,0:00:03.81,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}é {\1c&H00FFFFFF}hora {\1c&H00FFFFFF}eu
+Dialogue: 0,0:00:03.81,0:00:03.95,Active,,0,0,0,,{\1c&H00FFFFFF}é {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}hora {\1c&H00FFFFFF}eu
+Dialogue: 0,0:00:04.07,0:00:04.12,Active,,0,0,0,,{\1c&H00FFFFFF}é {\1c&H00FFFFFF}hora {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}eu
+Dialogue: 0,0:00:04.12,0:00:04.23,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}vou {\1c&H00FFFFFF}esnair {\1c&H00FFFFFF}papo
+Dialogue: 0,0:00:04.23,0:00:04.46,Active,,0,0,0,,{\1c&H00FFFFFF}vou {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}esnair {\1c&H00FFFFFF}papo
+Dialogue: 0,0:00:04.49,0:00:05.23,Active,,0,0,0,,{\1c&H00FFFFFF}vou {\1c&H00FFFFFF}esnair {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}papo
+Dialogue: 0,0:00:05.66,0:00:05.90,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Onde? {\1c&H00FFFFFF}Onde? {\1c&H00FFFFFF}Onde?
+Dialogue: 0,0:00:06.24,0:00:06.63,Active,,0,0,0,,{\1c&H00FFFFFF}Onde? {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Onde? {\1c&H00FFFFFF}Onde?
+Dialogue: 0,0:00:07.01,0:00:07.28,Active,,0,0,0,,{\1c&H00FFFFFF}Onde? {\1c&H00FFFFFF}Onde? {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Onde?
+Dialogue: 0,0:00:07.67,0:00:07.86,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Onde?
+Dialogue: 0,0:00:09.22,0:00:09.61,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Caralho {\1c&H00FFFFFF}vai {\1c&H00FFFFFF}tomar
+Dialogue: 0,0:00:09.66,0:00:09.72,Active,,0,0,0,,{\1c&H00FFFFFF}Caralho {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}vai {\1c&H00FFFFFF}tomar
+Dialogue: 0,0:00:09.72,0:00:09.92,Active,,0,0,0,,{\1c&H00FFFFFF}Caralho {\1c&H00FFFFFF}vai {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}tomar
+Dialogue: 0,0:00:09.92,0:00:10.43,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}no
+Dialogue: 0,0:00:12.18,0:00:12.49,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Ih {\1c&H00FFFFFF}os {\1c&H00FFFFFF}caras
+Dialogue: 0,0:00:12.50,0:00:12.65,Active,,0,0,0,,{\1c&H00FFFFFF}Ih {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}os {\1c&H00FFFFFF}caras
+Dialogue: 0,0:00:12.65,0:00:12.94,Active,,0,0,0,,{\1c&H00FFFFFF}Ih {\1c&H00FFFFFF}os {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}caras
+Dialogue: 0,0:00:12.94,0:00:13.07,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}me {\1c&H00FFFFFF}deixam {\1c&H00FFFFFF}Eu
+Dialogue: 0,0:00:13.07,0:00:13.58,Active,,0,0,0,,{\1c&H00FFFFFF}me {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}deixam {\1c&H00FFFFFF}Eu
+Dialogue: 0,0:00:13.58,0:00:13.89,Active,,0,0,0,,{\1c&H00FFFFFF}me {\1c&H00FFFFFF}deixam {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Eu
+Dialogue: 0,0:00:13.89,0:00:13.99,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}vou {\1c&H00FFFFFF}gastar
+Dialogue: 0,0:00:13.99,0:00:14.33,Active,,0,0,0,,{\1c&H00FFFFFF}vou {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}gastar

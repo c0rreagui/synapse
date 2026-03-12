@@ -284,7 +284,9 @@ async def fetch_top_clips(
             "creator_name": clip.get("creator_name", ""),
             "created_at": clip.get("created_at", ""),
             "thumbnail_url": clip.get("thumbnail_url", ""),
-            "game": game_names.get(clip.get("game_id", ""), "")
+            "game_id": clip.get("game_id", ""),
+            "game": game_names.get(clip.get("game_id", ""), ""),
+            "broadcaster_name": clip.get("broadcaster_name", ""),
         })
 
     logger.info(f"{len(results)} clipes passaram no filtro (min_views={min_views})")
@@ -355,9 +357,13 @@ async def register_target(channel_url: str, army_id: Optional[int] = None) -> Di
                 "broadcaster_id": existing.broadcaster_id,
                 "category_id": existing.category_id,
                 "profile_image_url": existing.profile_image_url,
+                "min_clip_views": existing.min_clip_views,
+                "max_clips_per_check": existing.max_clips_per_check,
                 "status": "already_registered",
             }
 
+        lookback = 24 if target_type == 'channel' else 168
+        
         target = TwitchTarget(
             channel_url=channel_url.strip(),
             channel_name=target_name,
@@ -367,6 +373,7 @@ async def register_target(channel_url: str, army_id: Optional[int] = None) -> Di
             profile_image_url=profile_image_url,
             offline_image_url=offline_image_url,
             army_id=army_id,
+            lookback_hours=lookback,
             active=True
         )
         db.add(target)
@@ -380,6 +387,8 @@ async def register_target(channel_url: str, army_id: Optional[int] = None) -> Di
             "broadcaster_id": target.broadcaster_id,
             "category_id": target.category_id,
             "profile_image_url": target.profile_image_url,
+            "min_clip_views": target.min_clip_views,
+            "max_clips_per_check": target.max_clips_per_check,
             "status": "created",
         }
 
@@ -478,8 +487,14 @@ async def check_target(target_id: int) -> Optional[int]:
                         min_views=min_views,
                     )
                     if clips:
-                        logger.info(f"  [{bname}] {len(clips)} clipe(s) qualificado(s)")
-                        all_clips.extend(clips)
+                        # Filtrar apenas clips da categoria correta (game_id)
+                        before = len(clips)
+                        clips = [c for c in clips if c.get("game_id") == category_id]
+                        if before != len(clips):
+                            logger.info(f"  [{bname}] {before} clipe(s) brutos, {len(clips)} da categoria {channel_name}")
+                        if clips:
+                            logger.info(f"  [{bname}] {len(clips)} clipe(s) qualificado(s)")
+                            all_clips.extend(clips)
                 except Exception as e:
                     logger.warning(f"  [{bname}] Erro ao buscar clipes: {e}")
                     continue
@@ -551,11 +566,17 @@ def _update_target_checked(target_id: int, found_clips: bool) -> None:
             db.commit()
 
 
+MAX_JOB_RETRIES = 3  # Maximo de retries antes de desistir de um clip
+
+
 def _filter_already_processed(target_id: int, clips: List[Dict]) -> List[Dict]:
-    """Remove clipes que ja foram processados por jobs anteriores (dedup global)."""
+    """
+    Remove clipes que ja foram processados por jobs anteriores (dedup global).
+    Inclui jobs 'failed' que ja esgotaram retries, evitando loop infinito.
+    """
     with safe_session() as db:
-        # Dedup GLOBAL — Otimizado para não estourar RAM buscando todas colunas e JSON grandes
-        recent_jobs_urls = (
+        # Jobs ativos ou concluidos — nunca reprocessar
+        active_urls = (
             db.query(ClipJob.clip_urls)
             .filter(ClipJob.status.in_(["pending", "downloading", "transcribing", "editing", "stitching", "completed"]))
             .order_by(ClipJob.id.desc())
@@ -563,7 +584,20 @@ def _filter_already_processed(target_id: int, clips: List[Dict]) -> List[Dict]:
             .all()
         )
         already_processed = set()
-        for (urls,) in recent_jobs_urls:
+        for (urls,) in active_urls:
+            if urls:
+                already_processed.update(urls)
+
+        # Jobs falhados que ja esgotaram retries — nao reprocessar
+        failed_maxed = (
+            db.query(ClipJob.clip_urls)
+            .filter(ClipJob.status == "failed")
+            .filter(ClipJob.retry_count >= MAX_JOB_RETRIES)
+            .order_by(ClipJob.id.desc())
+            .limit(2000)
+            .all()
+        )
+        for (urls,) in failed_maxed:
             if urls:
                 already_processed.update(urls)
 
@@ -573,6 +607,7 @@ def _filter_already_processed(target_id: int, clips: List[Dict]) -> List[Dict]:
 # ─── Constantes de Chunking ──────────────────────────────────────────────
 CHUNK_TARGET_DURATION = 90.0  # Duracao alvo por postagem (1.5 minutos)
 CHUNK_MIN_DURATION = 15.0     # Duracao minima para criar um chunk valido
+MAX_JOBS_PER_SCAN = 3         # Maximo de jobs criados por target por ciclo de scan
 
 
 def _chunk_clips_by_duration(
@@ -621,45 +656,73 @@ async def _create_clip_jobs(target_id: int, channel_name: str, new_clips: List[D
     """
     Agrupa clipes em chunks de ~90s e cria um ClipJob independente para cada.
     Cada job resulta em 1 video final = 1 postagem na fila de aprovacao.
+
+    Clips que vieram de jobs falhados anteriores recebem retry_count incrementado.
+    Limitado a MAX_JOBS_PER_SCAN jobs por ciclo para nao entupir a fila.
     """
     chunks = _chunk_clips_by_duration(new_clips)
+
+    # Cap: limitar quantidade de jobs criados por scan
+    if len(chunks) > MAX_JOBS_PER_SCAN:
+        logger.info(
+            f"[{channel_name}] {len(chunks)} chunks disponiveis, limitando a {MAX_JOBS_PER_SCAN} (cap por scan)"
+        )
+        chunks = chunks[:MAX_JOBS_PER_SCAN]
+
     job_ids: List[int] = []
 
     logger.info(
         f"[{channel_name}] {len(new_clips)} clipe(s) divididos em {len(chunks)} chunk(s)"
     )
 
-    from core.config import REDIS_HOST, REDIS_PORT
-    redis_host = REDIS_HOST
-    redis_port = REDIS_PORT
-
-    for i, chunk in enumerate(chunks):
-        chunk_dur = sum(float(c.get("duration", 30)) for c in chunk)
-        logger.info(
-            f"  Chunk {i + 1}/{len(chunks)}: {len(chunk)} clip(s), ~{chunk_dur:.0f}s"
+    # Buscar retry counts de jobs falhados anteriores para estes clips
+    clip_retry_counts: Dict[str, int] = {}
+    with safe_session() as db:
+        failed_jobs = (
+            db.query(ClipJob.clip_urls, ClipJob.retry_count)
+            .filter(ClipJob.status == "failed")
+            .filter(ClipJob.retry_count < MAX_JOB_RETRIES)
+            .all()
         )
+        for urls, count in failed_jobs:
+            if urls:
+                for u in urls:
+                    clip_retry_counts[u] = max(clip_retry_counts.get(u, 0), (count or 0))
 
-        with safe_session() as db:
-            job = ClipJob(
-                target_id=target_id,
-                clip_urls=[c["url"] for c in chunk],
-                clip_metadata=chunk,
-                status="pending",
+    from core.config import REDIS_HOST, REDIS_PORT
+    pool = await create_pool(RedisSettings(host=REDIS_HOST, port=REDIS_PORT))
+    try:
+        for i, chunk in enumerate(chunks):
+            chunk_dur = sum(float(c.get("duration", 30)) for c in chunk)
+            logger.info(
+                f"  Chunk {i + 1}/{len(chunks)}: {len(chunk)} clip(s), ~{chunk_dur:.0f}s"
             )
-            db.add(job)
-            db.commit()
-            db.refresh(job)
-            job_id = job.id
-            job_ids.append(job_id)
 
-        # Enqueue each job immediately
-        try:
-            pool = await create_pool(RedisSettings(host=redis_host, port=redis_port))
-            await pool.enqueue_job("process_clip_job", job_id, _queue_name="clipper:queue")
-            logger.info(f"✅ Job #{job_id} (Chunk {i + 1}) enfileirado no Redis")
-            await pool.close()
-        except Exception as e:
-            logger.error(f"❌ Falha ao enfileirar Job #{job_id}: {e}", exc_info=True)
+            # retry_count = max dos retries anteriores dos clips deste chunk + 1 (se retry)
+            max_prev_retry = max((clip_retry_counts.get(c["url"], 0) for c in chunk), default=0)
+            retry_count = max_prev_retry + 1 if max_prev_retry > 0 else 0
+
+            with safe_session() as db:
+                job = ClipJob(
+                    target_id=target_id,
+                    clip_urls=[c["url"] for c in chunk],
+                    clip_metadata=chunk,
+                    status="pending",
+                    retry_count=retry_count,
+                )
+                db.add(job)
+                db.commit()
+                db.refresh(job)
+                job_id = job.id
+                job_ids.append(job_id)
+
+            try:
+                await pool.enqueue_job("process_clip_job", job_id, _queue_name="clipper:queue")
+                logger.info(f"✅ Job #{job_id} (Chunk {i + 1}, retry={retry_count}) enfileirado no Redis")
+            except Exception as e:
+                logger.error(f"❌ Falha ao enfileirar Job #{job_id}: {e}", exc_info=True)
+    finally:
+        await pool.close()
 
     _update_target_checked(target_id, found_clips=True)
 
@@ -704,8 +767,12 @@ def _get_ready_target_ids() -> List[int]:
             interval_minutes = t.check_interval_minutes or 15
             if t.last_checked_at is None:
                 ready_targets.append(t.id)
-            elif (now - t.last_checked_at).total_seconds() >= interval_minutes * 60:
-                ready_targets.append(t.id)
+            else:
+                last = t.last_checked_at
+                if last.tzinfo is None:
+                    last = last.replace(tzinfo=timezone.utc)
+                if (now - last).total_seconds() >= interval_minutes * 60:
+                    ready_targets.append(t.id)
         return ready_targets
 
 async def _check_all_targets() -> None:

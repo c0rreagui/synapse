@@ -268,13 +268,13 @@ async def ensure_minimum_duration(
     total_duration = sum(durations)
 
     if output_path is None:
-        hash_str = md5(str(time.time()).encode()).hexdigest()[:8]
-        
+        unique_id = uuid.uuid4().hex[:12]
+
         base_backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         exports_dir = os.path.join(base_backend_dir, "data", "exports")
         os.makedirs(exports_dir, exist_ok=True)
-        
-        output_path = os.path.join(exports_dir, f"stitch_{hash_str}.mp4")
+
+        output_path = os.path.join(exports_dir, f"stitch_{unique_id}.mp4")
 
     logger.info(
         f"Stitcher: {len(valid_clips)} clipe(s), "
@@ -284,7 +284,10 @@ async def ensure_minimum_duration(
     # Estrategia 1: Clipe unico, ja e o resultado final
     if len(valid_clips) == 1:
         logger.info("Estrategia: Clipe unico. Nenhuma costura necessaria.")
-        shutil.copy2(valid_clips[0], output_path)
+        try:
+            shutil.copy2(valid_clips[0], output_path)
+        except (OSError, IOError) as e:
+            return _error_result(f"Falha ao copiar clipe unico: {e}")
         return _success_result(output_path, total_duration, "single_clip")
 
     # Estrategia 2: Multiplos clipes, usar crossfade

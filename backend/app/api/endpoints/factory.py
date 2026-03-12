@@ -17,12 +17,12 @@ from datetime import datetime
 from typing import List, Optional
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from core.database import get_db
-from core.models import PendingApproval
+from core.models import PendingApproval, Profile, Army, army_profiles
 
 logger = logging.getLogger("FactoryAPI")
 
@@ -40,8 +40,64 @@ class PendingItemResponse(BaseModel):
     title: Optional[str] = None
     duration_seconds: Optional[int] = None
     file_size_bytes: Optional[int] = None
+    caption: Optional[str] = None
+    hashtags: Optional[List[str]] = None
+    caption_generated: bool = False
+    transcript: Optional[str] = None  # Whisper transcript for AI generation
     status: str
     created_at: datetime
+    target_army_id: Optional[int] = None
+    available_profiles: Optional[List[dict]] = None
+
+
+# ─── Helpers ─────────────────────────────────────────────────────────────
+
+def _resolve_profile_for_approval(item: PendingApproval, db: Session, profile_slug: Optional[str] = None) -> "Profile":
+    """
+    Resolve qual Profile usar para agendar o video aprovado.
+
+    Prioridade:
+    1. profile_slug explicito (frontend escolheu)
+    2. Profile vinculado ao Army do TwitchTarget do job
+    3. Primeiro Profile ativo como fallback
+    """
+    # 1. Slug explicito
+    if profile_slug:
+        profile = db.query(Profile).filter(Profile.slug == profile_slug, Profile.active == True).first()
+        if profile:
+            return profile
+
+    # 2. Via cadeia: ClipJob → TwitchTarget → army_id → Army.profiles
+    if item.clip_job_id:
+        from core.clipper.models import ClipJob, TwitchTarget
+        job = db.query(ClipJob).filter(ClipJob.id == item.clip_job_id).first()
+        if job and job.target_id:
+            target = db.query(TwitchTarget).filter(TwitchTarget.id == job.target_id).first()
+            if target and target.army_id:
+                army = db.query(Army).filter(Army.id == target.army_id).first()
+                if army and army.profiles:
+                    # Pegar o primeiro profile ativo do army
+                    for p in army.profiles:
+                        if p.active:
+                            return p
+
+    # 3. Fallback: primeiro profile ativo
+    profile = db.query(Profile).filter(Profile.active == True).first()
+    return profile
+
+
+def _get_available_profiles_for_item(item: PendingApproval, db: Session) -> List[dict]:
+    """Retorna profiles disponiveis para o frontend exibir na selecao."""
+    profiles = db.query(Profile).filter(Profile.active == True).all()
+    result = []
+    for p in profiles:
+        result.append({
+            "slug": p.slug,
+            "username": p.username,
+            "label": p.label,
+            "avatar_url": p.avatar_url,
+        })
+    return result
 
 
 # ─── GET /pending ────────────────────────────────────────────────────────
@@ -51,6 +107,7 @@ def list_pending(db: Session = Depends(get_db)):
     """
     Lista todos os vídeos pendentes de curadoria.
     Ordenados do mais recente para o mais antigo.
+    Inclui army_id e profiles disponiveis para selecao no frontend.
     """
     items = (
         db.query(PendingApproval)
@@ -59,8 +116,33 @@ def list_pending(db: Session = Depends(get_db)):
         .limit(50)
         .all()
     )
-    return [
-        PendingItemResponse(
+
+    available_profiles = _get_available_profiles_for_item(None, db) if items else []
+
+    results = []
+    for item in items:
+        # Resolver army_id via ClipJob → TwitchTarget
+        target_army_id = None
+        if item.clip_job_id:
+            from core.clipper.models import ClipJob, TwitchTarget
+            job = db.query(ClipJob).filter(ClipJob.id == item.clip_job_id).first()
+            if job and job.target_id:
+                target = db.query(TwitchTarget).filter(TwitchTarget.id == job.target_id).first()
+                if target:
+                    target_army_id = target.army_id
+
+        # Extrair transcript do ClipJob.whisper_result para uso na geração de caption
+        transcript_text = None
+        if item.clip_job_id:
+            job_for_transcript = db.query(ClipJob).filter(ClipJob.id == item.clip_job_id).first() if not job else job
+            if job_for_transcript and job_for_transcript.whisper_result:
+                # whisper_result é uma lista de dicts, cada um com "text"
+                transcript_parts = [
+                    t.get("text", "") for t in (job_for_transcript.whisper_result or []) if t.get("text")
+                ]
+                transcript_text = " ".join(transcript_parts) if transcript_parts else None
+
+        results.append(PendingItemResponse(
             id=item.id,
             clip_job_id=item.clip_job_id,
             video_path=item.video_path,
@@ -69,23 +151,33 @@ def list_pending(db: Session = Depends(get_db)):
             title=item.title,
             duration_seconds=item.duration_seconds,
             file_size_bytes=item.file_size_bytes,
+            caption=item.caption,
+            hashtags=item.hashtags or [],
+            caption_generated=item.caption_generated or False,
+            transcript=transcript_text,
             status=item.status,
             created_at=item.created_at,
-        )
-        for item in items
-    ]
+            target_army_id=target_army_id,
+            available_profiles=available_profiles,
+        ))
+    return results
 
 
 # ─── POST /approve/{id} — SYN-78: Smart Queue Pipeline ──────────────────
 
 @router.post("/approve/{item_id}")
-async def approve_item(item_id: int, db: Session = Depends(get_db)):
+async def approve_item(
+    item_id: int,
+    profile_slug: Optional[str] = Query(None, description="Slug do perfil destino (opcional, senao resolve automaticamente)"),
+    db: Session = Depends(get_db),
+):
     """
     Aprova um vídeo pendente e o injeta na Smart Queue.
-    Usa auto_scheduler.create_queue() + schedule_next_batch() para
-    distribuir inteligentemente ao longo dos dias, respeitando:
-    - SmartLogic: intervalo mínimo 2h, max 3 posts/dia
-    - calculate_next_slots: distribui nos schedule_hours configurados
+
+    Resolucao de perfil (prioridade):
+    1. profile_slug passado via query param (frontend escolheu)
+    2. Profile vinculado ao Army do TwitchTarget do job
+    3. Primeiro Profile ativo como fallback
     """
     item = db.query(PendingApproval).filter(PendingApproval.id == item_id).first()
     if not item:
@@ -99,23 +191,29 @@ async def approve_item(item_id: int, db: Session = Depends(get_db)):
 
     try:
         from core.auto_scheduler import create_queue, schedule_next_batch
-        from core.models import Profile
 
-        # Pegar o primeiro perfil ativo para agendamento automático
-        profile = db.query(Profile).filter(Profile.active == True).first()
+        # Resolver profile inteligentemente
+        profile = _resolve_profile_for_approval(item, db, profile_slug)
         if not profile:
             raise HTTPException(status_code=400, detail="Nenhum perfil ativo encontrado para agendamento")
 
         # Horários padrão de publicação (12h e 18h se não configurado)
         schedule_hours = [12, 18]
 
+        # Montar caption final: caption editada + hashtags
+        final_caption = item.caption or item.title or ""
+        final_hashtags = item.hashtags or []
+        if final_hashtags:
+            hashtag_str = " ".join(h if h.startswith("#") else f"#{h}" for h in final_hashtags)
+            final_caption = f"{final_caption}\n\n{hashtag_str}".strip()
+
         # 1. Inserir na Smart Queue
         queue_items = create_queue(
             profile_slug=profile.slug,
             videos=[{
                 "path": item.video_path,
-                "caption": item.title or "",
-                "hashtags": [],
+                "caption": final_caption,
+                "hashtags": final_hashtags,
                 "privacy_level": "public_to_everyone",
             }],
             posts_per_day=2,
@@ -138,7 +236,7 @@ async def approve_item(item_id: int, db: Session = Depends(get_db)):
         if queue_items and hasattr(queue_items[0], 'scheduled_at') and queue_items[0].scheduled_at:
             scheduled_time = queue_items[0].scheduled_at.isoformat()
 
-        logger.info(f"✅ Item #{item_id} aprovado via Smart Queue → perfil @{profile.slug} | resultado: {result}")
+        logger.info(f"Item #{item_id} aprovado via Smart Queue -> perfil @{profile.slug} | resultado: {result}")
 
         return {
             "message": "Vídeo aprovado e inserido na Smart Queue",
@@ -194,6 +292,22 @@ def get_queue_status(db: Session = Depends(get_db)):
         "failed": failed,
         "total_pending": total_pending,
     }
+
+
+# ─── POST /retry-failed — Retenta uploads falhados ──────────────────────
+
+@router.post("/retry-failed")
+async def retry_failed(db: Session = Depends(get_db)):
+    """
+    Retenta todos os uploads falhados na VideoQueue (max 3 tentativas por item).
+    """
+    try:
+        from core.auto_scheduler import retry_failed_uploads
+        result = await retry_failed_uploads(db)
+        return result
+    except Exception as e:
+        logger.error(f"Erro ao retentar uploads falhados: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ─── DELETE /reject/{id} ─────────────────────────────────────────────────

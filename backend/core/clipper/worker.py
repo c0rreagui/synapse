@@ -37,6 +37,18 @@ from core.models import PendingApproval
 logger = logging.getLogger("ClipperWorker")
 
 
+def _fail_job_db(job_id: int, error_message: str, current_step: str = "Falha no pipeline."):
+    """Helper para marcar job como falhado no DB."""
+    with safe_session() as db:
+        job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
+        if job:
+            job.status = "failed"
+            job.error_message = error_message[:500]
+            job.current_step = current_step
+            db.commit()
+    logger.error(f"Job #{job_id} falhado: {error_message[:200]}")
+
+
 async def _process_clip_job_inner(ctx, job_id: int):
     """
     Funcao principal orquestradora do pipeline de um unico ClipJob.
@@ -48,32 +60,30 @@ async def _process_clip_job_inner(ctx, job_id: int):
     """
     logger.info(f"==> Iniciando processamento do ClipJob #{job_id}")
 
+    # Guard: evitar reprocessamento se job ja nao esta pending
+    with safe_session() as db:
+        guard_job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
+        if not guard_job:
+            logger.warning(f"Job #{job_id} nao encontrado no DB, pulando.")
+            return
+        if guard_job.status not in ("pending", "downloading", "transcribing", "editing", "stitching"):
+            logger.info(f"Job #{job_id} ja esta em status '{guard_job.status}', pulando reprocessamento.")
+            return
+
     # 1. Download
     dl_result = await download_job_clips(job_id)
     if not dl_result.get("success"):
         error_msg = dl_result.get("error", "Unknown error")
-        logger.error(f"Job #{job_id} falhou no Download. Motivo: {error_msg}")
-        with safe_session() as db:
-            job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
-            if job:
-                job.status = "failed"
-                job.error_message = f"Download error: {error_msg}"
-                job.current_step = "Falha no download dos clipes."
-                db.commit()
+        _fail_job_db(job_id, f"Download error: {error_msg}", "Falha no download dos clipes.")
         return
 
     # 2. Transcricao (Whisper)
     tr_result = await transcribe_job_clips(job_id)
     if not tr_result.get("success"):
         error_msg = tr_result.get("error", "Unknown error")
-        logger.error(f"Job #{job_id} falhou na Transcricao. Motivo: {error_msg}")
-        with safe_session() as db:
-            job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
-            if job:
-                job.status = "failed"
-                job.error_message = f"Transcription error: {error_msg}"
-                job.current_step = "Falha na transcrição de áudio."
-                db.commit()
+        errors = tr_result.get("errors", [])
+        full_error = f"Transcription error: {error_msg}" + (f" | {' | '.join(errors)}" if errors else "")
+        _fail_job_db(job_id, full_error, "Falha na transcricao de audio.")
         return
 
     # Preparar para edicao
@@ -81,110 +91,114 @@ async def _process_clip_job_inner(ctx, job_id: int):
         job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
         if not job:
             return
-        local_paths = job.clip_local_paths
-        transcriptions = job.whisper_result
-    
+        local_paths = job.clip_local_paths or []
+        transcriptions = job.whisper_result or []
+
     if not local_paths or not transcriptions:
-        logger.error(f"Job #{job_id} estado invalido para edicao. (Sem paths ou sem transcricao)")
-        with safe_session() as db:
-            job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
-            if job:
-                job.status = "failed"
-                job.error_message = "Arquivos locais de vídeo ou transcrições não encontrados para edição."
-                job.current_step = "Falha ao preparar para edição."
-                db.commit()
+        _fail_job_db(job_id, "Arquivos locais ou transcricoes nao encontrados.", "Falha ao preparar para edicao.")
         return
 
-    # Buscar channel_name e auto_approve para o fallback de visao (reutiliza sessao existente)
+    # Buscar channel_name, auto_approve e target_id
     channel_name = None
     target_auto_approve = False
+    target_id = None
     with safe_session() as db:
         job_obj = db.query(ClipJob).filter(ClipJob.id == job_id).first()
         if job_obj and job_obj.target_id:
+            target_id = job_obj.target_id
             target = db.query(TwitchTarget).filter(TwitchTarget.id == job_obj.target_id).first()
             if target:
                 channel_name = target.channel_name
-                target_auto_approve = target.auto_approve
+                target_auto_approve = getattr(target, 'auto_approve', False) or False
+
+    # Filtrar apenas pares clip+transcricao com palavras (B05/B25 fix)
+    valid_pairs = []
+    for path, trans in zip(local_paths, transcriptions):
+        if trans.get("word_count", 0) > 0:
+            valid_pairs.append((path, trans))
+        else:
+            logger.warning(f"Job #{job_id}: Clip {path} sem palavras transcritas, pulando edicao.")
+
+    if not valid_pairs:
+        _fail_job_db(job_id, "Nenhum clipe teve palavras transcritas com sucesso.", "Falha: transcricoes vazias.")
+        return
 
     # 3. Gerar ASS & 4. FFmpeg Edit (por clipe individual)
     edited_paths = []
-    
+
     # Atualiza DB para "editing"
     with safe_session() as db:
         job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
-        job.status = "editing"
-        job.current_step = f"Editando 0/{len(local_paths)} clipes..."
-        job.progress_pct = 50
-        db.commit()
-
-    for idx, (path, trans) in enumerate(zip(local_paths, transcriptions)):
-        # Gera ASS para o clipe especifico
-        # Assumindo que a funcao default consiga lidar com transcricao singular numa lista
-        ass_path = generate_ass_for_multiple(
-            transcriptions=[trans],
-            style_name="opus",
-            time_offsets=[0.0]
-        )
-        
-        # Edita no FFmpeg (9:16, facecam crop, ass burn)
-        edit_res = await edit_clip(
-            video_path=path,
-            ass_path=ass_path,
-            timeout_seconds=900,
-            channel_name=channel_name,
-        )
-        
-        if edit_res.get("success"):
-            edited_paths.append(edit_res.get("output_path"))
-        else:
-            logger.error(f"Job #{job_id} falhou na edicao do clipe {idx}: {edit_res.get('error')}")
-
-        with safe_session() as db:
-            job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
-            job.current_step = f"Editando {idx + 1}/{len(local_paths)} clipes..."
-            job.progress_pct = 50 + int(((idx + 1) / len(local_paths)) * 40)
+        if job:
+            job.status = "editing"
+            job.current_step = f"Editando 0/{len(valid_pairs)} clipes..."
+            job.progress_pct = 50
             db.commit()
 
-    if not edited_paths:
-        err_msg = edit_res.get("error", "Unknown error") if 'edit_res' in locals() else "Nenhum clipe foi editado com sucesso."
+    for idx, (path, trans) in enumerate(valid_pairs):
+        try:
+            ass_path = generate_ass_for_multiple(
+                transcriptions=[trans],
+                style_name="opus",
+                time_offsets=[0.0]
+            )
+
+            edit_res = await edit_clip(
+                video_path=path,
+                ass_path=ass_path,
+                timeout_seconds=900,
+                channel_name=channel_name,
+            )
+
+            if edit_res.get("success"):
+                edited_paths.append(edit_res.get("output_path"))
+            else:
+                logger.error(f"Job #{job_id} falhou na edicao do clipe {idx}: {edit_res.get('error')}")
+        except Exception as e:
+            logger.error(f"Job #{job_id} excecao na edicao do clipe {idx}: {e}", exc_info=True)
+
         with safe_session() as db:
             job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
             if job:
-                job.status = "failed"
-                job.current_step = "Falha na edicao."
-                job.error_message = f"Edit error: {err_msg}"
+                job.current_step = f"Editando {idx + 1}/{len(valid_pairs)} clipes..."
+                job.progress_pct = 50 + int(((idx + 1) / len(valid_pairs)) * 40)
                 db.commit()
+
+    if not edited_paths:
+        _fail_job_db(job_id, "Nenhum clipe foi editado com sucesso.", "Falha na edicao.")
         return
 
     # 5. Stitching
     with safe_session() as db:
         job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
-        job.status = "stitching"
-        job.current_step = "Aplicando costura final..."
-        job.progress_pct = 90
-        streamer_name = channel_name or ""
-        clip_metadata = job.clip_metadata or []
-        db.commit()
+        if job:
+            job.status = "stitching"
+            job.current_step = "Aplicando costura final..."
+            job.progress_pct = 90
+            db.commit()
 
-    # 5. Aplicar Outro Filler se duracao total for menor que 60s
+    streamer_name = channel_name or ""
+
+    # Aplicar Outro Filler se duracao total for menor que 60s
     if streamer_name and len(edited_paths) > 0:
         try:
             from core.clipper.stitcher import _get_duration
             durations = []
             for ep in edited_paths:
                 durations.append(await _get_duration(ep))
-            
+
             total_duration = sum(durations)
-            
+
             if total_duration < 60.0:
-                missing = 60.0 - total_duration + 1.0 # 1s margin for safety
+                missing = 60.0 - total_duration + 1.0
                 with safe_session() as db:
                     j = db.query(ClipJob).filter(ClipJob.id == job_id).first()
-                    j.current_step = f"Gerando {missing:.1f}s de filler para atingir 1m..."
-                    db.commit()
+                    if j:
+                        j.current_step = f"Gerando {missing:.1f}s de filler para atingir 1m..."
+                        db.commit()
 
                 from core.clipper.hook_generator import generate_outro_filler
-                bg_clip = edited_paths[0] # usar o primeiro clip pra extrair frame
+                bg_clip = edited_paths[0]
                 hook_res = await generate_outro_filler(
                     streamer=streamer_name,
                     target_duration=missing,
@@ -194,129 +208,201 @@ async def _process_clip_job_inner(ctx, job_id: int):
                     hook_path = hook_res.get("output_path")
                     if hook_path and os.path.exists(hook_path):
                         edited_paths.append(hook_path)
+                        logger.info(f"Job #{job_id}: Filler de {missing:.1f}s adicionado.")
                 else:
                     logger.warning(f"Falha ao gerar filler para Job #{job_id}: {hook_res.get('error')}")
 
         except Exception as e:
-            logger.error(f"Erro inesperado ao gerar filler: {e}")
+            logger.error(f"Erro inesperado ao gerar filler: {e}", exc_info=True)
 
-    # 6. Stitching Final
+    # Stitching Final
     with safe_session() as db:
         job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
-        job.status = "stitching"
-        job.current_step = "Aplicando costura final..."
-        job.progress_pct = 90
-        db.commit()
+        if job:
+            job.status = "stitching"
+            job.current_step = "Aplicando costura final..."
+            job.progress_pct = 90
+            db.commit()
 
     stitch_res = await ensure_minimum_duration(edited_clips=edited_paths)
 
+    if not stitch_res.get("success"):
+        _fail_job_db(job_id, f"Stitch error: {stitch_res.get('error')}", "Falha na costura.")
+        return
+
+    # Marcar como concluido
+    output_path = stitch_res.get("output_path")
+    duration = stitch_res.get("duration", 0)
+
     with safe_session() as db:
         job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
-        if stitch_res.get("success"):
+        if job:
             job.status = "completed"
             job.current_step = "Concluido!"
             job.progress_pct = 100
-            job.output_path = stitch_res.get("output_path")
+            job.output_path = output_path
             job.completed_at = datetime.now(timezone.utc)
-            job.duration_seconds = stitch_res.get("duration", 0)
+            job.duration_seconds = duration
             db.commit()
 
+    # Inserir na fila de curadoria (PendingApproval)
+    try:
+        file_size = os.path.getsize(output_path) if output_path and os.path.exists(output_path) else 0
+
+        approval_status = "approved" if target_auto_approve else "pending"
+        approval_id = None
+        with safe_session() as db:
+            approval = PendingApproval(
+                clip_job_id=job_id,
+                video_path=output_path,
+                streamer_name=channel_name,
+                title=f"{channel_name or 'Clip'} #{job_id}",
+                duration_seconds=int(duration),
+                file_size_bytes=file_size,
+                status=approval_status,
+            )
+            db.add(approval)
+            db.commit()
+            db.refresh(approval)
+            approval_id = approval.id
+
+        if target_auto_approve:
+            logger.info(f"Job #{job_id} Auto-Approved (PendingApproval #{approval_id}).")
             try:
-                output_path = stitch_res.get("output_path")
-                file_size = os.path.getsize(output_path) if output_path and os.path.exists(output_path) else 0
+                from core.auto_scheduler import create_queue, schedule_next_batch
+                from core.models import Profile, Army
 
-                if target_auto_approve:
-                    # Direto pra fila inteligente de postagem se Auto-Approve True
-                    with safe_session() as db2:
-                        approval = PendingApproval(
-                            clip_job_id=job_id,
-                            video_path=output_path,
-                            streamer_name=channel_name,
-                            title=f"{channel_name or 'Clip'} #{job_id}",
-                            duration_seconds=int(stitch_res.get("duration", 0)),
-                            file_size_bytes=file_size,
-                            status="approved",
-                        )
-                        db2.add(approval)
-                        db2.commit()
-                        db2.refresh(approval)
-                        logger.info(f"⚡ Job #{job_id} Auto-Approved. Inserindo na Fila Inteligente...")
+                with safe_session() as db:
+                    # Resolver profile via Army do target (prioridade) ou fallback
+                    profile = None
+                    target = db.query(TwitchTarget).filter(TwitchTarget.id == target_id).first()
+                    if target and target.army_id:
+                        army = db.query(Army).filter(Army.id == target.army_id).first()
+                        if army and army.profiles:
+                            for p in army.profiles:
+                                if p.active:
+                                    profile = p
+                                    break
 
-                        # Send to auto_scheduler queue
-                        try:
-                            from core.auto_scheduler.queue import create_queue
-                            from core.auto_scheduler.scheduler import schedule_next_batch
-                            from core.models import Profile
-                            
-                            profile = db2.query(Profile).filter(Profile.active == True).first()
-                            
-                            if profile:
-                                create_queue(db2, profile.id, approval.id)
-                                logger.info(f"✅ Job #{job_id} Auto-Enfileirado e Agendado com Sucesso")
-                                # Schedule next batch if possible to accommodate the new item
-                                schedule_next_batch(db2, profile.id)
-                            else:
-                                logger.error(f"⚠️ Auto-Approve: Job #{job_id} não tem profile ativo para ser enfileirado.")
-                        except Exception as sq_err:
-                            logger.error(f"⚠️ Erro ao enfileirar Job #{job_id} pro Scheduler: {sq_err}")
-                else:
-                    # Comportamento padrão: Pendente de aprovação manual
-                    with safe_session() as db2:
-                        approval = PendingApproval(
-                            clip_job_id=job_id,
-                            video_path=output_path,
-                            streamer_name=channel_name,
-                            title=f"{channel_name or 'Clip'} #{job_id}",
-                            duration_seconds=int(stitch_res.get("duration", 0)),
-                            file_size_bytes=file_size,
-                            status="pending",
+                    if not profile:
+                        profile = db.query(Profile).filter(Profile.active == True).first()
+
+                    if profile:
+                        create_queue(
+                            profile_slug=profile.slug,
+                            videos=[{
+                                "path": output_path,
+                                "caption": f"{channel_name or 'Clip'} #{job_id}",
+                                "hashtags": [],
+                                "privacy_level": "public_to_everyone",
+                            }],
+                            posts_per_day=2,
+                            schedule_hours=[12, 18],
+                            db=db,
                         )
-                        db2.add(approval)
-                        db2.commit()
-                        logger.info(f"✅ Job #{job_id} inserido na fila de curadoria (PendingApproval #{approval.id})")
-            except Exception as e:
-                logger.error(f"⚠️ Job #{job_id} concluído mas falhou ao inserir na curadoria/fila: {e}", exc_info=True)
+                        result = await schedule_next_batch(
+                            profile_slug=profile.slug,
+                            batch_size=1,
+                            db=db,
+                        )
+                        logger.info(f"Job #{job_id} Auto-Enfileirado no perfil @{profile.slug}: {result}")
+                    else:
+                        logger.warning(f"Job #{job_id}: Nenhum profile ativo para auto-enfileirar.")
+            except Exception as sq_err:
+                logger.error(f"Erro ao enfileirar Job #{job_id} no Scheduler: {sq_err}", exc_info=True)
         else:
-            job.status = "failed"
-            job.current_step = "Falha na costura."
-            job.error_message = f"Stitch error: {stitch_res.get('error')}"
-            db.commit()
+            logger.info(f"Job #{job_id} inserido na fila de curadoria manual (PendingApproval #{approval_id}).")
+
+    except Exception as e:
+        logger.error(f"Job #{job_id} concluido mas falhou ao inserir na curadoria: {e}", exc_info=True)
 
 
 async def process_clip_job(ctx, job_id: int):
+    """
+    Ponto de entrada do ARQ. Antes de processar o job recebido,
+    verifica se ha jobs de alta prioridade que devem ser processados primeiro.
+    """
+    # Checar se ha job de alta prioridade que deve passar na frente
+    actual_job_id = job_id
     try:
-        await _process_clip_job_inner(ctx, job_id)
+        with safe_session() as db:
+            priority_job = (
+                db.query(ClipJob)
+                .filter(ClipJob.status == "pending", ClipJob.priority >= 1)
+                .order_by(ClipJob.priority.desc(), ClipJob.id.asc())
+                .first()
+            )
+            if priority_job and priority_job.id != job_id:
+                # Ha um job prioritario diferente do que recebemos — processa ele primeiro
+                logger.info(f"Job #{priority_job.id} tem prioridade {priority_job.priority}, processando antes de #{job_id}")
+                actual_job_id = priority_job.id
+                # Resetar prioridade para evitar loop
+                priority_job.priority = 0
+                db.commit()
     except Exception as e:
-        logger.error(f"❌ Erro fatal orfão processando job #{job_id}: {e}", exc_info=True)
+        logger.warning(f"Erro ao checar prioridade: {e}")
+
+    try:
+        await _process_clip_job_inner(ctx, actual_job_id)
+    except Exception as e:
+        logger.error(f"Erro fatal orfao processando job #{actual_job_id}: {e}", exc_info=True)
         try:
-            import os
-            with safe_session() as db:
-                job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
-                if job:
-                    job.status = "failed"
-                    job.error_message = str(e)[:500]
-                    job.current_step = "Falha crítica no worker pipeline."
-                    db.commit()
-                    
-                    if job.clip_local_paths:
-                        for p in job.clip_local_paths:
-                            if os.path.exists(p):
-                                os.remove(p)
-                    if hasattr(job, "output_path") and job.output_path and os.path.exists(job.output_path):
-                        os.remove(job.output_path)
+            _fail_job_db(actual_job_id, str(e), "Falha critica no worker pipeline.")
         except Exception as cleanup_err:
-            logger.error(f"Falha secundária ao limpar recursos do job #{job_id}: {cleanup_err}")
+            logger.error(f"Falha secundaria ao marcar job #{actual_job_id} como falhado: {cleanup_err}")
+
+    # Se trocamos o job, re-enfileirar o original para nao perder
+    if actual_job_id != job_id:
+        try:
+            with safe_session() as db:
+                orig = db.query(ClipJob).filter(ClipJob.id == job_id, ClipJob.status == "pending").first()
+                if orig:
+                    from core.config import REDIS_HOST, REDIS_PORT
+                    from arq.connections import RedisSettings, create_pool as arq_create_pool
+                    pool = await arq_create_pool(RedisSettings(host=REDIS_HOST, port=REDIS_PORT))
+                    await pool.enqueue_job("process_clip_job", job_id, _queue_name="clipper:queue")
+                    await pool.close()
+                    logger.info(f"Job #{job_id} re-enfileirado apos processar prioritario #{actual_job_id}")
+        except Exception as e:
+            logger.warning(f"Falha ao re-enfileirar job #{job_id}: {e}")
 
 async def startup(ctx):
     """
     Funcao que roda no startup do worker ARQ do Clipper.
     """
     logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
-    logger.info("⚡ Clipper Worker Conectado.")
-    
+    logger.info("Clipper Worker Conectado.")
+
+    # Recovery: resetar jobs orfaos que ficaram travados em estados intermediarios
+    stuck_statuses = ["processing", "downloading", "transcribing", "editing", "stitching"]
+    with safe_session() as db:
+        stuck_jobs = db.query(ClipJob).filter(ClipJob.status.in_(stuck_statuses)).all()
+        if stuck_jobs:
+            for job in stuck_jobs:
+                logger.warning(f"Job #{job.id} orfao (status={job.status}). Resetando para pending.")
+                job.status = "pending"
+                job.current_step = "Reagendado apos recovery do worker"
+                job.progress_pct = 0
+            db.commit()
+            logger.info(f"{len(stuck_jobs)} jobs orfaos resetados para reprocessamento.")
+
+    # Iniciar Clipper Scheduler Loop (scan automatico de targets)
+    try:
+        from core.clipper.scheduler import clipper_scheduler_loop
+        import asyncio
+        ctx["scheduler_task"] = asyncio.create_task(clipper_scheduler_loop(poll_interval=60))
+        logger.info("Clipper Scheduler Loop iniciado (poll=60s).")
+    except Exception as e:
+        logger.error(f"Falha ao iniciar Clipper Scheduler: {e}", exc_info=True)
+
 
 async def shutdown(ctx):
-    logger.info("🛑 Clipper Worker Desligando.")
+    # Cancelar scheduler loop se estiver rodando
+    scheduler_task = ctx.get("scheduler_task")
+    if scheduler_task and not scheduler_task.done():
+        scheduler_task.cancel()
+        logger.info("Clipper Scheduler Loop cancelado.")
+    logger.info("Clipper Worker Desligando.")
 
 
 
@@ -333,4 +419,4 @@ class WorkerSettings:
     max_jobs = 1  # Conservador devido a VRAM/RAM (Whisper e FFmpeg limitados a 1 por vez neste container)
     on_startup = startup
     on_shutdown = shutdown
-    job_timeout = 1800  # Pode demorar bastante (download + whisper + edição + stitch)
+    job_timeout = 1800  # Pode demorar bastante (download + whisper + edicao + stitch)

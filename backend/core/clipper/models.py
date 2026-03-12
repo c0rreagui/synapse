@@ -56,10 +56,11 @@ class TwitchTarget(Base):
 
     # Configuracao de monitoramento
     active = Column(Boolean, default=True)
+    auto_approve = Column(Boolean, default=False)  # Se True, pula curadoria e envia direto pro Scheduler
     check_interval_minutes = Column(Integer, default=15)
     max_clips_per_check = Column(Integer, default=100)  # Maximo Twitch API = 100
-    min_clip_views = Column(Integer, default=100)  # Filtro de qualidade
-    lookback_hours = Column(Integer, default=6)  # Janela de busca em horas (SYN-128: micro-lookbacks)
+    min_clip_views = Column(Integer, default=10)  # Filtro de qualidade para suportar canais menores
+    lookback_hours = Column(Integer, default=24)  # Janela de busca maior para achar os clipes
 
     # Estado do monitoramento
     last_checked_at = Column(DateTime, nullable=True)
@@ -109,6 +110,8 @@ class ClipJob(Base):
 
     # Erros
     error_message = Column(String, nullable=True)
+    retry_count = Column(Integer, default=0)  # Quantas vezes este job foi retentado
+    priority = Column(Integer, default=0)  # 0=normal, 1=high (processado primeiro)
 
     # Timestamps
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

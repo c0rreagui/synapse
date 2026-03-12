@@ -85,14 +85,14 @@ Dialogue: 0,0:00:00.00,0:01:00.00,HookStyle,,0,0,0,,{text}
         
     # 4. Construir o video final de padding usando -loop do input da imagem e o -t especificado
     # O apad preenche o audio para durar target_duration.
-    ass_basename = os.path.basename(ass_path)
-    output_basename = os.path.basename(output_path)
+    # Escapar ass_path para filtro FFmpeg (Windows compat)
+    safe_ass = ass_path.replace("\\", "/").replace(":", "\\:")
 
     ffmpeg_cmd = [
         "ffmpeg", "-y",
-        "-loop", "1", "-i", os.path.basename(frame_path),
-        "-i", os.path.basename(audio_path),
-        "-filter_complex", f"[0:v]gblur=sigma=50,ass={ass_basename}[v];[1:a]apad[a]",
+        "-loop", "1", "-i", frame_path,
+        "-i", audio_path,
+        "-filter_complex", f"[0:v]gblur=sigma=50,ass='{safe_ass}'[v];[1:a]apad[a]",
         "-map", "[v]",
         "-map", "[a]",
         "-t", str(target_duration),
@@ -103,27 +103,28 @@ Dialogue: 0,0:00:00.00,0:01:00.00,HookStyle,,0,0,0,,{text}
         "-b:a", "192k",
         "-r", "60",
         "-pix_fmt", "yuv420p",
-        output_basename
+        output_path
     ]
-    
+
     try:
-        proc = await asyncio.create_subprocess_exec(*ffmpeg_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, cwd=HOOKS_DIR)
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=60)
+        proc = await asyncio.create_subprocess_exec(*ffmpeg_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=120)
         if proc.returncode != 0:
-             logger.error(f"FFmpeg falhou ao gerar filler: {stderr.decode()}")
+             logger.error(f"FFmpeg falhou ao gerar filler: {stderr.decode()[:500]}")
              return {"success": False, "error": "FFmpeg error"}
     except Exception as e:
         logger.error(f"Erro no ffmpeg do filler: {e}")
         return {"success": False, "error": str(e)}
 
-    if os.path.exists(output_path):
+    if not os.path.exists(output_path):
+        return {"success": False, "error": "Video filler nao foi gerado"}
+
+    # Cleanup temp files
+    for tmp in [audio_path, ass_path, frame_path]:
         try:
-           os.remove(audio_path)
-           os.remove(ass_path)
-           os.remove(frame_path)
-        except:
-           pass
-        return {"success": True, "output_path": output_path, "duration": target_duration}
-    
-    return {"success": False, "error": "Video filler nao foi gerado"}
+            os.remove(tmp)
+        except OSError:
+            pass
+
+    return {"success": True, "output_path": output_path, "duration": target_duration}
 

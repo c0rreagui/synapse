@@ -58,6 +58,14 @@ interface ClipJobResponse {
     started_at?: string;
     completed_at?: string;
     channel_name?: string;
+    priority?: number;
+}
+
+interface ProfileOption {
+    slug: string;
+    username: string;
+    label: string;
+    avatar_url: string | null;
 }
 
 interface PendingVideo {
@@ -71,6 +79,8 @@ interface PendingVideo {
     file_size_bytes: number | null;
     status: string;
     created_at: string;
+    target_army_id: number | null;
+    available_profiles: ProfileOption[] | null;
 }
 
 type Tab = 'targets' | 'queue' | 'armies' | 'approval';
@@ -100,6 +110,7 @@ export default function ClipperPage() {
     const [selectedTime, setSelectedTime] = useState('12:00');
     const [submittingApproval, setSubmittingApproval] = useState(false);
     const [confirmReject, setConfirmReject] = useState<number | null>(null);
+    const [selectedProfileSlug, setSelectedProfileSlug] = useState<string>('');
 
     const [targetToDelete, setTargetToDelete] = useState<number | null>(null);
     const [armyToDelete, setArmyToDelete] = useState<number | null>(null);
@@ -313,14 +324,10 @@ export default function ClipperPage() {
         };
     }, [activeTab, fetchPending, fetchPendingVideos]);
 
-    const handleApprove = async (video: PendingVideo) => {
-        try {
-            await apiClient.post(`/api/v1/factory/approve/${video.id}`);
-            toast.success(`Vídeo "${video.title}" aprovado e inserido na Smart Queue!`);
-            await fetchPendingVideos();
-        } catch (error: any) {
-            toast.error(error?.data?.detail || 'Erro ao aprovar vídeo');
-        }
+    const handleApprove = (video: PendingVideo) => {
+        setSelectedVideo(video);
+        setSelectedProfileSlug('');
+        setShowApprovalModal(true);
     };
 
     const handleReject = async (videoId: number) => {
@@ -356,26 +363,22 @@ export default function ClipperPage() {
         setSubmittingApproval(true);
 
         try {
-            const scheduleTime = postType === 'scheduled'
-                ? `${selectedDate}T${selectedTime}:00`
-                : null;
+            const params = new URLSearchParams();
+            if (selectedProfileSlug) {
+                params.set('profile_slug', selectedProfileSlug);
+            }
+            const qs = params.toString() ? `?${params.toString()}` : '';
 
-            await apiClient.post('/api/v1/queue/approve', {
-                id: selectedVideo.id,
-                action: postType,
-                schedule_time: scheduleTime
-            });
+            const result = await apiClient.post(`/api/v1/factory/approve/${selectedVideo.id}${qs}`);
 
             setShowApprovalModal(false);
             setSelectedVideo(null);
             await fetchPendingVideos();
-            toast.success(
-                postType === 'immediate'
-                    ? 'Vídeo aprovado! Iniciando postagem imediata...'
-                    : `Vídeo agendado para ${selectedDate} às ${selectedTime}`
-            );
-        } catch (error) {
-            toast.error('Gargalo na aprovação. Tente novamente.');
+
+            const profileName = (result as any)?.profile || selectedProfileSlug || 'auto';
+            toast.success(`Vídeo aprovado e agendado no perfil @${profileName}!`);
+        } catch (error: any) {
+            toast.error(error?.data?.detail || 'Erro ao aprovar vídeo. Tente novamente.');
         } finally {
             setSubmittingApproval(false);
         }
@@ -746,7 +749,71 @@ export default function ClipperPage() {
                                 AGUARDANDO NOVOS EVENTOS
                             </div>
                         </div>
-                    ) : (
+                    ) : (() => {
+                        // ═══ Definição das Seções de Status ═══
+                        const PIPELINE_SECTIONS = [
+                            {
+                                key: 'processing',
+                                label: 'PROCESSANDO',
+                                icon: 'sync',
+                                statuses: ['downloading', 'transcribing', 'editing', 'stitching'],
+                                borderColor: 'border-cyan-500/30',
+                                bgColor: 'bg-cyan-500/5',
+                                textColor: 'text-cyan-400',
+                                badgeBg: 'bg-cyan-500/10',
+                                glowColor: 'shadow-[0_0_15px_rgba(0,240,255,0.05)]',
+                                animate: true,
+                            },
+                            {
+                                key: 'queue',
+                                label: 'NA FILA',
+                                icon: 'schedule',
+                                statuses: ['pending'],
+                                borderColor: 'border-slate-500/20',
+                                bgColor: 'bg-slate-500/5',
+                                textColor: 'text-slate-400',
+                                badgeBg: 'bg-slate-500/10',
+                                glowColor: '',
+                                animate: false,
+                            },
+                            {
+                                key: 'completed',
+                                label: 'CONCLUÍDOS',
+                                icon: 'check_circle',
+                                statuses: ['completed'],
+                                borderColor: 'border-emerald-500/20',
+                                bgColor: 'bg-emerald-500/5',
+                                textColor: 'text-emerald-400',
+                                badgeBg: 'bg-emerald-500/10',
+                                glowColor: '',
+                                animate: false,
+                            },
+                            {
+                                key: 'failed',
+                                label: 'FALHAS',
+                                icon: 'error',
+                                statuses: ['failed'],
+                                borderColor: 'border-red-500/20',
+                                bgColor: 'bg-red-500/5',
+                                textColor: 'text-red-400',
+                                badgeBg: 'bg-red-500/10',
+                                glowColor: '',
+                                animate: false,
+                            },
+                        ];
+
+                        // Mapa de step → ícone + rótulo amigável (hoisted para reusar)
+                        const PIPELINE_STEPS = [
+                            { key: 'pending',     icon: 'schedule',       label: 'Aguardando na fila',   color: 'text-slate-400',   pct: 0  },
+                            { key: 'downloading', icon: 'download',       label: 'Baixando clipes',      color: 'text-blue-400',    pct: 10 },
+                            { key: 'transcribing',icon: 'mic',            label: 'Transcrevendo (Whisper)', color: 'text-violet-400', pct: 30 },
+                            { key: 'editing',     icon: 'movie_edit',     label: 'Editando com FFmpeg',  color: 'text-amber-400',   pct: 50 },
+                            { key: 'stitching',   icon: 'join_inner',     label: 'Costurando clipes',    color: 'text-orange-400',  pct: 90 },
+                            { key: 'completed',   icon: 'check_circle',   label: 'Concluído',            color: 'text-emerald-400', pct: 100 },
+                            { key: 'failed',      icon: 'error',          label: 'Falha no pipeline',    color: 'text-red-400',     pct: 0  },
+                        ];
+
+                        return (
                         <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 overflow-y-auto max-h-[80vh] pr-2 custom-scrollbar pb-10">
                             {/* Header Section */}
                             <div className="flex items-center justify-between border-b border-white/5 pb-4">
@@ -757,27 +824,44 @@ export default function ClipperPage() {
                                     </h3>
                                 </div>
                                 <span className="bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[10px] font-mono px-3 py-1 rounded">
-                                    {items.filter(job => job.status !== 'completed').length} JOB{items.filter(job => job.status !== 'completed').length !== 1 ? 'S' : ''} ATIVO{items.filter(job => job.status !== 'completed').length !== 1 ? 'S' : ''}
+                                    {items.filter(job => job.status !== 'completed' && job.status !== 'failed').length} JOB{items.filter(job => job.status !== 'completed' && job.status !== 'failed').length !== 1 ? 'S' : ''} ATIVO{items.filter(job => job.status !== 'completed' && job.status !== 'failed').length !== 1 ? 'S' : ''}
                                 </span>
                             </div>
 
-                            <div className="space-y-3">
-                                {items.map((job) => {
-                                    // Mapa de step → ícone + rótulo amigável
-                                    const PIPELINE_STEPS = [
-                                        { key: 'pending',     icon: 'schedule',       label: 'Aguardando na fila',   color: 'text-slate-400',   pct: 0  },
-                                        { key: 'downloading', icon: 'download',       label: 'Baixando clipes',      color: 'text-blue-400',    pct: 10 },
-                                        { key: 'transcribing',icon: 'mic',            label: 'Transcrevendo (Whisper)', color: 'text-violet-400', pct: 30 },
-                                        { key: 'editing',     icon: 'movie_edit',     label: 'Editando com FFmpeg',  color: 'text-amber-400',   pct: 50 },
-                                        { key: 'stitching',   icon: 'join_inner',     label: 'Costurando clipes',    color: 'text-orange-400',  pct: 90 },
-                                        { key: 'completed',   icon: 'check_circle',   label: 'Concluído',            color: 'text-emerald-400', pct: 100 },
-                                        { key: 'failed',      icon: 'error',          label: 'Falha no pipeline',    color: 'text-red-400',     pct: 0  },
-                                    ];
-                                    const stepInfo = PIPELINE_STEPS.find(s => s.key === job.status) || PIPELINE_STEPS[0];
-                                    const activeStepIdx = PIPELINE_STEPS.findIndex(s => s.key === job.status);
+                            {/* ═══ Seções Agrupadas por Status ═══ */}
+                            <div className="space-y-6">
+                                {PIPELINE_SECTIONS.map((section) => {
+                                    const sectionJobs = items
+                                        .filter(job => section.statuses.includes(job.status))
+                                        .sort((a, b) => (b.priority || 0) - (a.priority || 0) || a.id - b.id);
+
+                                    if (sectionJobs.length === 0) return null;
 
                                     return (
-                                        <div key={job.id} className="bg-cosmic-void border border-cosmic-border rounded-xl p-5 group hover:border-cosmic-glowBorder hover:bg-cosmic-hull transition-colors shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
+                                        <div key={section.key} className={`rounded-xl border ${section.borderColor} ${section.bgColor} ${section.glowColor} overflow-hidden`}>
+                                            {/* Section Header */}
+                                            <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+                                                <div className="flex items-center gap-2.5">
+                                                    <span className={`material-symbols-outlined text-[16px] ${section.textColor} ${section.animate ? 'animate-spin' : ''}`} style={section.animate ? { animationDuration: '3s' } : undefined}>
+                                                        {section.icon}
+                                                    </span>
+                                                    <span className={`font-display font-bold text-sm tracking-widest ${section.textColor}`}>
+                                                        {section.label}
+                                                    </span>
+                                                </div>
+                                                <span className={`${section.badgeBg} border ${section.borderColor} ${section.textColor} text-[10px] font-mono px-2.5 py-0.5 rounded-full`}>
+                                                    {sectionJobs.length}
+                                                </span>
+                                            </div>
+
+                                            {/* Section Jobs */}
+                                            <div className="p-3 space-y-3">
+                                                {sectionJobs.map((job) => {
+                                                    const stepInfo = PIPELINE_STEPS.find(s => s.key === job.status) || PIPELINE_STEPS[0];
+                                                    const activeStepIdx = PIPELINE_STEPS.findIndex(s => s.key === job.status);
+
+                                                    return (
+                                        <div key={job.id} className={`bg-cosmic-void border rounded-xl p-5 group hover:border-cosmic-glowBorder hover:bg-cosmic-hull transition-colors ${(job.priority || 0) >= 1 ? 'border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.1)]' : 'border-cosmic-border shadow-[0_4px_20px_rgba(0,0,0,0.3)]'}`}>
                                             {/* Top row: canal + job id + status badge */}
                                             <div className="flex items-center justify-between mb-4">
                                                 <div className="flex items-center gap-3">
@@ -801,6 +885,10 @@ export default function ClipperPage() {
                                                 ) : job.status === 'failed' ? (
                                                     <span className="text-[10px] font-mono px-2.5 py-1 border border-red-500/30 text-red-400 rounded-full bg-red-500/10 flex items-center gap-1.5">
                                                         <span className="material-symbols-outlined text-[11px]">error</span>FALHA
+                                                    </span>
+                                                ) : job.status === 'pending' && (job.priority || 0) >= 1 ? (
+                                                    <span className="text-[10px] font-mono px-2.5 py-1 border border-amber-500/40 text-amber-400 rounded-full bg-amber-500/15 flex items-center gap-1.5 shadow-[0_0_10px_rgba(245,158,11,0.15)]">
+                                                        <span className="material-symbols-outlined text-[11px] animate-pulse">priority_high</span>PRIORIZADO
                                                     </span>
                                                 ) : job.status === 'pending' ? (
                                                     <span className="text-[10px] font-mono px-2.5 py-1 border border-slate-500/30 text-slate-400 rounded-full bg-slate-500/10 flex items-center gap-1.5">
@@ -867,19 +955,65 @@ export default function ClipperPage() {
                                                 </div>
                                             )}
 
-                                            {/* Timestamps */}
-                                            <div className="mt-3 flex gap-4 text-[9px] font-mono text-slate-700 border-t border-white/5 pt-3">
-                                                <span>Criado: <span className="text-slate-500">{new Date(job.created_at).toLocaleString('pt-BR')}</span></span>
-                                                {job.completed_at && (
-                                                    <span>Concluído: <span className="text-emerald-700">{new Date(job.completed_at).toLocaleString('pt-BR')}</span></span>
+                                            {/* Timestamps + Actions */}
+                                            <div className="mt-3 flex justify-between items-center border-t border-white/5 pt-3">
+                                                <div className="flex gap-4 text-[9px] font-mono text-slate-700">
+                                                    <span>Criado: <span className="text-slate-500">{new Date(job.created_at).toLocaleString('pt-BR')}</span></span>
+                                                    {job.completed_at && (
+                                                        <span>Concluído: <span className="text-emerald-700">{new Date(job.completed_at).toLocaleString('pt-BR')}</span></span>
+                                                    )}
+                                                </div>
+                                                {job.status === 'pending' && (
+                                                    <div className="flex gap-1.5">
+                                                        {!(job.priority && job.priority >= 1) && (
+                                                        <button
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                try {
+                                                                    await apiClient.post(`/api/clipper/jobs/${job.id}/prioritize`);
+                                                                    toast.success(`Job #${job.id} priorizado!`);
+                                                                    fetchPending();
+                                                                } catch (err: any) {
+                                                                    toast.error(err?.data?.detail || 'Erro ao priorizar');
+                                                                }
+                                                            }}
+                                                            className="text-[9px] font-mono px-2 py-1 border border-amber-500/30 text-amber-400 rounded bg-amber-500/10 hover:bg-amber-500/20 flex items-center gap-1 transition-colors"
+                                                            title="Priorizar este job"
+                                                        >
+                                                            <span className="material-symbols-outlined text-[11px]">priority_high</span>
+                                                            PRIORIZAR
+                                                        </button>
+                                                        )}
+                                                        <button
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                try {
+                                                                    await apiClient.post(`/api/clipper/jobs/${job.id}/cancel`);
+                                                                    toast.info(`Job #${job.id} cancelado`);
+                                                                    fetchPending();
+                                                                } catch (err: any) {
+                                                                    toast.error(err?.data?.detail || 'Erro ao cancelar');
+                                                                }
+                                                            }}
+                                                            className="text-[9px] font-mono px-2 py-1 border border-red-500/30 text-red-400 rounded bg-red-500/10 hover:bg-red-500/20 flex items-center gap-1 transition-colors"
+                                                            title="Cancelar este job"
+                                                        >
+                                                            <span className="material-symbols-outlined text-[11px]">close</span>
+                                                        </button>
+                                                    </div>
                                                 )}
+                                            </div>
+                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     );
                                 })}
                             </div>
                         </div>
-                    )}
+                        );
+                    })()}
                 </div>
             )}
 
@@ -1004,7 +1138,7 @@ export default function ClipperPage() {
                                             ) : (
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                                     {army.profiles.map((profile) => (
-                                                        <div key={profile.id} className="bg-black/40 border border-white/5 rounded-xl p-3 flex items-center gap-3 hover:border-white/10 transition-colors">
+                                                        <div key={profile.id} className="bg-black/40 border border-cyan-500/10 rounded-xl p-3 flex items-center gap-3 group hover:border-cyan-500/30 transition-colors">
                                                             {profile.avatar_url ? (
                                                                 <img src={profile.avatar_url} alt={profile.username} className="w-8 h-8 rounded-full object-cover" />
                                                             ) : (
@@ -1012,12 +1146,47 @@ export default function ClipperPage() {
                                                                     <span className="material-symbols-outlined text-slate-500 text-sm">person</span>
                                                                 </div>
                                                             )}
-                                                            <div className="min-w-0">
+                                                            <div className="min-w-0 flex-1">
                                                                 <div className="text-white text-sm font-bold truncate">{profile.username || profile.slug}</div>
                                                                 <div className="text-slate-500 text-[10px] font-mono truncate">@{profile.slug}</div>
                                                             </div>
+                                                            <button
+                                                                onClick={() => handleToggleProfileInArmy(army.id, profile.id, true)}
+                                                                className="w-7 h-7 rounded-full bg-red-500/0 text-red-400/0 group-hover:bg-red-500/10 group-hover:text-red-400 flex items-center justify-center transition-all hover:!bg-red-500/20"
+                                                                title="Desvincular perfil"
+                                                            >
+                                                                <span className="material-symbols-outlined text-sm">close</span>
+                                                            </button>
                                                         </div>
                                                     ))}
+                                                </div>
+                                            )}
+
+                                            {/* Add Profile Toggle */}
+                                            {profiles.filter(p => !army.profiles.some((ap: any) => ap.id === (p.db_id ?? p.id))).length > 0 && (
+                                                <div className="mt-4 pt-4 border-t border-white/5">
+                                                    <h5 className="text-[10px] font-mono text-slate-500 uppercase tracking-wider mb-2">Designar Perfis</h5>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {profiles
+                                                            .filter(p => !army.profiles.some((ap: any) => ap.id === (p.db_id ?? p.id)))
+                                                            .map((profile) => (
+                                                                <button
+                                                                    key={profile.id}
+                                                                    onClick={() => handleToggleProfileInArmy(army.id, profile.db_id ?? Number(profile.id), false)}
+                                                                    className="flex items-center gap-2 bg-black/40 border border-white/5 rounded-lg px-3 py-2 hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all group"
+                                                                >
+                                                                    {profile.avatar_url ? (
+                                                                        <img src={profile.avatar_url} alt={profile.username} className="w-5 h-5 rounded-full object-cover" />
+                                                                    ) : (
+                                                                        <div className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center">
+                                                                            <span className="material-symbols-outlined text-slate-500 text-[10px]">person</span>
+                                                                        </div>
+                                                                    )}
+                                                                    <span className="text-slate-400 text-xs font-mono group-hover:text-cyan-400 transition-colors">{profile.username || profile.slug}</span>
+                                                                    <span className="material-symbols-outlined text-cyan-500/0 group-hover:text-cyan-400 text-sm transition-colors">add</span>
+                                                                </button>
+                                                            ))}
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
@@ -1237,57 +1406,74 @@ export default function ClipperPage() {
                         <div className="mb-6">
                             <h3 className="text-xl font-bold text-white font-display mb-1 flex items-center gap-2">
                                 <span className="material-symbols-outlined text-emerald-400">rocket_launch</span>
-                                Lançar Edição
+                                Aprovar e Agendar
                             </h3>
                             <p className="text-slate-400 text-sm font-mono truncate">
                                 {selectedVideo.title || selectedVideo.video_path.split('/').pop()}
                             </p>
+                            {selectedVideo.streamer_name && (
+                                <p className="text-slate-500 text-xs font-mono mt-1">
+                                    Streamer: {selectedVideo.streamer_name}
+                                    {selectedVideo.duration_seconds && ` | ${Math.floor(selectedVideo.duration_seconds / 60)}:${String(selectedVideo.duration_seconds % 60).padStart(2, '0')}`}
+                                </p>
+                            )}
                         </div>
 
                         <div className="space-y-4 mb-6">
                             <div>
-                                <label className="text-[10px] uppercase font-mono text-slate-500 tracking-wider mb-2 block">Tipo de Lançamento</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <button
-                                        onClick={() => setPostType('immediate')}
-                                        className={`py-2 px-3 rounded text-xs font-mono border transition-all ${postType === 'immediate' ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20'}`}
-                                    >
-                                        IMEDIATO
-                                    </button>
-                                    <button
-                                        onClick={() => setPostType('scheduled')}
-                                        className={`py-2 px-3 rounded text-xs font-mono border transition-all ${postType === 'scheduled' ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400' : 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20'}`}
-                                    >
-                                        PROGRAMADO
-                                    </button>
-                                </div>
+                                <label className="text-[10px] uppercase font-mono text-slate-500 tracking-wider mb-2 block">
+                                    Perfil Destino
+                                </label>
+                                {selectedVideo.available_profiles && selectedVideo.available_profiles.length > 0 ? (
+                                    <div className="grid gap-2">
+                                        {/* Auto = resolver via Army do target */}
+                                        <button
+                                            onClick={() => setSelectedProfileSlug('')}
+                                            className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-all ${
+                                                selectedProfileSlug === ''
+                                                    ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400'
+                                                    : 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20'
+                                            }`}
+                                        >
+                                            <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
+                                            <div>
+                                                <div className="text-xs font-mono font-bold">AUTO</div>
+                                                <div className="text-[10px] text-slate-500">Resolve via Army do alvo</div>
+                                            </div>
+                                        </button>
+                                        {selectedVideo.available_profiles.map((p) => (
+                                            <button
+                                                key={p.slug}
+                                                onClick={() => setSelectedProfileSlug(p.slug)}
+                                                className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-all ${
+                                                    selectedProfileSlug === p.slug
+                                                        ? 'bg-cyan-500/10 border-cyan-500/50 text-cyan-400'
+                                                        : 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20'
+                                                }`}
+                                            >
+                                                {p.avatar_url ? (
+                                                    <img src={p.avatar_url} alt={p.username} className="w-6 h-6 rounded-full" />
+                                                ) : (
+                                                    <span className="material-symbols-outlined text-[20px]">account_circle</span>
+                                                )}
+                                                <div>
+                                                    <div className="text-xs font-mono font-bold">@{p.username}</div>
+                                                    {p.label && <div className="text-[10px] text-slate-500">{p.label}</div>}
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-slate-500 font-mono">Nenhum perfil ativo. Sera usado o perfil padrao.</p>
+                                )}
                             </div>
 
-                            {postType === 'scheduled' && (
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="text-[10px] uppercase font-mono text-slate-500 tracking-wider mb-1 block">Data</label>
-                                        <input
-                                            type="date"
-                                            value={selectedDate}
-                                            onChange={(e) => setSelectedDate(e.target.value)}
-                                            className="w-full bg-black/50 border border-white/10 rounded p-2 text-white font-mono text-sm focus:border-cyan-500 focus:outline-none"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] uppercase font-mono text-slate-500 tracking-wider mb-1 block">Hora</label>
-                                        <select
-                                            value={selectedTime}
-                                            onChange={(e) => setSelectedTime(e.target.value)}
-                                            className="w-full bg-black/50 border border-white/10 rounded p-2 text-white font-mono text-sm focus:border-cyan-500 focus:outline-none"
-                                        >
-                                            {timeOptions.map(time => (
-                                                <option key={time} value={time}>{time}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                            )}
+                            <div className="bg-white/5 rounded-lg p-3 border border-white/5">
+                                <p className="text-[10px] uppercase font-mono text-slate-500 tracking-wider mb-1">Agendamento</p>
+                                <p className="text-xs text-slate-400 font-mono">
+                                    A Smart Queue distribuira automaticamente nos horarios configurados (12h e 18h).
+                                </p>
+                            </div>
                         </div>
 
                         <div className="flex justify-end gap-3 mt-8">
@@ -1307,7 +1493,7 @@ export default function ClipperPage() {
                                 ) : (
                                     <span className="material-symbols-outlined text-[18px]">send</span>
                                 )}
-                                CONFIRMAR
+                                APROVAR
                             </button>
                         </div>
                     </div>

@@ -4,6 +4,7 @@ Orquestra o agendamento incremental de videos no TikTok Studio nativo.
 """
 import asyncio
 import logging
+import os
 from datetime import datetime, timedelta
 from typing import List, Optional
 from zoneinfo import ZoneInfo
@@ -245,6 +246,101 @@ async def schedule_next_batch(
         "failed": failed_count,
         "queued_remaining": queued_remaining
     }
+
+
+MAX_UPLOAD_RETRIES = 3
+
+
+async def retry_failed_uploads(db) -> dict:
+    """
+    Retenta uploads que falharam, ate MAX_UPLOAD_RETRIES vezes.
+    Chamado periodicamente pelo scheduler ou manualmente via API.
+    """
+    from core.uploader_monitored import upload_video_monitored
+
+    failed_items = db.query(VideoQueue).filter(
+        VideoQueue.status == "failed"
+    ).order_by(VideoQueue.created_at.asc()).all()
+
+    if not failed_items:
+        return {"retried": 0, "recovered": 0, "permanent_failures": 0}
+
+    retried = 0
+    recovered = 0
+    permanent = 0
+
+    for queue_item in failed_items:
+        # Contar tentativas anteriores via error_message
+        retry_count = (queue_item.error_message or "").count("[RETRY]")
+        if retry_count >= MAX_UPLOAD_RETRIES:
+            permanent += 1
+            continue
+
+        if not os.path.exists(queue_item.video_path):
+            queue_item.error_message = f"[RETRY] Arquivo nao encontrado: {queue_item.video_path}"
+            permanent += 1
+            db.commit()
+            continue
+
+        retried += 1
+        schedule_hours = queue_item.schedule_hours or [12, 18]
+        slots = calculate_next_slots(
+            profile_slug=queue_item.profile_slug,
+            count=1,
+            schedule_hours=schedule_hours,
+            db=db,
+        )
+
+        if not slots:
+            logger.warning(f"[RETRY] Sem slots disponiveis para item {queue_item.id}")
+            continue
+
+        slot = slots[0]
+        try:
+            result = await upload_video_monitored(
+                session_name=queue_item.profile_slug,
+                video_path=queue_item.video_path,
+                caption=queue_item.caption,
+                hashtags=queue_item.hashtags,
+                schedule_time=slot.isoformat(),
+                post=False,
+                enable_monitor=False,
+                privacy_level=queue_item.privacy_level,
+            )
+
+            if result.get("status") == "ready":
+                sched_item = ScheduleItem(
+                    profile_slug=queue_item.profile_slug,
+                    video_path=queue_item.video_path,
+                    scheduled_time=slot,
+                    status="pending",
+                    metadata_info={
+                        "caption": queue_item.caption,
+                        "hashtags": queue_item.hashtags,
+                        "source": "retry_scheduler",
+                        "queue_id": queue_item.id,
+                    }
+                )
+                db.add(sched_item)
+                db.flush()
+
+                queue_item.status = "scheduled"
+                queue_item.scheduled_at = slot
+                queue_item.schedule_item_id = sched_item.id
+                queue_item.error_message = None
+                db.commit()
+                recovered += 1
+                logger.info(f"[RETRY] Item {queue_item.id} recuperado! Agendado para {slot}")
+            else:
+                queue_item.error_message = f"[RETRY] {result.get('message', 'Upload falhou')}"
+                db.commit()
+        except Exception as e:
+            queue_item.error_message = f"[RETRY] {str(e)}"
+            db.commit()
+            logger.error(f"[RETRY] Falha ao retentar item {queue_item.id}: {e}")
+
+    logger.info(f"[RETRY] Resultado: {retried} tentados, {recovered} recuperados, {permanent} falhas permanentes")
+    return {"retried": retried, "recovered": recovered, "permanent_failures": permanent}
 
 
 def get_queue_status(profile_slug: str, db) -> dict:

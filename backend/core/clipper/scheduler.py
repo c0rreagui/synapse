@@ -186,8 +186,13 @@ def _get_ready_target_ids_with_priority() -> list[tuple[int, str]]:
             interval_minutes = t.check_interval_minutes or 15
             if t.last_checked_at is None:
                 ready.append((t.id, t.target_type))
-            elif (now - t.last_checked_at).total_seconds() >= interval_minutes * 60:
-                ready.append((t.id, t.target_type))
+            else:
+                # Normalizar timezone: DB pode retornar naive datetime
+                last = t.last_checked_at
+                if last.tzinfo is None:
+                    last = last.replace(tzinfo=timezone.utc)
+                if (now - last).total_seconds() >= interval_minutes * 60:
+                    ready.append((t.id, t.target_type))
 
         # Canais primeiro (mais rápidos), depois categorias
         ready.sort(key=lambda x: 0 if x[1] != "category" else 1)

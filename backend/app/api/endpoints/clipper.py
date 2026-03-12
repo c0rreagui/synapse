@@ -37,23 +37,24 @@ class TargetResponse(BaseModel):
     last_clip_found_at: Optional[datetime] = None
     total_clips_processed: int = 0
     consecutive_empty_checks: int = 0
-    min_clip_views: int = 100
+    min_clip_views: int = 10
     max_clips_per_check: int = 100
     check_interval_minutes: int = 15
     auto_approve: bool = False
 
 class ClipMetadataPydantic(BaseModel):
-    title: str
-    views: int
-    duration: float
-    creator: str
+    title: Optional[str] = None
+    views: Optional[int] = None
+    duration: Optional[float] = None
+    creator: Optional[str] = None
+    game: Optional[str] = None
 
 class ClipJobResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     target_id: int
     status: JobStatus
-    current_step: str
+    current_step: Optional[str] = None
     progress_pct: int
     error_message: Optional[str] = None
     created_at: datetime
@@ -61,6 +62,7 @@ class ClipJobResponse(BaseModel):
     completed_at: Optional[datetime] = None
     channel_name: Optional[str] = None
     clip_metadata: Optional[List[ClipMetadataPydantic]] = None
+    priority: int = 0
 
 
 
@@ -88,8 +90,8 @@ async def create_twitch_target(request: Request, target: TargetCreate):
             offline_image_url=res.get("offline_image_url"),
             active=True,
             status=res.get("status"),
-            min_clip_views=100,
-            max_clips_per_check=5,
+            min_clip_views=res.get("min_clip_views", 10),
+            max_clips_per_check=res.get("max_clips_per_check", 100),
             check_interval_minutes=15,
             auto_approve=target.auto_approve
         )
@@ -255,6 +257,77 @@ def list_clip_jobs(db: Session = Depends(get_db)):
             started_at=job.started_at,
             completed_at=job.completed_at,
             channel_name=channel_name,
+            priority=getattr(job, 'priority', 0) or 0,
         )
         for job, channel_name in rows
     ]
+
+
+# ─── POST /jobs/{id}/prioritize — Priorizar um job ────────────────────────
+
+@router.post("/jobs/{job_id}/prioritize")
+async def prioritize_job(job_id: int, db: Session = Depends(get_db)):
+    """
+    Marca um job como alta prioridade. O worker vai processa-lo antes dos demais.
+    Re-enfileira no Redis para garantir que seja processado rapidamente.
+    """
+    job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job nao encontrado")
+    if job.status != "pending":
+        raise HTTPException(status_code=400, detail=f"Apenas jobs pendentes podem ser priorizados (status atual: {job.status})")
+
+    job.priority = 1
+    db.commit()
+
+    # Re-enfileirar no Redis para processamento imediato
+    from core.config import REDIS_HOST, REDIS_PORT
+    from arq.connections import RedisSettings, create_pool
+    try:
+        pool = await create_pool(RedisSettings(host=REDIS_HOST, port=REDIS_PORT))
+        await pool.enqueue_job("process_clip_job", job_id, _queue_name="clipper:queue")
+        await pool.close()
+    except Exception as e:
+        logger.warning(f"Falha ao re-enfileirar job #{job_id}: {e}")
+
+    return {"message": f"Job #{job_id} priorizado", "priority": 1}
+
+
+# ─── POST /jobs/{id}/cancel — Cancelar um job ─────────────────────────────
+
+@router.post("/jobs/{job_id}/cancel")
+def cancel_job(job_id: int, db: Session = Depends(get_db)):
+    """Cancela um job pendente."""
+    job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job nao encontrado")
+    if job.status != "pending":
+        raise HTTPException(status_code=400, detail=f"Apenas jobs pendentes podem ser cancelados (status atual: {job.status})")
+
+    job.status = "failed"
+    job.error_message = "Cancelado pelo usuario"
+    db.commit()
+    return {"message": f"Job #{job_id} cancelado"}
+
+
+# ─── POST /jobs/cancel-bulk — Cancelar jobs em massa ──────────────────────
+
+class BulkCancelRequest(BaseModel):
+    job_ids: List[int]
+
+@router.post("/jobs/cancel-bulk")
+def cancel_jobs_bulk(req: BulkCancelRequest, db: Session = Depends(get_db)):
+    """Cancela multiplos jobs pendentes de uma vez."""
+    jobs = db.query(ClipJob).filter(
+        ClipJob.id.in_(req.job_ids),
+        ClipJob.status == "pending"
+    ).all()
+
+    cancelled = []
+    for job in jobs:
+        job.status = "failed"
+        job.error_message = "Cancelado pelo usuario (bulk)"
+        cancelled.append(job.id)
+
+    db.commit()
+    return {"cancelled": cancelled, "count": len(cancelled)}
