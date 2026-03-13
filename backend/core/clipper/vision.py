@@ -133,9 +133,11 @@ def detect_facecam_box(
         frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         total_area = frame_width * frame_height
         
-        # Filtro de chão geométrico: rosto (sem o padding) deve ocupar >= 2% da tela.
-        # Descartamos áreas ínfimas (ruídos) mas NÃO impomos teto, permitindo "Just Chatting".
-        min_face_area = total_area * 0.02
+        # Filtro de chão geométrico: rosto (sem o padding) deve ocupar >= 0.5% da tela.
+        # Em streams de gameplay (ex: Rocket League, GTA), a facecam ocupa um canto pequeno
+        # da tela 1920x1080, resultando em faces de ~120x150px (~0.87% da área).
+        # O piso de 0.5% filtra avatares de jogo (~22x29px, ~600px²) sem rejeitar facecams reais.
+        min_face_area = total_area * 0.005
 
         all_detections = []  # Lista de (conf, x, y, w, h)
         frames_tested = 0

@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { apiClient } from '../lib/api';
 import { toast } from '../utils/toast';
 import { ClipJobStatus } from '../types';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -68,6 +71,15 @@ interface ProfileOption {
     avatar_url: string | null;
 }
 
+interface ClipDetail {
+    index: number;
+    title: string | null;
+    duration: number | null;
+    views: number | null;
+    creator: string | null;
+    game: string | null;
+}
+
 interface PendingVideo {
     id: number;
     clip_job_id: number | null;
@@ -77,6 +89,11 @@ interface PendingVideo {
     title: string | null;
     duration_seconds: number | null;
     file_size_bytes: number | null;
+    caption: string | null;
+    hashtags: string[] | null;
+    caption_generated: boolean;
+    transcript: string | null;
+    clips?: ClipDetail[] | null;
     status: string;
     created_at: string;
     target_army_id: number | null;
@@ -84,6 +101,99 @@ interface PendingVideo {
 }
 
 type Tab = 'targets' | 'queue' | 'armies' | 'approval';
+
+function SortableClip({ clip }: { clip: ClipDetail }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: clip.index });
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+    };
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            {...attributes}
+            {...listeners}
+            className="flex items-center gap-2 bg-black/40 border border-white/10 hover:border-cyan-500/30 rounded p-2 cursor-grab active:cursor-grabbing transition-colors mb-1.5"
+        >
+            <span className="material-symbols-outlined text-slate-500 text-[14px]">drag_indicator</span>
+            <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-white font-mono truncate">{clip.title || `Clip #${clip.index + 1}`}</p>
+                <div className="flex gap-2 mt-0.5">
+                    <span className="text-[9px] text-emerald-400 font-mono flex items-center gap-0.5">
+                        <span className="material-symbols-outlined text-[10px]">timer</span>
+                        {clip.duration ? Math.floor(clip.duration) : '--'}s
+                    </span>
+                    <span className="text-[9px] text-cyan-400 font-mono flex items-center gap-0.5">
+                        <span className="material-symbols-outlined text-[10px]">visibility</span>
+                        {clip.views || '--'}
+                    </span>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ClipReorderList({ initialClips, onReorder }: { initialClips: ClipDetail[], onReorder: (newOrder: number[]) => Promise<void> }) {
+    const [clips, setClips] = useState(initialClips);
+    const [isSaving, setIsSaving] = useState(false);
+    
+    useEffect(() => { setClips(initialClips); }, [initialClips]);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (active.id !== over?.id) {
+            setClips((items) => {
+                const oldIndex = items.findIndex((i) => i.index === active.id);
+                const newIndex = items.findIndex((i) => i.index === over?.id);
+                return arrayMove(items, oldIndex, newIndex);
+            });
+        }
+    };
+
+    const hasChanges = JSON.stringify(clips.map(c => c.index)) !== JSON.stringify(initialClips.map(c => c.index));
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        await onReorder(clips.map(c => c.index));
+        setIsSaving(false);
+    };
+
+    return (
+        <div className="border-t border-white/5 pt-2 mt-2">
+            <h4 className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5 px-1">
+                <span className="material-symbols-outlined text-[14px]">reorder</span>
+                ORDEM DOS CLIPES ({clips.length})
+            </h4>
+            <div className="max-h-[150px] overflow-y-auto custom-scrollbar pr-1">
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={clips.map(c => c.index)} strategy={verticalListSortingStrategy}>
+                        {clips.map(clip => (
+                            <SortableClip key={clip.index} clip={clip} />
+                        ))}
+                    </SortableContext>
+                </DndContext>
+            </div>
+            {hasChanges && (
+                <button
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="w-full mt-2 flex items-center justify-center gap-1.5 py-1.5 text-[9px] font-mono uppercase tracking-wider border border-cyan-500/30 text-cyan-400 rounded bg-cyan-500/10 hover:bg-cyan-500/20 transition-colors disabled:opacity-50"
+                >
+                    <span className="material-symbols-outlined text-[12px]">save</span>
+                    {isSaving ? 'SALVANDO...' : 'SALVAR E RE-AGENDAR'}
+                </button>
+            )}
+        </div>
+    );
+}
 
 export default function ClipperPage() {
     const [activeTab, setActiveTab] = useState<'targets' | 'queue' | 'armies' | 'approval'>('targets');
@@ -105,12 +215,19 @@ export default function ClipperPage() {
     const [approvalLoading, setApprovalLoading] = useState(true);
     const [selectedVideo, setSelectedVideo] = useState<PendingVideo | null>(null);
     const [showApprovalModal, setShowApprovalModal] = useState(false);
-    const [postType, setPostType] = useState<'immediate' | 'scheduled'>('immediate');
+    const [postType, setPostType] = useState<'smart' | 'specific' | 'now'>('smart');
     const [selectedDate, setSelectedDate] = useState('');
     const [selectedTime, setSelectedTime] = useState('12:00');
     const [submittingApproval, setSubmittingApproval] = useState(false);
     const [confirmReject, setConfirmReject] = useState<number | null>(null);
     const [selectedProfileSlug, setSelectedProfileSlug] = useState<string>('');
+
+    // Caption Accordion State
+    const [expandedCaptionId, setExpandedCaptionId] = useState<number | null>(null);
+    const [captionDrafts, setCaptionDrafts] = useState<Record<number, { caption: string; hashtags: string[] }>>({});
+    const [generatingCaption, setGeneratingCaption] = useState<number | null>(null);
+    const [captionTone, setCaptionTone] = useState<string>('Viral');
+    const [savingCaption, setSavingCaption] = useState<number | null>(null);
 
     const [targetToDelete, setTargetToDelete] = useState<number | null>(null);
     const [armyToDelete, setArmyToDelete] = useState<number | null>(null);
@@ -347,36 +464,124 @@ export default function ClipperPage() {
         }
     };
 
-    const handleInvert = async (videoId: number) => {
-        const toastId = toast.loading('Re-agendando job...');
+    const handleReorderClips = async (videoId: number, newOrder: number[]) => {
+        const toastId = toast.loading('Re-agendando job com nova ordem...');
         try {
-            const response = await apiClient.post(`/api/v1/factory/invert/${videoId}`);
+            const response = await apiClient.post(`/api/v1/factory/reorder/${videoId}`, { order: newOrder });
             await fetchPendingVideos();
-            toast.success(response.data?.message || 'Vídeo re-agendado com a ordem dos clipes invertida!', { id: toastId });
+            toast.success((response as any).data?.message || 'Ordem dos clipes atualizada!', { id: toastId });
         } catch (error: any) {
-            toast.error(error?.data?.detail || 'Erro ao inverter ordem dos clipes', { id: toastId });
+            toast.error(error?.data?.detail || 'Erro ao reordenar clipes', { id: toastId });
+        }
+    };
+
+    // ── Caption Generation & Save ──
+    const handleGenerateCaption = async (videoId: number) => {
+        setGeneratingCaption(videoId);
+        try {
+            const result = await apiClient.post(`/api/v1/factory/generate-caption/${videoId}`, {
+                tone: captionTone,
+                length: 'short',
+                include_hashtags: true,
+                instruction: '',
+            });
+            const data = result as any;
+            setCaptionDrafts(prev => ({
+                ...prev,
+                [videoId]: { caption: data.caption || '', hashtags: data.hashtags || [] }
+            }));
+            toast.success('Descrição gerada pelo Oracle!');
+        } catch (error: any) {
+            toast.error(error?.data?.detail || 'Erro ao gerar descrição');
+        } finally {
+            setGeneratingCaption(null);
+        }
+    };
+
+    const handleSaveCaption = async (videoId: number) => {
+        const draft = captionDrafts[videoId];
+        if (!draft) return;
+        setSavingCaption(videoId);
+        try {
+            await apiClient.patch(`/api/v1/factory/caption/${videoId}`, {
+                caption: draft.caption,
+                hashtags: draft.hashtags,
+            });
+            toast.success('Descrição salva!');
+            await fetchPendingVideos();
+        } catch (error: any) {
+            toast.error(error?.data?.detail || 'Erro ao salvar descrição');
+        } finally {
+            setSavingCaption(null);
+        }
+    };
+
+    const toggleCaptionAccordion = (videoId: number) => {
+        if (expandedCaptionId === videoId) {
+            setExpandedCaptionId(null);
+        } else {
+            setExpandedCaptionId(videoId);
+            // Inicializar draft com caption existente se houver
+            const video = pendingVideos.find(v => v.id === videoId);
+            if (video && !captionDrafts[videoId]) {
+                setCaptionDrafts(prev => ({
+                    ...prev,
+                    [videoId]: {
+                        caption: video.caption || '',
+                        hashtags: video.hashtags || [],
+                    }
+                }));
+            }
         }
     };
 
     const handleConfirmVideo = async () => {
         if (!selectedVideo) return;
+
+        // Validação: modo específico requer data
+        if (postType === 'specific' && !selectedDate) {
+            toast.error('Selecione uma data para agendamento específico.');
+            return;
+        }
+
         setSubmittingApproval(true);
 
         try {
-            const params = new URLSearchParams();
-            if (selectedProfileSlug) {
-                params.set('profile_slug', selectedProfileSlug);
+            // Salvar caption pendente antes de aprovar (se editada)
+            const draft = captionDrafts[selectedVideo.id];
+            if (draft && (draft.caption || draft.hashtags.length > 0)) {
+                await apiClient.patch(`/api/v1/factory/caption/${selectedVideo.id}`, {
+                    caption: draft.caption,
+                    hashtags: draft.hashtags,
+                });
             }
-            const qs = params.toString() ? `?${params.toString()}` : '';
 
-            const result = await apiClient.post(`/api/v1/factory/approve/${selectedVideo.id}${qs}`);
+            const approveBody: Record<string, any> = {
+                schedule_mode: postType,
+            };
+            if (selectedProfileSlug) {
+                approveBody.profile_slug = selectedProfileSlug;
+            }
+            if (postType === 'specific') {
+                approveBody.schedule_date = selectedDate;
+                approveBody.schedule_time = selectedTime || '12:00';
+            }
+
+            const result = await apiClient.post(`/api/v1/factory/approve/${selectedVideo.id}`, approveBody);
 
             setShowApprovalModal(false);
             setSelectedVideo(null);
+            setPostType('smart');
+            setSelectedDate('');
+            setSelectedTime('12:00');
             await fetchPendingVideos();
 
             const profileName = (result as any)?.profile || selectedProfileSlug || 'auto';
-            toast.success(`Vídeo aprovado e agendado no perfil @${profileName}!`);
+            const scheduledTime = (result as any)?.scheduled_time;
+            const timeStr = scheduledTime
+                ? ` para ${new Date(scheduledTime).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
+                : '';
+            toast.success(`Vídeo aprovado e agendado no perfil @${profileName}${timeStr}!`);
         } catch (error: any) {
             toast.error(error?.data?.detail || 'Erro ao aprovar vídeo. Tente novamente.');
         } finally {
@@ -765,6 +970,18 @@ export default function ClipperPage() {
                                 animate: true,
                             },
                             {
+                                key: 'waiting',
+                                label: 'AGUARDANDO CLIPS',
+                                icon: 'hourglass_top',
+                                statuses: ['waiting_clips'],
+                                borderColor: 'border-amber-500/20',
+                                bgColor: 'bg-amber-500/5',
+                                textColor: 'text-amber-400',
+                                badgeBg: 'bg-amber-500/10',
+                                glowColor: '',
+                                animate: true,
+                            },
+                            {
                                 key: 'queue',
                                 label: 'NA FILA',
                                 icon: 'schedule',
@@ -804,6 +1021,7 @@ export default function ClipperPage() {
 
                         // Mapa de step → ícone + rótulo amigável (hoisted para reusar)
                         const PIPELINE_STEPS = [
+                            { key: 'waiting_clips', icon: 'hourglass_top', label: 'Aguardando mais clips', color: 'text-amber-400',   pct: 0  },
                             { key: 'pending',     icon: 'schedule',       label: 'Aguardando na fila',   color: 'text-slate-400',   pct: 0  },
                             { key: 'downloading', icon: 'download',       label: 'Baixando clipes',      color: 'text-blue-400',    pct: 10 },
                             { key: 'transcribing',icon: 'mic',            label: 'Transcrevendo (Whisper)', color: 'text-violet-400', pct: 30 },
@@ -885,6 +1103,10 @@ export default function ClipperPage() {
                                                 ) : job.status === 'failed' ? (
                                                     <span className="text-[10px] font-mono px-2.5 py-1 border border-red-500/30 text-red-400 rounded-full bg-red-500/10 flex items-center gap-1.5">
                                                         <span className="material-symbols-outlined text-[11px]">error</span>FALHA
+                                                    </span>
+                                                ) : (job.status as any) === 'waiting_clips' ? (
+                                                    <span className="text-[10px] font-mono px-2.5 py-1 border border-amber-500/30 text-amber-400 rounded-full bg-amber-500/10 flex items-center gap-1.5">
+                                                        <span className="material-symbols-outlined text-[11px] animate-spin" style={{animationDuration: '3s'}}>hourglass_top</span>AGUARDANDO CLIPS
                                                     </span>
                                                 ) : job.status === 'pending' && (job.priority || 0) >= 1 ? (
                                                     <span className="text-[10px] font-mono px-2.5 py-1 border border-amber-500/40 text-amber-400 rounded-full bg-amber-500/15 flex items-center gap-1.5 shadow-[0_0_10px_rgba(245,158,11,0.15)]">
@@ -1151,7 +1373,7 @@ export default function ClipperPage() {
                                                                 <div className="text-slate-500 text-[10px] font-mono truncate">@{profile.slug}</div>
                                                             </div>
                                                             <button
-                                                                onClick={() => handleToggleProfileInArmy(army.id, profile.id, true)}
+                                                                onClick={() => handleToggleProfileInArmy(army.id, Number(profile.id), true)}
                                                                 className="w-7 h-7 rounded-full bg-red-500/0 text-red-400/0 group-hover:bg-red-500/10 group-hover:text-red-400 flex items-center justify-center transition-all hover:!bg-red-500/20"
                                                                 title="Desvincular perfil"
                                                             >
@@ -1292,8 +1514,140 @@ export default function ClipperPage() {
                                             )}
                                         </div>
 
+                                        {/* ═══ Caption Accordion ═══ */}
+                                        <div className="border-t border-white/5 pt-2">
+                                            <button
+                                                onClick={() => toggleCaptionAccordion(video.id)}
+                                                className="w-full flex items-center justify-between py-2 px-1 text-[10px] font-mono uppercase tracking-wider text-slate-400 hover:text-white transition-colors group/acc"
+                                            >
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="material-symbols-outlined text-[14px]">description</span>
+                                                    DESCRIÇÃO
+                                                    {(video.caption || captionDrafts[video.id]?.caption) && (
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" title="Descrição definida"></span>
+                                                    )}
+                                                    {video.caption_generated && (
+                                                        <span className="text-[8px] text-violet-400 border border-violet-500/30 bg-violet-500/10 px-1 rounded">IA</span>
+                                                    )}
+                                                </div>
+                                                <span className={`material-symbols-outlined text-[14px] transition-transform duration-200 ${expandedCaptionId === video.id ? 'rotate-180' : ''}`}>
+                                                    expand_more
+                                                </span>
+                                            </button>
+
+                                            {expandedCaptionId === video.id && (
+                                                <div className="space-y-3 pb-3 animate-in slide-in-from-top-2 duration-200">
+                                                    {/* Tone Selector */}
+                                                    <div className="flex gap-1.5 flex-wrap">
+                                                        {['Viral', 'Polêmico', 'Engraçado', 'Profissional'].map(tone => (
+                                                            <button
+                                                                key={tone}
+                                                                onClick={() => setCaptionTone(tone)}
+                                                                className={`text-[9px] font-mono px-2 py-1 rounded-full border transition-colors ${
+                                                                    captionTone === tone
+                                                                        ? 'border-violet-500/50 bg-violet-500/20 text-violet-300'
+                                                                        : 'border-white/10 text-slate-500 hover:border-white/20 hover:text-slate-300'
+                                                                }`}
+                                                            >
+                                                                {tone === 'Viral' && '🔥'} {tone === 'Polêmico' && '💥'} {tone === 'Engraçado' && '😂'} {tone === 'Profissional' && '💼'} {tone}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+
+                                                    {/* Generate Button */}
+                                                    <button
+                                                        onClick={() => handleGenerateCaption(video.id)}
+                                                        disabled={generatingCaption === video.id}
+                                                        className="w-full flex items-center justify-center gap-2 py-2 text-[10px] font-mono font-bold uppercase tracking-wider border border-violet-500/30 text-violet-400 rounded-lg bg-violet-500/5 hover:bg-violet-500/15 transition-colors disabled:opacity-50"
+                                                    >
+                                                        {generatingCaption === video.id ? (
+                                                            <>
+                                                                <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>
+                                                                ORACLE GERANDO...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <span className="material-symbols-outlined text-[14px]">auto_awesome</span>
+                                                                GERAR COM IA
+                                                            </>
+                                                        )}
+                                                    </button>
+
+                                                    {/* Caption Textarea */}
+                                                    <textarea
+                                                        value={captionDrafts[video.id]?.caption || ''}
+                                                        onChange={(e) => setCaptionDrafts(prev => ({
+                                                            ...prev,
+                                                            [video.id]: { ...prev[video.id], caption: e.target.value, hashtags: prev[video.id]?.hashtags || [] }
+                                                        }))}
+                                                        placeholder="Escreva a descrição do TikTok..."
+                                                        className="w-full bg-black/40 border border-white/10 rounded-lg text-white text-xs font-mono p-3 resize-none focus:border-violet-500/50 focus:outline-none placeholder:text-slate-600 min-h-[80px]"
+                                                        rows={3}
+                                                    />
+
+                                                    {/* Hashtags */}
+                                                    {(captionDrafts[video.id]?.hashtags?.length ?? 0) > 0 && (
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {captionDrafts[video.id]?.hashtags.map((tag, i) => (
+                                                                <span key={i} className="text-[9px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                                    {tag.startsWith('#') ? tag : `#${tag}`}
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setCaptionDrafts(prev => ({
+                                                                                ...prev,
+                                                                                [video.id]: {
+                                                                                    ...prev[video.id],
+                                                                                    hashtags: prev[video.id].hashtags.filter((_, idx) => idx !== i)
+                                                                                }
+                                                                            }));
+                                                                        }}
+                                                                        className="text-cyan-500/50 hover:text-red-400 transition-colors"
+                                                                    >
+                                                                        <span className="material-symbols-outlined text-[10px]">close</span>
+                                                                    </button>
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Transcript Preview (collapsed) */}
+                                                    {video.transcript && (
+                                                        <details className="text-[9px] font-mono text-slate-600">
+                                                            <summary className="cursor-pointer hover:text-slate-400 transition-colors flex items-center gap-1">
+                                                                <span className="material-symbols-outlined text-[12px]">mic</span>
+                                                                TRANSCRIÇÃO WHISPER ({video.transcript.length} chars)
+                                                            </summary>
+                                                            <p className="mt-1.5 p-2 bg-black/30 rounded border border-white/5 text-slate-500 leading-relaxed max-h-[100px] overflow-y-auto custom-scrollbar">
+                                                                {video.transcript}
+                                                            </p>
+                                                        </details>
+                                                    )}
+
+                                                    {/* Save Button */}
+                                                    {captionDrafts[video.id]?.caption && (
+                                                        <button
+                                                            onClick={() => handleSaveCaption(video.id)}
+                                                            disabled={savingCaption === video.id}
+                                                            className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[9px] font-mono uppercase tracking-wider border border-emerald-500/20 text-emerald-400 rounded bg-emerald-500/5 hover:bg-emerald-500/15 transition-colors disabled:opacity-50"
+                                                        >
+                                                            <span className="material-symbols-outlined text-[12px]">save</span>
+                                                            {savingCaption === video.id ? 'SALVANDO...' : 'SALVAR DESCRIÇÃO'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Reorder Clipes UI */}
+                                        {video.clips && video.clips.length > 1 && (
+                                            <ClipReorderList 
+                                                initialClips={video.clips} 
+                                                onReorder={async (newOrder) => await handleReorderClips(video.id, newOrder)}
+                                            />
+                                        )}
+
                                         {/* Action Buttons */}
-                                        <div className="flex gap-2 mt-auto pt-1">
+                                        <div className="flex gap-2 mt-auto pt-2 border-t border-white/5">
                                             <button
                                                 onClick={() => handleApprove(video)}
                                                 className="flex-1 bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 hover:from-emerald-500 hover:to-emerald-400 hover:text-black border border-emerald-500/30 text-emerald-400 text-xs font-mono font-bold py-2.5 rounded-lg flex justify-center items-center gap-2 transition-all shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.4)]"
@@ -1301,14 +1655,6 @@ export default function ClipperPage() {
                                             >
                                                 <span className="material-symbols-outlined text-[16px]">check_circle</span>
                                                 APROVAR
-                                            </button>
-                                            <button
-                                                onClick={() => handleInvert(video.id)}
-                                                className="bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 hover:text-cyan-300 text-xs py-2.5 px-4 rounded-lg flex justify-center items-center transition-colors"
-                                                title="Inverter Ordem dos Clipes e Re-agendar"
-                                                aria-label={`Inverter vídeo ${video.title}`}
-                                            >
-                                                <span className="material-symbols-outlined text-[18px]">shuffle</span>
                                             </button>
                                             <button
                                                 onClick={() => handleReject(video.id)}
@@ -1419,14 +1765,14 @@ export default function ClipperPage() {
                             )}
                         </div>
 
-                        <div className="space-y-4 mb-6">
+                        <div className="space-y-4 mb-6 max-h-[60vh] overflow-y-auto pr-1">
+                            {/* Perfil Destino */}
                             <div>
                                 <label className="text-[10px] uppercase font-mono text-slate-500 tracking-wider mb-2 block">
                                     Perfil Destino
                                 </label>
                                 {selectedVideo.available_profiles && selectedVideo.available_profiles.length > 0 ? (
                                     <div className="grid gap-2">
-                                        {/* Auto = resolver via Army do target */}
                                         <button
                                             onClick={() => setSelectedProfileSlug('')}
                                             className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-all ${
@@ -1468,11 +1814,106 @@ export default function ClipperPage() {
                                 )}
                             </div>
 
-                            <div className="bg-white/5 rounded-lg p-3 border border-white/5">
-                                <p className="text-[10px] uppercase font-mono text-slate-500 tracking-wider mb-1">Agendamento</p>
-                                <p className="text-xs text-slate-400 font-mono">
-                                    A Smart Queue distribuira automaticamente nos horarios configurados (12h e 18h).
-                                </p>
+                            {/* Modo de Agendamento */}
+                            <div>
+                                <label className="text-[10px] uppercase font-mono text-slate-500 tracking-wider mb-2 block">
+                                    Agendamento
+                                </label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {([
+                                        { mode: 'smart' as const, icon: 'auto_awesome', label: 'Smart Queue', desc: 'Automático' },
+                                        { mode: 'specific' as const, icon: 'calendar_month', label: 'Data Exata', desc: 'Escolher dia/hora' },
+                                        { mode: 'now' as const, icon: 'bolt', label: 'Agora', desc: 'Próx. 5 min' },
+                                    ]).map((opt) => (
+                                        <button
+                                            key={opt.mode}
+                                            onClick={() => setPostType(opt.mode as any)}
+                                            className={`flex flex-col items-center gap-1 p-3 rounded-lg border text-center transition-all ${
+                                                postType === opt.mode
+                                                    ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400'
+                                                    : 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20'
+                                            }`}
+                                        >
+                                            <span className="material-symbols-outlined text-[20px]">{opt.icon}</span>
+                                            <div className="text-[10px] font-mono font-bold">{opt.label}</div>
+                                            <div className="text-[9px] text-slate-500">{opt.desc}</div>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Smart Queue info */}
+                                {postType === 'smart' && (
+                                    <div className="mt-3 bg-emerald-500/5 rounded-lg p-3 border border-emerald-500/10">
+                                        <p className="text-[10px] text-emerald-400/70 font-mono">
+                                            A Smart Queue distribuira automaticamente nos horarios configurados (12h e 18h), evitando conflitos com posts existentes.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Date/Time picker for specific mode */}
+                                {postType === 'specific' && (
+                                    <div className="mt-3 space-y-3">
+                                        <div>
+                                            <label className="text-[10px] uppercase font-mono text-slate-500 tracking-wider mb-1 block">Data</label>
+                                            <input
+                                                type="date"
+                                                value={selectedDate}
+                                                onChange={(e) => setSelectedDate(e.target.value)}
+                                                min={new Date().toISOString().split('T')[0]}
+                                                className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono focus:border-emerald-500/50 focus:outline-none [color-scheme:dark]"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] uppercase font-mono text-slate-500 tracking-wider mb-1 block">Horario</label>
+                                            <div className="grid grid-cols-4 gap-1.5">
+                                                {[
+                                                    { t: '09:00', label: '9h' },
+                                                    { t: '12:00', label: '12h' },
+                                                    { t: '15:00', label: '15h' },
+                                                    { t: '18:00', label: '18h' },
+                                                    { t: '20:00', label: '20h' },
+                                                    { t: '21:00', label: '21h' },
+                                                    { t: '22:00', label: '22h' },
+                                                    { t: '23:00', label: '23h' },
+                                                ].map((h) => (
+                                                    <button
+                                                        key={h.t}
+                                                        onClick={() => setSelectedTime(h.t)}
+                                                        className={`py-1.5 rounded text-xs font-mono transition-all ${
+                                                            selectedTime === h.t
+                                                                ? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-400'
+                                                                : 'bg-white/5 border border-white/10 text-slate-400 hover:border-white/20'
+                                                        }`}
+                                                    >
+                                                        {h.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <div className="mt-2">
+                                                <input
+                                                    type="time"
+                                                    value={selectedTime}
+                                                    onChange={(e) => setSelectedTime(e.target.value)}
+                                                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono focus:border-emerald-500/50 focus:outline-none [color-scheme:dark]"
+                                                />
+                                            </div>
+                                            {selectedDate && selectedTime && (
+                                                <p className="mt-2 text-[10px] text-emerald-400/70 font-mono">
+                                                    Agendado para: {new Date(`${selectedDate}T${selectedTime}`).toLocaleString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Now mode info */}
+                                {postType === 'now' && (
+                                    <div className="mt-3 bg-amber-500/5 rounded-lg p-3 border border-amber-500/10">
+                                        <p className="text-[10px] text-amber-400/70 font-mono">
+                                            O video sera agendado para daqui a 5 minutos. Ideal para testes rapidos.
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

@@ -1,0 +1,39 @@
+[Script Info]
+Title: Synapse Auto Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Active,Inter Black,85,&H000B9EF5,&H000B9EF5,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+Style: Inactive,Inter Black,85,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:05.75,0:00:06.00,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Em {\1c&H00FFFFFF}certeza
+Dialogue: 0,0:00:06.00,0:00:06.41,Active,,0,0,0,,{\1c&H00FFFFFF}Em {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}certeza
+Dialogue: 0,0:00:06.87,0:00:07.19,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}senão {\1c&H00FFFFFF}quer {\1c&H00FFFFFF}passar
+Dialogue: 0,0:00:07.19,0:00:07.30,Active,,0,0,0,,{\1c&H00FFFFFF}senão {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}quer {\1c&H00FFFFFF}passar
+Dialogue: 0,0:00:07.30,0:00:07.58,Active,,0,0,0,,{\1c&H00FFFFFF}senão {\1c&H00FFFFFF}quer {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}passar
+Dialogue: 0,0:00:07.58,0:00:07.75,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}a {\1c&H00FFFFFF}noite {\1c&H00FFFFFF}ali
+Dialogue: 0,0:00:07.75,0:00:07.95,Active,,0,0,0,,{\1c&H00FFFFFF}a {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}noite {\1c&H00FFFFFF}ali
+Dialogue: 0,0:00:07.95,0:00:08.18,Active,,0,0,0,,{\1c&H00FFFFFF}a {\1c&H00FFFFFF}noite {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ali
+Dialogue: 0,0:00:08.18,0:00:08.33,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}e {\1c&H00FFFFFF}esperar
+Dialogue: 0,0:00:08.33,0:00:08.60,Active,,0,0,0,,{\1c&H00FFFFFF}e {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}esperar
+Dialogue: 0,0:00:20.19,0:00:20.39,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}eles {\1c&H00FFFFFF}sabem {\1c&H00FFFFFF}onde
+Dialogue: 0,0:00:20.39,0:00:20.71,Active,,0,0,0,,{\1c&H00FFFFFF}eles {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}sabem {\1c&H00FFFFFF}onde
+Dialogue: 0,0:00:20.71,0:00:20.96,Active,,0,0,0,,{\1c&H00FFFFFF}eles {\1c&H00FFFFFF}sabem {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}onde
+Dialogue: 0,0:00:20.96,0:00:21.05,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}é {\1c&H00FFFFFF}a {\1c&H00FFFFFF}casa
+Dialogue: 0,0:00:21.05,0:00:21.16,Active,,0,0,0,,{\1c&H00FFFFFF}é {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}a {\1c&H00FFFFFF}casa
+Dialogue: 0,0:00:21.16,0:00:21.35,Active,,0,0,0,,{\1c&H00FFFFFF}é {\1c&H00FFFFFF}a {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}casa
+Dialogue: 0,0:00:21.35,0:00:21.64,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}da {\1c&H00FFFFFF}Kitsune?
+Dialogue: 0,0:00:21.64,0:00:22.69,Active,,0,0,0,,{\1c&H00FFFFFF}da {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Kitsune?
+Dialogue: 0,0:00:37.78,0:00:38.02,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Tudo {\1c&H00FFFFFF}bem
+Dialogue: 0,0:00:38.02,0:00:38.32,Active,,0,0,0,,{\1c&H00FFFFFF}Tudo {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}bem
+Dialogue: 0,0:00:47.02,0:00:47.29,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}você {\1c&H00FFFFFF}também {\1c&H00FFFFFF}viu?
+Dialogue: 0,0:00:47.29,0:00:47.64,Active,,0,0,0,,{\1c&H00FFFFFF}você {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}também {\1c&H00FFFFFF}viu?
+Dialogue: 0,0:00:47.64,0:00:47.89,Active,,0,0,0,,{\1c&H00FFFFFF}você {\1c&H00FFFFFF}também {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}viu?

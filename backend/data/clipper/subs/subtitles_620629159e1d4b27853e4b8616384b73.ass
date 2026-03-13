@@ -1,0 +1,25 @@
+[Script Info]
+Title: Synapse Auto Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Active,Inter Black,85,&H000B9EF5,&H000B9EF5,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+Style: Inactive,Inter Black,85,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:05.23,0:00:05.87,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ah {\1c&H00FFFFFF}malá
+Dialogue: 0,0:00:06.12,0:00:06.65,Active,,0,0,0,,{\1c&H00FFFFFF}ah {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}malá
+Dialogue: 0,0:00:07.21,0:00:07.79,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}bombom {\1c&H00FFFFFF}babá {\1c&H00FFFFFF}balá
+Dialogue: 0,0:00:08.06,0:00:08.48,Active,,0,0,0,,{\1c&H00FFFFFF}bombom {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}babá {\1c&H00FFFFFF}balá
+Dialogue: 0,0:00:08.48,0:00:09.01,Active,,0,0,0,,{\1c&H00FFFFFF}bombom {\1c&H00FFFFFF}babá {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}balá
+Dialogue: 0,0:00:09.77,0:00:10.74,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}lelelele {\1c&H00FFFFFF}lalalalallu
+Dialogue: 0,0:00:10.82,0:00:12.38,Active,,0,0,0,,{\1c&H00FFFFFF}lelelele {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}lalalalallu
+Dialogue: 0,0:00:13.21,0:00:13.55,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ah
+Dialogue: 0,0:00:31.73,0:00:32.11,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}peci!

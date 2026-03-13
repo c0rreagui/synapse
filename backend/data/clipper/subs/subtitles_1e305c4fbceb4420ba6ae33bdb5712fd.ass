@@ -1,0 +1,27 @@
+[Script Info]
+Title: Synapse Auto Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Active,Inter Black,85,&H000B9EF5,&H000B9EF5,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+Style: Inactive,Inter Black,85,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:03.75,0:00:04.29,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Vai
+Dialogue: 0,0:00:07.79,0:00:07.90,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ter {\1c&H00FFFFFF}que {\1c&H00FFFFFF}jogar
+Dialogue: 0,0:00:07.90,0:00:07.96,Active,,0,0,0,,{\1c&H00FFFFFF}ter {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}que {\1c&H00FFFFFF}jogar
+Dialogue: 0,0:00:07.96,0:00:08.08,Active,,0,0,0,,{\1c&H00FFFFFF}ter {\1c&H00FFFFFF}que {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}jogar
+Dialogue: 0,0:00:08.08,0:00:08.32,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}foca {\1c&H00FFFFFF}fora
+Dialogue: 0,0:00:08.32,0:00:08.50,Active,,0,0,0,,{\1c&H00FFFFFF}foca {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}fora
+Dialogue: 0,0:00:14.69,0:00:14.83,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Me {\1c&H00FFFFFF}solta {\1c&H00FFFFFF}machista!
+Dialogue: 0,0:00:14.83,0:00:15.33,Active,,0,0,0,,{\1c&H00FFFFFF}Me {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}solta {\1c&H00FFFFFF}machista!
+Dialogue: 0,0:00:15.58,0:00:16.10,Active,,0,0,0,,{\1c&H00FFFFFF}Me {\1c&H00FFFFFF}solta {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}machista!
+Dialogue: 0,0:00:19.35,0:00:19.66,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Ácido {\1c&H00FFFFFF}Equiparam
+Dialogue: 0,0:00:20.00,0:00:20.44,Active,,0,0,0,,{\1c&H00FFFFFF}Ácido {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Equiparam

@@ -342,6 +342,227 @@ async def _stitch_with_crossfade(clips: List[str], output_path: str) -> Dict[str
 
 
 
+async def create_seamless_loop(
+    clip_path: str,
+    target_duration: float,
+    output_path: str,
+    crossfade_sec: float = 0.8,
+    timeout_seconds: int = 600,
+) -> Dict[str, Any]:
+    """
+    Cria um loop infinito suave de um clipe até atingir target_duration.
+
+    Estratégia:
+    1. Calcula quantas iterações completas + parcial são necessárias
+    2. Cria um concat com N cópias do clipe
+    3. Aplica crossfade entre cada junção para transição seamless
+    4. Trim final para target_duration exato
+
+    O crossfade entre o final e o início de cada repetição cria a ilusão
+    de loop contínuo. No TikTok, quando o vídeo reinicia automaticamente,
+    o espectador não percebe a emenda.
+    """
+    if not os.path.exists(clip_path):
+        return _error_result(f"Clip não encontrado: {clip_path}")
+
+    clip_dur = await _get_duration(clip_path)
+    if clip_dur <= 0:
+        return _error_result(f"Clip com duração inválida: {clip_dur}")
+
+    if clip_dur >= target_duration:
+        # Clip já é longo o suficiente — aplica loop-back nos últimos segundos
+        return await _apply_loop_tail(clip_path, output_path, crossfade_sec, timeout_seconds)
+
+    # Quantas cópias completas precisamos (com margem para crossfade)
+    effective_clip_dur = clip_dur - crossfade_sec  # Cada junção "come" crossfade_sec
+    if effective_clip_dur <= 0:
+        # Clip muito curto para crossfade, usar concat simples
+        reps = int(target_duration / clip_dur) + 2
+        clip_list = [clip_path] * reps
+        concat_result = await concat_simple(clip_list, output_path, timeout_seconds)
+        if concat_result["success"]:
+            return await _trim_to_duration(output_path, target_duration, timeout_seconds)
+        return concat_result
+
+    reps_needed = int(target_duration / effective_clip_dur) + 2  # +2 para margem
+    reps_needed = min(reps_needed, 20)  # Safety cap
+
+    logger.info(
+        f"SeamlessLoop: clip={clip_dur:.1f}s, target={target_duration:.1f}s, "
+        f"reps={reps_needed}, crossfade={crossfade_sec}s"
+    )
+
+    # Costura sequencial com crossfade entre cada iteração
+    current = clip_path
+    temp_files = []
+
+    for i in range(1, reps_needed):
+        temp_suffix = uuid.uuid4().hex[:8]
+        temp_out = os.path.join(OUTPUT_DIR, f"_loop_temp_{temp_suffix}.mp4")
+        temp_files.append(temp_out)
+
+        result = await crossfade_two_clips(
+            current, clip_path, temp_out,
+            fade_duration=crossfade_sec,
+            timeout_seconds=timeout_seconds,
+        )
+
+        if not result["success"]:
+            # Fallback: concat simples se crossfade falhar
+            logger.warning(f"SeamlessLoop crossfade falhou na rep {i}, tentando concat simples")
+            for tf in temp_files:
+                _cleanup(tf)
+            clip_list = [clip_path] * reps_needed
+            concat_result = await concat_simple(clip_list, output_path, timeout_seconds)
+            if concat_result["success"]:
+                return await _trim_to_duration(output_path, target_duration, timeout_seconds)
+            return concat_result
+
+        # Limpar intermediário anterior (nunca o input original)
+        if current != clip_path:
+            _cleanup(current)
+
+        current = temp_out
+
+        # Checar se já atingiu duração suficiente
+        current_dur = await _get_duration(current)
+        if current_dur >= target_duration + crossfade_sec:
+            break
+
+    # Trim para duração exata
+    trim_result = await _trim_to_duration(current, target_duration, timeout_seconds, output_path)
+
+    # Cleanup todos os temps
+    for tf in temp_files:
+        if tf != output_path:
+            _cleanup(tf)
+
+    return trim_result
+
+
+async def _apply_loop_tail(
+    clip_path: str,
+    output_path: str,
+    crossfade_sec: float = 0.8,
+    timeout_seconds: int = 300,
+) -> Dict[str, Any]:
+    """
+    Para clips que já são longos o suficiente: aplica um crossfade
+    entre os últimos frames e os primeiros frames, criando a ilusão
+    de loop quando o TikTok reinicia o vídeo.
+
+    Extrai os primeiros crossfade_sec*2 do clip e faz crossfade com o final.
+    """
+    clip_dur = await _get_duration(clip_path)
+
+    # Extrair os primeiros 2s do clip como "tail connector"
+    tail_dur = min(crossfade_sec * 2.5, clip_dur * 0.15)  # Max 15% do clip
+    tail_dur = max(tail_dur, crossfade_sec + 0.5)
+
+    tail_path = os.path.join(OUTPUT_DIR, f"_loop_tail_{uuid.uuid4().hex[:8]}.mp4")
+
+    # Extrair início do clip
+    cmd_extract = [
+        "ffmpeg", "-y",
+        "-i", clip_path,
+        "-t", str(tail_dur),
+        "-c:v", "libx264", "-preset", PRESET, "-crf", CRF,
+        "-c:a", "aac", "-b:a", "192k",
+        "-pix_fmt", "yuv420p",
+        tail_path,
+    ]
+
+    proc = await asyncio.create_subprocess_exec(
+        *cmd_extract, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+    try:
+        await asyncio.wait_for(proc.communicate(), timeout=60)
+    except asyncio.TimeoutError:
+        _cleanup(tail_path)
+        # Fallback: cópia direta
+        shutil.copy2(clip_path, output_path)
+        dur = await _get_duration(output_path)
+        return _success_result(output_path, dur, "loop_tail_fallback")
+
+    if proc.returncode != 0 or not os.path.exists(tail_path):
+        shutil.copy2(clip_path, output_path)
+        dur = await _get_duration(output_path)
+        return _success_result(output_path, dur, "loop_tail_fallback")
+
+    # Crossfade: clip principal + tail (início do clip)
+    result = await crossfade_two_clips(
+        clip_path, tail_path, output_path,
+        fade_duration=crossfade_sec,
+        timeout_seconds=timeout_seconds,
+    )
+
+    _cleanup(tail_path)
+
+    if result["success"]:
+        result["strategy"] = "loop_tail"
+        return result
+
+    # Fallback
+    shutil.copy2(clip_path, output_path)
+    dur = await _get_duration(output_path)
+    return _success_result(output_path, dur, "loop_tail_fallback")
+
+
+async def _trim_to_duration(
+    input_path: str,
+    target_duration: float,
+    timeout_seconds: int = 120,
+    output_path: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Corta um vídeo para a duração exata com re-encode suave."""
+    current_dur = await _get_duration(input_path)
+
+    # Se já está na duração certa (±0.5s), retorna como está
+    if abs(current_dur - target_duration) <= 0.5:
+        if output_path and output_path != input_path:
+            shutil.copy2(input_path, output_path)
+            return _success_result(output_path, current_dur, "seamless_loop")
+        return _success_result(input_path, current_dur, "seamless_loop")
+
+    if output_path is None:
+        output_path = input_path  # Overwrite
+
+    trim_path = os.path.join(OUTPUT_DIR, f"_trim_{uuid.uuid4().hex[:8]}.mp4")
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", input_path,
+        "-t", f"{target_duration:.2f}",
+        "-c:v", "libx264", "-preset", PRESET, "-crf", CRF,
+        "-b:v", VIDEO_BITRATE,
+        "-c:a", "aac", "-b:a", "192k",
+        "-pix_fmt", "yuv420p",
+        "-movflags", "+faststart",
+        trim_path,
+    ]
+
+    proc = await asyncio.create_subprocess_exec(
+        *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+    try:
+        _, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
+    except asyncio.TimeoutError:
+        _cleanup(trim_path)
+        return _error_result(f"Trim timeout após {timeout_seconds}s")
+
+    if proc.returncode != 0:
+        _cleanup(trim_path)
+        error = stderr.decode("utf-8", errors="replace")[-300:]
+        return _error_result(f"Trim falhou: {error}")
+
+    # Mover para output final
+    if output_path != trim_path:
+        shutil.move(trim_path, output_path)
+
+    duration = await _get_duration(output_path)
+    return _success_result(output_path, duration, "seamless_loop")
+
+
 def _success_result(output_path: str, duration: float, strategy: str) -> Dict[str, Any]:
     """Resultado padrao de sucesso."""
     return {

@@ -66,7 +66,7 @@ async def _process_clip_job_inner(ctx, job_id: int):
         if not guard_job:
             logger.warning(f"Job #{job_id} nao encontrado no DB, pulando.")
             return
-        if guard_job.status not in ("pending", "downloading", "transcribing", "editing", "stitching"):
+        if guard_job.status not in ("pending", "waiting_clips", "downloading", "transcribing", "editing", "stitching"):
             logger.info(f"Job #{job_id} ja esta em status '{guard_job.status}', pulando reprocessamento.")
             return
 
@@ -168,60 +168,22 @@ async def _process_clip_job_inner(ctx, job_id: int):
         _fail_job_db(job_id, "Nenhum clipe foi editado com sucesso.", "Falha na edicao.")
         return
 
-    # 5. Stitching
-    with safe_session() as db:
-        job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
-        if job:
-            job.status = "stitching"
-            job.current_step = "Aplicando costura final..."
-            job.progress_pct = 90
-            db.commit()
+    # ── 5. Stitching + Loop-Tail Seamless ─────────────────────────────────
+    # Estratégia:
+    #   - Clips normalmente >= 61s (chunking garante isso via waiting_clips)
+    #   - Loop-tail: crossfade end→start para replay seamless no TikTok
+    #   - Fallback para jobs expirados (timeout 72h): loop + CTA para atingir 61s
+    MIN_VIDEO_DURATION = 61.0
+    CTA_DURATION = 5.0
 
     streamer_name = channel_name or ""
 
-    # Aplicar Outro Filler se duracao total for menor que 60s
-    if streamer_name and len(edited_paths) > 0:
-        try:
-            from core.clipper.stitcher import _get_duration
-            durations = []
-            for ep in edited_paths:
-                durations.append(await _get_duration(ep))
-
-            total_duration = sum(durations)
-
-            if total_duration < 60.0:
-                missing = 60.0 - total_duration + 1.0
-                with safe_session() as db:
-                    j = db.query(ClipJob).filter(ClipJob.id == job_id).first()
-                    if j:
-                        j.current_step = f"Gerando {missing:.1f}s de filler para atingir 1m..."
-                        db.commit()
-
-                from core.clipper.hook_generator import generate_outro_filler
-                bg_clip = edited_paths[0]
-                hook_res = await generate_outro_filler(
-                    streamer=streamer_name,
-                    target_duration=missing,
-                    bg_video_path=bg_clip
-                )
-                if hook_res.get("success"):
-                    hook_path = hook_res.get("output_path")
-                    if hook_path and os.path.exists(hook_path):
-                        edited_paths.append(hook_path)
-                        logger.info(f"Job #{job_id}: Filler de {missing:.1f}s adicionado.")
-                else:
-                    logger.warning(f"Falha ao gerar filler para Job #{job_id}: {hook_res.get('error')}")
-
-        except Exception as e:
-            logger.error(f"Erro inesperado ao gerar filler: {e}", exc_info=True)
-
-    # Stitching Final
     with safe_session() as db:
         job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
         if job:
             job.status = "stitching"
             job.current_step = "Aplicando costura final..."
-            job.progress_pct = 90
+            job.progress_pct = 85
             db.commit()
 
     stitch_res = await ensure_minimum_duration(edited_clips=edited_paths)
@@ -229,6 +191,89 @@ async def _process_clip_job_inner(ctx, job_id: int):
     if not stitch_res.get("success"):
         _fail_job_db(job_id, f"Stitch error: {stitch_res.get('error')}", "Falha na costura.")
         return
+
+    stitched_path = stitch_res.get("output_path")
+    from core.clipper.stitcher import _get_duration, create_seamless_loop, _apply_loop_tail
+    stitched_duration = await _get_duration(stitched_path)
+
+    if stitched_duration < MIN_VIDEO_DURATION:
+        # ── Fallback: job expirado do waiting_clips (timeout 72h) ──
+        # Não tinha clips suficientes após 72h, então usamos loop + CTA
+        logger.warning(
+            f"Job #{job_id}: Duração {stitched_duration:.1f}s < 61s mínimo. "
+            f"Aplicando loop fallback (job expirado de waiting_clips)."
+        )
+        loop_target = MIN_VIDEO_DURATION - CTA_DURATION  # ~56s
+
+        with safe_session() as db:
+            j = db.query(ClipJob).filter(ClipJob.id == job_id).first()
+            if j:
+                j.current_step = f"Loop fallback ({stitched_duration:.0f}s → {loop_target:.0f}s)..."
+                j.progress_pct = 88
+                db.commit()
+
+        loop_output = stitched_path.replace(".mp4", "_looped.mp4")
+        loop_res = await create_seamless_loop(
+            clip_path=stitched_path,
+            target_duration=loop_target,
+            output_path=loop_output,
+        )
+
+        if loop_res.get("success"):
+            logger.info(f"Job #{job_id}: Loop fallback criado ({stitched_duration:.1f}s → {loop_res.get('duration', 0):.1f}s)")
+            if os.path.exists(stitched_path) and stitched_path != loop_output:
+                try:
+                    os.remove(stitched_path)
+                except OSError:
+                    pass
+            edited_paths_for_final = [loop_output]
+        else:
+            logger.warning(f"Job #{job_id}: Loop fallback falhou, usando clip original")
+            edited_paths_for_final = [stitched_path]
+
+        # CTA outro (~5s) para fechar em 61s
+        if streamer_name:
+            try:
+                from core.clipper.hook_generator import generate_outro_filler
+                hook_res = await generate_outro_filler(
+                    streamer=streamer_name,
+                    target_duration=CTA_DURATION,
+                    bg_video_path=edited_paths_for_final[0],
+                )
+                if hook_res.get("success"):
+                    hook_path = hook_res.get("output_path")
+                    if hook_path and os.path.exists(hook_path):
+                        edited_paths_for_final.append(hook_path)
+            except Exception as e:
+                logger.error(f"Job #{job_id}: Erro no CTA outro: {e}", exc_info=True)
+
+        stitch_res = await ensure_minimum_duration(edited_clips=edited_paths_for_final)
+        if not stitch_res.get("success"):
+            _fail_job_db(job_id, f"Stitch final error: {stitch_res.get('error')}", "Falha na costura final.")
+            return
+
+    else:
+        # ── Clip longo (>= 61s): loop-tail para seamless replay no TikTok ──
+        with safe_session() as db:
+            j = db.query(ClipJob).filter(ClipJob.id == job_id).first()
+            if j:
+                j.current_step = "Aplicando loop-tail seamless..."
+                j.progress_pct = 92
+                db.commit()
+
+        loop_tail_output = stitched_path.replace(".mp4", "_looptail.mp4")
+        tail_res = await _apply_loop_tail(stitched_path, loop_tail_output)
+
+        if tail_res.get("success"):
+            logger.info(f"Job #{job_id}: Loop-tail aplicado para seamless replay.")
+            if os.path.exists(stitched_path) and stitched_path != loop_tail_output:
+                try:
+                    os.remove(stitched_path)
+                except OSError:
+                    pass
+            stitch_res = tail_res
+        else:
+            logger.warning(f"Job #{job_id}: Loop-tail falhou, mantendo original.")
 
     # Marcar como concluido
     output_path = stitch_res.get("output_path")
@@ -265,6 +310,84 @@ async def _process_clip_job_inner(ctx, job_id: int):
             db.commit()
             db.refresh(approval)
             approval_id = approval.id
+
+        # Pré-gerar caption via Oracle (best-effort, não bloqueia o pipeline)
+        try:
+            transcript_text = ""
+            game_name = ""
+            clip_titles = []
+            with safe_session() as db:
+                job_for_caption = db.query(ClipJob).filter(ClipJob.id == job_id).first()
+                if job_for_caption:
+                    if job_for_caption.whisper_result:
+                        parts = [t.get("text", "") for t in (job_for_caption.whisper_result or []) if t.get("text")]
+                        transcript_text = " ".join(parts)
+                    if job_for_caption.clip_metadata:
+                        for meta in job_for_caption.clip_metadata:
+                            if meta.get("game"):
+                                game_name = meta["game"]
+                            if meta.get("title"):
+                                clip_titles.append(meta["title"])
+
+            if transcript_text or clip_titles:
+                from core.oracle import oracle_client
+
+                streamer = channel_name or "Streamer"
+                context_lines = []
+                if game_name:
+                    context_lines.append(f"Jogo: {game_name}")
+                context_lines.append(f"Streamer: {streamer}")
+                if clip_titles:
+                    context_lines.append(f"Títulos dos clipes: {' | '.join(clip_titles)}")
+                video_context = "\n".join(context_lines)
+
+                system_prompt = f"""Você é a LARI, copywriter de 23 anos que vive de TikTok em São Paulo.
+Sua especialidade é criar ganchos que prendem nos primeiros 0.5s de leitura.
+
+ESTILO: Frases curtas e cortantes. Gírias BR atuais. Caps lock estratégico em 1-2 palavras.
+Máximo 2-3 linhas. Pode usar 1-2 emoji no máximo.
+
+REGRAS:
+- A caption DEVE refletir o conteúdo REAL (use a transcrição e títulos dos clipes)
+- NUNCA invente eventos ou falas
+- NÃO comece com "Neste vídeo..." ou "Veja só..."
+- Responda APENAS em JSON: {{"caption": "...", "hashtags": ["#tag1", "#tag2"]}}
+- Gere 5-8 hashtags: mix de alcance (#fyp #gaming) + nicho (#{game_name.lower().replace(' ', '').replace(':', '') if game_name else 'twitch'})"""
+
+                prompt = f"""[CONTEXTO DO VÍDEO]
+{video_context}
+
+[TRANSCRIÇÃO WHISPER]
+{transcript_text if transcript_text else "(Sem áudio — baseie-se nos títulos dos clipes)"}"""
+
+                full_prompt = f"{system_prompt}\n\n---\n\n{prompt}"
+                result = oracle_client.generate_content(
+                    prompt_input=full_prompt,
+                    model="llama-3.3-70b-versatile",
+                    temperature=0.85,
+                )
+
+                import json, re
+                content = result.text if hasattr(result, 'text') else str(result)
+                try:
+                    parsed = json.loads(content)
+                except json.JSONDecodeError:
+                    match = re.search(r'\{[^{}]*"caption"[^{}]*\}', content, re.DOTALL)
+                    parsed = json.loads(match.group()) if match else {}
+
+                if parsed.get("caption"):
+                    with safe_session() as db:
+                        appr = db.query(PendingApproval).filter(PendingApproval.id == approval_id).first()
+                        if appr:
+                            appr.caption = parsed["caption"]
+                            appr.hashtags = parsed.get("hashtags", [])
+                            appr.caption_generated = True
+                            db.commit()
+                    logger.info(f"Job #{job_id}: Caption pré-gerada pelo Oracle ({len(parsed['caption'])} chars)")
+            else:
+                logger.info(f"Job #{job_id}: Sem transcript, pulando pré-geração de caption.")
+        except Exception as caption_err:
+            logger.warning(f"Job #{job_id}: Falha na pré-geração de caption (non-blocking): {caption_err}")
 
         if target_auto_approve:
             logger.info(f"Job #{job_id} Auto-Approved (PendingApproval #{approval_id}).")

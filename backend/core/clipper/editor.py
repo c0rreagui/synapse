@@ -60,35 +60,18 @@ PRESET = "medium"  # Balance velocidade/qualidade
 CRF = "20"
 
 
-def _build_edit_filter(
+def _build_edit_filter_facecam(
     source_width: int,
     source_height: int,
-    ass_path: Optional[str] = None,
-    facecam_box: Optional[Tuple[int, int, int, int]] = None,
-) -> str:
+    ass_path: Optional[str],
+    facecam_box: Tuple[int, int, int, int],
+) -> tuple:
     """
-    Constroi o filtro complexo FFmpeg para layout 9:16.
-
-    O filtro:
-    1. Cria duas copias do input
-    2. Crop da facecam (regiao superior central, tipicamente onde fica a webcam)
-    3. Crop da gameplay (regiao inferior central ou full frame)
-    4. Escala ambos para largura 1080
-    5. Empilha verticalmente
-    6. Overlay do .ass se fornecido
+    Layout COM facecam: Facecam (40%) no topo + Gameplay (60%) na base.
+    Facecam flutua sobre background desfocado da gameplay.
     """
-    # Calcular crop regions do source (assumindo 16:9)
-    if facecam_box:
-        facecam_x, facecam_y, facecam_src_w, facecam_src_h = facecam_box
-        logger.info(f"Usando facecam crop dinamica (vision): x={facecam_x} y={facecam_y} w={facecam_src_w} h={facecam_src_h}")
-    else:
-        # Facecam: canto superior, pegar regiao quadrada central (top 40% do source)
-        logger.info("Usando facecam crop estatica (fallback)")
-        facecam_src_h = int(source_height * 0.45)
-        facecam_src_w = int(facecam_src_h * (FINAL_WIDTH / FACECAM_HEIGHT))
-        facecam_src_w = min(facecam_src_w, source_width)
-        facecam_x = (source_width - facecam_src_w) // 2
-        facecam_y = 0  # Topo do frame source
+    facecam_x, facecam_y, facecam_src_w, facecam_src_h = facecam_box
+    logger.info(f"Usando facecam crop dinamica (vision): x={facecam_x} y={facecam_y} w={facecam_src_w} h={facecam_src_h}")
 
     # Gameplay: regiao maior, centro do frame
     gameplay_src_h = int(source_height * 0.75)
@@ -98,42 +81,109 @@ def _build_edit_filter(
     gameplay_y = (source_height - gameplay_src_h) // 2
 
     filter_parts = [
-        # Split input em 3 streams: cam original, background do topo, gameplay da base
         f"[0:v]split=3[cam_src][game_bg_src][game_base_src]",
-        
-        # 1. Background do Topo: Gameplay escalada pra preencher, crop, blur forte e escurecimento
+
+        # Background do Topo: blur + escurecimento
         f"[game_bg_src]scale={FINAL_WIDTH}:{FACECAM_HEIGHT}:force_original_aspect_ratio=increase:flags=lanczos,"
         f"crop={FINAL_WIDTH}:{FACECAM_HEIGHT},"
         f"gblur=sigma=20,"
         f"colorchannelmixer=rr=0.4:gg=0.4:bb=0.4[top_bg]",
-        
-        # 2. Facecam Dinamica (Foreground): Crop natural expandido do MTCNN + escala segura min/max
+
+        # Facecam foreground
         f"[cam_src]crop={facecam_src_w}:{facecam_src_h}:{facecam_x}:{facecam_y},"
         f"scale=900:-1:flags=lanczos[cam_fg]",
-        
-        # 3. Sobrepor Facecam no bg desfocado (Centralizado no Topo)
+
+        # Sobrepor facecam no bg
         f"[top_bg][cam_fg]overlay=(W-w)/2:(H-h)/2[top_final]",
-        
-        # 4. Gameplay Base: Scale-to-Fill (preenche sem bordas)
+
+        # Gameplay base
         f"[game_base_src]crop={gameplay_src_w}:{gameplay_src_h}:{gameplay_x}:{gameplay_y},"
         f"scale={FINAL_WIDTH}:{GAMEPLAY_HEIGHT}:force_original_aspect_ratio=increase:flags=lanczos,"
         f"crop={FINAL_WIDTH}:{GAMEPLAY_HEIGHT}[base_final]",
-        
-        # 5. Empilhar verticalmente Topo + Base
+
+        # Empilhar verticalmente
         f"[top_final][base_final]vstack=inputs=2[stacked]",
     ]
 
-    # Overlay de legendas .ass
     if ass_path:
-        # Escapar path para Windows (backslashes -> forward slashes, : -> \\:)
         safe_path = ass_path.replace("\\", "/").replace(":", "\\:")
         filter_parts.append(f"[stacked]ass='{safe_path}'[final]")
         output_label = "[final]"
     else:
         output_label = "[stacked]"
 
-    filter_str = ";\n".join(filter_parts)
-    return filter_str, output_label
+    return ";\n".join(filter_parts), output_label
+
+
+def _build_edit_filter_gameplay_only(
+    source_width: int,
+    source_height: int,
+    ass_path: Optional[str],
+) -> tuple:
+    """
+    Layout SEM facecam (gameplay pura): center-crop 9:16 da gameplay inteira.
+    Ideal para clips sem webcam (ex: Rocket League, gameplay full-screen).
+
+    Layout final (1080x1920):
+    ┌──────────────────┐
+    │                  │
+    │  GAMEPLAY FULL   │
+    │  (center crop    │
+    │   9:16 do frame) │
+    │                  │
+    │   LEGENDAS .ass  │
+    └──────────────────┘
+    """
+    logger.info("Layout GAMEPLAY-ONLY: sem facecam detectada, usando center-crop 9:16")
+
+    # Calcular crop 9:16 do centro do frame source
+    # Queremos manter a maior area possivel em aspecto 9:16
+    target_ratio = FINAL_WIDTH / FINAL_HEIGHT  # 0.5625
+
+    source_ratio = source_width / source_height
+    if source_ratio > target_ratio:
+        # Source mais largo que 9:16: crop horizontal (manter altura, cortar lados)
+        crop_h = source_height
+        crop_w = int(source_height * target_ratio)
+    else:
+        # Source mais alto que 9:16: crop vertical (manter largura, cortar topo/base)
+        crop_w = source_width
+        crop_h = int(source_width / target_ratio)
+
+    crop_x = (source_width - crop_w) // 2
+    crop_y = (source_height - crop_h) // 2
+
+    filter_parts = [
+        # Center crop para 9:16 + scale para resolucao final
+        f"[0:v]crop={crop_w}:{crop_h}:{crop_x}:{crop_y},"
+        f"scale={FINAL_WIDTH}:{FINAL_HEIGHT}:flags=lanczos[scaled]",
+    ]
+
+    if ass_path:
+        safe_path = ass_path.replace("\\", "/").replace(":", "\\:")
+        filter_parts.append(f"[scaled]ass='{safe_path}'[final]")
+        output_label = "[final]"
+    else:
+        output_label = "[scaled]"
+
+    return ";\n".join(filter_parts), output_label
+
+
+def _build_edit_filter(
+    source_width: int,
+    source_height: int,
+    ass_path: Optional[str] = None,
+    facecam_box: Optional[Tuple[int, int, int, int]] = None,
+) -> tuple:
+    """
+    Router: escolhe o layout correto baseado na presenca de facecam.
+    - Com facecam: layout split (cam 40% + gameplay 60%)
+    - Sem facecam: layout gameplay-only (center-crop 9:16)
+    """
+    if facecam_box:
+        return _build_edit_filter_facecam(source_width, source_height, ass_path, facecam_box)
+    else:
+        return _build_edit_filter_gameplay_only(source_width, source_height, ass_path)
 
 
 async def _probe_video(video_path: str) -> Dict[str, Any]:

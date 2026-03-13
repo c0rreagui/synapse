@@ -1,0 +1,53 @@
+[Script Info]
+Title: Synapse Auto Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Active,Inter Black,85,&H000B9EF5,&H000B9EF5,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+Style: Inactive,Inter Black,85,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:00.20,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Boca {\1c&H00FFFFFF}pô
+Dialogue: 0,0:00:00.22,0:00:00.76,Active,,0,0,0,,{\1c&H00FFFFFF}Boca {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}pô
+Dialogue: 0,0:00:02.02,0:00:02.20,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Igual {\1c&H00FFFFFF}de {\1c&H00FFFFFF}botar
+Dialogue: 0,0:00:02.20,0:00:02.27,Active,,0,0,0,,{\1c&H00FFFFFF}Igual {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}de {\1c&H00FFFFFF}botar
+Dialogue: 0,0:00:02.27,0:00:02.56,Active,,0,0,0,,{\1c&H00FFFFFF}Igual {\1c&H00FFFFFF}de {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}botar
+Dialogue: 0,0:00:02.56,0:00:02.58,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}o {\1c&H00FFFFFF}pirulite {\1c&H00FFFFFF}na
+Dialogue: 0,0:00:02.58,0:00:02.89,Active,,0,0,0,,{\1c&H00FFFFFF}o {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}pirulite {\1c&H00FFFFFF}na
+Dialogue: 0,0:00:02.89,0:00:03.06,Active,,0,0,0,,{\1c&H00FFFFFF}o {\1c&H00FFFFFF}pirulite {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}na
+Dialogue: 0,0:00:03.06,0:00:03.37,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}boca {\1c&H00FFFFFF}Na {\1c&H00FFFFFF}minha
+Dialogue: 0,0:00:03.56,0:00:03.62,Active,,0,0,0,,{\1c&H00FFFFFF}boca {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Na {\1c&H00FFFFFF}minha
+Dialogue: 0,0:00:03.62,0:00:03.83,Active,,0,0,0,,{\1c&H00FFFFFF}boca {\1c&H00FFFFFF}Na {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}minha
+Dialogue: 0,0:00:03.83,0:00:04.12,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}própria {\1c&H00FFFFFF}boca {\1c&H00FFFFFF}eu
+Dialogue: 0,0:00:04.12,0:00:04.50,Active,,0,0,0,,{\1c&H00FFFFFF}própria {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}boca {\1c&H00FFFFFF}eu
+Dialogue: 0,0:00:04.55,0:00:04.62,Active,,0,0,0,,{\1c&H00FFFFFF}própria {\1c&H00FFFFFF}boca {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}eu
+Dialogue: 0,0:00:04.62,0:00:04.78,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}boto {\1c&H00FFFFFF}o {\1c&H00FFFFFF}pirulita
+Dialogue: 0,0:00:04.78,0:00:04.82,Active,,0,0,0,,{\1c&H00FFFFFF}boto {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}o {\1c&H00FFFFFF}pirulita
+Dialogue: 0,0:00:04.82,0:00:05.25,Active,,0,0,0,,{\1c&H00FFFFFF}boto {\1c&H00FFFFFF}o {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}pirulita
+Dialogue: 0,0:00:05.44,0:00:05.63,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Porque {\1c&H00FFFFFF}eu {\1c&H00FFFFFF}também
+Dialogue: 0,0:00:05.63,0:00:05.74,Active,,0,0,0,,{\1c&H00FFFFFF}Porque {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}eu {\1c&H00FFFFFF}também
+Dialogue: 0,0:00:05.74,0:00:05.90,Active,,0,0,0,,{\1c&H00FFFFFF}Porque {\1c&H00FFFFFF}eu {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}também
+Dialogue: 0,0:00:05.90,0:00:06.28,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}quero {\1c&H00FFFFFF}tá {\1c&H00FFFFFF}ligado?
+Dialogue: 0,0:00:06.50,0:00:06.58,Active,,0,0,0,,{\1c&H00FFFFFF}quero {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}tá {\1c&H00FFFFFF}ligado?
+Dialogue: 0,0:00:06.58,0:00:06.94,Active,,0,0,0,,{\1c&H00FFFFFF}quero {\1c&H00FFFFFF}tá {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ligado?
+Dialogue: 0,0:00:07.09,0:00:07.20,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Mas {\1c&H00FFFFFF}eu {\1c&H00FFFFFF}dou
+Dialogue: 0,0:00:07.20,0:00:07.33,Active,,0,0,0,,{\1c&H00FFFFFF}Mas {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}eu {\1c&H00FFFFFF}dou
+Dialogue: 0,0:00:07.33,0:00:07.40,Active,,0,0,0,,{\1c&H00FFFFFF}Mas {\1c&H00FFFFFF}eu {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}dou
+Dialogue: 0,0:00:07.40,0:00:07.50,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}uma {\1c&H00FFFFFF}lambidinha {\1c&H00FFFFFF}e
+Dialogue: 0,0:00:07.50,0:00:08.11,Active,,0,0,0,,{\1c&H00FFFFFF}uma {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}lambidinha {\1c&H00FFFFFF}e
+Dialogue: 0,0:00:08.11,0:00:08.24,Active,,0,0,0,,{\1c&H00FFFFFF}uma {\1c&H00FFFFFF}lambidinha {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}e
+Dialogue: 0,0:00:08.24,0:00:08.59,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}guardo {\1c&H00FFFFFF}no {\1c&H00FFFFFF}papel
+Dialogue: 0,0:00:08.59,0:00:08.64,Active,,0,0,0,,{\1c&H00FFFFFF}guardo {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}no {\1c&H00FFFFFF}papel
+Dialogue: 0,0:00:08.64,0:00:08.85,Active,,0,0,0,,{\1c&H00FFFFFF}guardo {\1c&H00FFFFFF}no {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}papel
+Dialogue: 0,0:00:08.85,0:00:09.08,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}de {\1c&H00FFFFFF}novo {\1c&H00FFFFFF}isso
+Dialogue: 0,0:00:09.08,0:00:09.24,Active,,0,0,0,,{\1c&H00FFFFFF}de {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}novo {\1c&H00FFFFFF}isso
+Dialogue: 0,0:00:09.35,0:00:09.41,Active,,0,0,0,,{\1c&H00FFFFFF}de {\1c&H00FFFFFF}novo {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}isso
+Dialogue: 0,0:00:09.41,0:00:09.50,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}que {\1c&H00FFFFFF}é
+Dialogue: 0,0:00:09.50,0:00:09.50,Active,,0,0,0,,{\1c&H00FFFFFF}que {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}é

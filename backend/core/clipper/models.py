@@ -16,6 +16,7 @@ from core.database import Base
 
 class JobStatus(str, Enum):
     PENDING = "pending"
+    WAITING_CLIPS = "waiting_clips"  # Aguardando mais clips para atingir 61s mínimo
     DOWNLOADING = "downloading"
     TRANSCRIBING = "transcribing"
     EDITING = "editing"

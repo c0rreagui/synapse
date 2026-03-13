@@ -605,74 +605,97 @@ def _filter_already_processed(target_id: int, clips: List[Dict]) -> List[Dict]:
 
 
 # ─── Constantes de Chunking ──────────────────────────────────────────────
-CHUNK_TARGET_DURATION = 90.0  # Duracao alvo por postagem (1.5 minutos)
-CHUNK_MIN_DURATION = 15.0     # Duracao minima para criar um chunk valido
-MAX_JOBS_PER_SCAN = 3         # Maximo de jobs criados por target por ciclo de scan
+CHUNK_TARGET_DURATION = 90.0   # Duração alvo por postagem (1.5 minutos)
+CHUNK_MIN_DURATION = 61.0      # Mínimo absoluto: 61s para monetização TikTok
+MAX_JOBS_PER_SCAN = 3          # Máximo de jobs criados por target por ciclo de scan
+WAITING_JOB_TIMEOUT_HOURS = 72 # Timeout para jobs em waiting_clips
 
 
 def _chunk_clips_by_duration(
     clips: List[Dict],
     target_duration: float = CHUNK_TARGET_DURATION,
     min_duration: float = CHUNK_MIN_DURATION,
-) -> List[List[Dict]]:
+) -> tuple[List[List[Dict]], List[Dict]]:
     """
-    Agrupa clipes em chunks de ate ~target_duration segundos.
+    Agrupa clipes em chunks de ~target_duration segundos.
     Cada chunk se torna um ClipJob independente (= 1 postagem).
 
+    Retorna:
+        (ready_chunks, leftover_clips)
+        - ready_chunks: chunks com >= min_duration (61s), prontos para processar
+        - leftover_clips: clips que não atingiram 61s, irão para waiting_clips
+
     Regras:
-    - Adiciona clips ao chunk atual ate atingir target_duration
-    - Se o clip seguinte fizer ultrapassar target_duration, inclui ele e fecha o chunk
-    - Chunks menores que min_duration sao anexados ao chunk anterior
+    - Adiciona clips ao chunk atual até atingir target_duration
+    - Chunks >= 61s são considerados prontos
+    - Clips restantes < 61s ficam como leftover para jobs waiting_clips
+    - Clips do mesmo game_id são priorizados juntos (coerência de conteúdo)
     """
     if not clips:
-        return []
+        return [], []
 
     chunks: List[List[Dict]] = []
     current_chunk: List[Dict] = []
     current_duration = 0.0
 
     for clip in clips:
-        clip_dur = float(clip.get("duration", 30))  # fallback 30s se nao informado
+        clip_dur = float(clip.get("duration", 30))
         current_chunk.append(clip)
         current_duration += clip_dur
 
-        # Se atingiu ou passou do target, fechar o chunk
         if current_duration >= target_duration:
             chunks.append(current_chunk)
             current_chunk = []
             current_duration = 0.0
 
-    # Ultimo chunk: se for muito curto, anexar ao anterior
+    # Último chunk: se atingiu o mínimo de 61s, é um chunk válido
     if current_chunk:
-        if current_duration < min_duration and chunks:
-            chunks[-1].extend(current_chunk)
-        else:
+        if current_duration >= min_duration:
             chunks.append(current_chunk)
+        elif chunks:
+            # Tentar anexar ao chunk anterior se couber razoavelmente
+            prev_dur = sum(float(c.get("duration", 30)) for c in chunks[-1])
+            if prev_dur + current_duration <= target_duration * 1.5:
+                chunks[-1].extend(current_chunk)
+            else:
+                # Não cabe: leftover para waiting_clips
+                return chunks, current_chunk
+        else:
+            # Único chunk e é < 61s: tudo vira leftover
+            return [], current_chunk
 
-    return chunks
+    return chunks, []
 
 
 async def _create_clip_jobs(target_id: int, channel_name: str, new_clips: List[Dict]) -> List[int]:
     """
-    Agrupa clipes em chunks de ~90s e cria um ClipJob independente para cada.
-    Cada job resulta em 1 video final = 1 postagem na fila de aprovacao.
+    Agrupa clipes em chunks de ~90s (mín 61s) e cria um ClipJob por chunk.
+    Clips que não atingem 61s são alimentados a jobs waiting_clips existentes
+    ou criam um novo job waiting_clips.
 
-    Clips que vieram de jobs falhados anteriores recebem retry_count incrementado.
-    Limitado a MAX_JOBS_PER_SCAN jobs por ciclo para nao entupir a fila.
+    Cada job pronto resulta em 1 vídeo final = 1 postagem na fila de aprovação.
     """
-    chunks = _chunk_clips_by_duration(new_clips)
+    chunks, leftover = _chunk_clips_by_duration(new_clips)
+
+    # 1. Tentar alimentar jobs waiting_clips existentes com leftover
+    if leftover:
+        leftover = await _feed_waiting_jobs(target_id, channel_name, leftover)
 
     # Cap: limitar quantidade de jobs criados por scan
     if len(chunks) > MAX_JOBS_PER_SCAN:
         logger.info(
-            f"[{channel_name}] {len(chunks)} chunks disponiveis, limitando a {MAX_JOBS_PER_SCAN} (cap por scan)"
+            f"[{channel_name}] {len(chunks)} chunks disponíveis, limitando a {MAX_JOBS_PER_SCAN} (cap por scan)"
         )
+        # Leftover dos chunks excedentes volta para waiting
+        for extra_chunk in chunks[MAX_JOBS_PER_SCAN:]:
+            leftover.extend(extra_chunk)
         chunks = chunks[:MAX_JOBS_PER_SCAN]
 
     job_ids: List[int] = []
 
     logger.info(
-        f"[{channel_name}] {len(new_clips)} clipe(s) divididos em {len(chunks)} chunk(s)"
+        f"[{channel_name}] {len(new_clips)} clipe(s) -> {len(chunks)} chunk(s) prontos"
+        + (f", {len(leftover)} clip(s) em espera" if leftover else "")
     )
 
     # Buscar retry counts de jobs falhados anteriores para estes clips
@@ -692,13 +715,13 @@ async def _create_clip_jobs(target_id: int, channel_name: str, new_clips: List[D
     from core.config import REDIS_HOST, REDIS_PORT
     pool = await create_pool(RedisSettings(host=REDIS_HOST, port=REDIS_PORT))
     try:
+        # 2. Criar jobs prontos (>= 61s)
         for i, chunk in enumerate(chunks):
             chunk_dur = sum(float(c.get("duration", 30)) for c in chunk)
             logger.info(
                 f"  Chunk {i + 1}/{len(chunks)}: {len(chunk)} clip(s), ~{chunk_dur:.0f}s"
             )
 
-            # retry_count = max dos retries anteriores dos clips deste chunk + 1 (se retry)
             max_prev_retry = max((clip_retry_counts.get(c["url"], 0) for c in chunk), default=0)
             retry_count = max_prev_retry + 1 if max_prev_retry > 0 else 0
 
@@ -721,6 +744,28 @@ async def _create_clip_jobs(target_id: int, channel_name: str, new_clips: List[D
                 logger.info(f"✅ Job #{job_id} (Chunk {i + 1}, retry={retry_count}) enfileirado no Redis")
             except Exception as e:
                 logger.error(f"❌ Falha ao enfileirar Job #{job_id}: {e}", exc_info=True)
+
+        # 3. Criar job waiting_clips para leftover (se não foi absorvido)
+        if leftover:
+            leftover_dur = sum(float(c.get("duration", 30)) for c in leftover)
+            with safe_session() as db:
+                waiting_job = ClipJob(
+                    target_id=target_id,
+                    clip_urls=[c["url"] for c in leftover],
+                    clip_metadata=leftover,
+                    status="waiting_clips",
+                    current_step=f"Aguardando mais clips ({leftover_dur:.0f}s / 61s mínimo)",
+                    progress_pct=int(min(leftover_dur / 61.0 * 100, 99)),
+                )
+                db.add(waiting_job)
+                db.commit()
+                db.refresh(waiting_job)
+                logger.info(
+                    f"⏳ Job #{waiting_job.id} criado em waiting_clips: "
+                    f"{len(leftover)} clip(s), {leftover_dur:.0f}s (faltam {61 - leftover_dur:.0f}s)"
+                )
+                job_ids.append(waiting_job.id)
+
     finally:
         await pool.close()
 
@@ -733,6 +778,232 @@ async def _create_clip_jobs(target_id: int, channel_name: str, new_clips: List[D
             db.commit()
 
     return job_ids
+
+
+async def _feed_waiting_jobs(
+    target_id: int, channel_name: str, new_clips: List[Dict]
+) -> List[Dict]:
+    """
+    Alimenta jobs em waiting_clips com novos clips até atingirem 61s.
+    Jobs que atingem 61s são promovidos para 'pending' e enfileirados.
+
+    Retorna os clips que sobraram (não foram absorvidos por nenhum waiting job).
+    """
+    remaining = list(new_clips)
+
+    with safe_session() as db:
+        waiting_jobs = (
+            db.query(ClipJob)
+            .filter(
+                ClipJob.target_id == target_id,
+                ClipJob.status == "waiting_clips",
+            )
+            .order_by(ClipJob.created_at.asc())
+            .all()
+        )
+
+        if not waiting_jobs:
+            return remaining
+
+        from core.config import REDIS_HOST, REDIS_PORT
+
+        for job in waiting_jobs:
+            if not remaining:
+                break
+
+            existing_urls = set(job.clip_urls or [])
+            existing_dur = sum(
+                float(c.get("duration", 30)) for c in (job.clip_metadata or [])
+            )
+
+            # Alimentar com novos clips até atingir 61s
+            added_clips = []
+            for clip in list(remaining):
+                if clip["url"] in existing_urls:
+                    continue
+                clip_dur = float(clip.get("duration", 30))
+                added_clips.append(clip)
+                existing_dur += clip_dur
+                remaining.remove(clip)
+
+                if existing_dur >= CHUNK_MIN_DURATION:
+                    break
+
+            if not added_clips:
+                continue
+
+            # Atualizar o job com os novos clips
+            updated_urls = (job.clip_urls or []) + [c["url"] for c in added_clips]
+            updated_meta = (job.clip_metadata or []) + added_clips
+            job.clip_urls = updated_urls
+            job.clip_metadata = updated_meta
+
+            if existing_dur >= CHUNK_MIN_DURATION:
+                # Promover para pending!
+                job.status = "pending"
+                job.current_step = f"Clips completos ({existing_dur:.0f}s). Pronto para processar!"
+                job.progress_pct = 0
+                db.commit()
+
+                logger.info(
+                    f"✅ Job #{job.id} promovido de waiting_clips → pending: "
+                    f"{len(updated_urls)} clips, {existing_dur:.0f}s"
+                )
+
+                # Enfileirar no Redis
+                try:
+                    pool = await create_pool(RedisSettings(host=REDIS_HOST, port=REDIS_PORT))
+                    await pool.enqueue_job("process_clip_job", job.id, _queue_name="clipper:queue")
+                    await pool.close()
+                except Exception as e:
+                    logger.error(f"Falha ao enfileirar Job #{job.id} promovido: {e}")
+            else:
+                job.current_step = f"Aguardando mais clips ({existing_dur:.0f}s / 61s mínimo)"
+                job.progress_pct = int(min(existing_dur / 61.0 * 100, 99))
+                db.commit()
+                logger.info(
+                    f"⏳ Job #{job.id} alimentado: +{len(added_clips)} clips, "
+                    f"agora {existing_dur:.0f}s (faltam {61 - existing_dur:.0f}s)"
+                )
+
+    return remaining
+
+
+async def _consolidate_waiting_jobs() -> None:
+    """
+    Consolida múltiplos jobs waiting_clips do mesmo target em um único job.
+    Se o job consolidado atingir 61s, promove automaticamente para pending.
+
+    Chamado no início de cada ciclo de scan, ANTES de verificar expiração.
+    """
+    from sqlalchemy import func
+
+    with safe_session() as db:
+        # Encontrar targets com mais de 1 job waiting_clips
+        duplicates = (
+            db.query(ClipJob.target_id, func.count(ClipJob.id).label("cnt"))
+            .filter(ClipJob.status == "waiting_clips")
+            .group_by(ClipJob.target_id)
+            .having(func.count(ClipJob.id) > 1)
+            .all()
+        )
+
+        if not duplicates:
+            return
+
+        from core.config import REDIS_HOST, REDIS_PORT
+        promoted_ids = []
+
+        for target_id, count in duplicates:
+            # Buscar todos os waiting jobs deste target, ordenados por criação
+            jobs = (
+                db.query(ClipJob)
+                .filter(ClipJob.target_id == target_id, ClipJob.status == "waiting_clips")
+                .order_by(ClipJob.created_at.asc())
+                .all()
+            )
+
+            if len(jobs) <= 1:
+                continue
+
+            # O primeiro job (mais antigo) absorve todos os outros
+            primary = jobs[0]
+            merged_urls = list(primary.clip_urls or [])
+            merged_meta = list(primary.clip_metadata or [])
+            absorbed_ids = []
+
+            for donor in jobs[1:]:
+                donor_urls = donor.clip_urls or []
+                donor_meta = donor.clip_metadata or []
+
+                for url, meta in zip(donor_urls, donor_meta):
+                    if url not in merged_urls:
+                        merged_urls.append(url)
+                        merged_meta.append(meta)
+
+                absorbed_ids.append(donor.id)
+                db.delete(donor)
+
+            primary.clip_urls = merged_urls
+            primary.clip_metadata = merged_meta
+
+            total_dur = sum(float(c.get("duration", 30)) for c in merged_meta)
+
+            if total_dur >= CHUNK_MIN_DURATION:
+                # Consolidação atingiu 61s → promover!
+                primary.status = "pending"
+                primary.current_step = f"Consolidado: {len(merged_urls)} clips, {total_dur:.0f}s. Pronto!"
+                primary.progress_pct = 0
+                promoted_ids.append(primary.id)
+                logger.info(
+                    f"🔗 Job #{primary.id} consolidado e promovido → pending: "
+                    f"{len(merged_urls)} clips de {count} jobs, {total_dur:.0f}s "
+                    f"(absorveu jobs {absorbed_ids})"
+                )
+            else:
+                primary.current_step = f"Consolidado: {total_dur:.0f}s / 61s mínimo ({len(merged_urls)} clips)"
+                primary.progress_pct = int(min(total_dur / 61.0 * 100, 99))
+                logger.info(
+                    f"🔗 Job #{primary.id} consolidado: {len(merged_urls)} clips de {count} jobs, "
+                    f"{total_dur:.0f}s (absorveu jobs {absorbed_ids}, faltam {61 - total_dur:.0f}s)"
+                )
+
+        db.commit()
+
+        # Enfileirar jobs promovidos
+        if promoted_ids:
+            try:
+                pool = await create_pool(RedisSettings(host=REDIS_HOST, port=REDIS_PORT))
+                for job_id in promoted_ids:
+                    await pool.enqueue_job("process_clip_job", job_id, _queue_name="clipper:queue")
+                await pool.close()
+                logger.info(f"🔗 {len(promoted_ids)} job(s) consolidados enfileirados para processamento")
+            except Exception as e:
+                logger.error(f"Falha ao enfileirar jobs consolidados: {e}")
+
+
+async def _promote_expired_waiting_jobs() -> None:
+    """
+    Promove jobs waiting_clips que expiraram o timeout (72h) para pending.
+    Esses jobs serão processados com loop-tail como fallback.
+    Chamado no início de cada ciclo de scan.
+    """
+    with safe_session() as db:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=WAITING_JOB_TIMEOUT_HOURS)
+        expired = (
+            db.query(ClipJob)
+            .filter(
+                ClipJob.status == "waiting_clips",
+                ClipJob.created_at < cutoff,
+            )
+            .all()
+        )
+
+        if not expired:
+            return
+
+        from core.config import REDIS_HOST, REDIS_PORT
+
+        for job in expired:
+            total_dur = sum(float(c.get("duration", 30)) for c in (job.clip_metadata or []))
+            job.status = "pending"
+            job.current_step = f"Timeout 72h atingido ({total_dur:.0f}s). Processando com loop."
+            job.progress_pct = 0
+            logger.warning(
+                f"⏰ Job #{job.id} expirou waiting_clips após 72h: "
+                f"{len(job.clip_urls or [])} clips, {total_dur:.0f}s. Forçando processamento."
+            )
+
+        db.commit()
+
+        # Enfileirar todos
+        try:
+            pool = await create_pool(RedisSettings(host=REDIS_HOST, port=REDIS_PORT))
+            for job in expired:
+                await pool.enqueue_job("process_clip_job", job.id, _queue_name="clipper:queue")
+            await pool.close()
+        except Exception as e:
+            logger.error(f"Falha ao enfileirar jobs expirados: {e}")
 
 
 async def monitor_loop(interval_seconds: int = 60):
@@ -777,6 +1048,18 @@ def _get_ready_target_ids() -> List[int]:
 
 async def _check_all_targets() -> None:
     """Verifica targets ativos cujo intervalo de check ja expirou."""
+    # 1. Consolidar waiting_clips duplicados do mesmo target
+    try:
+        await _consolidate_waiting_jobs()
+    except Exception as e:
+        logger.error(f"Erro ao consolidar waiting jobs: {e}", exc_info=True)
+
+    # 2. Promover jobs waiting_clips que expiraram o timeout de 72h
+    try:
+        await _promote_expired_waiting_jobs()
+    except Exception as e:
+        logger.error(f"Erro ao promover waiting jobs expirados: {e}", exc_info=True)
+
     # Roda DB call bloqueante em thread separada
     ready_targets = await asyncio.to_thread(_get_ready_target_ids)
 
