@@ -1,0 +1,26 @@
+[Script Info]
+Title: Synapse Auto Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Active,Inter Black,85,&H000B9EF5,&H000B9EF5,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+Style: Inactive,Inter Black,85,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:00.20,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Já {\1c&H00FFFFFF}foi {\1c&H00FFFFFF}pô
+Dialogue: 0,0:00:00.20,0:00:00.38,Active,,0,0,0,,{\1c&H00FFFFFF}Já {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}foi {\1c&H00FFFFFF}pô
+Dialogue: 0,0:00:00.48,0:00:00.72,Active,,0,0,0,,{\1c&H00FFFFFF}Já {\1c&H00FFFFFF}foi {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}pô
+Dialogue: 0,0:00:01.84,0:00:01.96,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Já {\1c&H00FFFFFF}foi {\1c&H00FFFFFF}belza
+Dialogue: 0,0:00:01.96,0:00:02.06,Active,,0,0,0,,{\1c&H00FFFFFF}Já {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}foi {\1c&H00FFFFFF}belza
+Dialogue: 0,0:00:02.12,0:00:02.33,Active,,0,0,0,,{\1c&H00FFFFFF}Já {\1c&H00FFFFFF}foi {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}belza
+Dialogue: 0,0:00:02.35,0:00:02.56,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}embriar {\1c&H00FFFFFF}pros {\1c&H00FFFFFF}15
+Dialogue: 0,0:00:02.56,0:00:02.68,Active,,0,0,0,,{\1c&H00FFFFFF}embriar {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}pros {\1c&H00FFFFFF}15
+Dialogue: 0,0:00:02.68,0:00:03.02,Active,,0,0,0,,{\1c&H00FFFFFF}embriar {\1c&H00FFFFFF}pros {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}15
+Dialogue: 0,0:00:03.25,0:00:03.41,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}mano

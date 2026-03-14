@@ -213,6 +213,7 @@ export default function ClipperPage() {
     // Approval Queue Data
     const [pendingVideos, setPendingVideos] = useState<PendingVideo[]>([]);
     const [approvalLoading, setApprovalLoading] = useState(true);
+    const [refreshingList, setRefreshingList] = useState(false);
     const [selectedVideo, setSelectedVideo] = useState<PendingVideo | null>(null);
     const [showApprovalModal, setShowApprovalModal] = useState(false);
     const [postType, setPostType] = useState<'smart' | 'specific' | 'now'>('smart');
@@ -232,6 +233,17 @@ export default function ClipperPage() {
     const [targetToDelete, setTargetToDelete] = useState<number | null>(null);
     const [armyToDelete, setArmyToDelete] = useState<number | null>(null);
     const [newArmy, setNewArmy] = useState({ name: '', color: '#00f0ff', icon: 'swords', profile_ids: [] as number[] });
+
+    // Pipeline accordion state — active sections auto-expand
+    const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['processing', 'waiting']));
+    const toggleSection = (key: string) => {
+        setExpandedSections(prev => {
+            const next = new Set(prev);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
+            return next;
+        });
+    };
 
     // ── Targets logic ──
     const fetchTargets = async () => {
@@ -410,7 +422,8 @@ export default function ClipperPage() {
     }, []);
 
     // ── Approval Queue Logic ──
-    const fetchPendingVideos = useCallback(async () => {
+    const fetchPendingVideos = useCallback(async (manual = false) => {
+        if (manual) setRefreshingList(true);
         try {
             const data = await apiClient.get<PendingVideo[]>('/api/v1/factory/pending');
             setPendingVideos(data);
@@ -418,6 +431,7 @@ export default function ClipperPage() {
             console.error('Error fetching pending videos:', error);
         } finally {
             setApprovalLoading(false);
+            if (manual) setRefreshingList(false);
         }
     }, []);
 
@@ -576,12 +590,22 @@ export default function ClipperPage() {
             setSelectedTime('12:00');
             await fetchPendingVideos();
 
-            const profileName = (result as any)?.profile || selectedProfileSlug || 'auto';
-            const scheduledTime = (result as any)?.scheduled_time;
+            const res = result as any;
+            const profileName = res?.profile || selectedProfileSlug || 'auto';
+            const scheduledTime = res?.scheduled_time;
+            const failedCount = res?.failed || 0;
+            const scheduledCount = res?.scheduled || 0;
             const timeStr = scheduledTime
                 ? ` para ${new Date(scheduledTime).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
                 : '';
-            toast.success(`Vídeo aprovado e agendado no perfil @${profileName}${timeStr}!`);
+
+            if (failedCount > 0 && scheduledCount === 0) {
+                toast.error(`Aprovado mas falhou ao agendar no perfil @${profileName}. Verifique o scheduler.`);
+            } else if (failedCount > 0) {
+                toast.success(`Vídeo aprovado no perfil @${profileName}${timeStr}, mas ${failedCount} tentativa(s) falharam.`);
+            } else {
+                toast.success(`Vídeo aprovado e agendado no perfil @${profileName}${timeStr}!`);
+            }
         } catch (error: any) {
             toast.error(error?.data?.detail || 'Erro ao aprovar vídeo. Tente novamente.');
         } finally {
@@ -979,7 +1003,7 @@ export default function ClipperPage() {
                                 textColor: 'text-amber-400',
                                 badgeBg: 'bg-amber-500/10',
                                 glowColor: '',
-                                animate: true,
+                                animate: false,
                             },
                             {
                                 key: 'queue',
@@ -1046,8 +1070,30 @@ export default function ClipperPage() {
                                 </span>
                             </div>
 
-                            {/* ═══ Seções Agrupadas por Status ═══ */}
-                            <div className="space-y-6">
+                            {/* ═══ Mini Status Summary ═══ */}
+                            <div className="flex flex-wrap gap-2">
+                                {PIPELINE_SECTIONS.map((section) => {
+                                    const count = items.filter(job => section.statuses.includes(job.status)).length;
+                                    if (count === 0) return null;
+                                    return (
+                                        <button
+                                            key={section.key}
+                                            onClick={() => toggleSection(section.key)}
+                                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-mono transition-all ${
+                                                expandedSections.has(section.key)
+                                                    ? `${section.borderColor} ${section.badgeBg} ${section.textColor}`
+                                                    : 'border-white/5 bg-white/[0.02] text-slate-500 hover:text-slate-300'
+                                            }`}
+                                        >
+                                            <span className={`material-symbols-outlined text-[12px] ${section.animate && expandedSections.has(section.key) ? 'animate-spin' : ''}`} style={section.animate ? { animationDuration: '3s' } : undefined}>{section.icon}</span>
+                                            {count}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* ═══ Seções Agrupadas por Status (Accordion) ═══ */}
+                            <div className="space-y-3">
                                 {PIPELINE_SECTIONS.map((section) => {
                                     const sectionJobs = items
                                         .filter(job => section.statuses.includes(job.status))
@@ -1055,25 +1101,36 @@ export default function ClipperPage() {
 
                                     if (sectionJobs.length === 0) return null;
 
+                                    const isExpanded = expandedSections.has(section.key);
+
                                     return (
-                                        <div key={section.key} className={`rounded-xl border ${section.borderColor} ${section.bgColor} ${section.glowColor} overflow-hidden`}>
-                                            {/* Section Header */}
-                                            <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+                                        <div key={section.key} className={`rounded-xl border ${section.borderColor} ${section.bgColor} ${section.glowColor} overflow-hidden transition-all`}>
+                                            {/* Section Header — Clickable */}
+                                            <button
+                                                onClick={() => toggleSection(section.key)}
+                                                className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.02] transition-colors cursor-pointer"
+                                            >
                                                 <div className="flex items-center gap-2.5">
-                                                    <span className={`material-symbols-outlined text-[16px] ${section.textColor} ${section.animate ? 'animate-spin' : ''}`} style={section.animate ? { animationDuration: '3s' } : undefined}>
+                                                    <span className={`material-symbols-outlined text-[16px] ${section.textColor} ${section.animate && isExpanded ? 'animate-spin' : ''}`} style={section.animate ? { animationDuration: '3s' } : undefined}>
                                                         {section.icon}
                                                     </span>
                                                     <span className={`font-display font-bold text-sm tracking-widest ${section.textColor}`}>
                                                         {section.label}
                                                     </span>
                                                 </div>
-                                                <span className={`${section.badgeBg} border ${section.borderColor} ${section.textColor} text-[10px] font-mono px-2.5 py-0.5 rounded-full`}>
-                                                    {sectionJobs.length}
-                                                </span>
-                                            </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`${section.badgeBg} border ${section.borderColor} ${section.textColor} text-[10px] font-mono px-2.5 py-0.5 rounded-full`}>
+                                                        {sectionJobs.length}
+                                                    </span>
+                                                    <span className={`material-symbols-outlined text-[14px] text-slate-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+                                                        expand_more
+                                                    </span>
+                                                </div>
+                                            </button>
 
-                                            {/* Section Jobs */}
-                                            <div className="p-3 space-y-3">
+                                            {/* Section Jobs — Collapsible */}
+                                            <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                                            <div className="p-3 space-y-3 border-t border-white/5">
                                                 {sectionJobs.map((job) => {
                                                     const stepInfo = PIPELINE_STEPS.find(s => s.key === job.status) || PIPELINE_STEPS[0];
                                                     const activeStepIdx = PIPELINE_STEPS.findIndex(s => s.key === job.status);
@@ -1228,6 +1285,7 @@ export default function ClipperPage() {
                                         </div>
                                                     );
                                                 })}
+                                            </div>
                                             </div>
                                         </div>
                                     );
@@ -1435,11 +1493,12 @@ export default function ClipperPage() {
                         </div>
                         {pendingVideos.length > 0 && (
                             <button
-                                onClick={fetchPendingVideos}
-                                className="text-xs font-mono text-cyan-400 hover:text-white border border-cyan-400/30 hover:border-cyan-400 bg-cyan-400/5 px-4 py-2 rounded-lg flex items-center gap-2 transition-all hover:bg-cyan-400/20"
+                                onClick={() => fetchPendingVideos(true)}
+                                disabled={refreshingList}
+                                className="text-xs font-mono text-cyan-400 hover:text-white border border-cyan-400/30 hover:border-cyan-400 bg-cyan-400/5 px-4 py-2 rounded-lg flex items-center gap-2 transition-all hover:bg-cyan-400/20 disabled:opacity-50"
                             >
-                                <span className="material-symbols-outlined text-[16px]">sync</span>
-                                ATT LISTA
+                                <span className={`material-symbols-outlined text-[16px] ${refreshingList ? 'animate-spin' : ''}`}>sync</span>
+                                {refreshingList ? 'ATUALIZANDO...' : 'ATT LISTA'}
                             </button>
                         )}
                     </div>
@@ -1823,7 +1882,7 @@ export default function ClipperPage() {
                                     {([
                                         { mode: 'smart' as const, icon: 'auto_awesome', label: 'Smart Queue', desc: 'Automático' },
                                         { mode: 'specific' as const, icon: 'calendar_month', label: 'Data Exata', desc: 'Escolher dia/hora' },
-                                        { mode: 'now' as const, icon: 'bolt', label: 'Agora', desc: 'Próx. 5 min' },
+                                        { mode: 'now' as const, icon: 'bolt', label: 'Agora', desc: 'Próx. 1 min' },
                                     ]).map((opt) => (
                                         <button
                                             key={opt.mode}
@@ -1910,7 +1969,7 @@ export default function ClipperPage() {
                                 {postType === 'now' && (
                                     <div className="mt-3 bg-amber-500/5 rounded-lg p-3 border border-amber-500/10">
                                         <p className="text-[10px] text-amber-400/70 font-mono">
-                                            O video sera agendado para daqui a 5 minutos. Ideal para testes rapidos.
+                                            O video sera agendado para daqui a 1 minuto. Ideal para testes rapidos.
                                         </p>
                                     </div>
                                 )}

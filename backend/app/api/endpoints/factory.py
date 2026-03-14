@@ -244,12 +244,9 @@ async def approve_item(
         # Horários padrão de publicação
         schedule_hours = body.schedule_hours or [12, 18]
 
-        # Montar caption final: caption editada + hashtags
+        # Montar caption final (sem hashtags — o uploader insere as hashtags)
         final_caption = item.caption or item.title or ""
         final_hashtags = item.hashtags or []
-        if final_hashtags:
-            hashtag_str = " ".join(h if h.startswith("#") else f"#{h}" for h in final_hashtags)
-            final_caption = f"{final_caption}\n\n{hashtag_str}".strip()
 
         # 1. Inserir na Smart Queue
         queue_items = create_queue(
@@ -266,6 +263,7 @@ async def approve_item(
         )
 
         scheduled_time = None
+        from core.models import ScheduleItem
 
         if body.schedule_mode == "specific" and body.schedule_date and body.schedule_time:
             # Modo específico: agendar para data/hora exata
@@ -273,33 +271,58 @@ async def approve_item(
             target_dt = datetime.fromisoformat(str(body.schedule_date)).replace(
                 hour=hour, minute=minute, second=0
             )
-            # Setar diretamente no item da queue
+            # Criar ScheduleItem diretamente com o horário escolhido
+            sched_item = ScheduleItem(
+                profile_slug=profile.slug,
+                video_path=item.video_path,
+                scheduled_time=target_dt,
+                status="pending",
+                metadata_info={
+                    "caption": final_caption,
+                    "hashtags": final_hashtags,
+                    "privacy_level": "public_to_everyone",
+                    "source": "approve_specific",
+                }
+            )
+            db.add(sched_item)
+            db.flush()
             if queue_items:
                 queue_items[0].scheduled_at = target_dt
-                queue_items[0].status = "queued"
-                db.commit()
-                scheduled_time = target_dt.isoformat()
-            # Agendar via pipeline
-            result = await schedule_next_batch(
-                profile_slug=profile.slug,
-                batch_size=1,
-                db=db,
-            )
-        elif body.schedule_mode == "now":
-            # Modo imediato: próximo slot em 5 minutos
-            now = datetime.now(SP_TZ)
-            target_dt = (now + timedelta(minutes=5)).replace(tzinfo=None)
-            if queue_items:
-                queue_items[0].scheduled_at = target_dt
-                db.commit()
-            result = await schedule_next_batch(
-                profile_slug=profile.slug,
-                batch_size=1,
-                db=db,
-            )
+                queue_items[0].status = "scheduled"
+                queue_items[0].schedule_item_id = sched_item.id
+            db.commit()
             scheduled_time = target_dt.isoformat()
+            result = {"scheduled": 1, "failed": 0, "queued_remaining": 0}
+
+        elif body.schedule_mode == "now":
+            # Modo imediato: próximo slot em 1 minuto (scheduler polls a cada 30s)
+            now = datetime.now(SP_TZ)
+            target_dt = (now + timedelta(minutes=1)).replace(tzinfo=None)
+            # Criar ScheduleItem para execução em ~1 minuto
+            sched_item = ScheduleItem(
+                profile_slug=profile.slug,
+                video_path=item.video_path,
+                scheduled_time=target_dt,
+                status="pending",
+                metadata_info={
+                    "caption": final_caption,
+                    "hashtags": final_hashtags,
+                    "privacy_level": "public_to_everyone",
+                    "source": "approve_now",
+                }
+            )
+            db.add(sched_item)
+            db.flush()
+            if queue_items:
+                queue_items[0].scheduled_at = target_dt
+                queue_items[0].status = "scheduled"
+                queue_items[0].schedule_item_id = sched_item.id
+            db.commit()
+            scheduled_time = target_dt.isoformat()
+            result = {"scheduled": 1, "failed": 0, "queued_remaining": 0}
+
         else:
-            # Modo smart (padrão): distribuição automática
+            # Modo smart (padrão): distribuição automática via calculate_next_slots
             result = await schedule_next_batch(
                 profile_slug=profile.slug,
                 batch_size=1,
@@ -475,7 +498,7 @@ EXEMPLOS DO SEU ESTILO:
 HASHTAGS:
 - Mix de trending (#fyp #viral #gaming) + nicho específico (#residentevil #twitchbr)
 - Sempre inclua #fyp ou #fy e #gaming se for gameplay
-- 5-8 hashtags, priorizando alcance depois nicho""",
+- 3-5 hashtags, priorizando alcance depois nicho""",
 
         "Polêmico": """Você é o RAFA, creator de 27 anos que faz react e gaming polêmico.
 Seu conteúdo gera debate nos comentários. Você sabe que engajamento negativo também é engajamento.
@@ -485,19 +508,19 @@ ESTILO DE ESCRITA:
 - Use perguntas retóricas provocativas: "vocês realmente acham que isso é skill?"
 - Tome um lado, nunca fique em cima do muro
 - Provoque a audiência a discordar: "prova que eu tô errado nos comentários"
-- Use "hot take:" ou "opinião impopular:" como prefixo quando cabível
+- NUNCA use prefixos de prompt como "hot take:", "opinião impopular:", "unpopular opinion:" — esses são marcadores de prompt e não devem aparecer no texto final
 - Polêmico NÃO é tóxico — é assertivo, confiante, desafiador
+- A frase deve ser direta e natural, como se fosse um comentário real
 
 EXEMPLOS DO SEU ESTILO:
-- "hot take: esse cara é o MELHOR player de RE e não tá pronto pra essa conversa"
+- "esse cara é o MELHOR player de RE e vocês não estão prontos pra essa conversa"
 - "se você morreu nessa parte, desinstala o jogo"
-- "opinião impopular: a comunidade BR de Twitch carrega a gringa"
+- "a comunidade BR de Twitch carrega a gringa e isso é FATO"
 - "vocês tão dormindo nesse streamer e não sabem"
 
 HASHTAGS:
-- Use tags que geram debate: #hottake #opiniãoimpopular #polêmica
-- Mix com tags do game e da comunidade
-- 4-6 hashtags, mais diretas e provocativas""",
+- Mix de tags do game e da comunidade
+- 3-5 hashtags, diretas e provocativas""",
 
         "Engraçado": """Você é o DUDU, comediante digital de 25 anos, especialista em humor gaming BR.
 Seu forte é referência de meme, auto-depreciação e timing cômico em texto.
@@ -519,7 +542,7 @@ EXEMPLOS DO SEU ESTILO:
 HASHTAGS:
 - Tags de humor: #humor #meme #kkkk #gaming #engraçado
 - Tags do jogo para alcance
-- 5-7 hashtags, tom leve e divertido""",
+- 3-5 hashtags, tom leve e divertido""",
 
         "Profissional": """Você é a ANA, produtora de conteúdo gaming de 30 anos com background em jornalismo.
 Seu conteúdo é informativo, editorial e respeitado pela comunidade.
@@ -542,7 +565,7 @@ HASHTAGS:
 - Tags profissionais: #gaming #twitch #gameplay #streamer
 - Tags do jogo completas: #ResidentEvil #RERequiem
 - Tags de curadoria: #melhoresclipes #destaque
-- 4-6 hashtags, tom editorial""",
+- 3-5 hashtags, tom editorial""",
     }
 
     persona = PERSONAS.get(options.tone, PERSONAS["Viral"])
@@ -585,12 +608,16 @@ Crie UMA descrição para TikTok/Shorts baseada no conteúdo REAL do vídeo abai
 TAMANHO: {length_guide.get(options.length, length_guide['short'])}
 
 REGRAS INVIOLÁVEIS:
-1. A caption DEVE refletir o que REALMENTE acontece no vídeo (use a transcrição e os títulos dos clipes)
-2. NUNCA invente eventos, falas ou situações que não estão na transcrição
-3. Escreva em PT-BR
-4. NÃO comece com "Neste vídeo...", "Veja só...", "Confira..." ou qualquer abertura genérica
+1. A caption DEVE refletir o que REALMENTE acontece no vídeo. Use a transcrição como fonte primária — cite falas reais, reações específicas, momentos exatos.
+2. NUNCA invente eventos, falas ou situações. Se a transcrição diz "ai meu deus", use isso. Se não há transcrição, baseie-se APENAS nos títulos dos clipes.
+3. Escreva em PT-BR coloquial e natural (como um brasileiro real escreveria no TikTok).
+4. NÃO comece com prefixos de prompt como "hot take:", "opinião impopular:", "unpopular opinion:", "neste vídeo...", "veja só...", "confira...". A frase deve ser direta.
 5. Responda APENAS em JSON válido: {{"caption": "sua caption aqui", "hashtags": ["#tag1", "#tag2"]}}
-{"6. Gere 5-8 hashtags misturando alcance (#fyp #gaming) com nicho (#" + game_name.lower().replace(' ', '').replace(':', '') + ")" if options.include_hashtags else "6. NÃO inclua hashtags, retorne lista vazia"}
+{"6. Gere entre 3 e 5 hashtags (MÁXIMO 5). Misture alcance (#fyp #gaming) com nicho (#" + game_name.lower().replace(' ', '').replace(':', '') + ")" if options.include_hashtags else "6. NÃO inclua hashtags, retorne lista vazia"}
+7. A caption deve funcionar como GANCHO — quem lê tem que querer assistir o vídeo. Foque no momento mais impactante/engraçado/tenso.
+8. MENCIONE o streamer pelo nome ({streamer}) de forma natural. Ex: "{streamer} perdeu a cabeça quando..."
+9. Se o clipe tem uma reação forte (grito, riso, susto), DESTAQUE isso na caption.
+10. NUNCA use aspas ao redor da caption inteira. Escreva como texto direto.
 """
 
     instruction = options.instruction or f"Escreva a descrição perfeita para esse vídeo no tom {options.tone}"
@@ -602,6 +629,8 @@ REGRAS INVIOLÁVEIS:
 
 [TRANSCRIÇÃO COMPLETA (WHISPER)]
 {transcript_text if transcript_text else "(Sem áudio transcrito — baseie-se nos títulos e metadados dos clipes)"}
+
+[DICA] Analise a transcrição com atenção. Identifique o MOMENTO-CHAVE (o pico emocional, a fala mais marcante, a reação mais forte) e construa a caption ao redor desse momento. A caption deve fazer o viewer parar o scroll.
 """
 
     # ── Chamar Oracle ──

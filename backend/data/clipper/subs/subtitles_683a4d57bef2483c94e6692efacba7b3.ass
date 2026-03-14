@@ -1,0 +1,25 @@
+[Script Info]
+Title: Synapse Auto Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Active,Inter Black,85,&H000B9EF5,&H000B9EF5,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+Style: Inactive,Inter Black,85,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:00.22,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}jogo {\1c&H00FFFFFF}de {\1c&H00FFFFFF}terror
+Dialogue: 0,0:00:00.22,0:00:00.36,Active,,0,0,0,,{\1c&H00FFFFFF}jogo {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}de {\1c&H00FFFFFF}terror
+Dialogue: 0,0:00:00.36,0:00:00.80,Active,,0,0,0,,{\1c&H00FFFFFF}jogo {\1c&H00FFFFFF}de {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}terror
+Dialogue: 0,0:00:00.80,0:00:01.28,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}e
+Dialogue: 0,0:00:03.14,0:00:03.56,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}fudido {\1c&H00FFFFFF}não {\1c&H00FFFFFF}corre
+Dialogue: 0,0:00:03.56,0:00:03.67,Active,,0,0,0,,{\1c&H00FFFFFF}fudido {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}não {\1c&H00FFFFFF}corre
+Dialogue: 0,0:00:03.67,0:00:03.93,Active,,0,0,0,,{\1c&H00FFFFFF}fudido {\1c&H00FFFFFF}não {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}corre
+Dialogue: 0,0:00:04.03,0:00:04.07,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}não?
+Dialogue: 0,0:00:04.87,0:00:04.95,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Ah

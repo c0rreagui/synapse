@@ -27,8 +27,26 @@ def is_running_in_docker() -> bool:
 
 IN_DOCKER = is_running_in_docker()
 
-# Path to system Chromium (installed via apt in Docker)
-SYSTEM_CHROMIUM_PATH = "/usr/bin/chromium" if IN_DOCKER else None
+# Path to Chromium in Docker: prefer system apt binary, fallback to Playwright's bundled one
+def _resolve_chromium_path() -> Optional[str]:
+    if not IN_DOCKER:
+        return None
+    # 1) System apt-installed chromium
+    if os.path.isfile("/usr/bin/chromium"):
+        return "/usr/bin/chromium"
+    # 2) Playwright's bundled chromium (installed via `playwright install chromium`)
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            pw_path = p.chromium.executable_path
+            if pw_path and os.path.isfile(pw_path):
+                return pw_path
+    except Exception:
+        pass
+    # 3) Let Playwright auto-detect (no explicit path)
+    return None
+
+SYSTEM_CHROMIUM_PATH = _resolve_chromium_path()
 
 STEALTH_ARGS = [
     "--disable-blink-features=AutomationControlled",

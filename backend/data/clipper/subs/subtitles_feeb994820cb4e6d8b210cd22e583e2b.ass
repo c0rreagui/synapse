@@ -1,0 +1,31 @@
+[Script Info]
+Title: Synapse Auto Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Active,Inter Black,85,&H000B9EF5,&H000B9EF5,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+Style: Inactive,Inter Black,85,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.22,0:00:00.72,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Mano {\1c&H00FFFFFF}ela {\1c&H00FFFFFF}fica
+Dialogue: 0,0:00:00.74,0:00:00.76,Active,,0,0,0,,{\1c&H00FFFFFF}Mano {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ela {\1c&H00FFFFFF}fica
+Dialogue: 0,0:00:00.76,0:00:00.86,Active,,0,0,0,,{\1c&H00FFFFFF}Mano {\1c&H00FFFFFF}ela {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}fica
+Dialogue: 0,0:00:00.86,0:00:01.08,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}dando {\1c&H00FFFFFF}o {\1c&H00FFFFFF}braço
+Dialogue: 0,0:00:01.08,0:00:01.19,Active,,0,0,0,,{\1c&H00FFFFFF}dando {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}o {\1c&H00FFFFFF}braço
+Dialogue: 0,0:00:01.19,0:00:01.36,Active,,0,0,0,,{\1c&H00FFFFFF}dando {\1c&H00FFFFFF}o {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}braço
+Dialogue: 0,0:00:01.43,0:00:01.56,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ela {\1c&H00FFFFFF}fica {\1c&H00FFFFFF}assim
+Dialogue: 0,0:00:01.56,0:00:01.74,Active,,0,0,0,,{\1c&H00FFFFFF}ela {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}fica {\1c&H00FFFFFF}assim
+Dialogue: 0,0:00:01.74,0:00:02.04,Active,,0,0,0,,{\1c&H00FFFFFF}ela {\1c&H00FFFFFF}fica {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}assim
+Dialogue: 0,0:00:02.18,0:00:02.25,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ó
+Dialogue: 0,0:00:02.75,0:00:02.89,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}igual {\1c&H00FFFFFF}um {\1c&H00FFFFFF}lutador
+Dialogue: 0,0:00:02.89,0:00:03.02,Active,,0,0,0,,{\1c&H00FFFFFF}igual {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}um {\1c&H00FFFFFF}lutador
+Dialogue: 0,0:00:03.02,0:00:03.29,Active,,0,0,0,,{\1c&H00FFFFFF}igual {\1c&H00FFFFFF}um {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}lutador
+Dialogue: 0,0:00:03.29,0:00:03.46,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}do {\1c&H00FFFFFF}UFC
+Dialogue: 0,0:00:03.46,0:00:03.74,Active,,0,0,0,,{\1c&H00FFFFFF}do {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}UFC

@@ -215,6 +215,11 @@ class Scheduler:
                 
             item = db.query(ScheduleItem).filter(ScheduleItem.id == pk).first()
             if item:
+                # Desvincular VideoQueue records que referenciam este ScheduleItem
+                from core.models import VideoQueue
+                db.query(VideoQueue).filter(VideoQueue.schedule_item_id == pk).update(
+                    {"schedule_item_id": None}, synchronize_session="fetch"
+                )
                 db.delete(item)
                 db.commit()
                 return True
@@ -462,7 +467,7 @@ class Scheduler:
                 await self.check_due_items()
             except Exception as e:
                 print(f"Scheduler Loop Error: {e}")
-            await asyncio.sleep(60) # Check every minute
+            await asyncio.sleep(30) # Check every 30 seconds
 
     @with_db_retries()
     async def check_due_items(self):

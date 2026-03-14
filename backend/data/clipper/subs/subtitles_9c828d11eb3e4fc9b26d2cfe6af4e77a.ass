@@ -1,0 +1,27 @@
+[Script Info]
+Title: Synapse Auto Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Active,Inter Black,85,&H000B9EF5,&H000B9EF5,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+Style: Inactive,Inter Black,85,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:08.97,0:00:09.76,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Vai
+Dialogue: 0,0:00:15.66,0:00:15.80,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ela {\1c&H00FFFFFF}vai {\1c&H00FFFFFF}escutar
+Dialogue: 0,0:00:15.80,0:00:15.96,Active,,0,0,0,,{\1c&H00FFFFFF}ela {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}vai {\1c&H00FFFFFF}escutar
+Dialogue: 0,0:00:15.96,0:00:16.53,Active,,0,0,0,,{\1c&H00FFFFFF}ela {\1c&H00FFFFFF}vai {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}escutar
+Dialogue: 0,0:00:16.53,0:00:16.67,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}o {\1c&H00FFFFFF}terceiro {\1c&H00FFFFFF}volta!
+Dialogue: 0,0:00:16.67,0:00:17.07,Active,,0,0,0,,{\1c&H00FFFFFF}o {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}terceiro {\1c&H00FFFFFF}volta!
+Dialogue: 0,0:00:17.07,0:00:17.44,Active,,0,0,0,,{\1c&H00FFFFFF}o {\1c&H00FFFFFF}terceiro {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}volta!
+Dialogue: 0,0:00:27.08,0:00:27.89,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Aí {\1c&H00FFFFFF}ela {\1c&H00FFFFFF}chamou
+Dialogue: 0,0:00:27.89,0:00:28.07,Active,,0,0,0,,{\1c&H00FFFFFF}Aí {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ela {\1c&H00FFFFFF}chamou
+Dialogue: 0,0:00:28.07,0:00:28.57,Active,,0,0,0,,{\1c&H00FFFFFF}Aí {\1c&H00FFFFFF}ela {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}chamou
+Dialogue: 0,0:00:28.71,0:00:28.89,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}fia!

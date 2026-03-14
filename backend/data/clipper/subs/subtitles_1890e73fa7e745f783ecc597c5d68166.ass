@@ -1,0 +1,23 @@
+[Script Info]
+Title: Synapse Auto Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Active,Inter Black,85,&H000B9EF5,&H000B9EF5,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+Style: Inactive,Inter Black,85,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:03.79,0:00:04.17,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Homem {\1c&H00FFFFFF}as {\1c&H00FFFFFF}barra
+Dialogue: 0,0:00:04.17,0:00:04.24,Active,,0,0,0,,{\1c&H00FFFFFF}Homem {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}as {\1c&H00FFFFFF}barra
+Dialogue: 0,0:00:04.24,0:00:04.51,Active,,0,0,0,,{\1c&H00FFFFFF}Homem {\1c&H00FFFFFF}as {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}barra
+Dialogue: 0,0:00:04.51,0:00:04.74,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Homem {\1c&H00FFFFFF}as {\1c&H00FFFFFF}barra
+Dialogue: 0,0:00:04.74,0:00:04.79,Active,,0,0,0,,{\1c&H00FFFFFF}Homem {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}as {\1c&H00FFFFFF}barra
+Dialogue: 0,0:00:04.79,0:00:05.08,Active,,0,0,0,,{\1c&H00FFFFFF}Homem {\1c&H00FFFFFF}as {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}barra
+Dialogue: 0,0:00:05.08,0:00:05.36,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}bicho!

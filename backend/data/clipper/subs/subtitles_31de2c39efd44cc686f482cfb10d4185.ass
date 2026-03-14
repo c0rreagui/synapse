@@ -1,0 +1,31 @@
+[Script Info]
+Title: Synapse Auto Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Active,Inter Black,85,&H000B9EF5,&H000B9EF5,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+Style: Inactive,Inter Black,85,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:01.08,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Enquanto
+Dialogue: 0,0:00:35.42,0:00:35.60,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}não
+Dialogue: 0,0:00:38.28,0:00:38.56,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}mas {\1c&H00FFFFFF}é {\1c&H00FFFFFF}bom
+Dialogue: 0,0:00:38.56,0:00:38.67,Active,,0,0,0,,{\1c&H00FFFFFF}mas {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}é {\1c&H00FFFFFF}bom
+Dialogue: 0,0:00:38.67,0:00:38.84,Active,,0,0,0,,{\1c&H00FFFFFF}mas {\1c&H00FFFFFF}é {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}bom
+Dialogue: 0,0:00:38.84,0:00:39.02,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}se {\1c&H00FFFFFF}ficarem {\1c&H00FFFFFF}espertos
+Dialogue: 0,0:00:39.02,0:00:39.35,Active,,0,0,0,,{\1c&H00FFFFFF}se {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ficarem {\1c&H00FFFFFF}espertos
+Dialogue: 0,0:00:39.35,0:00:39.89,Active,,0,0,0,,{\1c&H00FFFFFF}se {\1c&H00FFFFFF}ficarem {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}espertos
+Dialogue: 0,0:00:39.89,0:00:39.96,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}hein
+Dialogue: 0,0:00:43.78,0:00:43.89,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}estão {\1c&H00FFFFFF}confortáveis {\1c&H00FFFFFF}demais
+Dialogue: 0,0:00:43.89,0:00:44.54,Active,,0,0,0,,{\1c&H00FFFFFF}estão {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}confortáveis {\1c&H00FFFFFF}demais
+Dialogue: 0,0:00:44.54,0:00:44.86,Active,,0,0,0,,{\1c&H00FFFFFF}estão {\1c&H00FFFFFF}confortáveis {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}demais
+Dialogue: 0,0:00:44.86,0:00:45.18,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}aí
+Dialogue: 0,0:00:54.32,0:00:54.49,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}E {\1c&H00FFFFFF}seguimos!
+Dialogue: 0,0:00:54.49,0:00:54.81,Active,,0,0,0,,{\1c&H00FFFFFF}E {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}seguimos!

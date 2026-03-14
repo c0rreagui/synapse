@@ -144,13 +144,12 @@ async def schedule_next_batch(
     db
 ) -> dict:
     """
-    Agenda os proximos `batch_size` videos da fila no TikTok Studio.
-    Importa e chama upload_video_monitored para cada item.
+    Agenda os proximos `batch_size` videos da fila criando ScheduleItems.
+    NAO faz upload — apenas persiste o agendamento no calendario.
+    O upload sera executado pelo scheduler container quando chegar a hora.
 
     Retorna: {"scheduled": int, "failed": int, "queued_remaining": int}
     """
-    from core.uploader_monitored import upload_video_monitored
-
     # Buscar proximos da fila (status=queued, ordenado por posicao)
     pending = db.query(VideoQueue).filter(
         VideoQueue.profile_slug == profile_slug,
@@ -162,7 +161,6 @@ async def schedule_next_batch(
         return {"scheduled": 0, "failed": 0, "queued_remaining": 0}
 
     # Calcular slots para os items pendentes
-    # schedule_hours e uma lista de horas do dia (ex: [12, 18])
     schedule_hours = pending[0].schedule_hours or [pending[0].start_hour or 18]
     slots = calculate_next_slots(
         profile_slug=profile_slug,
@@ -180,59 +178,45 @@ async def schedule_next_batch(
             break
 
         slot = slots[i]
-        slot_iso = slot.isoformat()
 
-        logger.info(f"[AUTO-SCHEDULER] Agendando {queue_item.video_path} para {slot_iso}")
+        logger.info(f"[AUTO-SCHEDULER] Agendando {queue_item.video_path} para {slot.isoformat()}")
 
         try:
-            result = await upload_video_monitored(
-                session_name=profile_slug,
+            # Criar ScheduleItem para o scheduler container executar no horario
+            sched_item = ScheduleItem(
+                profile_slug=profile_slug,
                 video_path=queue_item.video_path,
-                caption=queue_item.caption,
-                hashtags=queue_item.hashtags,
-                schedule_time=slot_iso,
-                post=False,
-                enable_monitor=False,
-                privacy_level=queue_item.privacy_level,
+                scheduled_time=slot,
+                status="pending",
+                metadata_info={
+                    "caption": queue_item.caption,
+                    "hashtags": queue_item.hashtags,
+                    "privacy_level": queue_item.privacy_level or "public_to_everyone",
+                    "source": "auto_scheduler",
+                    "queue_id": queue_item.id,
+                }
+            )
+            db.add(sched_item)
+            db.flush()
+
+            # Atualizar video_queue
+            queue_item.status = "scheduled"
+            queue_item.scheduled_at = slot
+            queue_item.schedule_item_id = sched_item.id
+
+            db.commit()
+            scheduled_count += 1
+            logger.info(
+                f"[AUTO-SCHEDULER] ✅ Item {queue_item.id} agendado no calendario para "
+                f"{slot.strftime('%d/%m/%Y %H:%M')} (ScheduleItem #{sched_item.id})"
             )
 
-            if result.get("status") == "ready":
-                # Criar ScheduleItem para rastreamento
-                sched_item = ScheduleItem(
-                    profile_slug=profile_slug,
-                    video_path=queue_item.video_path,
-                    scheduled_time=slot,
-                    status="pending",
-                    metadata_info={
-                        "caption": queue_item.caption,
-                        "hashtags": queue_item.hashtags,
-                        "source": "auto_scheduler",
-                        "queue_id": queue_item.id
-                    }
-                )
-                db.add(sched_item)
-                db.flush()
-
-                # Atualizar video_queue
-                queue_item.status = "scheduled"
-                queue_item.scheduled_at = slot
-                queue_item.schedule_item_id = sched_item.id
-
-                db.commit()
-                scheduled_count = scheduled_count + 1
-                logger.info(f"[AUTO-SCHEDULER] Sucesso: item {queue_item.id} agendado para {slot}")
-            else:
-                queue_item.status = "failed"
-                queue_item.error_message = result.get("message", "Upload falhou")
-                db.commit()
-                failed_count = failed_count + 1
-                logger.error(f"[AUTO-SCHEDULER] Falhou: item {queue_item.id}: {queue_item.error_message}")
-
         except Exception as e:
+            db.rollback()
             queue_item.status = "failed"
             queue_item.error_message = str(e)
             db.commit()
-            failed_count = failed_count + 1
+            failed_count += 1
             logger.error(f"[AUTO-SCHEDULER] Excecao ao agendar item {queue_item.id}: {e}")
 
     # Contar restantes na fila

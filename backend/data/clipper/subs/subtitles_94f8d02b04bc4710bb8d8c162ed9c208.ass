@@ -1,0 +1,39 @@
+[Script Info]
+Title: Synapse Auto Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Active,Inter Black,85,&H000B9EF5,&H000B9EF5,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+Style: Inactive,Inter Black,85,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:00.44,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Minha
+Dialogue: 0,0:00:15.14,0:00:15.33,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}música {\1c&H00FFFFFF}nunca {\1c&H00FFFFFF}fez
+Dialogue: 0,0:00:15.33,0:00:15.58,Active,,0,0,0,,{\1c&H00FFFFFF}música {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}nunca {\1c&H00FFFFFF}fez
+Dialogue: 0,0:00:15.58,0:00:15.85,Active,,0,0,0,,{\1c&H00FFFFFF}música {\1c&H00FFFFFF}nunca {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}fez
+Dialogue: 0,0:00:15.85,0:00:16.07,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}tanto {\1c&H00FFFFFF}sentido {\1c&H00FFFFFF}de
+Dialogue: 0,0:00:16.07,0:00:16.48,Active,,0,0,0,,{\1c&H00FFFFFF}tanto {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}sentido {\1c&H00FFFFFF}de
+Dialogue: 0,0:00:16.48,0:00:16.66,Active,,0,0,0,,{\1c&H00FFFFFF}tanto {\1c&H00FFFFFF}sentido {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}de
+Dialogue: 0,0:00:16.66,0:00:16.83,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}vamos {\1c&H00FFFFFF}morrer {\1c&H00FFFFFF}né
+Dialogue: 0,0:00:16.83,0:00:17.35,Active,,0,0,0,,{\1c&H00FFFFFF}vamos {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}morrer {\1c&H00FFFFFF}né
+Dialogue: 0,0:00:17.42,0:00:17.46,Active,,0,0,0,,{\1c&H00FFFFFF}vamos {\1c&H00FFFFFF}morrer {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}né
+Dialogue: 0,0:00:17.53,0:00:18.03,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}velho {\1c&H00FFFFFF}tomar {\1c&H00FFFFFF}no
+Dialogue: 0,0:00:18.32,0:00:18.69,Active,,0,0,0,,{\1c&H00FFFFFF}velho {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}tomar {\1c&H00FFFFFF}no
+Dialogue: 0,0:00:18.69,0:00:18.96,Active,,0,0,0,,{\1c&H00FFFFFF}velho {\1c&H00FFFFFF}tomar {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}no
+Dialogue: 0,0:00:18.96,0:00:19.32,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}cul {\1c&H00FFFFFF}velho
+Dialogue: 0,0:00:19.42,0:00:19.78,Active,,0,0,0,,{\1c&H00FFFFFF}cul {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}velho
+Dialogue: 0,0:00:23.87,0:00:24.30,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Sofracada {\1c&H00FFFFFF}merda {\1c&H00FFFFFF}do
+Dialogue: 0,0:00:24.30,0:00:24.71,Active,,0,0,0,,{\1c&H00FFFFFF}Sofracada {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}merda {\1c&H00FFFFFF}do
+Dialogue: 0,0:00:24.78,0:00:24.83,Active,,0,0,0,,{\1c&H00FFFFFF}Sofracada {\1c&H00FFFFFF}merda {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}do
+Dialogue: 0,0:00:24.83,0:00:24.96,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}que {\1c&H00FFFFFF}eu {\1c&H00FFFFFF}já
+Dialogue: 0,0:00:24.96,0:00:25.05,Active,,0,0,0,,{\1c&H00FFFFFF}que {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}eu {\1c&H00FFFFFF}já
+Dialogue: 0,0:00:25.05,0:00:25.16,Active,,0,0,0,,{\1c&H00FFFFFF}que {\1c&H00FFFFFF}eu {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}já
+Dialogue: 0,0:00:25.16,0:00:25.66,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}sofri
+Dialogue: 0,0:00:36.67,0:00:37.10,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Timon

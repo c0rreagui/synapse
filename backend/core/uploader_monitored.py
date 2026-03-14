@@ -6,6 +6,7 @@ import asyncio
 import os
 import sys
 import logging
+import time
 from datetime import datetime
 import re
 
@@ -523,14 +524,18 @@ async def upload_video_monitored(
             logger.error(f"❌ Erro ao configurar privacidade (Prioridade): {e}")
 
         # ========== PREENCHIMENTO DA LEGENDA (FOCO ALVO) ==========
-        # Normalize hashtags: ensure each has exactly one # prefix (avoid ##)
+        # Normalize hashtags: max 5 (TikTok recommendation), avoid duplication
+        MAX_HASHTAGS = 5
         if hashtags:
             normalized_tags = []
             for h in hashtags:
-                tag = h.lstrip('#')  # Remove any leading #
-                if tag:  # Avoid empty tags
+                tag = h.lstrip('#')
+                if tag:
                     normalized_tags.append(f"#{tag}")
-            full_caption = f"{caption} " + " ".join(normalized_tags)
+            normalized_tags = normalized_tags[:MAX_HASHTAGS]
+            # Remove any existing hashtags from caption to avoid duplication
+            clean_caption = caption.split('\n\n#')[0].split('\n#')[0].rstrip()
+            full_caption = f"{clean_caption}\n\n" + " ".join(normalized_tags)
         else:
             full_caption = caption
         
@@ -1081,12 +1086,34 @@ async def upload_video_monitored(
                 
                 # LOOP DE CONFIRMAÇÃO (RETRY AGGRESSIVE)
                 confirmed = False
-                for m_attempt in range(5):
-                    await page.wait_for_timeout(2500)
-                    
+                for m_attempt in range(12):
+                    await page.wait_for_timeout(3000)
+
                     # 1. Checar se já completou (Redirecionamento ou Sucesso)
-                    if await page.locator('text="Manage your posts", text="Gerenciar suas postagens", text="View analytics"').count() > 0:
+                    # Broad selectors for TikTok Studio success states
+                    success_selectors = [
+                        'text="Manage your posts"',
+                        'text="Gerenciar suas postagens"',
+                        'text="View analytics"',
+                        'text="Your video has been uploaded"',
+                        'text="Seu vídeo foi carregado"',
+                        'text="Your video is being uploaded"',
+                        'text="Seu vídeo está sendo enviado"',
+                        'text="Successfully posted"',
+                        'text="Successfully scheduled"',
+                        'text="Publicado com sucesso"',
+                        'text="Agendado com sucesso"',
+                    ]
+                    success_locator = page.locator(', '.join(success_selectors))
+                    if await success_locator.count() > 0:
                         logger.info("🎉 Sucesso detectado pós-modal!")
+                        confirmed = True
+                        break
+
+                    # 1b. Check URL redirect (TikTok redirects to /manage after success)
+                    current_url = page.url
+                    if '/manage' in current_url or '/creator' in current_url:
+                        logger.info(f"🎉 Sucesso detectado via redirect: {current_url}")
                         confirmed = True
                         break
                         
@@ -1114,6 +1141,13 @@ async def upload_video_monitored(
                     except: pass
                 else:
                     logger.warning("❌ Falha na verificação final: Sucesso não confirmado.")
+                    # Capture debug screenshot on failure
+                    try:
+                        ss_path = f"/app/data/screenshots/upload_fail_{int(time.time())}.png"
+                        await page.screenshot(path=ss_path, full_page=True)
+                        logger.info(f"📸 Debug screenshot saved: {ss_path}")
+                    except Exception:
+                        pass
                     result["status"] = "error"
                     result["message"] = "Post verification failed: No success confirmation (Strict Mode)"
                     

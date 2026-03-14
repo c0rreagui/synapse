@@ -1,0 +1,28 @@
+[Script Info]
+Title: Synapse Auto Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Active,Inter Black,85,&H000B9EF5,&H000B9EF5,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+Style: Inactive,Inter Black,85,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:04.20,0:00:05.00,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}terror {\1c&H00FFFFFF}primeira {\1c&H00FFFFFF}pessoa
+Dialogue: 0,0:00:05.12,0:00:05.33,Active,,0,0,0,,{\1c&H00FFFFFF}terror {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}primeira {\1c&H00FFFFFF}pessoa
+Dialogue: 0,0:00:05.33,0:00:05.76,Active,,0,0,0,,{\1c&H00FFFFFF}terror {\1c&H00FFFFFF}primeira {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}pessoa
+Dialogue: 0,0:00:05.92,0:00:06.53,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}aventura
+Dialogue: 0,0:00:08.85,0:00:09.22,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}mano {\1c&H00FFFFFF}deve {\1c&H00FFFFFF}ser
+Dialogue: 0,0:00:09.30,0:00:09.40,Active,,0,0,0,,{\1c&H00FFFFFF}mano {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}deve {\1c&H00FFFFFF}ser
+Dialogue: 0,0:00:09.40,0:00:09.58,Active,,0,0,0,,{\1c&H00FFFFFF}mano {\1c&H00FFFFFF}deve {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ser
+Dialogue: 0,0:00:09.58,0:00:09.83,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}algum {\1c&H00FFFFFF}5 {\1c&H00FFFFFF}nights
+Dialogue: 0,0:00:09.83,0:00:10.93,Active,,0,0,0,,{\1c&H00FFFFFF}algum {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}5 {\1c&H00FFFFFF}nights
+Dialogue: 0,0:00:10.93,0:00:11.11,Active,,0,0,0,,{\1c&H00FFFFFF}algum {\1c&H00FFFFFF}5 {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}nights
+Dialogue: 0,0:00:11.11,0:00:11.30,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}at {\1c&H00FFFFFF}Freddy's
+Dialogue: 0,0:00:11.30,0:00:11.75,Active,,0,0,0,,{\1c&H00FFFFFF}at {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Freddy's

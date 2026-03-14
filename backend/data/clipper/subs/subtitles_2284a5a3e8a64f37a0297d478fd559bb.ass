@@ -1,0 +1,42 @@
+[Script Info]
+Title: Synapse Auto Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Active,Inter Black,85,&H000B9EF5,&H000B9EF5,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+Style: Inactive,Inter Black,85,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:01.62,0:00:01.92,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}e {\1c&H00FFFFFF}lá {\1c&H00FFFFFF}embaixo
+Dialogue: 0,0:00:01.92,0:00:02.12,Active,,0,0,0,,{\1c&H00FFFFFF}e {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}lá {\1c&H00FFFFFF}embaixo
+Dialogue: 0,0:00:02.12,0:00:02.43,Active,,0,0,0,,{\1c&H00FFFFFF}e {\1c&H00FFFFFF}lá {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}embaixo
+Dialogue: 0,0:00:02.56,0:00:03.02,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}raaspa {\1c&H00FFFFFF}não {\1c&H00FFFFFF}lá
+Dialogue: 0,0:00:03.14,0:00:03.25,Active,,0,0,0,,{\1c&H00FFFFFF}raaspa {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}não {\1c&H00FFFFFF}lá
+Dialogue: 0,0:00:03.48,0:00:03.60,Active,,0,0,0,,{\1c&H00FFFFFF}raaspa {\1c&H00FFFFFF}não {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}lá
+Dialogue: 0,0:00:03.60,0:00:03.68,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}em {\1c&H00FFFFFF}Marta {\1c&H00FFFFFF}Amazônica
+Dialogue: 0,0:00:03.68,0:00:04.00,Active,,0,0,0,,{\1c&H00FFFFFF}em {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Marta {\1c&H00FFFFFF}Amazônica
+Dialogue: 0,0:00:04.00,0:00:04.50,Active,,0,0,0,,{\1c&H00FFFFFF}em {\1c&H00FFFFFF}Marta {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Amazônica
+Dialogue: 0,0:00:05.75,0:00:06.63,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}maluco
+Dialogue: 0,0:00:08.13,0:00:08.47,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}imagina {\1c&H00FFFFFF}mano {\1c&H00FFFFFF}como
+Dialogue: 0,0:00:08.47,0:00:08.67,Active,,0,0,0,,{\1c&H00FFFFFF}imagina {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}mano {\1c&H00FFFFFF}como
+Dialogue: 0,0:00:08.78,0:00:08.89,Active,,0,0,0,,{\1c&H00FFFFFF}imagina {\1c&H00FFFFFF}mano {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}como
+Dialogue: 0,0:00:08.89,0:00:08.99,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}é {\1c&H00FFFFFF}que {\1c&H00FFFFFF}é
+Dialogue: 0,0:00:08.99,0:00:09.00,Active,,0,0,0,,{\1c&H00FFFFFF}é {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}que {\1c&H00FFFFFF}é
+Dialogue: 0,0:00:09.00,0:00:09.08,Active,,0,0,0,,{\1c&H00FFFFFF}é {\1c&H00FFFFFF}que {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}é
+Dialogue: 0,0:00:09.08,0:00:09.15,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}na {\1c&H00FFFFFF}conda {\1c&H00FFFFFF}sobrevive
+Dialogue: 0,0:00:09.15,0:00:09.47,Active,,0,0,0,,{\1c&H00FFFFFF}na {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}conda {\1c&H00FFFFFF}sobrevive
+Dialogue: 0,0:00:09.47,0:00:10.00,Active,,0,0,0,,{\1c&H00FFFFFF}na {\1c&H00FFFFFF}conda {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}sobrevive
+Dialogue: 0,0:00:10.00,0:00:10.15,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}e {\1c&H00FFFFFF}fora {\1c&H00FFFFFF}da
+Dialogue: 0,0:00:10.15,0:00:10.36,Active,,0,0,0,,{\1c&H00FFFFFF}e {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}fora {\1c&H00FFFFFF}da
+Dialogue: 0,0:00:10.36,0:00:10.50,Active,,0,0,0,,{\1c&H00FFFFFF}e {\1c&H00FFFFFF}fora {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}da
+Dialogue: 0,0:00:10.50,0:00:10.76,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Marta {\1c&H00FFFFFF}Amazônica {\1c&H00FFFFFF}não
+Dialogue: 0,0:00:10.76,0:00:11.25,Active,,0,0,0,,{\1c&H00FFFFFF}Marta {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Amazônica {\1c&H00FFFFFF}não
+Dialogue: 0,0:00:11.31,0:00:11.39,Active,,0,0,0,,{\1c&H00FFFFFF}Marta {\1c&H00FFFFFF}Amazônica {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}não
+Dialogue: 0,0:00:11.39,0:00:12.00,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}sobrevive

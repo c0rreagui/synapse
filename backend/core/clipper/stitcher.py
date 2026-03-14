@@ -443,69 +443,136 @@ async def create_seamless_loop(
 async def _apply_loop_tail(
     clip_path: str,
     output_path: str,
-    crossfade_sec: float = 0.8,
+    crossfade_sec: float = 1.5,
     timeout_seconds: int = 300,
 ) -> Dict[str, Any]:
     """
-    Para clips que já são longos o suficiente: aplica um crossfade
-    entre os últimos frames e os primeiros frames, criando a ilusão
-    de loop quando o TikTok reinicia o vídeo.
+    Blend in-place para loop pixel-perfect no TikTok.
 
-    Extrai os primeiros crossfade_sec*2 do clip e faz crossfade com o final.
+    Em vez de appendar o início ao final (que duplica frames), substituímos
+    os últimos `crossfade_sec` do vídeo por um blend gradual:
+      - No início da zona de transição: 100% vídeo original (final)
+      - No final da zona de transição: 100% início do vídeo (primeiros frames)
+
+    Resultado: o último frame do output é visualmente idêntico ao primeiro.
+    Quando o TikTok reinicia automaticamente, a emenda é imperceptível.
+
+    O vídeo mantém a mesma duração — nenhum frame extra é adicionado.
     """
     clip_dur = await _get_duration(clip_path)
 
-    # Extrair os primeiros 2s do clip como "tail connector"
-    tail_dur = min(crossfade_sec * 2.5, clip_dur * 0.15)  # Max 15% do clip
-    tail_dur = max(tail_dur, crossfade_sec + 0.5)
+    if clip_dur < crossfade_sec * 3:
+        # Vídeo muito curto para blend seguro — cópia direta
+        shutil.copy2(clip_path, output_path)
+        dur = await _get_duration(output_path)
+        return _success_result(output_path, dur, "loop_tail_fallback")
 
-    tail_path = os.path.join(OUTPUT_DIR, f"_loop_tail_{uuid.uuid4().hex[:8]}.mp4")
+    # Limitar crossfade a no máximo 10% da duração do vídeo
+    cf = min(crossfade_sec, clip_dur * 0.10)
+    cf = max(cf, 0.5)  # Mínimo 0.5s para ser perceptível
+    body_end = clip_dur - cf
 
-    # Extrair início do clip
-    cmd_extract = [
+    # FFmpeg filter_complex em passo único:
+    # 1. Separa o vídeo em BODY (0..dur-cf) e TAIL (dur-cf..dur)
+    # 2. Extrai HEAD (0..cf) e aplica fade-in de alpha (transparente → opaco)
+    # 3. Overlay HEAD sobre TAIL → zona de blend
+    # 4. Concat BODY + BLEND → output com mesma duração
+    # 5. Áudio: body_audio + crossfade(tail_audio, head_audio)
+    filter_complex = (
+        # Vídeo: split em 3 cópias
+        f"[0:v]split=3[body_src][tail_src][head_src];"
+
+        # BODY: do início até o ponto de transição
+        f"[body_src]trim=0:{body_end:.4f},setpts=PTS-STARTPTS[body_v];"
+
+        # TAIL: os últimos cf segundos (base da zona de blend)
+        f"[tail_src]trim={body_end:.4f}:{clip_dur:.4f},setpts=PTS-STARTPTS[tail_v];"
+
+        # HEAD: os primeiros cf segundos, com alpha fade-in (0→1)
+        # Isso faz o início "aparecer" gradualmente sobre o final
+        f"[head_src]trim=0:{cf:.4f},setpts=PTS-STARTPTS,"
+        f"format=yuva420p,fade=t=in:st=0:d={cf:.4f}:alpha=1[head_fade];"
+
+        # Overlay: HEAD (com alpha crescente) sobre TAIL
+        # No t=0: alpha=0 → 100% TAIL (final do vídeo)
+        # No t=cf: alpha=1 → 100% HEAD (início do vídeo)
+        f"[tail_v]format=yuva420p[tail_rgba];"
+        f"[tail_rgba][head_fade]overlay=format=auto,format=yuv420p[blend_v];"
+
+        # Concatenar BODY + BLEND
+        f"[body_v][blend_v]concat=n=2:v=1:a=0[v_out];"
+
+        # Áudio: mesma lógica — body_audio + crossfade de tail/head
+        f"[0:a]atrim=0:{body_end:.4f},asetpts=PTS-STARTPTS[body_a];"
+        f"[0:a]atrim={body_end:.4f}:{clip_dur:.4f},asetpts=PTS-STARTPTS[tail_a];"
+        f"[0:a]atrim=0:{cf:.4f},asetpts=PTS-STARTPTS[head_a];"
+        f"[tail_a][head_a]acrossfade=d={cf:.4f}:c1=tri:c2=tri[blend_a];"
+        f"[body_a][blend_a]concat=n=2:v=0:a=1[a_out]"
+    )
+
+    cmd = [
         "ffmpeg", "-y",
         "-i", clip_path,
-        "-t", str(tail_dur),
-        "-c:v", "libx264", "-preset", PRESET, "-crf", CRF,
-        "-c:a", "aac", "-b:a", "192k",
+        "-filter_complex", filter_complex,
+        "-map", "[v_out]",
+        "-map", "[a_out]",
+        "-c:v", "libx264",
+        "-preset", PRESET,
+        "-crf", CRF,
+        "-b:v", VIDEO_BITRATE,
+        "-c:a", "aac",
+        "-b:a", "192k",
         "-pix_fmt", "yuv420p",
-        tail_path,
+        "-movflags", "+faststart",
+        output_path,
     ]
 
-    proc = await asyncio.create_subprocess_exec(
-        *cmd_extract, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    logger.info(
+        f"LoopTail pixel-perfect: dur={clip_dur:.1f}s, cf={cf:.2f}s, "
+        f"body=0-{body_end:.1f}s, blend zone={body_end:.1f}-{clip_dur:.1f}s"
     )
+
+    proc = await asyncio.create_subprocess_exec(
+        *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+
     try:
-        await asyncio.wait_for(proc.communicate(), timeout=60)
+        _, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
     except asyncio.TimeoutError:
-        _cleanup(tail_path)
+        proc.kill()
+        _cleanup(output_path)
         # Fallback: cópia direta
         shutil.copy2(clip_path, output_path)
         dur = await _get_duration(output_path)
         return _success_result(output_path, dur, "loop_tail_fallback")
 
-    if proc.returncode != 0 or not os.path.exists(tail_path):
+    if proc.returncode != 0:
+        error = stderr.decode("utf-8", errors="replace").strip()
+        error_lines = error.split("\n")[-5:]
+        logger.warning(f"LoopTail blend falhou: {' | '.join(error_lines)}")
+        _cleanup(output_path)
+        # Fallback: cópia direta
         shutil.copy2(clip_path, output_path)
         dur = await _get_duration(output_path)
         return _success_result(output_path, dur, "loop_tail_fallback")
 
-    # Crossfade: clip principal + tail (início do clip)
-    result = await crossfade_two_clips(
-        clip_path, tail_path, output_path,
-        fade_duration=crossfade_sec,
-        timeout_seconds=timeout_seconds,
-    )
+    if not os.path.exists(output_path):
+        shutil.copy2(clip_path, output_path)
+        dur = await _get_duration(output_path)
+        return _success_result(output_path, dur, "loop_tail_fallback")
 
-    _cleanup(tail_path)
+    duration = await _get_duration(output_path)
+    file_size = os.path.getsize(output_path)
+    logger.info(f"LoopTail pixel-perfect concluído: {duration:.1f}s, {file_size / 1024 / 1024:.1f}MB")
 
-    if result["success"]:
-        result["strategy"] = "loop_tail"
-        return result
-
-    # Fallback
-    shutil.copy2(clip_path, output_path)
-    dur = await _get_duration(output_path)
-    return _success_result(output_path, dur, "loop_tail_fallback")
+    return {
+        "success": True,
+        "output_path": output_path,
+        "duration": duration,
+        "file_size": file_size,
+        "strategy": "loop_tail",
+        "error": None,
+    }
 
 
 async def _trim_to_duration(

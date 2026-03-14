@@ -1,0 +1,72 @@
+[Script Info]
+Title: Synapse Auto Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Active,Inter Black,85,&H000B9EF5,&H000B9EF5,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+Style: Inactive,Inter Black,85,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:00.80,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Simplesmente {\1c&H00FFFFFF}essa {\1c&H00FFFFFF}WP
+Dialogue: 0,0:00:00.80,0:00:01.15,Active,,0,0,0,,{\1c&H00FFFFFF}Simplesmente {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}essa {\1c&H00FFFFFF}WP
+Dialogue: 0,0:00:01.15,0:00:01.72,Active,,0,0,0,,{\1c&H00FFFFFF}Simplesmente {\1c&H00FFFFFF}essa {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}WP
+Dialogue: 0,0:00:01.72,0:00:01.82,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}de {\1c&H00FFFFFF}carga {\1c&H00FFFFFF}elétrica
+Dialogue: 0,0:00:01.82,0:00:02.02,Active,,0,0,0,,{\1c&H00FFFFFF}de {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}carga {\1c&H00FFFFFF}elétrica
+Dialogue: 0,0:00:02.02,0:00:02.43,Active,,0,0,0,,{\1c&H00FFFFFF}de {\1c&H00FFFFFF}carga {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}elétrica
+Dialogue: 0,0:00:02.43,0:00:02.58,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ela {\1c&H00FFFFFF}tem {\1c&H00FFFFFF}um
+Dialogue: 0,0:00:02.58,0:00:02.72,Active,,0,0,0,,{\1c&H00FFFFFF}ela {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}tem {\1c&H00FFFFFF}um
+Dialogue: 0,0:00:02.72,0:00:02.81,Active,,0,0,0,,{\1c&H00FFFFFF}ela {\1c&H00FFFFFF}tem {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}um
+Dialogue: 0,0:00:02.81,0:00:03.29,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}adesivo {\1c&H00FFFFFF}do {\1c&H00FFFFFF}CNS
+Dialogue: 0,0:00:03.29,0:00:03.43,Active,,0,0,0,,{\1c&H00FFFFFF}adesivo {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}do {\1c&H00FFFFFF}CNS
+Dialogue: 0,0:00:03.43,0:00:04.20,Active,,0,0,0,,{\1c&H00FFFFFF}adesivo {\1c&H00FFFFFF}do {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}CNS
+Dialogue: 0,0:00:04.20,0:00:04.41,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}e {\1c&H00FFFFFF}do {\1c&H00FFFFFF}Fallen
+Dialogue: 0,0:00:04.41,0:00:04.54,Active,,0,0,0,,{\1c&H00FFFFFF}e {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}do {\1c&H00FFFFFF}Fallen
+Dialogue: 0,0:00:04.54,0:00:04.96,Active,,0,0,0,,{\1c&H00FFFFFF}e {\1c&H00FFFFFF}do {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Fallen
+Dialogue: 0,0:00:06.29,0:00:06.74,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Simplesmente {\1c&H00FFFFFF}CNS {\1c&H00FFFFFF}2017
+Dialogue: 0,0:00:06.74,0:00:07.17,Active,,0,0,0,,{\1c&H00FFFFFF}Simplesmente {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}CNS {\1c&H00FFFFFF}2017
+Dialogue: 0,0:00:07.54,0:00:08.46,Active,,0,0,0,,{\1c&H00FFFFFF}Simplesmente {\1c&H00FFFFFF}CNS {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}2017
+Dialogue: 0,0:00:08.66,0:00:08.80,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}esse {\1c&H00FFFFFF}cara {\1c&H00FFFFFF}era
+Dialogue: 0,0:00:08.80,0:00:09.16,Active,,0,0,0,,{\1c&H00FFFFFF}esse {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}cara {\1c&H00FFFFFF}era
+Dialogue: 0,0:00:09.16,0:00:09.53,Active,,0,0,0,,{\1c&H00FFFFFF}esse {\1c&H00FFFFFF}cara {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}era
+Dialogue: 0,0:00:09.53,0:00:10.32,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}imbatível {\1c&H00FFFFFF}pô
+Dialogue: 0,0:00:10.43,0:00:10.58,Active,,0,0,0,,{\1c&H00FFFFFF}imbatível {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}pô
+Dialogue: 0,0:00:11.32,0:00:11.75,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Imbatível {\1c&H00FFFFFF}irmão
+Dialogue: 0,0:00:11.85,0:00:12.03,Active,,0,0,0,,{\1c&H00FFFFFF}Imbatível {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}irmão
+Dialogue: 0,0:00:13.42,0:00:13.86,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Imbatível {\1c&H00FFFFFF}bro {\1c&H00FFFFFF}Esse
+Dialogue: 0,0:00:13.89,0:00:14.05,Active,,0,0,0,,{\1c&H00FFFFFF}Imbatível {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}bro {\1c&H00FFFFFF}Esse
+Dialogue: 0,0:00:14.26,0:00:14.49,Active,,0,0,0,,{\1c&H00FFFFFF}Imbatível {\1c&H00FFFFFF}bro {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Esse
+Dialogue: 0,0:00:14.49,0:00:14.65,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}cara {\1c&H00FFFFFF}era {\1c&H00FFFFFF}absurdo
+Dialogue: 0,0:00:14.65,0:00:14.78,Active,,0,0,0,,{\1c&H00FFFFFF}cara {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}era {\1c&H00FFFFFF}absurdo
+Dialogue: 0,0:00:14.78,0:00:15.44,Active,,0,0,0,,{\1c&H00FFFFFF}cara {\1c&H00FFFFFF}era {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}absurdo
+Dialogue: 0,0:00:16.12,0:00:16.23,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Tá {\1c&H00FFFFFF}ligado?
+Dialogue: 0,0:00:16.23,0:00:16.48,Active,,0,0,0,,{\1c&H00FFFFFF}Tá {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ligado?
+Dialogue: 0,0:00:18.39,0:00:18.53,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Tem {\1c&H00FFFFFF}quase {\1c&H00FFFFFF}10
+Dialogue: 0,0:00:18.53,0:00:18.71,Active,,0,0,0,,{\1c&H00FFFFFF}Tem {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}quase {\1c&H00FFFFFF}10
+Dialogue: 0,0:00:18.71,0:00:18.92,Active,,0,0,0,,{\1c&H00FFFFFF}Tem {\1c&H00FFFFFF}quase {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}10
+Dialogue: 0,0:00:18.92,0:00:19.23,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}anos {\1c&H00FFFFFF}isso {\1c&H00FFFFFF}aqui
+Dialogue: 0,0:00:19.23,0:00:19.41,Active,,0,0,0,,{\1c&H00FFFFFF}anos {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}isso {\1c&H00FFFFFF}aqui
+Dialogue: 0,0:00:19.41,0:00:19.60,Active,,0,0,0,,{\1c&H00FFFFFF}anos {\1c&H00FFFFFF}isso {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}aqui
+Dialogue: 0,0:00:19.69,0:00:19.89,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}pô
+Dialogue: 0,0:00:24.35,0:00:24.46,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Você {\1c&H00FFFFFF}não {\1c&H00FFFFFF}tá
+Dialogue: 0,0:00:24.46,0:00:24.57,Active,,0,0,0,,{\1c&H00FFFFFF}Você {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}não {\1c&H00FFFFFF}tá
+Dialogue: 0,0:00:24.57,0:00:24.67,Active,,0,0,0,,{\1c&H00FFFFFF}Você {\1c&H00FFFFFF}não {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}tá
+Dialogue: 0,0:00:24.67,0:00:25.05,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}entendendo {\1c&H00FFFFFF}mano
+Dialogue: 0,0:00:25.19,0:00:25.19,Active,,0,0,0,,{\1c&H00FFFFFF}entendendo {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}mano
+Dialogue: 0,0:00:25.85,0:00:26.01,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Ó {\1c&H00FFFFFF}o {\1c&H00FFFFFF}adesivo
+Dialogue: 0,0:00:26.28,0:00:26.28,Active,,0,0,0,,{\1c&H00FFFFFF}Ó {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}o {\1c&H00FFFFFF}adesivo
+Dialogue: 0,0:00:26.28,0:00:26.64,Active,,0,0,0,,{\1c&H00FFFFFF}Ó {\1c&H00FFFFFF}o {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}adesivo
+Dialogue: 0,0:00:26.64,0:00:26.85,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}do {\1c&H00FFFFFF}2019 {\1c&H00FFFFFF}do
+Dialogue: 0,0:00:26.85,0:00:27.85,Active,,0,0,0,,{\1c&H00FFFFFF}do {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}2019 {\1c&H00FFFFFF}do
+Dialogue: 0,0:00:27.85,0:00:28.14,Active,,0,0,0,,{\1c&H00FFFFFF}do {\1c&H00FFFFFF}2019 {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}do
+Dialogue: 0,0:00:28.14,0:00:28.85,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Katjovice {\1c&H00FFFFFF}R {\1c&H00FFFFFF}$109
+Dialogue: 0,0:00:28.94,0:00:29.05,Active,,0,0,0,,{\1c&H00FFFFFF}Katjovice {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}R {\1c&H00FFFFFF}$109
+Dialogue: 0,0:00:29.05,0:00:29.42,Active,,0,0,0,,{\1c&H00FFFFFF}Katjovice {\1c&H00FFFFFF}R {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}$109
+Dialogue: 0,0:00:29.42,0:00:29.80,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}00 {\1c&H00FFFFFF}ó
+Dialogue: 0,0:00:29.80,0:00:29.85,Active,,0,0,0,,{\1c&H00FFFFFF}00 {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ó

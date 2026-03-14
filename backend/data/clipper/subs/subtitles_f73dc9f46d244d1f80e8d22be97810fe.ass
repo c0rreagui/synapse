@@ -1,0 +1,24 @@
+[Script Info]
+Title: Synapse Auto Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Active,Inter Black,85,&H000B9EF5,&H000B9EF5,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+Style: Inactive,Inter Black,85,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:10.49,0:00:10.71,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Tu {\1c&H00FFFFFF}viu {\1c&H00FFFFFF}a
+Dialogue: 0,0:00:10.71,0:00:10.81,Active,,0,0,0,,{\1c&H00FFFFFF}Tu {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}viu {\1c&H00FFFFFF}a
+Dialogue: 0,0:00:10.81,0:00:10.91,Active,,0,0,0,,{\1c&H00FFFFFF}Tu {\1c&H00FFFFFF}viu {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}a
+Dialogue: 0,0:00:10.91,0:00:11.21,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Steam?
+Dialogue: 0,0:00:12.92,0:00:13.06,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Eu {\1c&H00FFFFFF}ganhei {\1c&H00FFFFFF}um
+Dialogue: 0,0:00:13.06,0:00:13.30,Active,,0,0,0,,{\1c&H00FFFFFF}Eu {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ganhei {\1c&H00FFFFFF}um
+Dialogue: 0,0:00:13.30,0:00:13.35,Active,,0,0,0,,{\1c&H00FFFFFF}Eu {\1c&H00FFFFFF}ganhei {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}um
+Dialogue: 0,0:00:13.35,0:00:13.77,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}presente!

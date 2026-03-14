@@ -578,7 +578,7 @@ def _filter_already_processed(target_id: int, clips: List[Dict]) -> List[Dict]:
         # Jobs ativos ou concluidos — nunca reprocessar
         active_urls = (
             db.query(ClipJob.clip_urls)
-            .filter(ClipJob.status.in_(["pending", "downloading", "transcribing", "editing", "stitching", "completed"]))
+            .filter(ClipJob.status.in_(["pending", "downloading", "transcribing", "editing", "stitching", "completed", "waiting_clips"]))
             .order_by(ClipJob.id.desc())
             .limit(2000)
             .all()
@@ -606,7 +606,7 @@ def _filter_already_processed(target_id: int, clips: List[Dict]) -> List[Dict]:
 
 # ─── Constantes de Chunking ──────────────────────────────────────────────
 CHUNK_TARGET_DURATION = 90.0   # Duração alvo por postagem (1.5 minutos)
-CHUNK_MIN_DURATION = 61.0      # Mínimo absoluto: 61s para monetização TikTok
+CHUNK_MIN_DURATION = 65.0      # Mínimo 65s (crossfade consome ~2-3s, resultado final >= 61s)
 MAX_JOBS_PER_SCAN = 3          # Máximo de jobs criados por target por ciclo de scan
 WAITING_JOB_TIMEOUT_HOURS = 72 # Timeout para jobs em waiting_clips
 
@@ -675,6 +675,26 @@ async def _create_clip_jobs(target_id: int, channel_name: str, new_clips: List[D
 
     Cada job pronto resulta em 1 vídeo final = 1 postagem na fila de aprovação.
     """
+    # Dedup final: remover clips que já existem em qualquer waiting_clips job deste target
+    with safe_session() as db:
+        waiting_jobs = (
+            db.query(ClipJob)
+            .filter(ClipJob.target_id == target_id, ClipJob.status == "waiting_clips")
+            .all()
+        )
+        existing_waiting_urls = set()
+        for wj in waiting_jobs:
+            existing_waiting_urls.update(wj.clip_urls or [])
+
+    if existing_waiting_urls:
+        before = len(new_clips)
+        new_clips = [c for c in new_clips if c["url"] not in existing_waiting_urls]
+        if len(new_clips) < before:
+            logger.info(f"[{channel_name}] Dedup: {before - len(new_clips)} clip(s) já em waiting_clips, removidos")
+        if not new_clips:
+            logger.info(f"[{channel_name}] Todos os clips já estão em waiting_clips. Nada a fazer.")
+            return []
+
     chunks, leftover = _chunk_clips_by_duration(new_clips)
 
     # 1. Tentar alimentar jobs waiting_clips existentes com leftover
@@ -745,26 +765,54 @@ async def _create_clip_jobs(target_id: int, channel_name: str, new_clips: List[D
             except Exception as e:
                 logger.error(f"❌ Falha ao enfileirar Job #{job_id}: {e}", exc_info=True)
 
-        # 3. Criar job waiting_clips para leftover (se não foi absorvido)
+        # 3. Criar job para leftover (se não foi absorvido)
         if leftover:
             leftover_dur = sum(float(c.get("duration", 30)) for c in leftover)
-            with safe_session() as db:
-                waiting_job = ClipJob(
-                    target_id=target_id,
-                    clip_urls=[c["url"] for c in leftover],
-                    clip_metadata=leftover,
-                    status="waiting_clips",
-                    current_step=f"Aguardando mais clips ({leftover_dur:.0f}s / 61s mínimo)",
-                    progress_pct=int(min(leftover_dur / 61.0 * 100, 99)),
-                )
-                db.add(waiting_job)
-                db.commit()
-                db.refresh(waiting_job)
-                logger.info(
-                    f"⏳ Job #{waiting_job.id} criado em waiting_clips: "
-                    f"{len(leftover)} clip(s), {leftover_dur:.0f}s (faltam {61 - leftover_dur:.0f}s)"
-                )
-                job_ids.append(waiting_job.id)
+
+            if leftover_dur >= CHUNK_MIN_DURATION:
+                # Leftover já atingiu 61s → criar como pending (pronto para processar)
+                with safe_session() as db:
+                    ready_job = ClipJob(
+                        target_id=target_id,
+                        clip_urls=[c["url"] for c in leftover],
+                        clip_metadata=leftover,
+                        status="pending",
+                        current_step=f"Leftover pronto: {len(leftover)} clips, {leftover_dur:.0f}s",
+                        progress_pct=0,
+                    )
+                    db.add(ready_job)
+                    db.commit()
+                    db.refresh(ready_job)
+                    job_id = ready_job.id
+                    job_ids.append(job_id)
+
+                try:
+                    await pool.enqueue_job("process_clip_job", job_id, _queue_name="clipper:queue")
+                    logger.info(
+                        f"✅ Job #{job_id} (leftover >= 61s) criado como pending: "
+                        f"{len(leftover)} clip(s), {leftover_dur:.0f}s"
+                    )
+                except Exception as e:
+                    logger.error(f"❌ Falha ao enfileirar Job #{job_id} (leftover): {e}")
+            else:
+                # Leftover < 61s → waiting_clips
+                with safe_session() as db:
+                    waiting_job = ClipJob(
+                        target_id=target_id,
+                        clip_urls=[c["url"] for c in leftover],
+                        clip_metadata=leftover,
+                        status="waiting_clips",
+                        current_step=f"Aguardando mais clips ({leftover_dur:.0f}s / 61s mínimo)",
+                        progress_pct=int(min(leftover_dur / 61.0 * 100, 99)),
+                    )
+                    db.add(waiting_job)
+                    db.commit()
+                    db.refresh(waiting_job)
+                    logger.info(
+                        f"⏳ Job #{waiting_job.id} criado em waiting_clips: "
+                        f"{len(leftover)} clip(s), {leftover_dur:.0f}s (faltam {61 - leftover_dur:.0f}s)"
+                    )
+                    job_ids.append(waiting_job.id)
 
     finally:
         await pool.close()
