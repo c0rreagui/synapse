@@ -71,8 +71,8 @@ class OracleClient:
              models_to_try.append("llama-3.1-8b-instant")
         
         if is_vision:
-             # Vision Model: Llama 4 Maverick (Updated: 2026-02-04)
-             models_to_try = ["meta-llama/llama-4-maverick-17b-128e-instruct"]
+             # Vision Model: Llama 4 Scout (Updated: 2026-03-22)
+             models_to_try = ["meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.3-70b-versatile"]
 
              # [SYN-SMART] Respect User Choice if it's a known Vision Model
              req_model = kwargs.get("model", "").lower()

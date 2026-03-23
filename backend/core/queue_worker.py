@@ -62,7 +62,17 @@ def recover_zombie_tasks():
     for filename in os.listdir(PROCESSING_DIR):
         if filename.endswith(".mp4"):
             src = os.path.join(PROCESSING_DIR, filename)
-            
+
+            # [SYN-FIX] Skip files that are likely being actively processed
+            # Only recover files older than 10 minutes (true zombies)
+            try:
+                file_age_seconds = time.time() - os.path.getmtime(src)
+                if file_age_seconds < 600:  # 10 minutes
+                    logger.info(f"⏳ Skipping recent file (age={file_age_seconds:.0f}s): {filename}")
+                    continue
+            except OSError:
+                continue
+
             # [SYN-FIX] Idempotency Check
             # Check if this file was actually completed but process crashed before move
             marker = src + ".completed"
@@ -153,14 +163,14 @@ async def worker_loop():
             from core.database import SessionLocal
             from core.models import ScheduleItem
             
-            # Get list of managed filenames
+            # Get list of managed filenames (any non-terminal status)
             managed_filenames = set()
             db = SessionLocal()
             try:
                 active_items = db.query(ScheduleItem.video_path).filter(
-                    ScheduleItem.status.in_(['pending', 'scheduled', 'processing'])
+                    ScheduleItem.status.in_(['pending', 'scheduled', 'processing', 'queued', 'failed'])
                 ).all()
-                
+
                 for item in active_items:
                     if item.video_path:
                         managed_filenames.add(os.path.basename(item.video_path))
@@ -173,9 +183,9 @@ async def worker_loop():
             actual_files = []
             for f in files:
                 if f in managed_filenames:
-                    # Debug log only occasionally to avoid spam?
-                    # logger.debug(f"Skipping managed file: {f}")
-                    pass
+                    pass  # Managed by scheduler
+                elif f.startswith("stitch_"):
+                    pass  # Clipper output — managed by scheduler, not queue_worker
                 else:
                     actual_files.append(f)
             

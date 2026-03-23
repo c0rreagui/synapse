@@ -155,11 +155,25 @@ async def _resolve_category_info(
         logger.warning(f"Categoria '{query}' nao encontrada na Twitch.")
         return None
 
-    # Considera o primeiro resultado como o correto
+    # Priorizar match exato pelo nome (case-insensitive)
+    best = None
+    for cat in categories:
+        if cat["name"].lower() == query.lower():
+            best = cat
+            break
+    if not best:
+        # Fallback: match pelo slug (ex: "just-chatting" -> "Just Chatting")
+        for cat in categories:
+            if cat["name"].lower().replace(" ", "-") == category_slug.lower():
+                best = cat
+                break
+    if not best:
+        best = categories[0]  # Último fallback: primeiro resultado
+
     return {
-        "id": categories[0]["id"],
-        "name": categories[0]["name"],
-        "box_art_url": categories[0].get("box_art_url", "").replace("{width}", "285").replace("{height}", "380")
+        "id": best["id"],
+        "name": best["name"],
+        "box_art_url": best.get("box_art_url", "").replace("{width}", "285").replace("{height}", "380")
     }
 
 
@@ -506,12 +520,15 @@ async def check_target(target_id: int) -> Optional[int]:
             logger.info(f"[{channel_name}] Fluxo A: Nenhum clipe encontrado nos streamers mapeados.")
             return None
 
-        # Dedup + sort por views
+        # Dedup by both clip ID and URL + sort por views
         seen_ids = set()
+        seen_urls = set()
         unique_clips = []
         for c in sorted(all_clips, key=lambda x: x.get("view_count", 0), reverse=True):
-            if c["id"] not in seen_ids:
+            if c["id"] not in seen_ids and c.get("url") not in seen_urls:
                 seen_ids.add(c["id"])
+                if c.get("url"):
+                    seen_urls.add(c["url"])
                 unique_clips.append(c)
 
         new_clips = _filter_already_processed(target_id, unique_clips)
@@ -606,7 +623,7 @@ def _filter_already_processed(target_id: int, clips: List[Dict]) -> List[Dict]:
 
 # ─── Constantes de Chunking ──────────────────────────────────────────────
 CHUNK_TARGET_DURATION = 90.0   # Duração alvo por postagem (1.5 minutos)
-CHUNK_MIN_DURATION = 65.0      # Mínimo 65s (crossfade consome ~2-3s, resultado final >= 61s)
+CHUNK_MIN_DURATION = 64.5      # Mínimo ~65s (crossfade consome ~2-3s, resultado final >= 61s). Uses 64.5 to handle floating point imprecision (e.g. 64.999s)
 MAX_JOBS_PER_SCAN = 3          # Máximo de jobs criados por target por ciclo de scan
 WAITING_JOB_TIMEOUT_HOURS = 72 # Timeout para jobs em waiting_clips
 
@@ -639,7 +656,10 @@ def _chunk_clips_by_duration(
     current_duration = 0.0
 
     for clip in clips:
-        clip_dur = float(clip.get("duration", 30))
+        try:
+            clip_dur = float(clip.get("duration") or 30)
+        except (ValueError, TypeError):
+            clip_dur = 30.0
         current_chunk.append(clip)
         current_duration += clip_dur
 
@@ -667,6 +687,8 @@ def _chunk_clips_by_duration(
     return chunks, []
 
 
+MAX_QUEUE_JOBS = 10  # Limite de jobs ativos na esteira (evita encher disco)
+
 async def _create_clip_jobs(target_id: int, channel_name: str, new_clips: List[Dict]) -> List[int]:
     """
     Agrupa clipes em chunks de ~90s (mín 61s) e cria um ClipJob por chunk.
@@ -675,6 +697,15 @@ async def _create_clip_jobs(target_id: int, channel_name: str, new_clips: List[D
 
     Cada job pronto resulta em 1 vídeo final = 1 postagem na fila de aprovação.
     """
+    # ── Limite de esteira: não criar novos jobs se já atingiu o máximo ──
+    with safe_session() as db:
+        active_count = db.query(ClipJob).filter(
+            ClipJob.status.in_(["pending", "downloading", "transcribing", "editing", "stitching", "waiting_clips"])
+        ).count()
+    if active_count >= MAX_QUEUE_JOBS:
+        logger.warning(f"⛔ Esteira cheia: {active_count}/{MAX_QUEUE_JOBS} jobs ativos. Ignorando {len(new_clips)} clips novos.")
+        return []
+
     # Dedup final: remover clips que já existem em qualquer waiting_clips job deste target
     with safe_session() as db:
         waiting_jobs = (
@@ -733,7 +764,11 @@ async def _create_clip_jobs(target_id: int, channel_name: str, new_clips: List[D
                     clip_retry_counts[u] = max(clip_retry_counts.get(u, 0), (count or 0))
 
     from core.config import REDIS_HOST, REDIS_PORT
-    pool = await create_pool(RedisSettings(host=REDIS_HOST, port=REDIS_PORT))
+    try:
+        pool = await create_pool(RedisSettings(host=REDIS_HOST, port=REDIS_PORT))
+    except Exception as e:
+        logger.error(f"[{channel_name}] Falha ao conectar ao Redis para enfileirar jobs: {e}", exc_info=True)
+        return job_ids
     try:
         # 2. Criar jobs prontos (>= 61s)
         for i, chunk in enumerate(chunks):
@@ -743,7 +778,7 @@ async def _create_clip_jobs(target_id: int, channel_name: str, new_clips: List[D
             )
 
             max_prev_retry = max((clip_retry_counts.get(c["url"], 0) for c in chunk), default=0)
-            retry_count = max_prev_retry + 1 if max_prev_retry > 0 else 0
+            retry_count = max_prev_retry + 1
 
             with safe_session() as db:
                 job = ClipJob(
@@ -840,11 +875,14 @@ async def _feed_waiting_jobs(
     remaining = list(new_clips)
 
     with safe_session() as db:
+        # Only feed waiting jobs that haven't expired (< 72h old)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=WAITING_JOB_TIMEOUT_HOURS)
         waiting_jobs = (
             db.query(ClipJob)
             .filter(
                 ClipJob.target_id == target_id,
                 ClipJob.status == "waiting_clips",
+                ClipJob.created_at >= cutoff,
             )
             .order_by(ClipJob.created_at.asc())
             .all()
@@ -898,13 +936,21 @@ async def _feed_waiting_jobs(
                     f"{len(updated_urls)} clips, {existing_dur:.0f}s"
                 )
 
-                # Enfileirar no Redis
+                # Enfileirar no Redis (revert status if enqueue fails)
                 try:
                     pool = await create_pool(RedisSettings(host=REDIS_HOST, port=REDIS_PORT))
-                    await pool.enqueue_job("process_clip_job", job.id, _queue_name="clipper:queue")
-                    await pool.close()
+                    try:
+                        await pool.enqueue_job("process_clip_job", job.id, _queue_name="clipper:queue")
+                    finally:
+                        await pool.close()
                 except Exception as e:
-                    logger.error(f"Falha ao enfileirar Job #{job.id} promovido: {e}")
+                    logger.error(f"Falha ao enfileirar Job #{job.id} promovido, revertendo para waiting_clips: {e}")
+                    with safe_session() as db2:
+                        reverted = db2.query(ClipJob).filter(ClipJob.id == job.id).first()
+                        if reverted and reverted.status == "pending":
+                            reverted.status = "waiting_clips"
+                            reverted.current_step = f"Aguardando retry enqueue ({existing_dur:.0f}s / 61s mínimo)"
+                            db2.commit()
             else:
                 job.current_step = f"Aguardando mais clips ({existing_dur:.0f}s / 61s mínimo)"
                 job.progress_pct = int(min(existing_dur / 61.0 * 100, 99))
@@ -1002,10 +1048,12 @@ async def _consolidate_waiting_jobs() -> None:
         if promoted_ids:
             try:
                 pool = await create_pool(RedisSettings(host=REDIS_HOST, port=REDIS_PORT))
-                for job_id in promoted_ids:
-                    await pool.enqueue_job("process_clip_job", job_id, _queue_name="clipper:queue")
-                await pool.close()
-                logger.info(f"🔗 {len(promoted_ids)} job(s) consolidados enfileirados para processamento")
+                try:
+                    for job_id in promoted_ids:
+                        await pool.enqueue_job("process_clip_job", job_id, _queue_name="clipper:queue")
+                    logger.info(f"🔗 {len(promoted_ids)} job(s) consolidados enfileirados para processamento")
+                finally:
+                    await pool.close()
             except Exception as e:
                 logger.error(f"Falha ao enfileirar jobs consolidados: {e}")
 
@@ -1047,9 +1095,11 @@ async def _promote_expired_waiting_jobs() -> None:
         # Enfileirar todos
         try:
             pool = await create_pool(RedisSettings(host=REDIS_HOST, port=REDIS_PORT))
-            for job in expired:
-                await pool.enqueue_job("process_clip_job", job.id, _queue_name="clipper:queue")
-            await pool.close()
+            try:
+                for job in expired:
+                    await pool.enqueue_job("process_clip_job", job.id, _queue_name="clipper:queue")
+            finally:
+                await pool.close()
         except Exception as e:
             logger.error(f"Falha ao enfileirar jobs expirados: {e}")
 

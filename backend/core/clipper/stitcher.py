@@ -60,8 +60,12 @@ async def _get_duration(file_path: str) -> float:
     stdout, _ = await asyncio.wait_for(process.communicate(), timeout=15)
 
     if process.returncode == 0:
-        data = json.loads(stdout.decode("utf-8", errors="replace"))
-        return float(data.get("format", {}).get("duration", 0))
+        try:
+            data = json.loads(stdout.decode("utf-8", errors="replace"))
+            return float(data.get("format", {}).get("duration", 0))
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            logger.warning(f"ffprobe JSON parse failed for {file_path}: {e}")
+            return 0.0
 
     return 0.0
 
@@ -139,15 +143,17 @@ async def crossfade_two_clips(
         _, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout_seconds)
     except asyncio.TimeoutError:
         process.kill()
-        if os.path.exists(output_path):
-            os.remove(output_path)
+        _cleanup(output_path)
         return _error_result(f"FFmpeg crossfade timeout apos {timeout_seconds}s")
+    except Exception:
+        process.kill()
+        _cleanup(output_path)
+        raise
 
     if process.returncode != 0:
         error = stderr.decode("utf-8", errors="replace").strip()
         error_lines = error.split("\n")[-5:]
-        if os.path.exists(output_path):
-            os.remove(output_path)
+        _cleanup(output_path)
         return _error_result(f"FFmpeg crossfade falhou: {' | '.join(error_lines)}")
 
     if not os.path.exists(output_path):
@@ -214,6 +220,10 @@ async def concat_simple(
         process.kill()
         _cleanup(concat_file)
         return _error_result(f"FFmpeg concat timeout apos {timeout_seconds}s")
+    except Exception:
+        process.kill()
+        _cleanup(concat_file)
+        raise
 
     _cleanup(concat_file)
 
@@ -376,8 +386,9 @@ async def create_seamless_loop(
     # Quantas cópias completas precisamos (com margem para crossfade)
     effective_clip_dur = clip_dur - crossfade_sec  # Cada junção "come" crossfade_sec
     if effective_clip_dur <= 0:
+        effective_clip_dur = max(clip_dur, 1)
         # Clip muito curto para crossfade, usar concat simples
-        reps = int(target_duration / clip_dur) + 2
+        reps = int(target_duration / effective_clip_dur) + 2
         clip_list = [clip_path] * reps
         concat_result = await concat_simple(clip_list, output_path, timeout_seconds)
         if concat_result["success"]:
@@ -396,48 +407,49 @@ async def create_seamless_loop(
     current = clip_path
     temp_files = []
 
-    for i in range(1, reps_needed):
-        temp_suffix = uuid.uuid4().hex[:8]
-        temp_out = os.path.join(OUTPUT_DIR, f"_loop_temp_{temp_suffix}.mp4")
-        temp_files.append(temp_out)
+    try:
+        for i in range(1, reps_needed):
+            temp_suffix = uuid.uuid4().hex[:8]
+            temp_out = os.path.join(OUTPUT_DIR, f"_loop_temp_{temp_suffix}.mp4")
+            temp_files.append(temp_out)
 
-        result = await crossfade_two_clips(
-            current, clip_path, temp_out,
-            fade_duration=crossfade_sec,
-            timeout_seconds=timeout_seconds,
-        )
+            result = await crossfade_two_clips(
+                current, clip_path, temp_out,
+                fade_duration=crossfade_sec,
+                timeout_seconds=timeout_seconds,
+            )
 
-        if not result["success"]:
-            # Fallback: concat simples se crossfade falhar
-            logger.warning(f"SeamlessLoop crossfade falhou na rep {i}, tentando concat simples")
-            for tf in temp_files:
+            if not result["success"]:
+                # Fallback: concat simples se crossfade falhar
+                logger.warning(f"SeamlessLoop crossfade falhou na rep {i}, tentando concat simples")
+                for tf in temp_files:
+                    _cleanup(tf)
+                temp_files.clear()
+                clip_list = [clip_path] * reps_needed
+                concat_result = await concat_simple(clip_list, output_path, timeout_seconds)
+                if concat_result["success"]:
+                    return await _trim_to_duration(output_path, target_duration, timeout_seconds)
+                return concat_result
+
+            # Limpar intermediário anterior (nunca o input original)
+            if current != clip_path:
+                _cleanup(current)
+
+            current = temp_out
+
+            # Checar se já atingiu duração suficiente
+            current_dur = await _get_duration(current)
+            if current_dur >= target_duration + crossfade_sec:
+                break
+
+        # Trim para duração exata
+        trim_result = await _trim_to_duration(current, target_duration, timeout_seconds, output_path)
+        return trim_result
+    finally:
+        # Cleanup todos os temps
+        for tf in temp_files:
+            if tf != output_path:
                 _cleanup(tf)
-            clip_list = [clip_path] * reps_needed
-            concat_result = await concat_simple(clip_list, output_path, timeout_seconds)
-            if concat_result["success"]:
-                return await _trim_to_duration(output_path, target_duration, timeout_seconds)
-            return concat_result
-
-        # Limpar intermediário anterior (nunca o input original)
-        if current != clip_path:
-            _cleanup(current)
-
-        current = temp_out
-
-        # Checar se já atingiu duração suficiente
-        current_dur = await _get_duration(current)
-        if current_dur >= target_duration + crossfade_sec:
-            break
-
-    # Trim para duração exata
-    trim_result = await _trim_to_duration(current, target_duration, timeout_seconds, output_path)
-
-    # Cleanup todos os temps
-    for tf in temp_files:
-        if tf != output_path:
-            _cleanup(tf)
-
-    return trim_result
 
 
 async def _apply_loop_tail(

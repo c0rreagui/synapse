@@ -8,87 +8,113 @@ from core.config import DATA_DIR, CIRCUIT_BREAKER_THRESHOLD, CIRCUIT_BREAKER_WIN
 
 logger = logging.getLogger(__name__)
 
-STATE_FILE = os.path.join(DATA_DIR, "circuit_breaker_state.json")
+STATE_DIR = os.path.join(DATA_DIR, "circuit_breaker")
+os.makedirs(STATE_DIR, exist_ok=True)
+
+# Legacy global state file (for migration)
+LEGACY_STATE_FILE = os.path.join(DATA_DIR, "circuit_breaker_state.json")
+
 
 class CircuitBreaker:
-    _instance = None
+    """Per-profile circuit breaker. Each profile has independent failure tracking."""
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(CircuitBreaker, cls).__new__(cls)
-            cls._instance.state = "CLOSED" 
-            cls._instance.failure_count = 0
-            cls._instance.last_failure_time = 0.0
-            cls.load_state(cls._instance)
-        return cls._instance
+    _instances = {}
+
+    def __new__(cls, profile_slug: str = "global"):
+        if profile_slug not in cls._instances:
+            instance = super(CircuitBreaker, cls).__new__(cls)
+            instance.profile_slug = profile_slug
+            instance.state = "CLOSED"
+            instance.failure_count = 0
+            instance.last_failure_time = 0.0
+            instance._state_file = os.path.join(STATE_DIR, f"{profile_slug}.json")
+            instance.load_state()
+            cls._instances[profile_slug] = instance
+        return cls._instances[profile_slug]
 
     def load_state(self):
-        if os.path.exists(STATE_FILE):
+        if os.path.exists(self._state_file):
             try:
-                with open(STATE_FILE, 'r') as f:
+                with open(self._state_file, 'r') as f:
                     data = json.load(f)
                     self.state = data.get("state", "CLOSED")
                     self.failure_count = data.get("failure_count", 0)
                     self.last_failure_time = data.get("last_failure_time", 0.0)
             except Exception as e:
-                logger.error(f"Failed to load circuit breaker state: {e}")
+                logger.error(f"Failed to load circuit breaker state for {self.profile_slug}: {e}")
 
     def save_state(self):
         try:
             data = {
                 "state": self.state,
                 "failure_count": self.failure_count,
-                "last_failure_time": self.last_failure_time
+                "last_failure_time": self.last_failure_time,
+                "profile_slug": self.profile_slug
             }
-            with open(STATE_FILE, 'w') as f:
+            tmp_path = self._state_file + ".tmp"
+            with open(tmp_path, 'w') as f:
                 json.dump(data, f, indent=2)
+            os.replace(tmp_path, self._state_file)
         except Exception as e:
-            logger.error(f"Failed to save circuit breaker state: {e}")
+            logger.error(f"Failed to save circuit breaker state for {self.profile_slug}: {e}")
 
     async def record_failure(self):
         self.failure_count += 1
         self.last_failure_time = time.time()
-        
-        logger.warning(f"⚠️ Circuit Breaker: Failure recorded. Count: {self.failure_count}/{CIRCUIT_BREAKER_THRESHOLD}")
+
+        logger.warning(f"⚠️ Circuit Breaker [{self.profile_slug}]: Failure recorded. Count: {self.failure_count}/{CIRCUIT_BREAKER_THRESHOLD}")
+
+        if self.state == "HALF_OPEN":
+            self.state = "OPEN"
+            logger.critical(f"🛑 CIRCUIT BREAKER [{self.profile_slug}]: HALF_OPEN retry failed. Back to OPEN.")
+            self.save_state()
+            return
 
         if self.failure_count >= CIRCUIT_BREAKER_THRESHOLD:
             if self.state != "OPEN":
                 self.state = "OPEN"
-                logger.critical(f"🛑 CIRCUIT BREAKER TRIPPED! System Paused.")
-                # Notify User
+                logger.critical(f"🛑 CIRCUIT BREAKER [{self.profile_slug}] TRIPPED! Profile Paused.")
                 try:
                     from core.notifications import notification_manager
                     await notification_manager.send_alert(
-                        "🛑 System Paused (Circuit Breaker)", 
-                        f"Failure threshold ({CIRCUIT_BREAKER_THRESHOLD}) reached in window ({CIRCUIT_BREAKER_WINDOW}s). System operation paused to prevent bans.",
-                        0xFF0000 
+                        f"🛑 Profile Paused (Circuit Breaker): {self.profile_slug}",
+                        f"Failure threshold ({CIRCUIT_BREAKER_THRESHOLD}) reached. Profile paused to prevent bans.",
+                        0xFF0000
                     )
                 except ImportError:
                     pass
-        
+
         self.save_state()
 
     async def record_success(self):
-        if self.failure_count > 0:
+        if self.state == "HALF_OPEN":
             self.failure_count = 0
             self.state = "CLOSED"
-            logger.info("✅ Circuit Breaker: Success recorded. Count reset.")
+            logger.info(f"✅ Circuit Breaker [{self.profile_slug}]: HALF_OPEN retry succeeded. CLOSED.")
+            self.save_state()
+        elif self.failure_count > 0:
+            self.failure_count = 0
+            self.state = "CLOSED"
+            logger.info(f"✅ Circuit Breaker [{self.profile_slug}]: Success recorded. Count reset.")
             self.save_state()
 
     def is_open(self) -> bool:
         if self.state == "CLOSED":
             return False
-            
+
+        if self.state == "HALF_OPEN":
+            return False
+
         if self.state == "OPEN":
-            # Check if window passed to attempt retry (HALF_OPEN logic could go here)
             time_since_failure = time.time() - self.last_failure_time
             if time_since_failure > CIRCUIT_BREAKER_WINDOW:
-                logger.info(f"Circuit Breaker cooling down... allowing single retry (HALF-OPEN).")
-                # We return False (allow retry), but keep state OPEN until success confirms it works.
+                logger.info(f"Circuit Breaker [{self.profile_slug}] cooling down... allowing retry (HALF-OPEN).")
+                self.state = "HALF_OPEN"
+                self.save_state()
                 return False
-                
+
             return True
-            
+
         return False
 
     async def reset(self):
@@ -96,6 +122,13 @@ class CircuitBreaker:
         self.failure_count = 0
         self.last_failure_time = 0.0
         self.save_state()
-        logger.info("🔄 Circuit Breaker Manually Reset")
+        logger.info(f"🔄 Circuit Breaker [{self.profile_slug}] Manually Reset")
 
-circuit_breaker = CircuitBreaker()
+
+def get_circuit_breaker(profile_slug: str = "global") -> CircuitBreaker:
+    """Get or create a per-profile circuit breaker."""
+    return CircuitBreaker(profile_slug)
+
+
+# Backwards-compatible global instance (used by queue_worker, etc.)
+circuit_breaker = CircuitBreaker("global")

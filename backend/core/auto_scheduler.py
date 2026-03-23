@@ -35,7 +35,9 @@ def calculate_next_slots(
     check_date: datetime = now + timedelta(days=1)
 
     # Ordenar os horarios para distribuicao correta ao longo do dia
-    sorted_hours = sorted(set(schedule_hours)) if schedule_hours else [18]
+    sorted_hours = sorted(h for h in set(schedule_hours) if 0 <= h <= 23) if schedule_hours else [18]
+    if not sorted_hours:
+        sorted_hours = [18]
 
     slots = []
 
@@ -267,6 +269,11 @@ async def retry_failed_uploads(db) -> dict:
             continue
 
         retried += 1
+
+        # Exponential backoff between retries
+        wait_time = min(60 * (2 ** retry_count), 600)
+        await asyncio.sleep(wait_time)
+
         schedule_hours = queue_item.schedule_hours or [12, 18]
         slots = calculate_next_slots(
             profile_slug=queue_item.profile_slug,

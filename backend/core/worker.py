@@ -199,4 +199,4 @@ class WorkerSettings:
         port=REDIS_PORT
     )
     max_jobs = 1  # Limit concurrency to 1 per worker to safe resources (Headless browser usage)
-    job_timeout = 600 # 10 minutes hard timeout (prevents zombies)
+    job_timeout = 900 # 15 minutes hard timeout (allows CAPTCHA resolution via VNC)

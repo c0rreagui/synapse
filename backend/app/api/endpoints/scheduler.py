@@ -526,6 +526,10 @@ async def batch_schedule(request: BatchScheduleRequest):
         else:
              video_path = filename
 
+        # Validate video file exists before scheduling
+        if not os.path.exists(video_path):
+            raise HTTPException(status_code=400, detail=f"Video file not found: {os.path.basename(video_path)}")
+
         # [SYN-CUSTOM] Calculate Time Again for Execution
         if request.strategy == 'CUSTOM' and custom_slots_sorted:
             slots_count = len(custom_slots_sorted)

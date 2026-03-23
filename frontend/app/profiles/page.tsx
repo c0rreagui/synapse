@@ -48,6 +48,10 @@ export default function ProfilesPage() {
     // ERROR MODAL STATE
     const [viewerImage, setViewerImage] = useState<string | null>(null);
 
+    // REMOTE SESSION STATE
+    const [remoteSession, setRemoteSession] = useState<{ active: boolean; novnc_url?: string; profile_slug?: string } | null>(null);
+    const [startingRemote, setStartingRemote] = useState(false);
+
     // IMPORT STATE EXTENDED
     const [importUsername, setImportUsername] = useState('');
     const [importAvatar, setImportAvatar] = useState('');
@@ -422,6 +426,50 @@ export default function ProfilesPage() {
         }
     };
 
+    // ─── Remote Session (VNC) Handlers ───────────────────────────────────
+    const fetchRemoteSessionStatus = useCallback(async () => {
+        try {
+            const data = await apiClient.get<any>('/api/v1/profiles/remote-session/status');
+            setRemoteSession(data);
+        } catch {
+            // silent — VNC not available in dev
+        }
+    }, []);
+
+    const handleStartRemoteSession = async (profileSlug: string) => {
+        setStartingRemote(true);
+        try {
+            const data = await apiClient.post<any>(`/api/v1/profiles/remote-session/start/${profileSlug}`);
+            setRemoteSession(data);
+            toast.success('Sessão remota iniciada', {
+                description: 'O browser está acessível via VNC. Resolva o CAPTCHA e encerre a sessão.',
+            });
+        } catch (e: any) {
+            toast.error('Erro ao iniciar sessão remota', {
+                description: e?.data?.detail || 'Verifique se o container tem suporte a VNC.',
+            });
+        } finally {
+            setStartingRemote(false);
+        }
+    };
+
+    const handleStopRemoteSession = async () => {
+        try {
+            const data = await apiClient.post<any>('/api/v1/profiles/remote-session/stop');
+            setRemoteSession({ active: false });
+            toast.success(data.message || 'Sessão remota encerrada');
+        } catch (e: any) {
+            toast.error('Erro ao encerrar sessão', {
+                description: e?.data?.detail || 'Erro desconhecido',
+            });
+        }
+    };
+
+    // Poll remote session status on mount
+    useEffect(() => {
+        fetchRemoteSessionStatus();
+    }, [fetchRemoteSessionStatus]);
+
     const handleValidateProxy = async () => {
         if (!importProxyServer) {
             toast.error("Preencha o servidor do proxy (IP:Porta)");
@@ -627,6 +675,49 @@ export default function ProfilesPage() {
                 </StitchCard>
             )}
 
+            {/* ═══ VNC REMOTE SESSION BANNER ═══ */}
+            {remoteSession?.active && remoteSession.novnc_url && (
+                <div className="mb-6 rounded-lg border border-violet-500/30 bg-violet-500/5 backdrop-blur-sm overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 bg-violet-500/10 border-b border-violet-500/20">
+                        <div className="flex items-center gap-3">
+                            <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_#34d399]"></span>
+                            <span className="text-violet-300 font-mono text-xs font-bold uppercase tracking-widest">
+                                Sessão Remota Ativa
+                            </span>
+                            <span className="text-violet-400/60 font-mono text-[10px]">
+                                {remoteSession.profile_slug}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <a
+                                href={remoteSession.novnc_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-1 bg-violet-500/20 hover:bg-violet-500/30 text-violet-300 text-[10px] font-bold uppercase rounded border border-violet-500/30 flex items-center gap-1.5 transition-all"
+                            >
+                                <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                                Abrir em Nova Aba
+                            </a>
+                            <button
+                                onClick={handleStopRemoteSession}
+                                className="px-3 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-bold uppercase rounded border border-red-500/30 flex items-center gap-1.5 transition-all"
+                            >
+                                <span className="material-symbols-outlined text-[14px]">stop_circle</span>
+                                Encerrar
+                            </button>
+                        </div>
+                    </div>
+                    <div className="relative w-full" style={{ height: '600px' }}>
+                        <iframe
+                            src={remoteSession.novnc_url}
+                            className="w-full h-full border-0"
+                            title="VNC Remote Session"
+                            allow="clipboard-read; clipboard-write"
+                        />
+                    </div>
+                </div>
+            )}
+
             {/* ═══ TERMINAL GRID ═══ */}
             {loading ? (
                 <p className="text-gray-500 text-center py-12 font-mono">Carregando nós...</p>
@@ -714,20 +805,26 @@ export default function ProfilesPage() {
                                 )}>
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-4">
-                                            {/* Platform Icon */}
+                                            {/* Profile Avatar (Circle - TikTok Standard) */}
                                             <div className={clsx(
-                                                "size-12 rounded-sm border flex items-center justify-center relative",
+                                                "size-12 rounded-full border flex items-center justify-center relative overflow-hidden shrink-0",
                                                 statusColor === 'error' ? "bg-[#ff2a2a]/10 border-[#ff2a2a]/30" :
                                                     statusColor === 'warn' ? "bg-[#ffb02a]/5 border-[#ffb02a]/20" :
                                                         "bg-synapse-primary/10 border-synapse-primary/30"
                                             )}>
-                                                <div className={clsx(
-                                                    "absolute inset-0 animate-pulse",
-                                                    statusColor === 'error' ? "bg-[#ff2a2a]/5" :
-                                                        statusColor === 'warn' ? "bg-[#ffb02a]/5" :
-                                                            "bg-synapse-primary/5"
-                                                )}></div>
-                                                <span className="text-2xl relative z-10">{getProfileIcon(profile.id, profile.icon)}</span>
+                                                {profile.avatar_url ? (
+                                                    <img
+                                                        src={profile.avatar_url}
+                                                        alt={profile.label}
+                                                        className="w-full h-full object-cover relative z-10"
+                                                        onError={(e) => {
+                                                            (e.target as HTMLImageElement).style.display = 'none';
+                                                            const fallback = (e.target as HTMLElement).nextElementSibling as HTMLElement;
+                                                            if (fallback) fallback.style.display = 'flex';
+                                                        }}
+                                                    />
+                                                ) : null}
+                                                <span className={clsx("text-2xl absolute inset-0 flex items-center justify-center", profile.avatar_url && "hidden")}>{getProfileIcon(profile.id, profile.icon)}</span>
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2 mb-0.5">
@@ -923,6 +1020,35 @@ export default function ProfilesPage() {
                                             aria-label={isRefreshing ? 'Sincronizando nó' : 'Sincronizar nó'}
                                         >
                                             <span className={clsx("material-symbols-outlined text-[14px]", isRefreshing && "animate-spin")}>sync</span> {isRefreshing ? '...' : 'SYNC'}
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (remoteSession?.active && remoteSession.profile_slug === profile.id) {
+                                                    handleStopRemoteSession();
+                                                } else {
+                                                    handleStartRemoteSession(profile.id);
+                                                }
+                                            }}
+                                            disabled={startingRemote || (remoteSession?.active && remoteSession.profile_slug !== profile.id)}
+                                            className={clsx(
+                                                "px-3 py-1 text-[9px] font-bold uppercase rounded border flex items-center gap-1 transition-all disabled:opacity-50",
+                                                remoteSession?.active && remoteSession.profile_slug === profile.id
+                                                    ? "bg-emerald-500/20 hover:bg-red-500/20 text-emerald-400 hover:text-red-400 border-emerald-500/30 hover:border-red-500/30"
+                                                    : "bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 border-violet-500/30"
+                                            )}
+                                            title={
+                                                remoteSession?.active && remoteSession.profile_slug === profile.id
+                                                    ? "Encerrar sessão VNC"
+                                                    : remoteSession?.active
+                                                        ? `Sessão VNC ativa para outro perfil (${remoteSession.profile_slug})`
+                                                        : "Abrir browser remoto via VNC (resolver CAPTCHA)"
+                                            }
+                                        >
+                                            <span className="material-symbols-outlined text-[14px]">
+                                                {startingRemote ? 'hourglass_empty' : remoteSession?.active && remoteSession.profile_slug === profile.id ? 'stop_circle' : 'desktop_windows'}
+                                            </span>
+                                            {startingRemote ? '...' : remoteSession?.active && remoteSession.profile_slug === profile.id ? 'STOP' : 'VNC'}
                                         </button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); promptDelete(profile.id); }}

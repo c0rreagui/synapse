@@ -112,14 +112,28 @@ async def clipper_scheduler_loop(poll_interval: int = 60):
     - Sharding temporal entre targets
     - Monitoramento de rate limit
     - Backoff adaptativo quando próximo do limite
+    - Garbage collector periódico (a cada 6h)
     """
     logger.info(f"Clipper Scheduler iniciado (SYN-128). Poll: {poll_interval}s")
+
+    gc_interval = 6 * 3600  # 6 horas
+    last_gc = 0.0
 
     while True:
         try:
             await _scheduled_check_cycle()
         except Exception as e:
             logger.error(f"Erro no clipper scheduler: {e}", exc_info=True)
+
+        # Garbage Collector periódico (a cada 6h)
+        now = time.time()
+        if now - last_gc > gc_interval:
+            try:
+                from core.clipper.garbage_collector import run_gc
+                await asyncio.to_thread(run_gc)
+                last_gc = now
+            except Exception as e:
+                logger.error(f"Erro no Garbage Collector: {e}", exc_info=True)
 
         await asyncio.sleep(poll_interval)
 
@@ -131,7 +145,13 @@ async def _scheduled_check_cycle() -> None:
     2. Aplica sharding temporal (delay entre targets)
     3. Monitora rate limit e aplica backoff se necessário
     """
-    ready_targets = await asyncio.to_thread(_get_ready_target_ids_with_priority)
+    try:
+        ready_targets = await asyncio.wait_for(
+            asyncio.to_thread(_get_ready_target_ids_with_priority), timeout=30
+        )
+    except asyncio.TimeoutError:
+        logger.warning("Scheduler: DB query timeout (30s) ao buscar targets prontos.")
+        return
 
     if not ready_targets:
         return

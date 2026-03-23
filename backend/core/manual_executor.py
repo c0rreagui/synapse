@@ -319,13 +319,24 @@ async def execute_approved_video(
              print("DEBUG EXECUTOR: Process Crash")
              return {"status": ScheduleStatus.FAILED, "message": f"Process Crash: {stderr}"}
              
-        # Parse Output
+        # Parse Output — scan ALL lines for valid JSON (last match wins)
+        # Subprocess may emit non-JSON output (Playwright logs, C-level prints)
         try:
             lines = stdout.strip().splitlines()
-            last_line = lines[-1] if lines else ""
-            result = json.loads(last_line)
+            result = None
+            for line in reversed(lines):
+                line = line.strip()
+                if line.startswith("{"):
+                    try:
+                        result = json.loads(line)
+                        break
+                    except json.JSONDecodeError:
+                        continue
+            if result is None:
+                logger.error(f"No valid JSON found in uploader output ({len(lines)} lines): {stdout[-500:]}")
+                result = {"status": ScheduleStatus.FAILED, "message": "Invalid Output from Uploader"}
         except Exception as json_err:
-             logger.error(f"Failed to parse uploader output: {stdout}")
+             logger.error(f"Failed to parse uploader output: {json_err}")
              result = {"status": ScheduleStatus.FAILED, "message": "Invalid Output from Uploader"}
 
         except Exception as e:

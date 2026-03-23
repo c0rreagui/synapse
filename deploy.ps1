@@ -160,17 +160,38 @@ Write-Step "Criando diretorio remoto ${VPS_PATH}"
 ssh "${VPS_USER}@${VPS_HOST}" "mkdir -p ${VPS_PATH}"
 Write-Ok "Diretorio remoto criado"
 
-# Step 3: Transfer files via SCP
-Write-Step "Transferindo arquivos via SCP..."
-Write-Host "    Isso pode levar alguns minutos dependendo da conexao..." -ForegroundColor DarkGray
-scp -r "${STAGING}\*" "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/"
+# Step 3: Compress and Transfer via SCP
+Write-Step "Compactando e transferindo (TAR over SCP)..."
+Write-Host "    Isso sera muito mais rapido que arquivos individuais..." -ForegroundColor DarkGray
 
-if ($LASTEXITCODE -eq 0) {
-    Write-Ok "Transferencia concluida com sucesso!"
-} else {
-    Write-Host "    ERRO: Transferencia falhou (exit code: $LASTEXITCODE)" -ForegroundColor Red
+# 3.1 Compress locals
+$tarPath = "$env:TEMP\synapse_deploy.tar.gz"
+if (Test-Path $tarPath) { Remove-Item -Force $tarPath }
+Write-Host "    Compactando pacote (tar)..." -ForegroundColor DarkGray
+# Using native Windows tar
+tar.exe -czf "$tarPath" -C "$STAGING" .
+
+# 3.2 Send tarball
+Write-Host "    Transferindo pacote para o servidor (${VPS_HOST})..." -ForegroundColor DarkGray
+scp "$tarPath" "${VPS_USER}@${VPS_HOST}:/tmp/synapse_deploy.tar.gz"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "    ERRO: Transferencia SCP falhou (exit code: $LASTEXITCODE)" -ForegroundColor Red
     exit 1
 }
+
+# 3.3 Extract remotely
+Write-Host "    Extraindo pacote no servidor..." -ForegroundColor DarkGray
+ssh "${VPS_USER}@${VPS_HOST}" "tar -xzf /tmp/synapse_deploy.tar.gz -C ${VPS_PATH} && rm /tmp/synapse_deploy.tar.gz"
+
+if ($LASTEXITCODE -eq 0) {
+    Write-Ok "Transferencia e extracao concluidas com sucesso!"
+} else {
+    Write-Host "    ERRO: Extracao remota falhou (exit code: $LASTEXITCODE)" -ForegroundColor Red
+    exit 1
+}
+
+# Clean local tar
+if (Test-Path $tarPath) { Remove-Item -Force $tarPath }
 
 # Step 4: Transfer .env.production as .env
 Write-Step "Transferindo .env.production como .env"

@@ -659,7 +659,7 @@ REGRAS INVIOLÁVEIS:
                 parsed = {"caption": content.strip(), "hashtags": []}
 
         caption = parsed.get("caption", "")
-        hashtags = parsed.get("hashtags", [])
+        hashtags = parsed.get("hashtags", [])[:5]  # Limite: 3-5 hashtags
 
         # Persistir no PendingApproval
         item.caption = caption

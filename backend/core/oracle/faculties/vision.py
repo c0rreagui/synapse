@@ -37,7 +37,7 @@ class VisionFaculty:
     def __init__(self, client):
         self.client = client
         self.temp_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "processing")
-        self.vision_model = "meta-llama/llama-4-maverick-17b-128e-instruct"
+        self.vision_model = "meta-llama/llama-4-scout-17b-16e-instruct"
 
     # ========== CACHE MANAGEMENT ==========
     

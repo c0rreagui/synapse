@@ -1,9 +1,15 @@
 
 import os
+import re
 import glob
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from typing import List, Dict, Any, Optional
 from .. import websocket
+
+
+def _sanitize_proxy_url(url: str) -> str:
+    """Removes credentials from proxy URL for safe logging/error messages."""
+    return re.sub(r'://[^@]+@', '://***:***@', url)
 
 router = APIRouter()
 
@@ -485,5 +491,40 @@ async def test_proxy_config(profile_id: str):
     except Exception as e:
         return {
             "status": "error",
-            "message": f"Proxy falhou: {str(e)}",
+            "message": f"Proxy falhou: {_sanitize_proxy_url(str(e))}",
         }
+
+
+# ─── Remote Browser Session (VNC) ──────────────────────────────────────
+
+@router.get("/remote-session/status")
+async def remote_session_status():
+    """Check if a remote browser session is active."""
+    from core.remote_session import get_session_status
+    return get_session_status()
+
+
+@router.post("/remote-session/start/{profile_id}")
+async def remote_session_start(profile_id: str):
+    """
+    Start a remote browser session for a profile.
+    Opens TikTok Studio via VNC so the operator can solve CAPTCHA manually.
+    """
+    from core.remote_session import start_session
+
+    # Resolve host URL from environment or use the VPS IP
+    host_url = os.environ.get("VPS_HOST", "46.225.62.76")
+
+    result = await start_session(profile_slug=profile_id, host_url=host_url)
+
+    if "error" in result:
+        raise HTTPException(status_code=409, detail=result["error"])
+
+    return result
+
+
+@router.post("/remote-session/stop")
+async def remote_session_stop():
+    """Stop the active remote browser session."""
+    from core.remote_session import stop_session
+    return stop_session()

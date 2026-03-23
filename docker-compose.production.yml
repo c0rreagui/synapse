@@ -64,10 +64,12 @@ services:
   # Backend (API)
   backend:
     build: ./backend
+    image: synapse-backend:latest
     container_name: synapse-backend
     restart: always
     ports:
       - "8000:8000"
+      - "6080:6080"
     volumes:
       - ./backend:/app
       - ./brain:/app/brain
@@ -75,8 +77,10 @@ services:
       - sessions:/app/data/sessions
       - contexts:/app/data/contexts
       - screenshots:/app/data/screenshots
+      - ./backend/data/browser_profiles:/app/data/browser_profiles
     environment:
       - ENVIRONMENT=production
+      - VPS_HOST=46.225.62.76
       - TZ=America/Sao_Paulo
       - PYTHONUNBUFFERED=1
       - POSTGRES_SERVER=db
@@ -100,10 +104,12 @@ services:
 
   # Worker (Background Processing)
   worker:
-    build: ./backend
+    image: synapse-backend:latest
     container_name: synapse-worker
     restart: always
     command: arq core.worker.WorkerSettings
+    ports:
+      - "6081:6080"
     volumes:
       - ./backend:/app
       - ./brain:/app/brain
@@ -111,6 +117,7 @@ services:
       - sessions:/app/data/sessions
       - contexts:/app/data/contexts
       - screenshots:/app/data/screenshots
+      - ./backend/data/browser_profiles:/app/data/browser_profiles
     environment:
       - ENVIRONMENT=production
       - TZ=America/Sao_Paulo
@@ -129,9 +136,44 @@ services:
       - redis
       - minio
 
+  # Clipper Worker (Pipeline Twitch -> TikTok/Shorts)
+  clipper:
+    image: synapse-backend:latest
+    container_name: synapse-clipper
+    restart: always
+    command: arq core.clipper.worker.WorkerSettings
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+    volumes:
+      - ./backend:/app
+      - ./brain:/app/brain
+      - ./inputs:/app/inputs
+      - sessions:/app/data/sessions
+      - contexts:/app/data/contexts
+      - screenshots:/app/data/screenshots
+    environment:
+      - ENVIRONMENT=production
+      - TZ=America/Sao_Paulo
+      - PYTHONUNBUFFERED=1
+      - POSTGRES_SERVER=db
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - REDIS_HOST=redis
+      - REDIS_URL=redis://redis:6379
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD}
+    depends_on:
+      - db
+      - redis
+      - minio
+
   # Scheduler
   scheduler:
-    build: ./backend
+    image: synapse-backend:latest
     container_name: synapse-scheduler
     restart: always
     command: python scheduler_runner.py

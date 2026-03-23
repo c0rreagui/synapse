@@ -64,8 +64,13 @@ async def main():
         }
     
     # [SYN-CRITICAL-FIX] Print Result as JSON to REAL stdout (OUTSIDE redirect context)
-    # This was the root cause of "Executor returned None" - the print was being captured!
+    if result is None:
+        result = {"status": "error", "message": "Uploader returned None (no result)"}
+
     try:
+        # Ensure status is serializable (ScheduleStatus enum -> string)
+        if hasattr(result.get("status", ""), "value"):
+            result["status"] = result["status"].value
         print(json.dumps(result), flush=True)
     except Exception as e:
         # Fallback if result is not serializable

@@ -106,6 +106,10 @@ export default function EditScheduleModal({
     // [SYN-FIX] Fetch fresh data on open to handle stale props
     useEffect(() => {
         if (isOpen && event?.id) {
+            // Reset video error state ao abrir modal
+            setVideoError(false);
+            setVideoLoading(true);
+
             const fetchFresh = async () => {
                 try {
                     const res = await fetch(`${API_URL}/api/v1/scheduler/items/${event.id}`);
@@ -143,6 +147,8 @@ export default function EditScheduleModal({
                     }
                 } catch (e) {
                     console.error("Failed to fetch fresh schedule item:", e);
+                    setVideoLoading(false);
+                    toast.error("Erro ao carregar dados atualizados do agendamento.");
                 }
             };
             fetchFresh();

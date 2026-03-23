@@ -1,5 +1,5 @@
 {
-  "state": "OPEN",
-  "failure_count": 21,
-  "last_failure_time": 1773486038.0761387
+  "state": "CLOSED",
+  "failure_count": 0,
+  "last_failure_time": 1773538312.2409964
 }

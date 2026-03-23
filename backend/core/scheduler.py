@@ -116,9 +116,13 @@ class Scheduler:
                 new_path = os.path.join(APPROVED_DIR, filename)
                 
                 # Move file
-                shutil.move(abs_video_path, new_path)
-                print(f"[SCHEDULER] Moved scheduled file to approved: {filename}")
-                
+                try:
+                    shutil.move(abs_video_path, new_path)
+                    print(f"[SCHEDULER] Moved scheduled file to approved: {filename}")
+                except Exception as move_err:
+                    print(f"[SCHEDULER] Failed to move file to approved: {move_err}")
+                    raise ValueError(f"Failed to move video file: {move_err}")
+
                 # Update path variable for DB
                 video_path = new_path
                 
@@ -214,16 +218,16 @@ class Scheduler:
                 return False
                 
             item = db.query(ScheduleItem).filter(ScheduleItem.id == pk).first()
-            if item:
-                # Desvincular VideoQueue records que referenciam este ScheduleItem
-                from core.models import VideoQueue
-                db.query(VideoQueue).filter(VideoQueue.schedule_item_id == pk).update(
-                    {"schedule_item_id": None}, synchronize_session="fetch"
-                )
-                db.delete(item)
-                db.commit()
-                return True
-            return False
+            if not item:
+                return False
+            # Desvincular VideoQueue records que referenciam este ScheduleItem
+            from core.models import VideoQueue
+            db.query(VideoQueue).filter(VideoQueue.schedule_item_id == pk).update(
+                {"schedule_item_id": None}, synchronize_session="fetch"
+            )
+            db.delete(item)
+            db.commit()
+            return True
         except Exception as e:
             db.rollback()
             print(f"DB Error deleting event: {e}")
@@ -262,11 +266,24 @@ class Scheduler:
                     current_meta["error"] = "Schedule expired (Missed window by >1h)"
                     item.metadata_info = current_meta
                     count += 1
-                
+
                 db.commit()
                 if count > 0:
                     print(f"[SCHEDULER] Cleaned up {count} expired schedule items.")
-                    
+
+            # Archive/delete items stuck in 'failed' for more than 7 days
+            failed_threshold = now_sp - timedelta(days=7)
+            stale_failed = db.query(ScheduleItem).filter(
+                ScheduleItem.status == "failed",
+                ScheduleItem.scheduled_time < failed_threshold
+            ).all()
+            if stale_failed:
+                stale_count = len(stale_failed)
+                for item in stale_failed:
+                    db.delete(item)
+                db.commit()
+                print(f"[SCHEDULER] Archived {stale_count} stale failed items (>7 days old).")
+
         except Exception as e:
             print(f"[SCHEDULER] Error cleaning up missed schedules: {e}")
             db.rollback()
@@ -703,7 +720,17 @@ class Scheduler:
             
             # 2. Enqueue Job with full identity metadata
             video_path = normalize_video_path(item.video_path)
-            
+
+            # Validate video file exists before proceeding
+            if not os.path.exists(video_path):
+                print(f"[SCHEDULER] Video file not found: {video_path}")
+                await self._finalize_scheduled_item(
+                    item.id,
+                    ScheduleStatus.FAILED,
+                    {"message": f"Video file missing: {os.path.basename(video_path)}"}
+                )
+                return
+
             # Prepare metadata with full profile identity
             exec_metadata = dict(item.metadata_info or {})
             exec_metadata['profile_slug'] = item.profile_slug

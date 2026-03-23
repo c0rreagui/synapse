@@ -1,0 +1,30 @@
+[Script Info]
+Title: Synapse Auto Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Active,Inter Black,85,&H000B9EF5,&H000B9EF5,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+Style: Inactive,Inter Black,85,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.44,0:00:00.78,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Agora {\1c&H00FFFFFF}sim
+Dialogue: 0,0:00:00.78,0:00:01.02,Active,,0,0,0,,{\1c&H00FFFFFF}Agora {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}sim
+Dialogue: 0,0:00:03.20,0:00:03.47,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ai {\1c&H00FFFFFF}ele {\1c&H00FFFFFF}ganhou
+Dialogue: 0,0:00:03.47,0:00:03.58,Active,,0,0,0,,{\1c&H00FFFFFF}ai {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ele {\1c&H00FFFFFF}ganhou
+Dialogue: 0,0:00:03.58,0:00:03.93,Active,,0,0,0,,{\1c&H00FFFFFF}ai {\1c&H00FFFFFF}ele {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ganhou
+Dialogue: 0,0:00:04.11,0:00:04.23,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ele {\1c&H00FFFFFF}ganhou {\1c&H00FFFFFF}o
+Dialogue: 0,0:00:04.23,0:00:04.49,Active,,0,0,0,,{\1c&H00FFFFFF}ele {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ganhou {\1c&H00FFFFFF}o
+Dialogue: 0,0:00:04.49,0:00:04.57,Active,,0,0,0,,{\1c&H00FFFFFF}ele {\1c&H00FFFFFF}ganhou {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}o
+Dialogue: 0,0:00:04.57,0:00:04.84,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Oscar
+Dialogue: 0,0:00:07.59,0:00:07.71,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}o {\1c&H00FFFFFF}protagonista {\1c&H00FFFFFF}do
+Dialogue: 0,0:00:07.71,0:00:08.22,Active,,0,0,0,,{\1c&H00FFFFFF}o {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}protagonista {\1c&H00FFFFFF}do
+Dialogue: 0,0:00:08.22,0:00:08.33,Active,,0,0,0,,{\1c&H00FFFFFF}o {\1c&H00FFFFFF}protagonista {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}do
+Dialogue: 0,0:00:08.33,0:00:08.41,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}meu {\1c&H00FFFFFF}coração
+Dialogue: 0,0:00:08.41,0:00:08.75,Active,,0,0,0,,{\1c&H00FFFFFF}meu {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}coração

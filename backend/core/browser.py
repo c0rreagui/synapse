@@ -1,7 +1,9 @@
 import os
+import re
 import logging
 import sys
 import asyncio
+import subprocess
 from typing import Optional, Tuple, Dict, Any
 from playwright.async_api import async_playwright, Browser, BrowserContext, Page, Playwright
 
@@ -48,6 +50,41 @@ def _resolve_chromium_path() -> Optional[str]:
 
 SYSTEM_CHROMIUM_PATH = _resolve_chromium_path()
 
+# --- Dynamic Chrome Version Detection ---
+def _get_chrome_version() -> str:
+    """Detect the real Chromium version from the binary in the container."""
+    paths_to_try = [
+        SYSTEM_CHROMIUM_PATH,
+        "/usr/bin/chromium",
+        "/usr/bin/google-chrome",
+        "/usr/bin/chromium-browser",
+    ]
+    for path in paths_to_try:
+        if path and os.path.isfile(path):
+            try:
+                result = subprocess.run(
+                    [path, "--version"],
+                    capture_output=True, text=True, timeout=5
+                )
+                # Parse "Chromium 146.0.7680.71 ..." or "Google Chrome 146..."
+                match = re.search(r'(\d+)\.\d+\.\d+\.\d+', result.stdout)
+                if match:
+                    full_match = re.search(r'(\d+\.\d+\.\d+\.\d+)', result.stdout)
+                    version = full_match.group(1) if full_match else f"{match.group(1)}.0.0.0"
+                    logger.info(f"[STEALTH] Detected real Chrome version: {version}")
+                    return version
+            except Exception as e:
+                logger.warning(f"[STEALTH] Failed to detect Chrome version from {path}: {e}")
+    # Fallback: modern version
+    logger.warning("[STEALTH] Could not detect Chrome version, using fallback 131.0.0.0")
+    return "131.0.0.0"
+
+CHROME_VERSION = _get_chrome_version()
+CHROME_MAJOR = CHROME_VERSION.split(".")[0]
+
+# Dynamic User-Agent based on real Chrome version
+DYNAMIC_UA = f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{CHROME_VERSION} Safari/537.36"
+
 STEALTH_ARGS = [
     "--disable-blink-features=AutomationControlled",
     "--disable-infobars",
@@ -59,15 +96,17 @@ STEALTH_ARGS = [
     "--no-first-run",
     "--no-default-browser-check",
     "--ignore-certificate-errors",
+    # WebRTC leak protection — prevent real VPS IP from leaking through proxy
+    "--webrtc-ip-handling-policy=disable_non_proxied_udp",
+    "--enforce-webrtc-ip-permission-check",
 ]
 
 # Extra args needed for Docker/headless environment
+# NOTE: --single-process REMOVED — causes Chrome instability in Docker
+# AND is a known fingerprint signal for anti-bot detection systems (TikTok).
 DOCKER_HEADLESS_ARGS = [
     "--headless=new",  # New headless mode (Chrome 109+)
     "--disable-software-rasterizer",
-    "--disable-background-networking",
-    "--single-process",  # Sometimes needed in Docker
-    "--disable-features=VizDisplayCompositor",
 ]
 
 # Identidade Dinâmica centralizada em core.network_utils
@@ -104,20 +143,79 @@ async def launch_browser(
         user_agent = get_random_user_agent()
         logger.info(f"[BROWSER] Dynamic identity assigned: {user_agent[:40]}...")
     if IN_DOCKER and not headless:
-        logger.warning("[DOCKER] Forcing headless=True (no display available in container)")
-        headless = True
+        if os.environ.get("DISPLAY"):
+            # Verify the DISPLAY is actually usable (Xvfb might have died)
+            _display_num = os.environ["DISPLAY"].replace(":", "")
+            _lock_path = f"/tmp/.X{_display_num}-lock"
+            if os.path.exists(_lock_path):
+                try:
+                    with open(_lock_path) as _lf:
+                        _xvfb_pid = int(_lf.read().strip())
+                    os.kill(_xvfb_pid, 0)  # Check if alive
+                    logger.info(f"[DOCKER] Xvfb DETECTED (DISPLAY={os.environ['DISPLAY']}, PID={_xvfb_pid}). Maintaining headless=False.")
+                except (ProcessLookupError, OSError, ValueError):
+                    logger.warning(f"[DOCKER] Stale DISPLAY={os.environ['DISPLAY']} (Xvfb dead). Restarting...")
+                    os.environ.pop("DISPLAY", None)
+                    try:
+                        os.remove(_lock_path)
+                    except OSError:
+                        pass
+            else:
+                logger.info(f"[DOCKER] Xvfb DETECTED (DISPLAY={os.environ['DISPLAY']}). Maintaining headless=False.")
+
+        if not os.environ.get("DISPLAY"):
+            # Auto-start Xvfb so we can run headful (avoids TikTok CAPTCHA on headless)
+            try:
+                # Clean stale lock files from previous sessions
+                _lock_path = "/tmp/.X99-lock"
+                if os.path.exists(_lock_path):
+                    try:
+                        os.remove(_lock_path)
+                        logger.info("[DOCKER] Removed stale Xvfb lock file")
+                    except OSError:
+                        pass
+                # Kill any zombie Xvfb processes
+                subprocess.run(["pkill", "-9", "Xvfb"], capture_output=True)
+                import time; time.sleep(0.5)
+
+                _xvfb = subprocess.Popen(
+                    ["Xvfb", ":99", "-screen", "0", "1920x1080x24", "-ac"],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+                os.environ["DISPLAY"] = ":99"
+                import time; time.sleep(2)  # Wait longer for Xvfb to be ready
+                # Verify Xvfb actually started
+                if _xvfb.poll() is not None:
+                    raise RuntimeError(f"Xvfb exited immediately with code {_xvfb.returncode}")
+                logger.info(f"[DOCKER] Auto-started Xvfb :99 (PID {_xvfb.pid}). Running headful.")
+            except Exception as e:
+                logger.warning(f"[DOCKER] Failed to start Xvfb: {e}. Forcing headless=True.")
+                headless = True
     
+
     # Build args list
     browser_args = STEALTH_ARGS.copy()
-    if IN_DOCKER:
+    if IN_DOCKER and headless:
         browser_args.extend(DOCKER_HEADLESS_ARGS)
-        logger.info(f"[BROWSER] Docker mode - added {len(DOCKER_HEADLESS_ARGS)} extra args")
+        logger.info(f"[BROWSER] Docker headless mode - added {len(DOCKER_HEADLESS_ARGS)} extra args")
+    elif IN_DOCKER and not headless:
+        # Headful in Docker: add non-headless Docker args (no --headless=new!)
+        browser_args.extend([
+            "--disable-software-rasterizer",
+        ])
+        logger.info("[BROWSER] Docker headful mode (Xvfb)")
     elif headless:
         # On Windows/local, we might need fewer flags for stability
         # But we still want some basic ones for headless
         browser_args.append("--headless=new")
         logger.info("[BROWSER] Headless mode (native)")
-    
+
+    # Dynamically build --disable-features to avoid Chrome last-one-wins conflict
+    disable_features = ["UserAgentClientHint"]  # Prevent Sec-CH-UA-Platform: "Linux" leak
+    if IN_DOCKER and headless:
+        disable_features.append("VizDisplayCompositor")
+    browser_args.append(f"--disable-features={','.join(disable_features)}")
+
     launch_options: Dict[str, Any] = {
         "headless": headless,
         "args": browser_args,
@@ -157,8 +255,22 @@ async def launch_browser(
             )
             # Register Context (which acts as browser)
             process_manager.register(context)
-            
-            browser = None 
+
+            # Inject cookies from storage_state into persistent context
+            # (persistent context doesn't accept storage_state param, so we load manually)
+            if storage_state and os.path.exists(storage_state):
+                try:
+                    import json
+                    with open(storage_state, 'r') as f:
+                        state = json.load(f)
+                    cookies = state.get("cookies", [])
+                    if cookies:
+                        await context.add_cookies(cookies)
+                        logger.info(f"[BROWSER] ✅ Injected {len(cookies)} cookies from {storage_state} into persistent context")
+                except Exception as cookie_err:
+                    logger.warning(f"[BROWSER] Failed to inject cookies from storage_state: {cookie_err}")
+
+            browser = None
             page = context.pages[0] if context.pages else await context.new_page()
             
         else:
@@ -199,21 +311,168 @@ async def launch_browser(
             context = await browser.new_context(**context_options)
             page = await context.new_page()
         
-        # Stealth injection - hide webdriver detection (Common for both)
+        # Apply playwright-stealth
+        try:
+            from playwright_stealth import stealth_async
+            await stealth_async(page)
+            logger.info("[STEALTH] playwright-stealth applied successfully.")
+        except ImportError:
+            logger.warning("[STEALTH] playwright-stealth not installed. Skipping advanced stealth injection.")
+        except Exception as e:
+            logger.warning(f"[STEALTH] Failed to apply playwright-stealth: {e}")
+
+        # Hardware Spoofing to match a standard desktop profile
         await context.add_init_script("""
-            Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-            Object.defineProperty(navigator, 'languages', {get: () => ['pt-BR', 'pt', 'en-US', 'en']});
-            Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
-            window.chrome = { runtime: {} };
-            Object.defineProperty(navigator, 'maxTouchPoints', {get: () => 5});
+            Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 8});
+            Object.defineProperty(navigator, 'deviceMemory', {get: () => 8});
+        """)
+        
+        # Stealth injection - comprehensive anti-detection (Common for both)
+        await context.add_init_script(f"""
+            // === 1. Hide webdriver flag ===
+            Object.defineProperty(navigator, 'webdriver', {{get: () => undefined}});
             
-            // Override permissions
+            // === 2. Realistic navigator.languages ===
+            Object.defineProperty(navigator, 'languages', {{get: () => ['pt-BR', 'pt', 'en-US', 'en']}});
+            
+            // === 3. Realistic navigator.plugins (PDF Viewer + Chrome PDF Plugin) ===
+            (function() {{
+                const makePlugin = (name, filename, desc) => {{
+                    const p = Object.create(Plugin.prototype);
+                    Object.defineProperties(p, {{
+                        name: {{value: name, enumerable: true}},
+                        filename: {{value: filename, enumerable: true}},
+                        description: {{value: desc, enumerable: true}},
+                        length: {{value: 1, enumerable: true}},
+                    }});
+                    return p;
+                }};
+                const plugins = [
+                    makePlugin('PDF Viewer', 'internal-pdf-viewer', 'Portable Document Format'),
+                    makePlugin('Chrome PDF Plugin', 'internal-pdf-viewer', 'Portable Document Format'),
+                    makePlugin('Chrome PDF Viewer', 'mhjfbmdgcfjbbpaeojofohoefgiehjai', 'Portable Document Format'),
+                    makePlugin('Microsoft Edge PDF Viewer', 'internal-pdf-viewer', 'Portable Document Format'),
+                    makePlugin('WebKit built-in PDF', 'internal-pdf-viewer', 'Portable Document Format'),
+                ];
+                Object.defineProperty(navigator, 'plugins', {{
+                    get: () => {{
+                        const arr = Object.create(PluginArray.prototype);
+                        plugins.forEach((p, i) => {{ arr[i] = p; }});
+                        Object.defineProperty(arr, 'length', {{value: plugins.length}});
+                        arr.item = (i) => plugins[i];
+                        arr.namedItem = (n) => plugins.find(p => p.name === n);
+                        arr.refresh = () => {{}};
+                        return arr;
+                    }}
+                }});
+                Object.defineProperty(navigator, 'mimeTypes', {{
+                    get: () => {{
+                        const mt = Object.create(MimeTypeArray.prototype);
+                        const pdf = Object.create(MimeType.prototype);
+                        Object.defineProperties(pdf, {{
+                            type: {{value: 'application/pdf'}},
+                            suffixes: {{value: 'pdf'}},
+                            description: {{value: 'Portable Document Format'}},
+                            enabledPlugin: {{value: plugins[0]}},
+                        }});
+                        mt[0] = pdf;
+                        Object.defineProperty(mt, 'length', {{value: 1}});
+                        mt.item = (i) => i === 0 ? pdf : null;
+                        mt.namedItem = (n) => n === 'application/pdf' ? pdf : null;
+                        return mt;
+                    }}
+                }});
+            }})();
+            
+            // === 4. Desktop maxTouchPoints (0 = no touchscreen) ===
+            Object.defineProperty(navigator, 'maxTouchPoints', {{get: () => 0}});
+            
+            // === 5. Full chrome.runtime object ===
+            window.chrome = {{
+                runtime: {{
+                    connect: function() {{ return {{ onMessage: {{ addListener: function() {{}} }}, postMessage: function() {{}} }}; }},
+                    sendMessage: function(msg, cb) {{ if (cb) cb(); }},
+                    getURL: function(path) {{ return 'chrome-extension://placeholder/' + path; }},
+                    id: undefined,
+                    onMessage: {{ addListener: function() {{}}, removeListener: function() {{}} }},
+                    onConnect: {{ addListener: function() {{}}, removeListener: function() {{}} }},
+                    getManifest: function() {{ return {{}}; }},
+                }},
+                loadTimes: function() {{ return {{ requestTime: Date.now() / 1000, startLoadTime: Date.now() / 1000 }}; }},
+                csi: function() {{ return {{ pageT: Date.now(), startE: Date.now() }}; }},
+                app: {{ isInstalled: false, InstallState: {{ INSTALLED: 'installed', NOT_INSTALLED: 'not_installed' }}, RunningState: {{ CANNOT_RUN: 'cannot_run', READY_TO_RUN: 'ready_to_run', RUNNING: 'running' }} }},
+            }};
+            
+            // === 6. NavigatorUAData matching real Chrome version ===
+            if (!navigator.userAgentData) {{
+                Object.defineProperty(navigator, 'userAgentData', {{
+                    get: () => ({{
+                        brands: [
+                            {{brand: 'Not/A)Brand', version: '8'}},
+                            {{brand: 'Chromium', version: '{CHROME_MAJOR}'}},
+                            {{brand: 'Google Chrome', version: '{CHROME_MAJOR}'}},
+                        ],
+                        mobile: false,
+                        platform: 'Windows',
+                        getHighEntropyValues: (hints) => Promise.resolve({{
+                            architecture: 'x86',
+                            bitness: '64',
+                            brands: [
+                                {{brand: 'Not/A)Brand', version: '8.0.0.0'}},
+                                {{brand: 'Chromium', version: '{CHROME_VERSION}'}},
+                                {{brand: 'Google Chrome', version: '{CHROME_VERSION}'}},
+                            ],
+                            fullVersionList: [
+                                {{brand: 'Not/A)Brand', version: '8.0.0.0'}},
+                                {{brand: 'Chromium', version: '{CHROME_VERSION}'}},
+                                {{brand: 'Google Chrome', version: '{CHROME_VERSION}'}},
+                            ],
+                            mobile: false,
+                            model: '',
+                            platform: 'Windows',
+                            platformVersion: '15.0.0',
+                            uaFullVersion: '{CHROME_VERSION}',
+                            wow64: false,
+                        }}),
+                    }})
+                }});
+            }}
+            
+            // === 7. Override permissions ===
             const originalQuery = window.navigator.permissions.query;
             window.navigator.permissions.query = (parameters) => (
                 parameters.name === 'notifications' ?
-                    Promise.resolve({ state: Notification.permission }) :
+                    Promise.resolve({{ state: Notification.permission }}) :
                     originalQuery(parameters)
             );
+            
+            // === 8. WebGL fingerprint protection (Linux-compatible renderer) ===
+            (function() {{
+                const getParameterOrig = WebGLRenderingContext.prototype.getParameter;
+                WebGLRenderingContext.prototype.getParameter = function(param) {{
+                    // UNMASKED_VENDOR_WEBGL
+                    if (param === 0x9245) return 'Google Inc. (NVIDIA Corporation)';
+                    // UNMASKED_RENDERER_WEBGL
+                    if (param === 0x9246) return 'ANGLE (NVIDIA Corporation, NVIDIA GeForce GTX 1660 SUPER/PCIe/SSE2, OpenGL 4.5.0)';
+                    return getParameterOrig.call(this, param);
+                }};
+                // Also patch WebGL2
+                if (typeof WebGL2RenderingContext !== 'undefined') {{
+                    const getParam2Orig = WebGL2RenderingContext.prototype.getParameter;
+                    WebGL2RenderingContext.prototype.getParameter = function(param) {{
+                        if (param === 0x9245) return 'Google Inc. (NVIDIA Corporation)';
+                        if (param === 0x9246) return 'ANGLE (NVIDIA Corporation, NVIDIA GeForce GTX 1660 SUPER/PCIe/SSE2, OpenGL 4.5.0)';
+                        return getParam2Orig.call(this, param);
+                    }};
+                }}
+            }})();
+            
+            // === 9. Canvas fingerprint: no noise injection (deterministic is safer) ===
+            
+            // === 10. Disable Notification constructor to avoid headless leak ===
+            if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {{
+                Object.defineProperty(Notification, 'permission', {{get: () => 'default'}});
+            }}
         """)
         
         logger.info(f"Browser launched successfully (Headless: {headless}, Persistent: {bool(user_data_dir)})")
@@ -286,6 +545,29 @@ async def launch_browser_for_profile(
         f"Geo={'SIM' if identity['geolocation'] else 'NAO'}"
     )
 
+    # --- Persistent Context Detection ---
+    # If a browser profile directory exists for this profile, use persistent context
+    # instead of ephemeral + storage_state. Carries accumulated trust (localStorage,
+    # IndexedDB, service worker registrations) which helps bypass CAPTCHA.
+    browser_profile_dir = None
+    _profile_base = os.environ.get("BROWSER_PROFILES_DIR", "/app/data/browser_profiles")
+    # Use the Playwright-compatible profile (created/trusted via VNC remote session).
+    # This shares trust (cookies, localStorage, CAPTCHA clearance) with the VNC session.
+    # VNC session must be stopped before the worker uses it.
+    _pw_candidate = os.path.join(_profile_base, f"{profile_slug}_playwright")
+    if os.path.isdir(_pw_candidate):
+        browser_profile_dir = _pw_candidate
+        # Remove stale lock files (from VNC session that was stopped)
+        for lf in ["SingletonLock", "SingletonSocket", "SingletonCookie"]:
+            lp = os.path.join(browser_profile_dir, lf)
+            try:
+                os.remove(lp)
+            except OSError:
+                pass
+        logger.info(f"[BROWSER] ✅ Playwright profile found: {browser_profile_dir}")
+    else:
+        logger.info(f"[BROWSER] No persistent profile found, using ephemeral + storage_state")
+
     async def _attempt_launch():
         p, browser, context, page = await launch_browser(
             headless=headless,
@@ -293,6 +575,7 @@ async def launch_browser_for_profile(
             user_agent=identity["user_agent"],
             viewport=identity["viewport"],
             storage_state=storage_state,
+            user_data_dir=browser_profile_dir,
         )
 
         # Apply geolocation if available
@@ -304,17 +587,10 @@ async def launch_browser_for_profile(
             except Exception as geo_err:
                 logger.warning(f"[BROWSER] Falha ao definir geolocation: {geo_err}")
 
-        # Override timezone and locale at context level (stealth script)
-        try:
-            await context.add_init_script(f"""
-                Object.defineProperty(Intl.DateTimeFormat.prototype, 'resolvedOptions', {{
-                    value: function() {{
-                        return {{ timeZone: '{identity["timezone"]}', locale: '{identity["locale"]}' }};
-                    }}
-                }});
-            """)
-        except Exception:
-            pass  # Non-critical
+        # NOTE: Intl.DateTimeFormat override REMOVED — it returned an incomplete
+        # resolvedOptions() object (missing calendar, numberingSystem, etc.)
+        # which is trivially detected by anti-bot systems. The timezone is
+        # already set correctly via Playwright's timezone_id context option.
 
         # Set default navigation timeout (extended for proxy latency)
         page.set_default_navigation_timeout(base_timeout)

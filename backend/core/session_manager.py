@@ -61,7 +61,6 @@ def get_profile_metadata(profile_id: str) -> Dict[str, Any]:
             "oracle_best_times": profile.oracle_best_times,
             "last_seo_audit": profile.last_seo_audit,
             "stats": profile.last_seo_audit.get("stats", {}) if profile.last_seo_audit else {},
-            "stats": profile.last_seo_audit.get("stats", {}) if profile.last_seo_audit else {},
             "latest_videos": profile.last_seo_audit.get("latest_videos", []) if profile.last_seo_audit else [],
             "last_error_screenshot": profile.last_seo_audit.get("last_error_screenshot") if profile.last_seo_audit else None
         }
@@ -478,9 +477,9 @@ def update_profile_metadata_async(profile_id: str):
     Updates the profile in DB if successful.
     """
     from core.tiktok_profile import load_session_data, extract_cookies_dict, fetch_tiktok_user_info
-    
+
     print(f"Starting metadata fetch for {profile_id}...")
-    
+
     try:
         session_path = get_session_path(profile_id)
         if not os.path.exists(session_path):
@@ -494,18 +493,53 @@ def update_profile_metadata_async(profile_id: str):
         if not cookies:
             print(f"No cookies found for {profile_id}")
             return
-            
-        info = fetch_tiktok_user_info(cookies)
+
+        # Resolve proxy for this profile (if configured)
+        proxy_url = None
+        try:
+            from core.models import Profile, Proxy
+            db = SessionLocal()
+            try:
+                profile = db.query(Profile).filter(Profile.slug == profile_id).first()
+                if profile and profile.proxy:
+                    p = profile.proxy
+                    if p.server:
+                        if p.username and p.password:
+                            # Insert auth: http://user:pass@host:port
+                            proto = "http://"
+                            server = p.server
+                            if server.startswith("http://"):
+                                server = server[7:]
+                            elif server.startswith("https://"):
+                                proto = "https://"
+                                server = server[8:]
+                            proxy_url = f"{proto}{p.username}:{p.password}@{server}"
+                        else:
+                            proxy_url = p.server
+                        print(f"Using proxy for metadata fetch: {p.server}")
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"Could not resolve proxy: {e}")
+
+        info = fetch_tiktok_user_info(cookies, proxy_url=proxy_url)
         
         if info:
-            print(f"Metadata found: {info.get('display_name')}")
-            update_profile_info(profile_id, {
-                "username": info.get("unique_id") or info.get("username"), # username in endpoints.py is usually unique_id
-                "label": info.get("display_name"), 
-                "avatar_url": info.get("avatar_url")
-            })
+            print(f"Metadata found: @{info.get('username')} / {info.get('display_name')}")
+            updates = {}
+            if info.get("username"):
+                updates["username"] = info["username"]
+            if info.get("display_name"):
+                updates["label"] = info["display_name"]
+            if info.get("avatar_url"):
+                updates["avatar_url"] = info["avatar_url"]
+            if updates:
+                update_profile_info(profile_id, updates)
+                print(f"Profile updated: {updates}")
+            else:
+                print("Metadata fetched but all fields empty.")
         else:
-            print("Could not fetch metadata via API.")
+            print("Could not fetch metadata via API. Cookies may be expired.")
             
     except Exception as e:
         print(f"Error fetching metadata for {profile_id}: {e}")
@@ -618,11 +652,14 @@ def delete_session(profile_id: str) -> bool:
         
         if profile:
             # 2. Delete related Audits (FK constraint)
-            from core.models import Audit, ScheduleItem
-            
+            from core.models import Audit, ScheduleItem, VideoQueue
+
             db.query(Audit).filter(Audit.profile_id == profile.id).delete()
-            
-            # 3. Delete related Schedule Items (Loose slug link)
+
+            # 3. Delete related VideoQueue items (FK to ScheduleItem)
+            db.query(VideoQueue).filter(VideoQueue.profile_slug == profile_id).delete()
+
+            # 4. Delete related Schedule Items (Loose slug link)
             db.query(ScheduleItem).filter(ScheduleItem.profile_slug == profile_id).delete()
 
             # 4. Delete Profile

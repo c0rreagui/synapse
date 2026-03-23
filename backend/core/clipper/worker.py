@@ -36,6 +36,9 @@ from core.models import PendingApproval
 
 logger = logging.getLogger("ClipperWorker")
 
+# Track job IDs enqueued during startup to prevent double-enqueue in the first orphan scan
+_startup_enqueued_ids: set = set()
+
 
 def _fail_job_db(job_id: int, error_message: str, current_step: str = "Falha no pipeline."):
     """Helper para marcar job como falhado no DB."""
@@ -60,14 +63,15 @@ async def _process_clip_job_inner(ctx, job_id: int):
     """
     logger.info(f"==> Iniciando processamento do ClipJob #{job_id}")
 
-    # Guard: evitar reprocessamento se job ja nao esta pending
+    # Guard: só processar jobs que estão na fila (pending) ou em etapas intermediárias
+    # NUNCA processar waiting_clips diretamente — devem ser promovidos para pending primeiro
     with safe_session() as db:
         guard_job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
         if not guard_job:
             logger.warning(f"Job #{job_id} nao encontrado no DB, pulando.")
             return
-        if guard_job.status not in ("pending", "waiting_clips", "downloading", "transcribing", "editing", "stitching"):
-            logger.info(f"Job #{job_id} ja esta em status '{guard_job.status}', pulando reprocessamento.")
+        if guard_job.status not in ("pending", "downloading", "transcribing", "editing", "stitching"):
+            logger.info(f"Job #{job_id} em status '{guard_job.status}', não pode ser processado. Deve ir para fila (pending) primeiro.")
             return
 
     # 1. Download
@@ -136,6 +140,7 @@ async def _process_clip_job_inner(ctx, job_id: int):
             db.commit()
 
     for idx, (path, trans) in enumerate(valid_pairs):
+        ass_path = None
         try:
             ass_path = generate_ass_for_multiple(
                 transcriptions=[trans],
@@ -156,6 +161,12 @@ async def _process_clip_job_inner(ctx, job_id: int):
                 logger.error(f"Job #{job_id} falhou na edicao do clipe {idx}: {edit_res.get('error')}")
         except Exception as e:
             logger.error(f"Job #{job_id} excecao na edicao do clipe {idx}: {e}", exc_info=True)
+        finally:
+            if ass_path and os.path.exists(ass_path):
+                try:
+                    os.remove(ass_path)
+                except OSError:
+                    pass
 
         with safe_session() as db:
             job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
@@ -279,6 +290,13 @@ async def _process_clip_job_inner(ctx, job_id: int):
     output_path = stitch_res.get("output_path")
     duration = stitch_res.get("duration", 0)
 
+    # Verify actual duration via ffprobe if result duration seems unreliable (e.g. loop-tail fallback)
+    if output_path and os.path.exists(output_path) and duration <= 0:
+        try:
+            duration = await _get_duration(output_path)
+        except Exception:
+            pass
+
     with safe_session() as db:
         job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
         if job:
@@ -290,8 +308,35 @@ async def _process_clip_job_inner(ctx, job_id: int):
             job.duration_seconds = duration
             db.commit()
 
-    # Inserir na fila de curadoria (PendingApproval)
+    # ── Limpar clips brutos deste job (já foram stitchados) ──
     try:
+        import glob as _glob
+        clips_dir = "/app/data/clipper/clips"
+        pattern = os.path.join(clips_dir, f"job{job_id}_clip*")
+        clip_files = _glob.glob(pattern)
+        for cf in clip_files:
+            os.remove(cf)
+        if clip_files:
+            logger.info(f"🗑️ Job #{job_id}: {len(clip_files)} clips brutos removidos após stitching")
+    except Exception as e:
+        logger.warning(f"Job #{job_id}: Falha ao limpar clips brutos: {e}")
+
+    # Inserir na fila de curadoria (PendingApproval)
+    MAX_PENDING_APPROVALS = 10  # Limite de vídeos pendentes de aprovação (evita encher disco)
+    try:
+        # ── Verificar limite de aprovação ──
+        with safe_session() as db:
+            pending_count = db.query(PendingApproval).filter(
+                PendingApproval.status == "pending"
+            ).count()
+        if pending_count >= MAX_PENDING_APPROVALS:
+            logger.warning(f"⛔ Fila de aprovação cheia: {pending_count}/{MAX_PENDING_APPROVALS}. Vídeo do Job #{job_id} descartado.")
+            # Limpar o arquivo de vídeo para não ocupar disco
+            if output_path and os.path.exists(output_path):
+                os.remove(output_path)
+                logger.info(f"🗑️ Arquivo descartado: {output_path}")
+            return
+
         file_size = os.path.getsize(output_path) if output_path and os.path.exists(output_path) else 0
 
         approval_status = "approved" if target_auto_approve else "pending"
@@ -352,7 +397,7 @@ REGRAS:
 - NUNCA invente eventos ou falas
 - NÃO comece com "Neste vídeo..." ou "Veja só..."
 - Responda APENAS em JSON: {{"caption": "...", "hashtags": ["#tag1", "#tag2"]}}
-- Gere 5-8 hashtags: mix de alcance (#fyp #gaming) + nicho (#{game_name.lower().replace(' ', '').replace(':', '') if game_name else 'twitch'})"""
+- Gere de 3 a 5 hashtags (MÁXIMO 5): mix de alcance (#fyp #gaming) + nicho (#{game_name.lower().replace(' ', '').replace(':', '') if game_name else 'twitch'})"""
 
                 prompt = f"""[CONTEXTO DO VÍDEO]
 {video_context}
@@ -380,7 +425,7 @@ REGRAS:
                         appr = db.query(PendingApproval).filter(PendingApproval.id == approval_id).first()
                         if appr:
                             appr.caption = parsed["caption"]
-                            appr.hashtags = parsed.get("hashtags", [])
+                            appr.hashtags = parsed.get("hashtags", [])[:5]
                             appr.caption_generated = True
                             db.commit()
                     logger.info(f"Job #{job_id}: Caption pré-gerada pelo Oracle ({len(parsed['caption'])} chars)")
@@ -483,9 +528,11 @@ async def process_clip_job(ctx, job_id: int):
                     from core.config import REDIS_HOST, REDIS_PORT
                     from arq.connections import RedisSettings, create_pool as arq_create_pool
                     pool = await arq_create_pool(RedisSettings(host=REDIS_HOST, port=REDIS_PORT))
-                    await pool.enqueue_job("process_clip_job", job_id, _queue_name="clipper:queue")
-                    await pool.close()
-                    logger.info(f"Job #{job_id} re-enfileirado apos processar prioritario #{actual_job_id}")
+                    try:
+                        await pool.enqueue_job("process_clip_job", job_id, _queue_name="clipper:queue")
+                        logger.info(f"Job #{job_id} re-enfileirado apos processar prioritario #{actual_job_id}")
+                    finally:
+                        await pool.close()
         except Exception as e:
             logger.warning(f"Falha ao re-enfileirar job #{job_id}: {e}")
 
@@ -498,6 +545,7 @@ async def startup(ctx):
 
     # Recovery: resetar jobs orfaos que ficaram travados em estados intermediarios
     stuck_statuses = ["processing", "downloading", "transcribing", "editing", "stitching"]
+    recovered_ids = []
     with safe_session() as db:
         stuck_jobs = db.query(ClipJob).filter(ClipJob.status.in_(stuck_statuses)).all()
         if stuck_jobs:
@@ -506,8 +554,33 @@ async def startup(ctx):
                 job.status = "pending"
                 job.current_step = "Reagendado apos recovery do worker"
                 job.progress_pct = 0
+                recovered_ids.append(job.id)
             db.commit()
             logger.info(f"{len(stuck_jobs)} jobs orfaos resetados para reprocessamento.")
+
+        # Também buscar jobs pending que nunca foram enfileirados no Redis
+        pending_jobs = db.query(ClipJob).filter(ClipJob.status == "pending").all()
+        for job in pending_jobs:
+            if job.id not in recovered_ids:
+                recovered_ids.append(job.id)
+
+    # Re-enfileirar TODOS os pending jobs no Redis (orfaos + já existentes)
+    if recovered_ids:
+        try:
+            from core.config import REDIS_HOST, REDIS_PORT
+            from arq.connections import RedisSettings, create_pool as arq_create_pool
+            import asyncio
+            pool = await arq_create_pool(RedisSettings(host=REDIS_HOST, port=REDIS_PORT))
+            try:
+                for job_id in recovered_ids:
+                    await pool.enqueue_job("process_clip_job", job_id, _queue_name="clipper:queue")
+                    _startup_enqueued_ids.add(job_id)
+                    logger.info(f"Job #{job_id} (re)enfileirado no Redis clipper:queue")
+            finally:
+                await pool.close()
+            logger.info(f"✅ {len(recovered_ids)} job(s) pending (re)enfileirados no startup")
+        except Exception as e:
+            logger.error(f"Falha ao re-enfileirar jobs no startup: {e}", exc_info=True)
 
     # Iniciar Clipper Scheduler Loop (scan automatico de targets)
     try:
@@ -518,6 +591,47 @@ async def startup(ctx):
     except Exception as e:
         logger.error(f"Falha ao iniciar Clipper Scheduler: {e}", exc_info=True)
 
+    # Iniciar scan periódico de jobs pending órfãos (não enfileirados no Redis)
+    try:
+        import asyncio
+        ctx["orphan_scan_task"] = asyncio.create_task(_orphan_pending_scanner())
+        logger.info("Orphan Pending Scanner iniciado (scan a cada 120s).")
+    except Exception as e:
+        logger.error(f"Falha ao iniciar Orphan Scanner: {e}", exc_info=True)
+
+
+async def _orphan_pending_scanner():
+    """
+    Scan periódico que detecta jobs com status 'pending' no DB que não estão
+    enfileirados no Redis. Garante que nenhum job fique preso na fila sem
+    ser processado.
+    """
+    import asyncio
+    await asyncio.sleep(30)  # Delay inicial para dar tempo ao startup
+
+    while True:
+        try:
+            with safe_session() as db:
+                pending_jobs = db.query(ClipJob).filter(ClipJob.status == "pending").all()
+                if pending_jobs:
+                    from core.config import REDIS_HOST, REDIS_PORT
+                    from arq.connections import RedisSettings, create_pool as arq_create_pool
+                    pool = await arq_create_pool(RedisSettings(host=REDIS_HOST, port=REDIS_PORT))
+                    try:
+                        for job in pending_jobs:
+                            if job.id in _startup_enqueued_ids:
+                                continue
+                            await pool.enqueue_job("process_clip_job", job.id, _queue_name="clipper:queue")
+                            logger.info(f"[ORPHAN SCAN] Job #{job.id} re-enfileirado (status=pending sem worker)")
+                    finally:
+                        await pool.close()
+        except Exception as e:
+            logger.error(f"[ORPHAN SCAN] Erro: {e}")
+
+        # After the first scan, clear the startup set so future scans are not filtered
+        _startup_enqueued_ids.clear()
+        await asyncio.sleep(120)  # Scan a cada 2 minutos
+
 
 async def shutdown(ctx):
     # Cancelar scheduler loop se estiver rodando
@@ -525,6 +639,11 @@ async def shutdown(ctx):
     if scheduler_task and not scheduler_task.done():
         scheduler_task.cancel()
         logger.info("Clipper Scheduler Loop cancelado.")
+    # Cancelar orphan scanner
+    orphan_task = ctx.get("orphan_scan_task")
+    if orphan_task and not orphan_task.done():
+        orphan_task.cancel()
+        logger.info("Orphan Scanner cancelado.")
     logger.info("Clipper Worker Desligando.")
 
 

@@ -8,7 +8,9 @@ import sys
 import logging
 import time
 from datetime import datetime
+import datetime
 import re
+import random
 
 # Add parent dir to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -40,9 +42,17 @@ async def upload_video_monitored(
             # Remove overlays e backdrops comuns
             await page_ref.evaluate("""
                 () => {
-                    document.querySelectorAll('.TUXModal-overlay, .TUXModal-backdrop, [role="dialog"]').forEach(el => el.remove());
+                    document.querySelectorAll('.TUXModal-overlay, .TUXModal-backdrop, [role="dialog"]').forEach(el => {
+                        el.style.display = 'none';
+                        el.style.visibility = 'hidden';
+                        el.style.pointerEvents = 'none';
+                    });
                     document.querySelectorAll('div[class*="overlay"], div[class*="backdrop"]').forEach(el => {
-                        if(window.getComputedStyle(el).position === 'fixed') el.remove();
+                        if(window.getComputedStyle(el).position === 'fixed') {
+                            el.style.display = 'none';
+                            el.style.visibility = 'hidden';
+                            el.style.pointerEvents = 'none';
+                        }
                     });
                 }
             """)
@@ -83,6 +93,13 @@ async def upload_video_monitored(
 
     if not os.path.exists(video_path):
         return {"status": "error", "message": "Video not found"}
+    if os.path.getsize(video_path) == 0:
+        return {"status": "error", "message": "Video file is empty (0 bytes)"}
+    try:
+        with open(video_path, 'rb') as _vf:
+            _vf.read(1)
+    except OSError as _read_err:
+        return {"status": "error", "message": f"Video file not readable: {_read_err}"}
     
     session_path = get_session_path(session_name)
     
@@ -124,33 +141,107 @@ async def upload_video_monitored(
         from core.status_manager import status_manager
         status_manager.update_status("busy", step="rendering", progress=50, logs=["Renderizando ambiente seguro..."])
 
+        # [SYN-SEC] Pre-Flight IP Leak Check (via HTTP, not browser navigation)
+        logger.info("🔍 [PRE-FLIGHT] Verificando vazamento de IP via HTTP...")
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get("https://api.ipify.org?format=json")
+                logger.info(f"🌐 IP Publico (httpx): {resp.text.strip()}")
+        except Exception as e:
+            logger.warning(f"⚠️ Falha no Pre-Flight IP Check (ignorando): {e}")
         
+        # ========== PRE-WARMUP (ESTRATÉGIA 3: HUMAN WARM-UP) ==========
+        logger.info("🔥 Iniciando aquecimento (Warm-up) na home para evitar flags de bot...")
+        from core.status_manager import status_manager
+        status_manager.update_status("busy", step="uploading", progress=55, logs=["Aquecendo sessão do TikTok..."])
+        try:
+            await page.goto("https://www.tiktok.com/", timeout=60000)
+            await page.wait_for_timeout(random.uniform(2000, 4000))
+            # Scroll aleatorio para simular humano lendo feed
+            for _ in range(random.randint(2, 4)):
+                # Mover mouse antes de rolar
+                await page.mouse.move(random.randint(100, 800), random.randint(100, 600), steps=10)
+                await page.wait_for_timeout(random.uniform(200, 800))
+                await page.mouse.wheel(0, random.randint(300, 800))
+                await page.wait_for_timeout(random.uniform(1000, 3000))
+        except Exception as warmup_err:
+            logger.warning(f"⚠️ Erro no warmup (ignorando): {warmup_err}")
+
         # ========== STEP 1: NAVEGAÇÃO ==========
         status_manager.update_status("busy", step="uploading", progress=60, logs=["Acessando TikTok Studio..."])
         from core.network_utils import get_upload_url
-        await resilient_goto(page, get_upload_url(), timeout=120000, max_retries=3)
-        await page.wait_for_timeout(5000)
+        upload_target_url = get_upload_url()
+        await resilient_goto(page, upload_target_url, timeout=120000, max_retries=3)
+        
+
+        # [SYN-FIX] Wait for network idle THEN extra delay — TikTok does client-side JS redirects
+        try:
+            await page.wait_for_load_state("networkidle", timeout=15000)
+        except Exception:
+            logger.warning("⚠️ Network idle timeout — prosseguindo mesmo assim")
+        await page.wait_for_timeout(5000 + random.uniform(1000, 3000))
+        
         if monitor:
             await monitor.capture_full_state(page, "navegacao_inicial", 
                                             "Página de upload do TikTok Studio carregada")
         
         # 🛡️ SECURITY CHECK: Detect Login Redirect (Dead Session)
+        # [SYN-FIX] Multi-layer detection:
+        #   1) URL check (immediate redirect)
+        #   2) DOM check (login elements present = session dead even if URL looks ok)
         current_url = page.url
+        is_dead_session = False
+        dead_reason = ""
+        
+        # Layer 1: URL-based detection
         if "login" in current_url or "tiktok.com" not in current_url:
-            logger.error(f"❌ SESSÃO MORTA DETECTADA! Redirecionado para login: {current_url}")
+            is_dead_session = True
+            dead_reason = f"URL redirect detectado: {current_url}"
+        
+        # Layer 2: DOM-based detection (catches client-side JS redirects)
+        if not is_dead_session:
+            try:
+                login_indicators = await page.evaluate("""
+                    () => {
+                        const url = window.location.href;
+                        // Check if URL changed after JS execution
+                        if (url.includes('login') || url.includes('signup')) return 'url_redirect';
+                        // Check for login form elements
+                        const loginForm = document.querySelector('form[data-e2e="login-form"], [class*="login"], [data-e2e="login"]');
+                        if (loginForm) return 'login_form_present';
+                        // Check for QR code login (common TikTok pattern)
+                        const qrLogin = document.querySelector('[data-e2e="qr-code"], .qr-code-container');
+                        if (qrLogin) return 'qr_login_present';
+                        return null;
+                    }
+                """)
+                if login_indicators:
+                    is_dead_session = True
+                    dead_reason = f"DOM login detectado ({login_indicators}) na URL: {page.url}"
+            except Exception as dom_err:
+                logger.warning(f"⚠️ Erro no DOM check de login: {dom_err}")
+        
+        if is_dead_session:
+            logger.error(f"❌ SESSÃO MORTA DETECTADA! {dead_reason}")
+            
+            # Captura screenshot de diagnóstico
+            try:
+                diag_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "diagnostics")
+                os.makedirs(diag_dir, exist_ok=True)
+                diag_path = os.path.join(diag_dir, f"dead_session_{session_name}_{int(time.time())}.png")
+                await page.screenshot(path=diag_path, full_page=True)
+                logger.info(f"📸 Screenshot de diagnóstico salvo: {diag_path}")
+            except Exception:
+                pass
             
             # Auto-Kill Session in DB to prevent infinite retries
             try:
                 from core.session_manager import update_profile_info
-                # Remove "tiktok_profile_" prefix to get ID/Slug
                 pid = session_name
-                # Some session names are full strings, handle that if needed, 
-                # but get_session_path uses session_name directly, so slug matches.
-                
                 update_profile_info(pid, {"active": False})
                 logger.critical(f"💀 PERFIL {pid} DESATIVADO AUTOMATICAMENTE NO BANCO.")
-                
-                status_manager.update_status("error", logs=["Sessão expirada. Perfil desativado."])
+                status_manager.update_status("error", logs=[f"Sessão expirada ({dead_reason}). Perfil desativado."])
             except Exception as kill_err:
                 logger.error(f"Erro ao desativar perfil: {kill_err}")
             
@@ -160,7 +251,7 @@ async def upload_video_monitored(
                 await circuit_breaker.record_failure()
             except: pass
                 
-            raise Exception("Session Expired - Login Required")
+            raise Exception(f"Session Expired - {dead_reason}")
         
         
         # ========== STEP 2: UPLOAD DO VÍDEO (COM FALLBACKS) ==========
@@ -181,7 +272,83 @@ async def upload_video_monitored(
         
         # Aguarda um pouco mais para garantir que JS terminou
         await page.wait_for_timeout(3000)
-        
+
+        # CAPTCHA Detection: wait and retry if CAPTCHA overlay is present
+        captcha_selectors = [
+            '.captcha-verify-container',
+            '[id*="captcha"]',
+            '[class*="captcha"]',
+        ]
+
+        def _write_shared_log(level: str, message: str, source: str = "worker"):
+            """Write directly to shared app.jsonl so frontend sees it in real-time."""
+            import json as _json, uuid as _uuid
+            from datetime import datetime as _dt
+            log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs", "app.jsonl")
+            entry = {
+                "id": str(_uuid.uuid4()),
+                "timestamp": _dt.now().strftime("%H:%M:%S"),
+                "full_timestamp": _dt.now().isoformat(),
+                "level": level,
+                "message": message,
+                "source": source,
+            }
+            try:
+                with open(log_path, "a", encoding="utf-8") as _f:
+                    _f.write(_json.dumps(entry) + "\n")
+            except Exception:
+                pass
+
+        vnc_started = False
+        for captcha_attempt in range(20):  # Max 10 minutes (20 x 30s)
+            captcha_found = False
+            for sel in captcha_selectors:
+                try:
+                    if await page.locator(sel).count() > 0:
+                        captcha_found = True
+                        break
+                except Exception:
+                    pass
+            if not captcha_found:
+                break
+            if captcha_attempt == 0:
+                logger.warning("🛡️ CAPTCHA detectado! Iniciando VNC para resolução manual...")
+                _write_shared_log("critical", "🛡️ CAPTCHA DETECTADO durante upload! Acesse VNC (porta 6081) para resolver manualmente. Upload aguardando...", "worker")
+                if monitor:
+                    await monitor.capture_full_state(page, "CAPTCHA_detectado", "CAPTCHA bloqueando upload - aguardando resolução")
+                # Auto-start VNC on worker's Xvfb so user can solve CAPTCHA
+                try:
+                    import subprocess as _sp
+                    display = os.environ.get("DISPLAY", ":99")
+                    _sp.Popen(
+                        ["x11vnc", "-display", display, "-nopw", "-forever",
+                         "-shared", "-rfbport", "5900", "-xkb",
+                         "-noxrecord", "-noxfixes", "-noxdamage"],
+                        stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
+                    )
+                    _sp.Popen(
+                        ["websockify", "--web", "/usr/share/novnc",
+                         "6080", "localhost:5900"],
+                        stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
+                    )
+                    vnc_started = True
+                    logger.warning("🖥️ VNC iniciado na porta 6081 (worker). Acesse para resolver o CAPTCHA.")
+                except Exception as vnc_err:
+                    logger.warning(f"⚠️ Falha ao iniciar VNC: {vnc_err}")
+            logger.info(f"🛡️ CAPTCHA ainda presente... aguardando ({captcha_attempt+1}/20)")
+            await page.wait_for_timeout(30000)  # Wait 30s between checks
+
+        # Cleanup VNC if we started it
+        if vnc_started:
+            _write_shared_log("info", "✅ CAPTCHA resolvido. Upload continuando...", "worker")
+            try:
+                import subprocess as _sp
+                _sp.run(["pkill", "-f", "x11vnc"], capture_output=True)
+                _sp.run(["pkill", "-f", "websockify"], capture_output=True)
+                logger.info("🖥️ VNC encerrado após resolução de CAPTCHA.")
+            except Exception:
+                pass
+
         logger.info("🔍 Procurando seletor de upload...")
         
         upload_successful = False
@@ -216,6 +383,7 @@ async def upload_video_monitored(
             # Verifica se existe
             if input_count > 0:
                 logger.info(f"✅ Input file encontrado ({input_count} elemento(s)) - fazendo upload...")
+                await page.wait_for_timeout(random.uniform(800, 2000))
                 await file_input_locator.first.set_input_files(video_path)
                 upload_successful = True
                 logger.info("📤 Upload do arquivo iniciado com sucesso!")
@@ -248,11 +416,54 @@ async def upload_video_monitored(
                     continue
         
         if not upload_successful:
-            error_msg = "Não foi possível encontrar seletor de upload após todas as estratégias"
-            logger.error(f"❌ {error_msg}")
-            if monitor:
-                await monitor.capture_full_state(page, "ERRO_upload_selector", error_msg)
-            return {"status": "error", "message": error_msg}
+            # [SYN-FIX] Re-check URL BEFORE returning generic error
+            # TikTok may have redirected via JS AFTER our initial check
+            final_url = page.url
+            if "login" in final_url or "signup" in final_url or "tiktok.com" not in final_url:
+                error_msg = f"Sessão expirada (redirect tardio para: {final_url}). Re-autentique o perfil."
+                logger.error(f"❌ DEAD SESSION (tardio): {error_msg}")
+                
+                # Captura screenshot de diagnóstico
+                try:
+                    diag_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "diagnostics")
+                    os.makedirs(diag_dir, exist_ok=True)
+                    diag_path = os.path.join(diag_dir, f"late_redirect_{session_name}_{int(time.time())}.png")
+                    await page.screenshot(path=diag_path, full_page=True)
+                    logger.info(f"📸 Screenshot de redirect tardio: {diag_path}")
+                except Exception:
+                    pass
+                
+                # Auto-disable profile
+                try:
+                    from core.session_manager import update_profile_info
+                    update_profile_info(session_name, {"active": False})
+                    logger.critical(f"💀 PERFIL {session_name} DESATIVADO (redirect tardio).")
+                except Exception:
+                    pass
+                
+                return {"status": "error", "message": error_msg}
+            else:
+                # Genuine selector issue — capture page state for debugging
+                error_msg = "Não foi possível encontrar seletor de upload após todas as estratégias"
+                logger.error(f"❌ {error_msg} (URL atual: {final_url})")
+                
+                # Captura HTML parcial para diagnóstico
+                try:
+                    page_title = await page.title()
+                    body_text = await page.evaluate("() => document.body?.innerText?.substring(0, 500) || 'N/A'")
+                    logger.error(f"📋 Diagnóstico - Title: {page_title} | Body preview: {body_text[:200]}")
+                    
+                    diag_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "diagnostics")
+                    os.makedirs(diag_dir, exist_ok=True)
+                    diag_path = os.path.join(diag_dir, f"selector_fail_{session_name}_{int(time.time())}.png")
+                    await page.screenshot(path=diag_path, full_page=True)
+                    logger.info(f"📸 Screenshot de diagnóstico: {diag_path}")
+                except Exception:
+                    pass
+                
+                if monitor:
+                    await monitor.capture_full_state(page, "ERRO_upload_selector", error_msg)
+                return {"status": "error", "message": error_msg}
         
         await page.wait_for_timeout(2000)
         if monitor:
@@ -312,8 +523,10 @@ async def upload_video_monitored(
                 safeTargets.forEach(selector => {
                     try {
                         document.querySelectorAll(selector).forEach(el => {
-                            console.log('🗑️ Removendo tutorial:', selector);
-                            el.remove();
+                            console.log('🗑️ Ocultando tutorial:', selector);
+                            el.style.display = 'none';
+                            el.style.visibility = 'hidden';
+                            el.style.pointerEvents = 'none';
                             removed++;
                         });
                     } catch(e) {
@@ -327,8 +540,10 @@ async def upload_video_monitored(
                     if (text.includes('novos recursos') || 
                         text.includes('new features') ||
                         text.includes('Seja bem-vindo')) {
-                        console.log('🗑️ Removendo modal de boas-vindas');
-                        modal.remove();
+                        console.log('🗑️ Ocultando modal de boas-vindas');
+                        modal.style.display = 'none';
+                        modal.style.visibility = 'hidden';
+                        modal.style.pointerEvents = 'none';
                         removed++;
                     }
                 });
@@ -400,7 +615,7 @@ async def upload_video_monitored(
                     try:
                         await el.click(timeout=2000)
                     except:
-                        await el.click(force=True)
+                        await el.click()
                     
                     await page.wait_for_timeout(1000)
                     if monitor:
@@ -419,7 +634,11 @@ async def upload_video_monitored(
                         if opt_count > 0:
                             o = opt.last
                             if await o.is_visible():
-                                await o.click(force=True)
+                                try:
+                                    await o.scroll_into_view_if_needed()
+                                except:
+                                    pass
+                                await o.click()
                                 logger.info(f"✅ Opção '{pat_source}' selecionada (via text locator)!")
                                 option_clicked = True
                                 privacy_found = True
@@ -470,45 +689,58 @@ async def upload_video_monitored(
                         logger.info(f"✅ Privacidade definida via Radio Group: {privacy_level}")
                         break
 
-            # C. JavaScript Label Search (Robustest Fallback)
+            # C. JavaScript Label Search (Robustest Fallback) - Uses JS to FIND, Playwright to CLICK
             if not privacy_found:
                 logger.info("🔒 Tentando Estratégia JS baseada em Texto...")
-                js_success = await page.evaluate(f"""(target_pattern_str) => {{
-                    const labels = Array.from(document.querySelectorAll('div, h3, h4, span, label')).filter(el => 
+                # Step 1: Use JS to find the combobox and generate a unique selector, NOT to click it
+                combo_index = await page.evaluate("""() => {
+                    const labels = Array.from(document.querySelectorAll('div, h3, h4, span, label')).filter(el =>
                         /Quem pode|Who can/i.test(el.innerText) && el.innerText.length < 50
                     );
-                    if (labels.length > 0) {{
+                    if (labels.length > 0) {
                         const label = labels[labels.length - 1];
-                        console.log("Found privacy label:", label.innerText);
                         let sibling = label.nextElementSibling;
-                        while(sibling) {{
-                            if (sibling.matches('[role="combobox"], .tiktok-select-selector') || sibling.querySelector('[role="combobox"]')) {{
+                        while(sibling) {
+                            if (sibling.matches('[role="combobox"], .tiktok-select-selector') || sibling.querySelector('[role="combobox"]')) {
                                 const target = sibling.matches('[role="combobox"]') ? sibling : sibling.querySelector('[role="combobox"]');
-                                target.click();
-                                return "clicked_combo";
-                            }}
-                            sibling = sibling.nextElementSibling;
-                        }}
-                    }}
-                    return "not_found";
-                }}""", "")
-                
-                if js_success == "clicked_combo":
-                    await page.wait_for_timeout(500)
-                    for pattern in target_patterns:
-                         pat_str = pattern.pattern.replace("(?i)", "")
-                         await page.evaluate(f"""(pat) => {{
-                            const options = Array.from(document.querySelectorAll('[role="option"], li, div'));
-                            const target = options.find(el => new RegExp(pat, 'i').test(el.innerText));
-                            if (target) {{
-                                target.click();
+                                // Mark element for Playwright to find
+                                target.setAttribute('data-synapse-privacy-combo', 'true');
                                 return true;
-                            }}
-                            return false;
-                         }}""", pat_str)
-                         privacy_found = True
-                         logger.info(f"✅ Privacidade definida via JS Search: {privacy_level}")
-                         break
+                            }
+                            sibling = sibling.nextElementSibling;
+                        }
+                    }
+                    return false;
+                }""")
+
+                if combo_index:
+                    # Click via Playwright (isTrusted: true)
+                    combo_el = page.locator('[data-synapse-privacy-combo="true"]')
+                    if await combo_el.count() > 0:
+                        await combo_el.click()
+                        logger.info("🔒 Combobox de privacidade clicado via Playwright (JS-located).")
+                        await page.wait_for_timeout(500)
+
+                        # Step 2: Find option text via JS, click via Playwright
+                        for pattern in target_patterns:
+                            pat_str = pattern.pattern.replace("(?i)", "")
+                            option_text = await page.evaluate(f"""(pat) => {{
+                                const options = Array.from(document.querySelectorAll('[role="option"], li, div'));
+                                const target = options.find(el => new RegExp(pat, 'i').test(el.innerText));
+                                if (target) {{
+                                    target.setAttribute('data-synapse-privacy-option', 'true');
+                                    return target.innerText.trim();
+                                }}
+                                return null;
+                            }}""", pat_str)
+
+                            if option_text:
+                                option_el = page.locator('[data-synapse-privacy-option="true"]')
+                                if await option_el.count() > 0:
+                                    await option_el.click()
+                                    privacy_found = True
+                                    logger.info(f"✅ Privacidade definida via JS Search + Playwright click: {privacy_level}")
+                                    break
 
             if not privacy_found:
                 logger.warning(f"⚠️ Não foi possível definir privacidade para {privacy_level}. Usando padrão.")
@@ -524,6 +756,7 @@ async def upload_video_monitored(
             logger.error(f"❌ Erro ao configurar privacidade (Prioridade): {e}")
 
         # ========== PREENCHIMENTO DA LEGENDA (FOCO ALVO) ==========
+        caption = caption or ""
         # Normalize hashtags: max 5 (TikTok recommendation), avoid duplication
         MAX_HASHTAGS = 5
         if hashtags:
@@ -539,21 +772,34 @@ async def upload_video_monitored(
         else:
             full_caption = caption
         
-        logger.info("📝 Preenchendo legenda...")
+        logger.info("📝 Preenchendo legenda (Modo humano com Bezier)...")
+        from core.human_interaction import human_move, human_click, human_type
         editor = page.locator('.public-DraftEditor-content')
         if await editor.is_visible():
-            # Em vez de apertar Ctrl+A na página, apertamos NO ELEMENTO
+            # Bézier mouse motion over editor before focus
+            box = await editor.bounding_box()
+            if box:
+                await human_move(page, box["x"] + box["width"] * 0.5, box["y"] + box["height"] * 0.3)
+            await page.wait_for_timeout(random.uniform(300, 800))
             await editor.focus()
+            await page.wait_for_timeout(random.uniform(300, 800))
             await editor.press("Control+A")
             await editor.press("Backspace")
-            await page.keyboard.type(full_caption, delay=50)
+            await page.wait_for_timeout(random.uniform(300, 800))
+
+            # Human-like typing with Gaussian delays
+            await human_type(page, full_caption)
+
             logger.info("✅ Legenda inserida com sucesso.")
-            # Clica no canto superior esquerdo para tirar foco e fechar sugestões de hashtag
-            await page.mouse.click(10, 10) 
+            # Click neutral area to dismiss hashtag suggestions
+            await human_move(page, random.randint(400, 600), random.randint(100, 150))
+            await page.wait_for_timeout(random.randint(100, 300))
+            await page.mouse.click(random.randint(400, 600), random.randint(100, 150), delay=random.randint(50, 150))
             
             if monitor:
                 await monitor.capture_full_state(page, "legenda_preenchida",
                                                 f"Legenda preenchida: {full_caption[:50]}...")
+
         
         # ========== AGUARDAR UPLOAD (CRÍTICO) ==========
         logger.info("⏳ Aguardando conclusão do upload...")
@@ -691,7 +937,11 @@ async def upload_video_monitored(
             for t in targets:
                 loc = page.locator(f'div, label').filter(has_text=t).last
                 if await loc.is_visible():
-                    await loc.click(force=True)
+                    try:
+                        await loc.scroll_into_view_if_needed()
+                    except:
+                        pass
+                    await loc.click()
                     logger.info(f"✅ Toggle '{t}' acionado.")
                     found_toggle = True
                     break
@@ -709,7 +959,11 @@ async def upload_video_monitored(
                 # Verifica se já está marcado
                 is_checked = await schedule_toggle.is_checked()
                 if not is_checked:
-                    await schedule_toggle.click(force=True)
+                    try:
+                        await schedule_toggle.scroll_into_view_if_needed()
+                    except:
+                        pass
+                    await schedule_toggle.click()
                     logger.info("✅ Switch de agendamento clicado.")
                     await page.wait_for_timeout(2000) # Wait for animation
                 else:
@@ -724,7 +978,11 @@ async def upload_video_monitored(
             logger.info("📅 Interagindo com seletor de data (Robust Mode)...")
             date_input = page.locator('.tux-date-picker input, input[placeholder*="DATA"], input[type="text"]').last
             if await date_input.is_visible():
-                await date_input.click(force=True)
+                try:
+                    await date_input.scroll_into_view_if_needed()
+                except:
+                    pass
+                await date_input.click()
                 await page.wait_for_timeout(1000)
                 
                 # Debug Visual: Salvar o estado do calendário aberto
@@ -748,36 +1006,49 @@ async def upload_video_monitored(
                         for i in range(count - 1, -1, -1):
                             el = candidates.nth(i)
                             if await el.is_visible():
-                                await el.click(force=True)
+                                try:
+                                    await el.scroll_into_view_if_needed()
+                                except:
+                                    pass
+                                await el.click()
                                 logger.info(f"📅 Dia {target_day} clicado via tag {tag}.")
                                 day_found = True
                                 break
                     if day_found: break
                 
-                # Estratégia 2: Fallback JavaScript (Força bruta no DOM segura)
+                # Estratégia 2: Fallback JavaScript (Find via JS, click via Playwright)
                 if not day_found:
                     logger.warning(f"⚠️ Dia {target_day} não encontrado via seletores. Tentando JS Fallback...")
-                    await page.evaluate(f"""(day) => {{
+                    js_found = await page.evaluate(f"""(day) => {{
                         const els = Array.from(document.querySelectorAll('*'));
-                        // Filtra elementos com TEXTO exato do dia (Seguro contra undefined e espaços)
                         const matches = els.filter(el => el.innerText && el.innerText.trim() === day);
                         console.log(`JS Found ${{matches.length}} candidates for ${{day}}`);
 
-                        // Tenta achar um que pareça estar num container de calendario
                         const inPicker = matches.filter(el => el.closest('.picker, .calendar, .react-datepicker, [role="dialog"], [class*="picker"]'));
-                        
+
+                        let target = null;
                         if (inPicker.length > 0) {{
-                            console.log("JS Click in Picker: " + day);
-                            inPicker[inPicker.length - 1].click();
+                            target = inPicker[inPicker.length - 1];
                         }} else if (matches.length > 0) {{
-                            // Tenta o último encontrado na página (fallback extremo)
-                            console.log("JS Click Fallback: " + day);
-                            matches[matches.length - 1].click();
-                        }} else {{
-                            console.error("JS Found NO matches for day " + day);
+                            target = matches[matches.length - 1];
                         }}
+
+                        if (target) {{
+                            target.setAttribute('data-synapse-calendar-day', 'true');
+                            return true;
+                        }}
+                        return false;
                     }}""", target_day)
-                    logger.info("📅 JS Click executado.")
+
+                    if js_found:
+                        day_el = page.locator('[data-synapse-calendar-day="true"]').last
+                        if await day_el.count() > 0:
+                            await day_el.click()
+                            logger.info(f"📅 Dia {target_day} clicado via JS Find + Playwright click.")
+                        # Clean up marker attribute
+                        await page.evaluate("() => document.querySelectorAll('[data-synapse-calendar-day]').forEach(el => el.removeAttribute('data-synapse-calendar-day'))")
+                    else:
+                        logger.error(f"📅 JS Found NO matches for day {target_day}")
             
             # 3. Interação com Hora - CLICK ROBUSTO
             logger.info("⏰ Interagindo com seletor de hora (Robust Mode)...")
@@ -789,7 +1060,11 @@ async def upload_video_monitored(
             # 1. Tenta Seletor CSS Direto (Mais rápido)
             time_input = page.locator('.tux-time-picker input, input[placeholder*="HORA"], input[placeholder*="Time"]').last
             if await time_input.is_visible():
-                await time_input.click(force=True)
+                try:
+                    await time_input.scroll_into_view_if_needed()
+                except:
+                    pass
+                await time_input.click()
                 time_input_found = True
                 logger.info("⏰ Time Input clicado (Seletor CSS).")
             else:
@@ -805,14 +1080,22 @@ async def upload_video_monitored(
                     val = await inp.get_attribute('value') or ""
                     
                     if "Hora" in ph or "Time" in ph or "Hora" in lbl or "Time" in lbl:
-                        await inp.click(force=True)
+                        try:
+                            await inp.scroll_into_view_if_needed()
+                        except:
+                            pass
+                        await inp.click()
                         time_input_found = True
                         logger.info(f"⏰ Time Input clicado (Scanner: Texto).")
                         break
                     
                     # Check for Time Value (HH:MM) - CRITICAL FIX based on logs
                     if re.match(r"^\d{1,2}:\d{2}$", val):
-                        await inp.click(force=True)
+                        try:
+                            await inp.scroll_into_view_if_needed()
+                        except:
+                            pass
+                        await inp.click()
                         time_input_found = True
                         logger.info(f"⏰ Time Input clicado (Scanner: Valor {val}).")
                         break
@@ -841,8 +1124,11 @@ async def upload_video_monitored(
                         for i in range(await options.count()):
                             opt = options.nth(i)
                             if await opt.is_visible():
-                                await opt.scroll_into_view_if_needed()
-                                await opt.click(force=True)
+                                try:
+                                    await opt.scroll_into_view_if_needed()
+                                except:
+                                    pass
+                                await opt.click()
                                 logger.info(f"✅ Hora {time_str} selecionada (Seletor Universal) no scroll {attempt}.")
                                 time_found = True
                                 break
@@ -1072,76 +1358,201 @@ async def upload_video_monitored(
         # ========== CLICK FINAL & MODAL DE CONFIRMAÇÃO ==========
         await nuke_modals(page)
         logger.info("🚀 Preparando para finalizar...")
-        
+
         # Botão Final
         btn_text = "Programar" if schedule_time else "Publicar"
-        
+
         # Botão Final - Broad Selector
         final_btn = page.locator('button:has-text("Programar"), button:has-text("Schedule"), button:has-text("Publicar"), button:has-text("Post"), button:has-text("Agendar")').last
-        
+
+        # ---- Interceptação de rede: capturar respostas da API do TikTok ----
+        _api_success_detected = False
+        _api_error_detected = False
+        _api_error_message = ""
+
+        async def _on_response(response):
+            nonlocal _api_success_detected, _api_error_detected, _api_error_message
+            url = response.url
+            try:
+                # TikTok Studio API endpoints que indicam sucesso/falha
+                if '/api/v1/item/create' in url or '/api/post/publish' in url or '/tiktok/webapp/upload' in url or '/api/v2/post' in url:
+                    status = response.status
+                    if status == 200:
+                        try:
+                            body = await response.json()
+                            # TikTok retorna status_code 0 para sucesso
+                            if body.get('status_code') == 0 or body.get('statusCode') == 0 or body.get('code') == 0:
+                                _api_success_detected = True
+                                logger.info(f"🎯 API SUCCESS interceptado: {url} (status_code=0)")
+                            elif body.get('status_code', -1) != 0:
+                                _api_error_detected = True
+                                _api_error_message = body.get('status_msg', body.get('message', str(body)[:200]))
+                                logger.warning(f"🚫 API ERROR interceptado: {url} → {_api_error_message}")
+                        except Exception:
+                            pass
+                    elif status >= 400:
+                        _api_error_detected = True
+                        _api_error_message = f"HTTP {status}"
+                        logger.warning(f"🚫 API HTTP ERROR: {url} → {status}")
+            except Exception:
+                pass
+
+        page.on("response", _on_response)
+
         if await final_btn.is_visible():
             if await final_btn.is_enabled():
-                await final_btn.click()
-                logger.info(f"✅ Botão final clicado.")
-                
-                # LOOP DE CONFIRMAÇÃO (RETRY AGGRESSIVE)
+                from core.human_interaction import human_click
+                await human_click(page, final_btn)
+                logger.info(f"✅ Botão final clicado (human_click).")
+
+                # LOOP DE CONFIRMAÇÃO (30 tentativas x 3s = 90s)
                 confirmed = False
-                for m_attempt in range(12):
+                btn_retry_done = False
+                MAX_VERIFY_ATTEMPTS = 30
+
+                for m_attempt in range(MAX_VERIFY_ATTEMPTS):
                     await page.wait_for_timeout(3000)
 
-                    # 1. Checar se já completou (Redirecionamento ou Sucesso)
-                    # Broad selectors for TikTok Studio success states
+                    # 0. Checar interceptação de rede (mais confiável que UI)
+                    if _api_success_detected:
+                        logger.info("🎯 Sucesso confirmado via interceptação da API do TikTok!")
+                        confirmed = True
+                        break
+
+                    if _api_error_detected:
+                        logger.error(f"🚫 Erro confirmado via API do TikTok: {_api_error_message}")
+                        result["status"] = "error"
+                        result["message"] = f"TikTok API rejeitou: {_api_error_message}"
+                        break
+
+                    # 1. Checar textos de sucesso na UI
                     success_selectors = [
                         'text="Manage your posts"',
                         'text="Gerenciar suas postagens"',
+                        'text="Gerenciar seus posts"',
                         'text="View analytics"',
+                        'text="Ver análises"',
                         'text="Your video has been uploaded"',
                         'text="Seu vídeo foi carregado"',
+                        'text="Seu vídeo foi publicado"',
                         'text="Your video is being uploaded"',
                         'text="Seu vídeo está sendo enviado"',
                         'text="Successfully posted"',
                         'text="Successfully scheduled"',
                         'text="Publicado com sucesso"',
                         'text="Agendado com sucesso"',
+                        'text="Vídeo publicado"',
+                        'text="Upload concluído"',
+                        'text="Upload complete"',
+                        'text="Your video is scheduled"',
+                        'text="Seu vídeo está programado"',
+                        'text="Seu vídeo foi agendado"',
+                        'text="Publicação agendada"',
+                        'text="Scheduled successfully"',
                     ]
                     success_locator = page.locator(', '.join(success_selectors))
                     if await success_locator.count() > 0:
-                        logger.info("🎉 Sucesso detectado pós-modal!")
+                        logger.info("🎉 Sucesso detectado via texto na UI!")
                         confirmed = True
                         break
 
-                    # 1b. Check URL redirect (TikTok redirects to /manage after success)
+                    # 2. Checar redirect de URL
                     current_url = page.url
-                    if '/manage' in current_url or '/creator' in current_url:
+                    if any(path in current_url for path in ['/manage', '/creator', '/content', '/tiktokstudio/content']):
                         logger.info(f"🎉 Sucesso detectado via redirect: {current_url}")
                         confirmed = True
                         break
-                        
-                    # 2. Procurar modal
+
+                    # 3. Checar se formulário de upload sumiu
+                    upload_form = page.locator('div[class*="upload"], input[type="file"]')
+                    if await upload_form.count() == 0 and '/upload' not in current_url:
+                        logger.info(f"🎉 Sucesso inferido: formulário sumiu, URL: {current_url}")
+                        confirmed = True
+                        break
+
+                    # 4. Checar erros específicos do TikTok (parar imediatamente)
+                    error_selectors = [
+                        'text="Post not created"',
+                        'text="Publicação não criada"',
+                        'text="Spam and Deceptive"',
+                        'text="Community Guidelines"',
+                        'text="Diretrizes da Comunidade"',
+                        'text="Violação"',
+                        'text="Violation"',
+                        'text="account is suspended"',
+                        'text="conta suspensa"',
+                    ]
+                    error_locator = page.locator(', '.join(error_selectors))
+                    if await error_locator.count() > 0:
+                        try:
+                            error_text = await error_locator.first.inner_text()
+                        except Exception:
+                            error_text = "Erro detectado na UI do TikTok"
+                        logger.error(f"🚫 TikTok REJEITOU o post: {error_text[:200]}")
+                        result["status"] = "error"
+                        result["message"] = f"TikTok rejeitou: {error_text[:200]}"
+                        break
+
+                    # 5. Procurar modal de confirmação
                     modal_confirm = page.locator('div[role="dialog"] button').filter(has_text=re.compile(r"(Programar|Schedule|Confirmar|Post|Publicar|Postar)", re.I)).last
-                    
+
                     if await modal_confirm.count() > 0 and await modal_confirm.is_visible():
                         logger.info(f"📢 Modal de confirmação detectado (Attempt {m_attempt+1}). Confirmando...")
                         if monitor:
                             await monitor.capture_full_state(page, f"modal_confirm_attempt_{m_attempt}", "Modal detectado")
-                        await modal_confirm.click(force=True)
+                        try:
+                            await modal_confirm.scroll_into_view_if_needed()
+                        except:
+                            pass
+                        await modal_confirm.click()
                         await page.wait_for_timeout(3000)
-                        logger.info(f"ℹ️ Tentativa {m_attempt+1}: Nenhum modal visível. Aguardando confirmação explícita...")
-                        # [SYN-FIX] Strict Mode: Do NOT assume success just because no modal appeared.
-                        # We continue the loop waiting for redirection or success text.
-                
+
+                    # 6. Retry: se após 30s sem resposta, tenta clicar o botão final novamente (1x)
+                    if m_attempt == 10 and not btn_retry_done:
+                        logger.warning("⚠️ 30s sem confirmação. Tentando clicar botão final novamente...")
+                        btn_retry_done = True
+                        try:
+                            retry_btn = page.locator('button:has-text("Programar"), button:has-text("Schedule"), button:has-text("Publicar"), button:has-text("Post"), button:has-text("Agendar")').last
+                            if await retry_btn.is_visible() and await retry_btn.is_enabled():
+                                await human_click(page, retry_btn)
+                                logger.info("🔄 Botão final re-clicado.")
+                        except Exception as retry_err:
+                            logger.warning(f"⚠️ Retry click falhou: {retry_err}")
+
+                    logger.info(f"⏳ Verificação {m_attempt+1}/{MAX_VERIFY_ATTEMPTS}: aguardando confirmação...")
+
+                # Remover listener de rede
+                page.remove_listener("response", _on_response)
+
                 if confirmed:
                     result["status"] = "ready"
                     result["message"] = "Action completed"
-                    
+
+                    # Salvar cookies pós-sucesso (manter trust do browser)
+                    try:
+                        session_path = get_session_path(session_name)
+                        if session_path and context:
+                            import json as _json
+                            cookies = await context.cookies()
+                            existing_state = {}
+                            if os.path.exists(session_path):
+                                with open(session_path, 'r') as f:
+                                    existing_state = _json.load(f)
+                            existing_state["cookies"] = cookies
+                            with open(session_path, 'w') as f:
+                                _json.dump(existing_state, f, indent=2)
+                            logger.info(f"🍪 Cookies salvos pós-sucesso: {len(cookies)} cookies → {session_path}")
+                    except Exception as cookie_save_err:
+                        logger.warning(f"⚠️ Falha ao salvar cookies: {cookie_save_err}")
+
                     # [CIRCUIT BREAKER] Record Success
                     try:
                         from core.circuit_breaker import circuit_breaker
                         await circuit_breaker.record_success()
                     except: pass
-                else:
-                    logger.warning("❌ Falha na verificação final: Sucesso não confirmado.")
-                    # Capture debug screenshot on failure
+                elif result["status"] != "error":
+                    # Só marca como erro se não foi já marcado por detecção de erro específico
+                    logger.warning("❌ Falha na verificação final: Sucesso não confirmado após 90s.")
                     try:
                         ss_path = f"/app/data/screenshots/upload_fail_{int(time.time())}.png"
                         await page.screenshot(path=ss_path, full_page=True)
@@ -1149,12 +1560,23 @@ async def upload_video_monitored(
                     except Exception:
                         pass
                     result["status"] = "error"
-                    result["message"] = "Post verification failed: No success confirmation (Strict Mode)"
-                    
+                    result["message"] = "Post verification failed: No success confirmation (90s timeout)"
+
             else:
                 logger.warning(f"⚠️ Botão '{btn_text}' está desabilitado (upload incompleto ou validação falhou).")
-                result["status"] = "error"
-                result["message"] = f"Button {btn_text} disabled"
+                # Espera mais 30s — upload pode ainda estar processando
+                logger.info("⏳ Aguardando 30s para verificar se upload finaliza...")
+                for wait_attempt in range(10):
+                    await page.wait_for_timeout(3000)
+                    retry_btn = page.locator('button:has-text("Programar"), button:has-text("Schedule"), button:has-text("Publicar"), button:has-text("Post"), button:has-text("Agendar")').last
+                    if await retry_btn.is_visible() and await retry_btn.is_enabled():
+                        logger.info("✅ Botão habilitou! Clicando...")
+                        await human_click(page, retry_btn)
+                        result["status"] = "pending_verify"
+                        break
+                else:
+                    result["status"] = "error"
+                    result["message"] = f"Button {btn_text} disabled after 30s wait"
         else:
             logger.error(f"❌ Botão '{btn_text}' não encontrado!")
             result["status"] = "error"
@@ -1164,12 +1586,16 @@ async def upload_video_monitored(
         await page.wait_for_timeout(5000)
         if monitor:
             await monitor.capture_full_state(page, "estado_final", "Após tentativa de publicação")
-        
+
         # Check for error toasts
-        if await page.locator('.toast-error, .start-toast-error').count() > 0:
-             error_msg = await page.locator('.toast-error').inner_text()
-             result["status"] = "error"
-             result["message"] = f"TikTok recusou: {error_msg}"
+        try:
+            toast_selectors = '.toast-error, .start-toast-error, [class*="toast"][class*="error"], [class*="snackbar"][class*="error"]'
+            if await page.locator(toast_selectors).count() > 0:
+                error_msg = await page.locator(toast_selectors).first.inner_text()
+                result["status"] = "error"
+                result["message"] = f"TikTok recusou: {error_msg}"
+        except Exception:
+            pass
             
     except Exception as e:
         logger.error(f"Erro no upload: {e}")

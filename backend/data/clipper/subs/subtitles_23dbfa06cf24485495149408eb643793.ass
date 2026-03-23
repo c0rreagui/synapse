@@ -1,0 +1,35 @@
+[Script Info]
+Title: Synapse Auto Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Active,Inter Black,85,&H000B9EF5,&H000B9EF5,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+Style: Inactive,Inter Black,85,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.86,0:00:01.17,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Quanto {\1c&H00FFFFFF}tempo {\1c&H00FFFFFF}de
+Dialogue: 0,0:00:01.17,0:00:01.37,Active,,0,0,0,,{\1c&H00FFFFFF}Quanto {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}tempo {\1c&H00FFFFFF}de
+Dialogue: 0,0:00:01.37,0:00:01.48,Active,,0,0,0,,{\1c&H00FFFFFF}Quanto {\1c&H00FFFFFF}tempo {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}de
+Dialogue: 0,0:00:01.48,0:00:01.84,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}desenvolvimento {\1c&H00FFFFFF}eles {\1c&H00FFFFFF}passaram
+Dialogue: 0,0:00:01.84,0:00:02.00,Active,,0,0,0,,{\1c&H00FFFFFF}desenvolvimento {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}eles {\1c&H00FFFFFF}passaram
+Dialogue: 0,0:00:02.00,0:00:02.35,Active,,0,0,0,,{\1c&H00FFFFFF}desenvolvimento {\1c&H00FFFFFF}eles {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}passaram
+Dialogue: 0,0:00:02.35,0:00:02.52,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}nas {\1c&H00FFFFFF}falas {\1c&H00FFFFFF}do
+Dialogue: 0,0:00:02.52,0:00:02.81,Active,,0,0,0,,{\1c&H00FFFFFF}nas {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}falas {\1c&H00FFFFFF}do
+Dialogue: 0,0:00:02.81,0:00:02.89,Active,,0,0,0,,{\1c&H00FFFFFF}nas {\1c&H00FFFFFF}falas {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}do
+Dialogue: 0,0:00:02.89,0:00:03.12,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Leon {\1c&H00FFFFFF}que {\1c&H00FFFFFF}nas
+Dialogue: 0,0:00:03.37,0:00:03.39,Active,,0,0,0,,{\1c&H00FFFFFF}Leon {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}que {\1c&H00FFFFFF}nas
+Dialogue: 0,0:00:03.39,0:00:03.52,Active,,0,0,0,,{\1c&H00FFFFFF}Leon {\1c&H00FFFFFF}que {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}nas
+Dialogue: 0,0:00:03.52,0:00:03.96,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}falas {\1c&H00FFFFFF}eu {\1c&H00FFFFFF}não
+Dialogue: 0,0:00:03.96,0:00:04.00,Active,,0,0,0,,{\1c&H00FFFFFF}falas {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}eu {\1c&H00FFFFFF}não
+Dialogue: 0,0:00:04.00,0:00:04.09,Active,,0,0,0,,{\1c&H00FFFFFF}falas {\1c&H00FFFFFF}eu {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}não
+Dialogue: 0,0:00:04.09,0:00:04.32,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}sei {\1c&H00FFFFFF}mas {\1c&H00FFFFFF}no
+Dialogue: 0,0:00:04.48,0:00:04.62,Active,,0,0,0,,{\1c&H00FFFFFF}sei {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}mas {\1c&H00FFFFFF}no
+Dialogue: 0,0:00:04.62,0:00:04.79,Active,,0,0,0,,{\1c&H00FFFFFF}sei {\1c&H00FFFFFF}mas {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}no
+Dialogue: 0,0:00:04.79,0:00:05.24,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Leon

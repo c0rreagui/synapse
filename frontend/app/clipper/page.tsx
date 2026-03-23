@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { apiClient } from '../lib/api';
 import { toast } from '../utils/toast';
@@ -10,6 +10,25 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { CSS } from '@dnd-kit/utilities';
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+const TIKTOK_CAPTION_LIMIT = 2200;
+
+/** Converts ISO date to relative time string like "há 5min", "há 2h", etc. */
+function relativeTime(dateStr: string | undefined | null): string {
+    if (!dateStr) return 'N/A';
+    const now = Date.now();
+    const then = new Date(dateStr).getTime();
+    const diffMs = now - then;
+    if (diffMs < 0) return 'agora';
+    const seconds = Math.floor(diffMs / 1000);
+    if (seconds < 60) return `há ${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `há ${minutes}min`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `há ${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `há ${days}d`;
+}
 
 interface Target {
     id: number;
@@ -162,8 +181,13 @@ function ClipReorderList({ initialClips, onReorder }: { initialClips: ClipDetail
 
     const handleSave = async () => {
         setIsSaving(true);
-        await onReorder(clips.map(c => c.index));
-        setIsSaving(false);
+        try {
+            await onReorder(clips.map(c => c.index));
+        } catch (err) {
+            console.error('Reorder save failed:', err);
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -232,6 +256,25 @@ export default function ClipperPage() {
 
     const [targetToDelete, setTargetToDelete] = useState<number | null>(null);
     const [armyToDelete, setArmyToDelete] = useState<number | null>(null);
+
+    // ── UX Enhancement States ──
+    const [targetSearch, setTargetSearch] = useState('');
+    const [hashtagInput, setHashtagInput] = useState('');
+    const [bulkSelected, setBulkSelected] = useState<Set<number>>(new Set());
+    const [approvalSort, setApprovalSort] = useState<'newest' | 'oldest' | 'duration' | 'streamer'>('newest');
+    const [captionPreviewId, setCaptionPreviewId] = useState<number | null>(null);
+
+    // Army accordion state — all expanded by default
+    const [expandedArmies, setExpandedArmies] = useState<Set<string>>(new Set());
+    const [armiesInitialized, setArmiesInitialized] = useState(false);
+    const toggleArmy = (armyId: string) => {
+        setExpandedArmies(prev => {
+            const next = new Set(prev);
+            if (next.has(armyId)) next.delete(armyId);
+            else next.add(armyId);
+            return next;
+        });
+    };
     const [newArmy, setNewArmy] = useState({ name: '', color: '#00f0ff', icon: 'swords', profile_ids: [] as number[] });
 
     // Pipeline accordion state — active sections auto-expand
@@ -273,12 +316,19 @@ export default function ClipperPage() {
         }
     };
 
+    const targetsIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
     useEffect(() => {
         fetchTargets();
         fetchProfiles();
         fetchArmies();
-        const interval = setInterval(fetchTargets, 10000);
-        return () => clearInterval(interval);
+        targetsIntervalRef.current = setInterval(fetchTargets, 10000);
+        return () => {
+            if (targetsIntervalRef.current) {
+                clearInterval(targetsIntervalRef.current);
+                targetsIntervalRef.current = null;
+            }
+        };
     }, []);
 
     const handleAddTarget = async () => {
@@ -292,7 +342,7 @@ export default function ClipperPage() {
 
             await apiClient.post('/api/clipper/targets', payload);
             setUrlInput("");
-            toast.success("Novo alvo detectado e adicionado à órbita.");
+            toast.success("Novo alvo detectado e adicionado à órbita.", { id: 'target-added' });
             await fetchTargets();
         } catch (error: any) {
             toast.error(`Erro: ${error?.data?.detail || "Erro de conexão com o painel orbital."}`);
@@ -373,10 +423,10 @@ export default function ClipperPage() {
 
         try {
             await apiClient.put(`/api/v1/armies/${armyId}`, { profile_ids: newProfileIds });
-            toast.success("Designação atualizada.");
+            toast.success("Designação atualizada.", { id: `army-profile-${armyId}` });
             await fetchArmies();
         } catch (error) {
-            toast.error("Falha ao atualizar designações.");
+            toast.error("Falha ao atualizar designações.", { id: `army-profile-${armyId}` });
         }
     };
 
@@ -385,17 +435,24 @@ export default function ClipperPage() {
     };
 
     const handleToggleTarget = async (id: number, currentActive: boolean) => {
+        // Optimistic UI update
+        setTargets(prev => prev.map(t => t.id === id ? { ...t, active: !currentActive } : t));
         try {
             await apiClient.patch(`/api/clipper/targets/${id}`, { active: !currentActive });
-            toast.success(`Alvo ${!currentActive ? 'ativado' : 'desativado'} com sucesso.`);
+            toast.success(`Alvo ${!currentActive ? 'ativado' : 'desativado'} com sucesso.`, { id: `toggle-${id}` });
             await fetchTargets();
         } catch (error) {
-            toast.error("Falha ao modificar o status do alvo.");
+            // Reverter update otimista em caso de erro
+            setTargets(prev => prev.map(t => t.id === id ? { ...t, active: currentActive } : t));
+            toast.error("Falha ao modificar o status do alvo.", { id: `toggle-${id}` });
         }
     };
 
+    const [forceCheckingId, setForceCheckingId] = useState<number | null>(null);
+
     const handleForceCheckTarget = async (id: number) => {
-        setIsLoading(true);
+        if (forceCheckingId !== null) return; // Prevenir duplo clique
+        setForceCheckingId(id);
         toast.info("Iniciando varredura manual do radar...", { id: `force-${id}` });
         try {
             const data = await apiClient.post<any>(`/api/clipper/targets/${id}/check`);
@@ -404,7 +461,7 @@ export default function ClipperPage() {
         } catch (error: any) {
             toast.error(`Falha: ${error?.data?.detail || "Erro de conexão ao forçar varredura."}`, { id: `force-${id}` });
         } finally {
-            setIsLoading(false);
+            setForceCheckingId(null);
         }
     };
 
@@ -448,6 +505,12 @@ export default function ClipperPage() {
             interval = setInterval(() => {
                 fetchPendingVideos();
             }, 10000);
+        }
+
+        // Limpar caption drafts ao trocar de aba para evitar memory leak
+        if (activeTab !== 'approval') {
+            setCaptionDrafts({});
+            setExpandedCaptionId(null);
         }
 
         return () => {
@@ -502,7 +565,7 @@ export default function ClipperPage() {
             const data = result as any;
             setCaptionDrafts(prev => ({
                 ...prev,
-                [videoId]: { caption: data.caption || '', hashtags: data.hashtags || [] }
+                [videoId]: { caption: data.caption || '', hashtags: (data.hashtags || []).slice(0, 5) }
             }));
             toast.success('Descrição gerada pelo Oracle!');
         } catch (error: any) {
@@ -613,14 +676,17 @@ export default function ClipperPage() {
         }
     };
 
-    const timeOptions = [];
-    for (let h = 0; h < 24; h++) {
-        for (let m = 0; m < 60; m += 5) {
-            const hour = h.toString().padStart(2, '0');
-            const minute = m.toString().padStart(2, '0');
-            timeOptions.push(`${hour}:${minute}`);
+    const timeOptions = useMemo(() => {
+        const opts: string[] = [];
+        for (let h = 0; h < 24; h++) {
+            for (let m = 0; m < 60; m += 5) {
+                const hour = h.toString().padStart(2, '0');
+                const minute = m.toString().padStart(2, '0');
+                opts.push(`${hour}:${minute}`);
+            }
         }
-    }
+        return opts;
+    }, []);
 
     // Fetch vitals for header
     useEffect(() => {
@@ -638,6 +704,87 @@ export default function ClipperPage() {
     }, []);
 
 
+    // ── Keyboard Shortcuts (Alt+1-4 for tab switching) ──
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.altKey && !e.ctrlKey && !e.metaKey) {
+                const tabs: Tab[] = ['targets', 'queue', 'armies', 'approval'];
+                const num = parseInt(e.key);
+                if (num >= 1 && num <= 4) {
+                    e.preventDefault();
+                    setActiveTab(tabs[num - 1]);
+                }
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
+    // ── Hashtag add helper ──
+    const handleAddHashtag = (videoId: number) => {
+        const tag = hashtagInput.trim().replace(/^#+/, '');
+        if (!tag) return;
+        setCaptionDrafts(prev => ({
+            ...prev,
+            [videoId]: {
+                ...prev[videoId],
+                caption: prev[videoId]?.caption || '',
+                hashtags: [...(prev[videoId]?.hashtags || []), `#${tag}`].slice(0, 10),
+            }
+        }));
+        setHashtagInput('');
+    };
+
+    // ── Bulk actions ──
+    const toggleBulkSelect = (videoId: number) => {
+        setBulkSelected(prev => {
+            const next = new Set(prev);
+            if (next.has(videoId)) next.delete(videoId);
+            else next.add(videoId);
+            return next;
+        });
+    };
+    const handleBulkApprove = async () => {
+        if (bulkSelected.size === 0) return;
+        setSubmittingApproval(true);
+        let successCount = 0;
+        for (const videoId of bulkSelected) {
+            try {
+                await apiClient.post(`/api/v1/factory/approve/${videoId}`, { schedule_mode: 'smart' });
+                successCount++;
+            } catch { /* skip failed */ }
+        }
+        setBulkSelected(new Set());
+        await fetchPendingVideos();
+        setSubmittingApproval(false);
+        toast.success(`${successCount} vídeo(s) aprovados em lote via Smart Queue!`);
+    };
+    const handleBulkReject = async () => {
+        if (bulkSelected.size === 0) return;
+        let successCount = 0;
+        for (const videoId of bulkSelected) {
+            try {
+                await apiClient.delete(`/api/v1/factory/reject/${videoId}`);
+                successCount++;
+            } catch { /* skip failed */ }
+        }
+        setBulkSelected(new Set());
+        await fetchPendingVideos();
+        toast.info(`${successCount} vídeo(s) rejeitados em lote.`);
+    };
+
+    // ── Sorted pending videos ──
+    const sortedPendingVideos = useMemo(() => {
+        const sorted = [...pendingVideos];
+        switch (approvalSort) {
+            case 'newest': return sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            case 'oldest': return sorted.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+            case 'duration': return sorted.sort((a, b) => (b.duration_seconds || 0) - (a.duration_seconds || 0));
+            case 'streamer': return sorted.sort((a, b) => (a.streamer_name || '').localeCompare(b.streamer_name || ''));
+            default: return sorted;
+        }
+    }, [pendingVideos, approvalSort]);
+
     // Group targets by army (instead of profile)
     const targetsByArmy = targets.reduce((acc, target) => {
         const aid = target.army_id ? String(target.army_id) : 'orphan';
@@ -646,17 +793,25 @@ export default function ClipperPage() {
         return acc;
     }, {} as Record<string, Target[]>);
 
+    // Auto-expand all armies on first load
+    useEffect(() => {
+        if (!armiesInitialized && Object.keys(targetsByArmy).length > 0) {
+            setExpandedArmies(new Set(Object.keys(targetsByArmy)));
+            setArmiesInitialized(true);
+        }
+    }, [targetsByArmy, armiesInitialized]);
+
     return (
         <div className="h-full flex flex-col bg-black overflow-hidden relative">
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-end gap-6 pb-2 border-b border-white/5 relative mt-6">
                 <div className="absolute bottom-0 right-0 w-1/3 h-px bg-gradient-to-l from-cyan-400/50 to-transparent"></div>
                 <div className="relative">
-                    <h1 className="text-5xl lg:text-6xl font-bold tracking-tighter text-white font-display">
-                        Vigilância do <span className="text-cyan-400 block text-3xl lg:text-4xl tracking-[0.2em] font-mono mt-2 font-normal drop-shadow-[0_0_10px_rgba(0,240,255,0.8)]">Espaço Profundo</span>
+                    <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold tracking-tighter text-white font-display">
+                        Vigilância do <span className="text-cyan-400 block text-xl md:text-3xl lg:text-4xl tracking-[0.2em] font-mono mt-2 font-normal drop-shadow-[0_0_10px_rgba(0,240,255,0.8)]">Espaço Profundo</span>
                     </h1>
                 </div>
-                <div className="flex flex-col items-end gap-1">
+                <div className="hidden md:flex flex-col items-end gap-1">
                     <div className="flex items-center gap-4 text-xs font-mono text-cyan-400/70">
                         <span className="flex items-center gap-2">
                             <span className="material-symbols-outlined text-sm animate-spin-slow">memory</span>
@@ -675,59 +830,67 @@ export default function ClipperPage() {
             </div>
 
             {/* ═══ TAB SWITCHER ═══ */}
-            <div className="flex items-center gap-1 bg-black/40 backdrop-blur-md border border-white/5 rounded-xl p-1 self-start">
+            <div className="flex items-center gap-1 bg-black/40 backdrop-blur-md border border-white/5 rounded-xl p-1 self-start overflow-x-auto max-w-full">
                 <button
                     onClick={() => setActiveTab('targets')}
-                    className={`px-5 py-2.5 text-xs font-mono font-bold uppercase tracking-widest rounded-lg transition-all duration-200 flex items-center gap-2 ${activeTab === 'targets'
+                    className={`px-3 py-2 md:px-5 md:py-2.5 text-[10px] md:text-xs font-mono font-bold uppercase tracking-widest rounded-lg transition-all duration-200 flex items-center gap-1.5 md:gap-2 whitespace-nowrap ${activeTab === 'targets'
                         ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 shadow-[0_0_15px_-3px_rgba(0,240,255,0.3)]'
                         : 'text-slate-500 hover:text-white hover:bg-white/5 border border-transparent'
                         }`}
+                    title="Alt+1"
                 >
                     <span className="material-symbols-outlined text-[18px]">radar</span>
-                    Alvos
+                    <span className="hidden md:inline">Alvos</span>
                     {targets.length > 0 && (
                         <span className="bg-cyan-500/20 text-cyan-400 text-[10px] px-1.5 py-0.5 rounded-md">{targets.length}</span>
                     )}
+                    <span className="text-[8px] text-slate-600 ml-1 hidden lg:inline">⌥1</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('queue')}
-                    className={`px-5 py-2.5 text-xs font-mono font-bold uppercase tracking-widest rounded-lg transition-all duration-200 flex items-center gap-2 ${activeTab === 'queue'
+                    className={`px-3 py-2 md:px-5 md:py-2.5 text-[10px] md:text-xs font-mono font-bold uppercase tracking-widest rounded-lg transition-all duration-200 flex items-center gap-1.5 md:gap-2 whitespace-nowrap ${activeTab === 'queue'
                         ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 shadow-[0_0_15px_-3px_rgba(0,240,255,0.3)]'
                         : 'text-slate-500 hover:text-white hover:bg-white/5 border border-transparent'
                         }`}
+                    title="Alt+2"
                 >
                     <span className="material-symbols-outlined text-[18px]">movie_filter</span>
-                    Esteira
+                    <span className="hidden md:inline">Esteira</span>
                     {items.filter(job => job.status !== 'completed').length > 0 && (
                         <span className="bg-amber-500/20 text-amber-400 text-[10px] px-1.5 py-0.5 rounded-md">{items.filter(job => job.status !== 'completed').length}</span>
                     )}
+                    <span className="text-[8px] text-slate-600 ml-1 hidden lg:inline">⌥2</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('armies')}
-                    className={`px-5 py-2.5 text-xs font-mono font-bold uppercase tracking-widest rounded-lg transition-all duration-200 flex items-center gap-2 ${activeTab === 'armies'
+                    className={`px-3 py-2 md:px-5 md:py-2.5 text-[10px] md:text-xs font-mono font-bold uppercase tracking-widest rounded-lg transition-all duration-200 flex items-center gap-1.5 md:gap-2 whitespace-nowrap ${activeTab === 'armies'
                         ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 shadow-[0_0_15px_-3px_rgba(0,240,255,0.3)]'
                         : 'text-slate-500 hover:text-white hover:bg-white/5 border border-transparent'
                         }`}
+                    title="Alt+3"
                 >
                     <span className="material-symbols-outlined text-[18px]">swords</span>
-                    Exércitos
+                    <span className="hidden md:inline">Exércitos</span>
                     {armies.length > 0 && (
                         <span className="bg-cyan-500/20 text-cyan-400 text-[10px] px-1.5 py-0.5 rounded-md">{armies.length}</span>
                     )}
+                    <span className="text-[8px] text-slate-600 ml-1 hidden lg:inline">⌥3</span>
                 </button>
                 <div className="w-px h-6 bg-white/10 mx-2"></div>
                 <button
                     onClick={() => setActiveTab('approval')}
-                    className={`px-5 py-2.5 text-xs font-mono font-bold uppercase tracking-widest rounded-lg transition-all duration-200 flex items-center gap-2 ${activeTab === 'approval'
+                    className={`px-3 py-2 md:px-5 md:py-2.5 text-[10px] md:text-xs font-mono font-bold uppercase tracking-widest rounded-lg transition-all duration-200 flex items-center gap-1.5 md:gap-2 whitespace-nowrap ${activeTab === 'approval'
                         ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-[0_0_15px_-3px_rgba(16,185,129,0.3)]'
                         : 'text-slate-500 hover:text-white hover:bg-white/5 border border-transparent'
                         }`}
+                    title="Alt+4"
                 >
                     <span className="material-symbols-outlined text-[18px]">done_all</span>
-                    Aprovação
+                    <span className="hidden md:inline">Aprovação</span>
                     {pendingVideos.length > 0 && (
-                        <span className="bg-emerald-500/20 text-emerald-400 text-[10px] px-1.5 py-0.5 rounded-md">{pendingVideos.length}</span>
+                        <span className="bg-emerald-500/20 text-emerald-400 text-[10px] px-1.5 py-0.5 rounded-md animate-pulse">{pendingVideos.length}</span>
                     )}
+                    <span className="text-[8px] text-slate-600 ml-1 hidden lg:inline">⌥4</span>
                 </button>
             </div>
 
@@ -798,45 +961,137 @@ export default function ClipperPage() {
 
                     {/* Targets Componentized by Army */}
                     <section className="flex-1 overflow-y-auto custom-scrollbar pb-10 px-4 md:px-8">
-                        {targets.length === 0 && (
-                            <div className="py-20 text-center text-cyan-400/50 font-mono flex flex-col items-center gap-4">
-                                <span className="material-symbols-outlined text-5xl">satellite_alt</span>
-                                NENHUM ALVO DETECTADO NO RADAR
+                        {targets.length === 0 ? (
+                            <div className="py-20 text-center font-mono flex flex-col items-center gap-4">
+                                <div className="w-24 h-24 rounded-full bg-cyan-500/5 border border-cyan-500/20 flex items-center justify-center mb-2">
+                                    <span className="material-symbols-outlined text-5xl text-cyan-400/30">satellite_alt</span>
+                                </div>
+                                <h3 className="text-white text-lg font-display font-bold">Radar Inativo</h3>
+                                <p className="text-slate-500 text-sm max-w-md">Nenhum alvo detectado. Adicione um canal ou categoria da Twitch acima para iniciar o monitoramento.</p>
+                                <button onClick={() => document.querySelector<HTMLInputElement>('input[placeholder*="TWITCH"]')?.focus()} className="mt-2 text-xs font-mono text-cyan-400 border border-cyan-500/30 px-4 py-2 rounded-lg hover:bg-cyan-500/10 transition-colors flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-sm">add_circle</span>
+                                    ADICIONAR PRIMEIRO ALVO
+                                </button>
+                            </div>
+                        ) : null}
+
+                        {/* Search Bar + Expand/Collapse All */}
+                        {targets.length > 0 && (
+                            <div className="flex items-center gap-3 mt-8 mb-4">
+                                <div className="flex-1 relative">
+                                    <span className="material-symbols-outlined text-[16px] text-slate-500 absolute left-3 top-1/2 -translate-y-1/2">search</span>
+                                    <input
+                                        type="text"
+                                        value={targetSearch}
+                                        onChange={(e) => setTargetSearch(e.target.value)}
+                                        placeholder="Filtrar alvos por nome..."
+                                        className="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-cyan-500/50 placeholder:text-slate-600 transition-colors"
+                                    />
+                                    {targetSearch && (
+                                        <button onClick={() => setTargetSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors">
+                                            <span className="material-symbols-outlined text-[14px]">close</span>
+                                        </button>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        const allKeys = Object.keys(targetsByArmy);
+                                        const allExpanded = allKeys.every(k => expandedArmies.has(k));
+                                        setExpandedArmies(allExpanded ? new Set() : new Set(allKeys));
+                                    }}
+                                    className="text-[10px] font-mono text-slate-400 border border-white/10 px-3 py-2 rounded-lg hover:bg-white/5 hover:text-white transition-colors flex items-center gap-1.5 shrink-0"
+                                    title={Object.keys(targetsByArmy).every(k => expandedArmies.has(k)) ? 'Recolher todos' : 'Expandir todos'}
+                                >
+                                    <span className="material-symbols-outlined text-[14px]">
+                                        {Object.keys(targetsByArmy).every(k => expandedArmies.has(k)) ? 'unfold_less' : 'unfold_more'}
+                                    </span>
+                                    {Object.keys(targetsByArmy).every(k => expandedArmies.has(k)) ? 'RECOLHER' : 'EXPANDIR'}
+                                </button>
                             </div>
                         )}
 
-                        {/* Targets Componentized by Army */}
-                        <div className="w-full flex flex-col gap-12 mt-12">
+                        {/* Targets Componentized by Army (Accordion) */}
+                        <div className="w-full flex flex-col gap-4">
                             {Object.entries(targetsByArmy).map(([armyIdStr, armyTargets]) => {
                                 const isOrphan = armyIdStr === 'orphan';
                                 const armyData = isOrphan ? null : armies.find(a => a.id.toString() === armyIdStr);
+                                const isExpanded = expandedArmies.has(armyIdStr);
+                                // Filter targets by search
+                                const filteredTargets = targetSearch
+                                    ? armyTargets.filter(t => t.channel_name?.toLowerCase().includes(targetSearch.toLowerCase()))
+                                    : armyTargets;
+                                if (filteredTargets.length === 0) return null;
+                                const activeCount = filteredTargets.filter(t => t.active).length;
 
                                 return (
-                                    <div key={armyIdStr} className="flex flex-col gap-4">
-                                        <div className="p-4 bg-gradient-to-b from-cyan-900/10 to-transparent border-b border-white/5">
+                                    <div key={armyIdStr} className="flex flex-col border border-white/5 rounded-xl overflow-hidden bg-cosmic-hull/50 backdrop-blur-sm">
+                                        {/* Accordion Header (clickable) */}
+                                        <button
+                                            onClick={() => toggleArmy(armyIdStr)}
+                                            className="w-full flex items-center gap-3 p-4 hover:bg-white/[0.02] transition-colors cursor-pointer group"
+                                        >
+                                            {/* Army Icon */}
                                             {isOrphan ? (
-                                                <div className="w-8 h-8 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center">
+                                                <div className="w-9 h-9 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center shrink-0">
                                                     <span className="material-symbols-outlined text-slate-500 text-sm">public_off</span>
                                                 </div>
                                             ) : (
-                                                <div className="w-8 h-8 rounded-full bg-cyan-950 border border-cyan-800 flex items-center justify-center shrink-0 overflow-hidden" style={{ borderColor: armyData?.color }}>
+                                                <div className="w-9 h-9 rounded-full bg-cyan-950 border border-cyan-800 flex items-center justify-center shrink-0 overflow-hidden" style={{ borderColor: armyData?.color }}>
                                                     <span className="material-symbols-outlined text-sm" style={{ color: armyData?.color }}>{armyData?.icon || 'swords'}</span>
                                                 </div>
                                             )}
-                                            <h2 className="text-xl font-mono font-bold tracking-widest flex items-center gap-3">
-                                                {isOrphan ? (
-                                                    <span className="text-slate-400">Alvos Órfãos <span className="text-sm font-normal text-slate-600">(Sem Exército)</span></span>
-                                                ) : (
-                                                    <span style={{ color: armyData?.color || '#00f0ff' }}>
-                                                        Exército: {armyData?.name.toUpperCase() || 'DESCONHECIDO'}
+
+                                            {/* Army Name */}
+                                            <div className="flex flex-col items-start min-w-0 flex-1">
+                                                <h2 className="text-base font-mono font-bold tracking-widest truncate">
+                                                    {isOrphan ? (
+                                                        <span className="text-slate-400">Alvos Órfãos</span>
+                                                    ) : (
+                                                        <span style={{ color: armyData?.color || '#00f0ff' }}>
+                                                            {armyData?.name.toUpperCase() || 'DESCONHECIDO'}
+                                                        </span>
+                                                    )}
+                                                </h2>
+                                                {!isOrphan && armyData?.profiles && armyData.profiles.length > 0 && (
+                                                    <div className="flex items-center gap-1 mt-0.5">
+                                                        {armyData.profiles.slice(0, 3).map((p, i) => (
+                                                            <div key={i} className="w-4 h-4 rounded-full bg-black border border-white/10 overflow-hidden" title={p.label || p.username}>
+                                                                {p.avatar_url ? (
+                                                                    <img src={p.avatar_url} alt="" className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    <span className="text-[8px] text-slate-500 flex items-center justify-center w-full h-full">{(p.label || '?')[0]}</span>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                        {armyData.profiles.length > 3 && (
+                                                            <span className="text-[9px] text-slate-500 font-mono ml-0.5">+{armyData.profiles.length - 3}</span>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Stats Badges */}
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <span className="text-[10px] font-mono text-slate-500 bg-white/5 px-2 py-1 rounded-full border border-white/5">
+                                                    {filteredTargets.length} {filteredTargets.length === 1 ? 'ALVO' : 'ALVOS'}
+                                                </span>
+                                                {activeCount > 0 && (
+                                                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20">
+                                                        {activeCount} ATIVO{activeCount !== 1 ? 'S' : ''}
                                                     </span>
                                                 )}
-                                            </h2>
-                                            <span className="ml-auto text-xs font-mono text-slate-500">{armyTargets.length} ALVOS</span>
-                                        </div>
+                                            </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                            {armyTargets.map((target) => (
+                                            {/* Chevron */}
+                                            <span className={`material-symbols-outlined text-slate-500 text-lg transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                                                expand_more
+                                            </span>
+                                        </button>
+
+                                        {/* Accordion Content (collapsible) */}
+                                        <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4 pt-2">
+                                            {filteredTargets.map((target) => (
                                                 <div key={target.id} className={`group relative bg-cosmic-hull border border-cosmic-border hover:border-cosmic-glowBorder transition-all duration-300 overflow-hidden rounded-xl shadow-lg ${!target.active ? 'opacity-60 hover:opacity-100 grayscale contrast-125' : 'hover:shadow-[0_0_20px_rgba(0,240,255,0.15)]'}`}>
                                                     <div className="absolute inset-0 bg-[linear-gradient(transparent_0%,rgba(0,240,255,0.05)_50%,transparent_100%)] h-[200%] w-full -translate-y-1/2 group-hover:translate-y-0 transition-transform duration-1000 ease-in-out pointer-events-none z-20 opacity-0 group-hover:opacity-100"></div>
 
@@ -908,9 +1163,31 @@ export default function ClipperPage() {
                                                             <div className="flex justify-between items-center text-cyan-400/80 mb-1 border-b border-cyan-900/40 pb-1">
                                                                 <span className="font-bold flex items-center gap-1.5 tracking-widest"><span className="material-symbols-outlined text-[11px]">terminal</span> DIÁRIO DE BORDO</span>
                                                             </div>
-                                                            <div className="flex justify-between"><span>CHECK:</span> <span className="text-slate-300">{target.last_checked_at ? new Date(target.last_checked_at).toLocaleTimeString('pt-BR') : 'N/A'}</span></div>
-                                                            <div className="flex justify-between"><span>CLIP:</span> <span className="text-slate-300">{target.last_clip_found_at ? new Date(target.last_clip_found_at).toLocaleTimeString('pt-BR') : 'NONE'}</span></div>
+                                                            <div className="flex justify-between" title={target.last_checked_at ? new Date(target.last_checked_at).toLocaleString('pt-BR') : ''}>
+                                                                <span>CHECK:</span>
+                                                                <span className="text-slate-300">{relativeTime(target.last_checked_at)}</span>
+                                                            </div>
+                                                            <div className="flex justify-between" title={target.last_clip_found_at ? new Date(target.last_clip_found_at).toLocaleString('pt-BR') : ''}>
+                                                                <span>CLIP:</span>
+                                                                <span className="text-slate-300">{target.last_clip_found_at ? relativeTime(target.last_clip_found_at) : 'NONE'}</span>
+                                                            </div>
                                                             <div className="flex justify-between"><span>TOTAL PROC:</span> <span className="text-cyan-400 font-bold">{target.total_clips_processed || 0}</span></div>
+                                                        </div>
+
+                                                        {/* Inline Target Settings */}
+                                                        <div className="bg-black/20 rounded border border-white/5 p-2 font-mono text-[9px] text-slate-500 flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                                                            <span className="flex items-center gap-1" title="Visualizações mínimas para capturar clip">
+                                                                <span className="material-symbols-outlined text-[10px]">visibility</span>
+                                                                Min: <span className="text-slate-300">{target.min_clip_views ?? 'auto'}</span>
+                                                            </span>
+                                                            <span className="flex items-center gap-1" title="Máximo de clips por verificação">
+                                                                <span className="material-symbols-outlined text-[10px]">filter_list</span>
+                                                                Max: <span className="text-slate-300">{target.max_clips_per_check ?? 'auto'}</span>
+                                                            </span>
+                                                            <span className="flex items-center gap-1" title="Intervalo entre verificações (minutos)">
+                                                                <span className="material-symbols-outlined text-[10px]">schedule</span>
+                                                                <span className="text-slate-300">{target.check_interval_minutes ?? 30}min</span>
+                                                            </span>
                                                         </div>
 
                                                         <div className="flex gap-2 mt-1">
@@ -920,13 +1197,14 @@ export default function ClipperPage() {
                                                             <a href={target.channel_url} target="_blank" rel="noreferrer" className={`w-9 h-8 flex justify-center items-center text-center cursor-pointer ${target.active ? 'bg-cyan-400/10 hover:bg-cyan-400/30 text-cyan-400 border-cyan-400/30 hover:shadow-[0_0_10px_rgba(0,240,255,0.1)]' : 'bg-white/5 hover:bg-white/10 text-slate-400 border-white/10'} rounded border transition-all duration-300`} title="Abrir na Twitch">
                                                                 <span className="material-symbols-outlined text-[16px]">open_in_new</span>
                                                             </a>
-                                                            <button onClick={() => handleForceCheckTarget(target.id)} disabled={isLoading || !target.active} className={`flex-1 h-8 flex justify-center items-center gap-1.5 cursor-pointer rounded ${target.active && !isLoading ? 'bg-emerald-500/10 hover:bg-emerald-500/30 text-emerald-400 border-emerald-500/30 hover:shadow-[0_0_10px_rgba(16,185,129,0.2)]' : 'bg-white/5 opacity-50 cursor-not-allowed text-slate-500 border-white/10'} text-[10px] font-mono uppercase tracking-wider border transition-all duration-300`} title="Forçar Varredura no Radar">
-                                                                <span className={`material-symbols-outlined text-[13px] ${isLoading ? 'animate-spin' : ''}`}>radar</span> SCAN
+                                                            <button onClick={() => handleForceCheckTarget(target.id)} disabled={forceCheckingId !== null || !target.active} className={`flex-1 h-8 flex justify-center items-center gap-1.5 cursor-pointer rounded ${target.active && forceCheckingId === null ? 'bg-emerald-500/10 hover:bg-emerald-500/30 text-emerald-400 border-emerald-500/30 hover:shadow-[0_0_10px_rgba(16,185,129,0.2)]' : 'bg-white/5 opacity-50 cursor-not-allowed text-slate-500 border-white/10'} text-[10px] font-mono uppercase tracking-wider border transition-all duration-300`} title="Forçar Varredura no Radar">
+                                                                <span className={`material-symbols-outlined text-[13px] ${forceCheckingId === target.id ? 'animate-spin' : ''}`}>radar</span> SCAN
                                                             </button>
                                                         </div>
                                                     </div>
                                                 </div>
                                             ))}
+                                            </div>
                                         </div>
                                     </div>
                                 );
@@ -1420,7 +1698,7 @@ export default function ClipperPage() {
                                                     {army.profiles.map((profile) => (
                                                         <div key={profile.id} className="bg-black/40 border border-cyan-500/10 rounded-xl p-3 flex items-center gap-3 group hover:border-cyan-500/30 transition-colors">
                                                             {profile.avatar_url ? (
-                                                                <img src={profile.avatar_url} alt={profile.username} className="w-8 h-8 rounded-full object-cover" />
+                                                                <img src={profile.avatar_url} alt={profile.username} className="w-8 h-8 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                                             ) : (
                                                                 <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center">
                                                                     <span className="material-symbols-outlined text-slate-500 text-sm">person</span>
@@ -1480,27 +1758,68 @@ export default function ClipperPage() {
 
             {/* ═══ TAB: APROVAÇÃO (CURATION) ═══ */}
             {activeTab === 'approval' && (
-                <div className="flex-1 w-full max-w-7xl mx-auto px-6 py-6 z-10 space-y-6 animate-in fade-in zoom-in-95 duration-500 overflow-y-auto custom-scrollbar pb-32">
-                    <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/5">
+                <div className="flex-1 w-full max-w-7xl mx-auto px-3 py-4 md:px-6 md:py-6 z-10 space-y-4 md:space-y-6 animate-in fade-in zoom-in-95 duration-500 overflow-y-auto custom-scrollbar pb-16 md:pb-32">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 md:mb-8 pb-4 border-b border-white/5 gap-3">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                                <span className="material-symbols-outlined text-2xl">done_all</span>
+                            <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                                <span className="material-symbols-outlined text-xl md:text-2xl">done_all</span>
                             </div>
                             <div>
-                                <h2 className="text-xl font-display font-bold text-white tracking-widest uppercase">Fila de Aprovação</h2>
-                                <p className="text-[10px] font-mono text-emerald-500/70 border border-emerald-500/20 bg-emerald-500/5 px-2 py-0.5 rounded mt-1 inline-block">VÍDEOS FINALIZADOS PELO CLIPPER</p>
+                                <h2 className="text-base md:text-xl font-display font-bold text-white tracking-widest uppercase">Fila de Aprovação</h2>
+                                <p className="text-[9px] md:text-[10px] font-mono text-emerald-500/70 border border-emerald-500/20 bg-emerald-500/5 px-2 py-0.5 rounded mt-1 inline-block">VÍDEOS FINALIZADOS PELO CLIPPER</p>
                             </div>
                         </div>
-                        {pendingVideos.length > 0 && (
-                            <button
-                                onClick={() => fetchPendingVideos(true)}
-                                disabled={refreshingList}
-                                className="text-xs font-mono text-cyan-400 hover:text-white border border-cyan-400/30 hover:border-cyan-400 bg-cyan-400/5 px-4 py-2 rounded-lg flex items-center gap-2 transition-all hover:bg-cyan-400/20 disabled:opacity-50"
-                            >
-                                <span className={`material-symbols-outlined text-[16px] ${refreshingList ? 'animate-spin' : ''}`}>sync</span>
-                                {refreshingList ? 'ATUALIZANDO...' : 'ATT LISTA'}
-                            </button>
-                        )}
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {/* Bulk Actions */}
+                            {bulkSelected.size > 0 && (
+                                <div className="flex items-center gap-2 mr-2">
+                                    <span className="text-[10px] font-mono text-white bg-white/10 px-2 py-1 rounded">{bulkSelected.size} selecionado{bulkSelected.size > 1 ? 's' : ''}</span>
+                                    <button
+                                        onClick={handleBulkApprove}
+                                        disabled={submittingApproval}
+                                        className="text-[10px] font-mono text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 rounded-lg hover:bg-emerald-500/20 transition-colors flex items-center gap-1 disabled:opacity-50"
+                                    >
+                                        <span className="material-symbols-outlined text-[14px]">done_all</span>
+                                        APROVAR LOTE
+                                    </button>
+                                    <button
+                                        onClick={handleBulkReject}
+                                        className="text-[10px] font-mono text-red-400 border border-red-500/30 bg-red-500/10 px-3 py-1.5 rounded-lg hover:bg-red-500/20 transition-colors flex items-center gap-1"
+                                    >
+                                        <span className="material-symbols-outlined text-[14px]">delete_sweep</span>
+                                        REJEITAR
+                                    </button>
+                                    <button onClick={() => setBulkSelected(new Set())} className="text-slate-500 hover:text-white transition-colors">
+                                        <span className="material-symbols-outlined text-[14px]">close</span>
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Sort Dropdown */}
+                            {pendingVideos.length > 1 && (
+                                <select
+                                    value={approvalSort}
+                                    onChange={(e) => setApprovalSort(e.target.value as any)}
+                                    className="text-[10px] font-mono bg-black/40 border border-white/10 text-slate-400 rounded-lg px-2 py-1.5 focus:outline-none focus:border-cyan-500/50"
+                                >
+                                    <option value="newest">Mais recente</option>
+                                    <option value="oldest">Mais antigo</option>
+                                    <option value="duration">Maior duração</option>
+                                    <option value="streamer">Streamer A-Z</option>
+                                </select>
+                            )}
+
+                            {pendingVideos.length > 0 && (
+                                <button
+                                    onClick={() => fetchPendingVideos(true)}
+                                    disabled={refreshingList}
+                                    className="text-xs font-mono text-cyan-400 hover:text-white border border-cyan-400/30 hover:border-cyan-400 bg-cyan-400/5 px-4 py-2 rounded-lg flex items-center gap-2 transition-all hover:bg-cyan-400/20 disabled:opacity-50"
+                                >
+                                    <span className={`material-symbols-outlined text-[16px] ${refreshingList ? 'animate-spin' : ''}`}>sync</span>
+                                    {refreshingList ? 'ATUALIZANDO...' : 'ATT LISTA'}
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Loading State */}
@@ -1523,16 +1842,52 @@ export default function ClipperPage() {
                         </div>
                     ) : pendingVideos.length === 0 ? (
                         <div className="bg-black/40 border border-emerald-500/10 rounded-2xl p-12 flex flex-col items-center justify-center text-center">
-                            <span className="material-symbols-outlined text-5xl text-emerald-500/20 mb-4 animate-pulse">check_circle</span>
+                            <div className="w-20 h-20 rounded-full bg-emerald-500/5 border border-emerald-500/20 flex items-center justify-center mb-4">
+                                <span className="material-symbols-outlined text-4xl text-emerald-500/30 animate-pulse">check_circle</span>
+                            </div>
                             <h3 className="text-emerald-400 font-mono text-sm uppercase tracking-[0.2em] mb-2">Fila Vazia</h3>
-                            <p className="text-slate-500 text-xs">O Clipper ainda está processando os próximos recortes na esteira.</p>
+                            <p className="text-slate-500 text-xs max-w-md">O Clipper ainda está processando os próximos recortes na esteira. Vídeos finalizados aparecerão aqui para revisão.</p>
+                            <button onClick={() => setActiveTab('queue')} className="mt-4 text-xs font-mono text-cyan-400 border border-cyan-500/30 px-4 py-2 rounded-lg hover:bg-cyan-500/10 transition-colors flex items-center gap-2">
+                                <span className="material-symbols-outlined text-sm">movie_filter</span>
+                                VER ESTEIRA
+                            </button>
                         </div>
                     ) : (
+                        <>
+                        {/* Select all toggle */}
+                        {sortedPendingVideos.length > 1 && (
+                            <div className="flex items-center gap-2 mb-4">
+                                <button
+                                    onClick={() => {
+                                        if (bulkSelected.size === sortedPendingVideos.length) {
+                                            setBulkSelected(new Set());
+                                        } else {
+                                            setBulkSelected(new Set(sortedPendingVideos.map(v => v.id)));
+                                        }
+                                    }}
+                                    className="text-[10px] font-mono text-slate-400 border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/5 hover:text-white transition-colors flex items-center gap-1.5"
+                                >
+                                    <span className="material-symbols-outlined text-[14px]">
+                                        {bulkSelected.size === sortedPendingVideos.length ? 'deselect' : 'select_all'}
+                                    </span>
+                                    {bulkSelected.size === sortedPendingVideos.length ? 'DESMARCAR TODOS' : 'SELECIONAR TODOS'}
+                                </button>
+                            </div>
+                        )}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {pendingVideos.map((video) => (
-                                <div key={video.id} className="glass-card overflow-hidden group hover:border-emerald-500/30 transition-colors flex flex-col">
+                            {sortedPendingVideos.map((video) => (
+                                <div key={video.id} className={`glass-card overflow-hidden group hover:border-emerald-500/30 transition-colors flex flex-col ${bulkSelected.has(video.id) ? 'ring-2 ring-emerald-500/50 border-emerald-500/30' : ''}`}>
+                                    {/* Bulk Select Checkbox */}
+                                    <div className="absolute top-2 left-2 z-30">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); toggleBulkSelect(video.id); }}
+                                            className={`w-6 h-6 rounded border flex items-center justify-center transition-all ${bulkSelected.has(video.id) ? 'bg-emerald-500 border-emerald-500 text-black' : 'bg-black/60 border-white/20 text-transparent hover:border-white/40 hover:text-white/30'}`}
+                                        >
+                                            <span className="material-symbols-outlined text-[14px]">check</span>
+                                        </button>
+                                    </div>
                                     {/* Video Preview */}
-                                    <div className="relative w-full aspect-[9/16] max-h-[400px] bg-black border-b border-white/5 overflow-hidden flex items-center justify-center">
+                                    <div className="relative w-full aspect-[9/16] max-h-[300px] md:max-h-[400px] bg-black border-b border-white/5 overflow-hidden flex items-center justify-center">
                                         <span className="material-symbols-outlined text-white/5 text-6xl">play_circle</span>
                                         <video
                                             src={`${API}/exports/${video.video_path.split('/').pop()}`}
@@ -1728,6 +2083,7 @@ export default function ClipperPage() {
                                 </div>
                             ))}
                         </div>
+                        </>
                     )}
                 </div>
             )}
@@ -1806,7 +2162,7 @@ export default function ClipperPage() {
             {/* Modal Aprovação de Vídeo */}
             {showApprovalModal && selectedVideo && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div className="bg-slate-900 border border-emerald-500/30 p-6 max-w-md w-full shadow-2xl relative overflow-hidden rounded-xl">
+                    <div className="bg-slate-900 border border-emerald-500/30 p-4 md:p-6 max-w-md w-full shadow-2xl relative overflow-hidden rounded-xl max-h-[90vh] overflow-y-auto">
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-emerald-900"></div>
                         <div className="mb-6">
                             <h3 className="text-xl font-bold text-white font-display mb-1 flex items-center gap-2">
@@ -1857,7 +2213,7 @@ export default function ClipperPage() {
                                                 }`}
                                             >
                                                 {p.avatar_url ? (
-                                                    <img src={p.avatar_url} alt={p.username} className="w-6 h-6 rounded-full" />
+                                                    <img src={p.avatar_url} alt={p.username} className="w-6 h-6 rounded-full" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                                 ) : (
                                                     <span className="material-symbols-outlined text-[20px]">account_circle</span>
                                                 )}
@@ -1878,7 +2234,7 @@ export default function ClipperPage() {
                                 <label className="text-[10px] uppercase font-mono text-slate-500 tracking-wider mb-2 block">
                                     Agendamento
                                 </label>
-                                <div className="grid grid-cols-3 gap-2">
+                                <div className="grid grid-cols-3 gap-1.5 md:gap-2">
                                     {([
                                         { mode: 'smart' as const, icon: 'auto_awesome', label: 'Smart Queue', desc: 'Automático' },
                                         { mode: 'specific' as const, icon: 'calendar_month', label: 'Data Exata', desc: 'Escolher dia/hora' },
@@ -1887,7 +2243,7 @@ export default function ClipperPage() {
                                         <button
                                             key={opt.mode}
                                             onClick={() => setPostType(opt.mode as any)}
-                                            className={`flex flex-col items-center gap-1 p-3 rounded-lg border text-center transition-all ${
+                                            className={`flex flex-col items-center gap-0.5 md:gap-1 p-2 md:p-3 rounded-lg border text-center transition-all ${
                                                 postType === opt.mode
                                                     ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400'
                                                     : 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20'
@@ -1918,13 +2274,13 @@ export default function ClipperPage() {
                                                 type="date"
                                                 value={selectedDate}
                                                 onChange={(e) => setSelectedDate(e.target.value)}
-                                                min={new Date().toISOString().split('T')[0]}
+                                                min={(() => { const t = new Date(); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; })()}
                                                 className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono focus:border-emerald-500/50 focus:outline-none [color-scheme:dark]"
                                             />
                                         </div>
                                         <div>
                                             <label className="text-[10px] uppercase font-mono text-slate-500 tracking-wider mb-1 block">Horario</label>
-                                            <div className="grid grid-cols-4 gap-1.5">
+                                            <div className="grid grid-cols-4 gap-1 md:gap-1.5">
                                                 {[
                                                     { t: '09:00', label: '9h' },
                                                     { t: '12:00', label: '12h' },
@@ -1989,11 +2345,16 @@ export default function ClipperPage() {
                                 className="px-6 py-2 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 border border-emerald-500/50 hover:border-emerald-400 rounded text-sm font-bold font-mono transition-all disabled:opacity-50 flex items-center gap-2"
                             >
                                 {submittingApproval ? (
-                                    <span className="material-symbols-outlined animate-spin text-[18px]">autorenew</span>
+                                    <>
+                                        <span className="material-symbols-outlined animate-spin text-[18px]">autorenew</span>
+                                        APROVANDO...
+                                    </>
                                 ) : (
-                                    <span className="material-symbols-outlined text-[18px]">send</span>
+                                    <>
+                                        <span className="material-symbols-outlined text-[18px]">send</span>
+                                        APROVAR
+                                    </>
                                 )}
-                                APROVAR
                             </button>
                         </div>
                     </div>

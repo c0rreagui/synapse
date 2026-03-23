@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { apiClient } from '../lib/api';
 import { ScheduleEvent, TikTokProfile } from '../types';
 import { getSavedProfiles, SavedProfile } from '../../services/profileService';
@@ -84,6 +84,7 @@ function generateCalendarDays(year: number, month: number, eventsMap: Map<string
 // ─── Status Colors ─────────────────────────────────────────
 const STATUS_CRYSTAL: Record<string, { color: string; label: string }> = {
     pending: { color: '#f59e0b', label: 'Pendente' },
+    queued: { color: '#38bdf8', label: 'Na Fila' },
     ready: { color: '#22d3ee', label: 'Pronto' },
     processing: { color: '#a855f7', label: 'Processando' },
     completed: { color: '#22c55e', label: 'Publicado' },
@@ -147,6 +148,10 @@ export default function SchedulerPage() {
     useEffect(() => {
         fetchEvents();
         fetchProfiles();
+
+        // Auto-refresh: poll every 30s to reflect status changes (queued → failed, etc.)
+        const interval = setInterval(fetchEvents, 30000);
+        return () => clearInterval(interval);
     }, [fetchEvents, fetchProfiles]);
 
     // ─── Events Map ────────────────────────────────────────
@@ -182,6 +187,8 @@ export default function SchedulerPage() {
 
     // ─── Day Click → Open Modal ────────────────────────────
     const handleDayClick = (day: CalendarDay) => {
+        // Guard: não abrir se outro modal já estiver aberto
+        if (isVideosModalOpen || editingEvent) return;
         setSelectedDate(day.date);
         setIsVideosModalOpen(true);
     };
@@ -204,6 +211,17 @@ export default function SchedulerPage() {
         e.preventDefault();
         setDragOverDate(null);
         if (!draggedEvent) return;
+
+        // Verificar conflito: mesmo perfil já tem evento neste dia/hora
+        const dayKey = dateKey(day.date);
+        const existingForProfile = eventsMap.get(dayKey)?.filter(
+            ev => ev.profile_id === draggedEvent.profile_id && ev.id !== draggedEvent.id
+        ) || [];
+        if (existingForProfile.length >= 3) {
+            toast.error(`Perfil já tem ${existingForProfile.length} posts neste dia (limite: 3).`);
+            setDraggedEvent(null);
+            return;
+        }
 
         // Default to 12:00 of the target day
         const targetDate = new Date(day.date);
@@ -253,7 +271,11 @@ export default function SchedulerPage() {
         }
     };
 
+    const isSavingRef = useRef(false);
+
     const handleEditSave = async (eventId: string, data: any) => {
+        if (isSavingRef.current) return; // Prevenir double-save
+        isSavingRef.current = true;
         try {
             await apiClient.put(`/api/v1/scheduler/${eventId}`, data);
             toast.success('Evento atualizado');
@@ -262,6 +284,8 @@ export default function SchedulerPage() {
             await fetchEvents();
         } catch {
             toast.error('Erro ao atualizar evento');
+        } finally {
+            isSavingRef.current = false;
         }
     };
 
@@ -328,10 +352,12 @@ export default function SchedulerPage() {
 
                                     // Calculate Rate Limit (SYN-100)
                                     // A profile can only have 3 posts per day.
-                                    const maxEventsOnSingleProfile = cd.events.reduce((acc, ev) => {
-                                        acc[ev.profile_id] = (acc[ev.profile_id] || 0) + 1;
-                                        return acc;
-                                    }, {} as Record<string, number>);
+                                    const maxEventsOnSingleProfile = cd.events
+                                        .filter(ev => ev.status === 'pending' || ev.status === 'processing')
+                                        .reduce((acc, ev) => {
+                                            acc[ev.profile_id] = (acc[ev.profile_id] || 0) + 1;
+                                            return acc;
+                                        }, {} as Record<string, number>);
                                     const profileRateLimitReached = Object.values(maxEventsOnSingleProfile).some(count => count >= 3);
 
                                     return (

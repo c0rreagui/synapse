@@ -67,6 +67,8 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
             }
             setEvents(prev => prev.filter(e => e.id !== id));
             toast.success("Agendamento cancelado");
+            // Auto-refresh do servidor após exclusão
+            await fetchEvents();
             if (onUpdate) onUpdate();
         } catch (e) {
             toast.error("Erro ao cancelar agendamento");

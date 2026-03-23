@@ -1,0 +1,39 @@
+[Script Info]
+Title: Synapse Auto Subtitles
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Active,Inter Black,85,&H000B9EF5,&H000B9EF5,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+Style: Inactive,Inter Black,85,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,7,4,5,40,40,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:07.69,0:00:08.05,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Quê
+Dialogue: 0,0:00:09.38,0:00:09.46,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}que {\1c&H00FFFFFF}cê {\1c&H00FFFFFF}tirou
+Dialogue: 0,0:00:09.46,0:00:09.53,Active,,0,0,0,,{\1c&H00FFFFFF}que {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}cê {\1c&H00FFFFFF}tirou
+Dialogue: 0,0:00:09.53,0:00:09.77,Active,,0,0,0,,{\1c&H00FFFFFF}que {\1c&H00FFFFFF}cê {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}tirou
+Dialogue: 0,0:00:09.77,0:00:09.83,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}em {\1c&H00FFFFFF}mim {\1c&H00FFFFFF}Galaxy?
+Dialogue: 0,0:00:09.83,0:00:09.93,Active,,0,0,0,,{\1c&H00FFFFFF}em {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}mim {\1c&H00FFFFFF}Galaxy?
+Dialogue: 0,0:00:10.09,0:00:10.33,Active,,0,0,0,,{\1c&H00FFFFFF}em {\1c&H00FFFFFF}mim {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Galaxy?
+Dialogue: 0,0:00:10.92,0:00:11.27,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Ok {\1c&H00FFFFFF}eu {\1c&H00FFFFFF}queria
+Dialogue: 0,0:00:11.46,0:00:11.53,Active,,0,0,0,,{\1c&H00FFFFFF}Ok {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}eu {\1c&H00FFFFFF}queria
+Dialogue: 0,0:00:11.53,0:00:11.74,Active,,0,0,0,,{\1c&H00FFFFFF}Ok {\1c&H00FFFFFF}eu {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}queria
+Dialogue: 0,0:00:11.74,0:00:12.53,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}ter {\1c&H00FFFFFF}essas {\1c&H00FFFFFF}quefurava
+Dialogue: 0,0:00:12.53,0:00:12.69,Active,,0,0,0,,{\1c&H00FFFFFF}ter {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}essas {\1c&H00FFFFFF}quefurava
+Dialogue: 0,0:00:12.69,0:00:13.25,Active,,0,0,0,,{\1c&H00FFFFFF}ter {\1c&H00FFFFFF}essas {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}quefurava
+Dialogue: 0,0:00:13.53,0:00:13.90,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}O {\1c&H00FFFFFF}que
+Dialogue: 0,0:00:13.90,0:00:14.83,Active,,0,0,0,,{\1c&H00FFFFFF}O {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}que
+Dialogue: 0,0:00:17.21,0:00:17.30,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}tá {\1c&H00FFFFFF}galera? {\1c&H00FFFFFF}Magos
+Dialogue: 0,0:00:17.46,0:00:17.46,Active,,0,0,0,,{\1c&H00FFFFFF}tá {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}galera? {\1c&H00FFFFFF}Magos
+Dialogue: 0,0:00:17.62,0:00:17.87,Active,,0,0,0,,{\1c&H00FFFFFF}tá {\1c&H00FFFFFF}galera? {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Magos
+Dialogue: 0,0:00:17.87,0:00:17.92,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}de {\1c&H00FFFFFF}enxofre?
+Dialogue: 0,0:00:17.92,0:00:18.55,Active,,0,0,0,,{\1c&H00FFFFFF}de {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}enxofre?
+Dialogue: 0,0:00:20.33,0:00:20.69,Active,,0,0,0,,{\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}Caralho {\1c&H00FFFFFF}mano {\1c&H00FFFFFF}bonito!
+Dialogue: 0,0:00:20.73,0:00:20.76,Active,,0,0,0,,{\1c&H00FFFFFF}Caralho {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}mano {\1c&H00FFFFFF}bonito!
+Dialogue: 0,0:00:20.96,0:00:21.00,Active,,0,0,0,,{\1c&H00FFFFFF}Caralho {\1c&H00FFFFFF}mano {\1c&H000B9EF5}{\fscx115\fscy115\t(0,80,\fscx100\fscy100)}bonito!
