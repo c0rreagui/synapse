@@ -228,6 +228,13 @@ async def download_job_clips(job_id: int) -> Dict[str, Any]:
         _fail_job(job_id, "Nenhuma URL de clipe no job.")
         return {"success": False, "local_paths": [], "total_duration": 0, "errors": ["Sem URLs."]}
 
+    # Safety net: limitar clips por job para evitar download de centenas de clips
+    MAX_CLIPS = 6
+    if len(clip_urls) > MAX_CLIPS:
+        logger.warning(f"Job #{job_id}: {len(clip_urls)} clips excede limite de {MAX_CLIPS}. Truncando.")
+        clip_urls = clip_urls[:MAX_CLIPS]
+        clip_metadata = clip_metadata[:MAX_CLIPS]
+
     local_paths = []
     total_duration = 0.0
     errors = []

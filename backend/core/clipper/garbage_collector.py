@@ -33,6 +33,9 @@ ERRORS_DIR = "/app/errors"
 MONITOR_DIR = "/app/MONITOR/runs"
 POSTED_RETENTION_HOURS = 24  # Manter vídeo 24h após postagem confirmada
 DEBUG_RETENTION_DAYS = 7     # Manter traces/screenshots por 7 dias
+MAX_CLIPS_DIR_GB = 5         # Limite máximo de espaço para clips brutos
+AUDIO_TEMP_DIR = "/app/data/clipper/audio_temp"
+SUBS_DIR = "/app/data/clipper/subs"
 
 
 def run_gc():
@@ -45,6 +48,10 @@ def run_gc():
     freed += _clean_posted_videos()
     freed += _clean_old_debug_files()
     freed += _clean_orphan_exports()
+    freed += _clean_temp_files()
+    freed += _enforce_clips_size_limit()
+
+    _clean_old_failed_jobs()
 
     freed_mb = freed / (1024 * 1024)
     logger.info(f"🧹 GC finalizado — {freed_mb:.1f} MB liberados")
@@ -238,3 +245,109 @@ def _clean_orphan_exports() -> int:
             continue
 
     return freed
+
+
+def _clean_temp_files() -> int:
+    """Remove arquivos temporários de áudio e legendas antigas."""
+    freed = 0
+
+    for temp_dir in [AUDIO_TEMP_DIR, SUBS_DIR]:
+        if not os.path.isdir(temp_dir):
+            continue
+        cutoff_ts = (datetime.now() - timedelta(hours=6)).timestamp()
+        for f in os.listdir(temp_dir):
+            fpath = os.path.join(temp_dir, f)
+            try:
+                if os.path.isfile(fpath) and os.path.getmtime(fpath) < cutoff_ts:
+                    freed += _remove_file(fpath)
+            except OSError:
+                continue
+
+    if freed:
+        logger.info(f"  🎵 Temp files: {freed / 1024 / 1024:.1f} MB removidos")
+    return freed
+
+
+def _enforce_clips_size_limit() -> int:
+    """
+    Se o diretório de clips ultrapassar MAX_CLIPS_DIR_GB, remove os clips
+    mais antigos (por mtime) de jobs NÃO-ativos até voltar abaixo do limite.
+    Isso evita que o disco encha quando um alvo tem centenas de clips.
+    """
+    freed = 0
+    if not os.path.isdir(CLIPS_DIR):
+        return 0
+
+    max_bytes = MAX_CLIPS_DIR_GB * 1024 * 1024 * 1024
+
+    # Calcular tamanho atual
+    all_clips = []
+    total_size = 0
+    for f in os.listdir(CLIPS_DIR):
+        fpath = os.path.join(CLIPS_DIR, f)
+        if not os.path.isfile(fpath):
+            continue
+        try:
+            size = os.path.getsize(fpath)
+            mtime = os.path.getmtime(fpath)
+            all_clips.append((fpath, size, mtime, f))
+            total_size += size
+        except OSError:
+            continue
+
+    if total_size <= max_bytes:
+        return 0
+
+    logger.warning(f"  ⚠️ Clips dir: {total_size / 1024 / 1024 / 1024:.1f} GB (limite: {MAX_CLIPS_DIR_GB} GB)")
+
+    # Buscar jobs ativos para não deletar seus clips
+    active_job_ids = set()
+    with safe_session() as db:
+        active_jobs = db.query(ClipJob.id).filter(
+            ClipJob.status.in_(["pending", "downloading", "transcribing", "editing", "stitching", "waiting_clips"])
+        ).all()
+        active_job_ids = {j.id for j in active_jobs}
+
+    # Ordenar por mtime (mais antigos primeiro) e remover até ficar abaixo do limite
+    all_clips.sort(key=lambda x: x[2])
+    removed_count = 0
+
+    for fpath, size, mtime, filename in all_clips:
+        if total_size <= max_bytes:
+            break
+
+        # Extrair job ID e pular se ativo
+        try:
+            job_id = int(filename.split("_clip")[0].replace("job", ""))
+        except (ValueError, IndexError):
+            continue
+
+        if job_id in active_job_ids:
+            continue
+
+        freed += _remove_file(fpath)
+        total_size -= size
+        removed_count += 1
+
+    if removed_count:
+        logger.info(f"  📏 Limite de espaço: {removed_count} clips antigos removidos ({freed / 1024 / 1024:.1f} MB)")
+    return freed
+
+
+def _clean_old_failed_jobs():
+    """
+    Remove registros de ClipJobs falhados com mais de 24h do banco.
+    Isso mantém a contagem da esteira limpa.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    with safe_session() as db:
+        old_failed = db.query(ClipJob).filter(
+            ClipJob.status == "failed",
+            ClipJob.created_at < cutoff,
+        ).all()
+        if old_failed:
+            count = len(old_failed)
+            for job in old_failed:
+                db.delete(job)
+            db.commit()
+            logger.info(f"  🗂️ {count} jobs falhados antigos removidos do banco")

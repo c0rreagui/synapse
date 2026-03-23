@@ -528,3 +528,21 @@ async def remote_session_stop():
     """Stop the active remote browser session."""
     from core.remote_session import stop_session
     return stop_session()
+
+
+# ─── Session Keepalive ────────────────────────────────────────────────
+
+@router.post("/keepalive")
+async def keepalive_all():
+    """Dispara keepalive de todas as sessões ativas (refresh cookies via HTTP)."""
+    from core.session_keepalive import keepalive_all_profiles
+    result = await keepalive_all_profiles()
+    return result
+
+
+@router.post("/keepalive/{profile_id}")
+async def keepalive_single(profile_id: str):
+    """Dispara keepalive de um perfil específico."""
+    from core.session_keepalive import keepalive_profile
+    result = await keepalive_profile(profile_id)
+    return result

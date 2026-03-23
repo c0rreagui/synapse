@@ -112,11 +112,11 @@ async def clipper_scheduler_loop(poll_interval: int = 60):
     - Sharding temporal entre targets
     - Monitoramento de rate limit
     - Backoff adaptativo quando próximo do limite
-    - Garbage collector periódico (a cada 6h)
+    - Garbage collector periódico (a cada 1h)
     """
     logger.info(f"Clipper Scheduler iniciado (SYN-128). Poll: {poll_interval}s")
 
-    gc_interval = 6 * 3600  # 6 horas
+    gc_interval = 1 * 3600  # 1 hora
     last_gc = 0.0
 
     while True:

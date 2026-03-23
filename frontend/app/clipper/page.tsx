@@ -121,7 +121,7 @@ interface PendingVideo {
 
 type Tab = 'targets' | 'queue' | 'armies' | 'approval';
 
-function SortableClip({ clip }: { clip: ClipDetail }) {
+function SortableClip({ clip, onRemove, canRemove }: { clip: ClipDetail; onRemove?: (index: number, title: string) => void; canRemove?: boolean }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: clip.index });
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -133,11 +133,9 @@ function SortableClip({ clip }: { clip: ClipDetail }) {
         <div
             ref={setNodeRef}
             style={style}
-            {...attributes}
-            {...listeners}
-            className="flex items-center gap-2 bg-black/40 border border-white/10 hover:border-cyan-500/30 rounded p-2 cursor-grab active:cursor-grabbing transition-colors mb-1.5"
+            className="flex items-center gap-2 bg-black/40 border border-white/10 hover:border-cyan-500/30 rounded p-2 transition-colors mb-1.5"
         >
-            <span className="material-symbols-outlined text-slate-500 text-[14px]">drag_indicator</span>
+            <span {...attributes} {...listeners} className="material-symbols-outlined text-slate-500 text-[14px] cursor-grab active:cursor-grabbing">drag_indicator</span>
             <div className="flex-1 min-w-0">
                 <p className="text-[10px] text-white font-mono truncate">{clip.title || `Clip #${clip.index + 1}`}</p>
                 <div className="flex gap-2 mt-0.5">
@@ -151,11 +149,22 @@ function SortableClip({ clip }: { clip: ClipDetail }) {
                     </span>
                 </div>
             </div>
+            {canRemove && onRemove && (
+                <button
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); onRemove(clip.index, clip.title || `Clip #${clip.index + 1}`); }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    className="text-red-400/50 hover:text-red-400 transition-colors p-1.5 z-10"
+                    title="Remover este clip e reprocessar"
+                >
+                    <span className="material-symbols-outlined text-[16px]">close</span>
+                </button>
+            )}
         </div>
     );
 }
 
-function ClipReorderList({ initialClips, onReorder }: { initialClips: ClipDetail[], onReorder: (newOrder: number[]) => Promise<void> }) {
+function ClipReorderList({ initialClips, onReorder, onRemoveClip }: { initialClips: ClipDetail[], onReorder: (newOrder: number[]) => Promise<void>, onRemoveClip?: (clipIndex: number, clipTitle: string) => void }) {
     const [clips, setClips] = useState(initialClips);
     const [isSaving, setIsSaving] = useState(false);
     
@@ -200,7 +209,7 @@ function ClipReorderList({ initialClips, onReorder }: { initialClips: ClipDetail
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                     <SortableContext items={clips.map(c => c.index)} strategy={verticalListSortingStrategy}>
                         {clips.map(clip => (
-                            <SortableClip key={clip.index} clip={clip} />
+                            <SortableClip key={clip.index} clip={clip} onRemove={onRemoveClip} canRemove={clips.length > 1} />
                         ))}
                     </SortableContext>
                 </DndContext>
@@ -552,6 +561,29 @@ export default function ClipperPage() {
         }
     };
 
+    const handleReprocess = async (videoId: number) => {
+        const toastId = toast.loading('Enviando para reprocessamento...');
+        try {
+            const response = await apiClient.post(`/api/v1/factory/reprocess/${videoId}`);
+            await fetchPendingVideos();
+            toast.success((response as any).data?.message || 'Vídeo enviado para reprocessamento!', { id: toastId });
+        } catch (error: any) {
+            toast.error(error?.data?.detail || 'Erro ao reprocessar', { id: toastId });
+        }
+    };
+
+    const handleRemoveClip = async (videoId: number, clipIndex: number, clipTitle: string) => {
+        if (!confirm(`Remover clip "${clipTitle}" e reprocessar o vídeo?`)) return;
+        const toastId = toast.loading(`Removendo clip "${clipTitle}"...`);
+        try {
+            const response = await apiClient.post(`/api/v1/factory/remove-clip/${videoId}`, { clip_index: clipIndex });
+            await fetchPendingVideos();
+            toast.success((response as any).data?.message || 'Clip removido!', { id: toastId });
+        } catch (error: any) {
+            toast.error(error?.data?.detail || 'Erro ao remover clip', { id: toastId });
+        }
+    };
+
     // ── Caption Generation & Save ──
     const handleGenerateCaption = async (videoId: number) => {
         setGeneratingCaption(videoId);
@@ -856,8 +888,8 @@ export default function ClipperPage() {
                 >
                     <span className="material-symbols-outlined text-[18px]">movie_filter</span>
                     <span className="hidden md:inline">Esteira</span>
-                    {items.filter(job => job.status !== 'completed').length > 0 && (
-                        <span className="bg-amber-500/20 text-amber-400 text-[10px] px-1.5 py-0.5 rounded-md">{items.filter(job => job.status !== 'completed').length}</span>
+                    {items.filter(job => !['completed', 'failed'].includes(job.status)).length > 0 && (
+                        <span className="bg-amber-500/20 text-amber-400 text-[10px] px-1.5 py-0.5 rounded-md">{items.filter(job => !['completed', 'failed'].includes(job.status)).length}</span>
                     )}
                     <span className="text-[8px] text-slate-600 ml-1 hidden lg:inline">⌥2</span>
                 </button>
@@ -1343,9 +1375,31 @@ export default function ClipperPage() {
                                         PIPELINE DE RENDERIZAÇÃO
                                     </h3>
                                 </div>
-                                <span className="bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[10px] font-mono px-3 py-1 rounded">
-                                    {items.filter(job => job.status !== 'completed' && job.status !== 'failed').length} JOB{items.filter(job => job.status !== 'completed' && job.status !== 'failed').length !== 1 ? 'S' : ''} ATIVO{items.filter(job => job.status !== 'completed' && job.status !== 'failed').length !== 1 ? 'S' : ''}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    <span className="bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[10px] font-mono px-3 py-1 rounded">
+                                        {items.filter(job => job.status !== 'completed' && job.status !== 'failed').length} JOB{items.filter(job => job.status !== 'completed' && job.status !== 'failed').length !== 1 ? 'S' : ''} ATIVO{items.filter(job => job.status !== 'completed' && job.status !== 'failed').length !== 1 ? 'S' : ''}
+                                    </span>
+                                    {items.filter(job => job.status !== 'completed').length > 0 && (
+                                        <button
+                                            onClick={async () => {
+                                                if (!window.confirm('Tem certeza? Isso vai remover TODOS os jobs (exceto concluídos). Jobs em processamento serão cancelados.')) return;
+                                                try {
+                                                    const res = await apiClient.post<{message: string; count: number}>('/api/clipper/jobs/cancel-all');
+                                                    toast.success(res?.message || 'Fila limpa!');
+                                                    fetchPending();
+                                                } catch (err: any) {
+                                                    console.error('cancel-all error:', err);
+                                                    toast.error(err?.data?.detail || err?.message || 'Erro ao limpar fila');
+                                                }
+                                            }}
+                                            className="text-[9px] font-mono px-2 py-1 border border-red-500/30 text-red-400 rounded bg-red-500/10 hover:bg-red-500/20 flex items-center gap-1 transition-colors"
+                                            title="Limpar toda a fila"
+                                        >
+                                            <span className="material-symbols-outlined text-[11px]">delete_sweep</span>
+                                            LIMPAR
+                                        </button>
+                                    )}
+                                </div>
                             </div>
 
                             {/* ═══ Mini Status Summary ═══ */}
@@ -1520,9 +1574,9 @@ export default function ClipperPage() {
                                                         <span>Concluído: <span className="text-emerald-700">{new Date(job.completed_at).toLocaleString('pt-BR')}</span></span>
                                                     )}
                                                 </div>
-                                                {job.status === 'pending' && (
+                                                {job.status !== 'completed' && (
                                                     <div className="flex gap-1.5">
-                                                        {!(job.priority && job.priority >= 1) && (
+                                                        {job.status === 'pending' && !(job.priority && job.priority >= 1) && (
                                                         <button
                                                             onClick={async (e) => {
                                                                 e.stopPropagation();
@@ -1544,18 +1598,19 @@ export default function ClipperPage() {
                                                         <button
                                                             onClick={async (e) => {
                                                                 e.stopPropagation();
+                                                                if (!confirm(`Remover Job #${job.id}?`)) return;
                                                                 try {
                                                                     await apiClient.post(`/api/clipper/jobs/${job.id}/cancel`);
-                                                                    toast.info(`Job #${job.id} cancelado`);
+                                                                    toast.info(`Job #${job.id} removido`);
                                                                     fetchPending();
                                                                 } catch (err: any) {
-                                                                    toast.error(err?.data?.detail || 'Erro ao cancelar');
+                                                                    toast.error(err?.data?.detail || 'Erro ao remover');
                                                                 }
                                                             }}
                                                             className="text-[9px] font-mono px-2 py-1 border border-red-500/30 text-red-400 rounded bg-red-500/10 hover:bg-red-500/20 flex items-center gap-1 transition-colors"
-                                                            title="Cancelar este job"
+                                                            title="Remover este job"
                                                         >
-                                                            <span className="material-symbols-outlined text-[11px]">close</span>
+                                                            <span className="material-symbols-outlined text-[11px]">delete</span>
                                                         </button>
                                                     </div>
                                                 )}
@@ -2053,10 +2108,11 @@ export default function ClipperPage() {
                                         </div>
 
                                         {/* Reorder Clipes UI */}
-                                        {video.clips && video.clips.length > 1 && (
-                                            <ClipReorderList 
-                                                initialClips={video.clips} 
+                                        {video.clips && video.clips.length > 0 && (
+                                            <ClipReorderList
+                                                initialClips={video.clips}
                                                 onReorder={async (newOrder) => await handleReorderClips(video.id, newOrder)}
+                                                onRemoveClip={(clipIndex, clipTitle) => handleRemoveClip(video.id, clipIndex, clipTitle)}
                                             />
                                         )}
 
@@ -2069,6 +2125,13 @@ export default function ClipperPage() {
                                             >
                                                 <span className="material-symbols-outlined text-[16px]">check_circle</span>
                                                 APROVAR
+                                            </button>
+                                            <button
+                                                onClick={() => handleReprocess(video.id)}
+                                                className="bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 hover:text-amber-300 text-xs py-2.5 px-4 rounded-lg flex justify-center items-center transition-colors"
+                                                title="Reprocessar vídeo (re-download + re-edição)"
+                                            >
+                                                <span className="material-symbols-outlined text-[18px]">refresh</span>
                                             </button>
                                             <button
                                                 onClick={() => handleReject(video.id)}

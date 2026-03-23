@@ -106,6 +106,7 @@ async def _process_clip_job_inner(ctx, job_id: int):
     channel_name = None
     target_auto_approve = False
     target_id = None
+    target_type = "channel"
     with safe_session() as db:
         job_obj = db.query(ClipJob).filter(ClipJob.id == job_id).first()
         if job_obj and job_obj.target_id:
@@ -113,7 +114,13 @@ async def _process_clip_job_inner(ctx, job_id: int):
             target = db.query(TwitchTarget).filter(TwitchTarget.id == job_obj.target_id).first()
             if target:
                 channel_name = target.channel_name
+                target_type = getattr(target, 'target_type', 'channel') or 'channel'
                 target_auto_approve = getattr(target, 'auto_approve', False) or False
+                # Para targets de categoria, extrair o nome do streamer real do metadata
+                if target_type == "category" and job_obj.clip_metadata:
+                    real_streamer = job_obj.clip_metadata[0].get("broadcaster_name")
+                    if real_streamer:
+                        channel_name = real_streamer
 
     # Filtrar apenas pares clip+transcricao com palavras (B05/B25 fix)
     valid_pairs = []
@@ -290,12 +297,30 @@ async def _process_clip_job_inner(ctx, job_id: int):
     output_path = stitch_res.get("output_path")
     duration = stitch_res.get("duration", 0)
 
-    # Verify actual duration via ffprobe if result duration seems unreliable (e.g. loop-tail fallback)
-    if output_path and os.path.exists(output_path) and duration <= 0:
+    # Verify actual duration via ffprobe (result duration can be wrong after fallback)
+    if output_path and os.path.exists(output_path):
         try:
-            duration = await _get_duration(output_path)
+            real_dur = await _get_duration(output_path)
+            if abs(real_dur - duration) > 5:
+                logger.warning(f"Job #{job_id}: Duração reportada ({duration:.1f}s) difere da real ({real_dur:.1f}s). Usando real.")
+            duration = real_dur
         except Exception:
             pass
+
+    # Sanity check: vídeo com mais de 5 min é claramente um bug no stitch/loop
+    MAX_OUTPUT_DURATION = 300  # 5 minutos
+    if duration > MAX_OUTPUT_DURATION:
+        logger.error(
+            f"Job #{job_id}: Vídeo com {duration:.0f}s (>{MAX_OUTPUT_DURATION}s). "
+            f"Bug no stitch/loop-tail. Descartando."
+        )
+        if output_path and os.path.exists(output_path):
+            try:
+                os.remove(output_path)
+            except OSError:
+                pass
+        _fail_job_db(job_id, f"Output duration {duration:.0f}s exceeds max {MAX_OUTPUT_DURATION}s", "Bug: vídeo muito longo")
+        return
 
     with safe_session() as db:
         job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
@@ -386,18 +411,26 @@ async def _process_clip_job_inner(ctx, job_id: int):
                     context_lines.append(f"Títulos dos clipes: {' | '.join(clip_titles)}")
                 video_context = "\n".join(context_lines)
 
-                system_prompt = f"""Você é a LARI, copywriter de 23 anos que vive de TikTok em São Paulo.
-Sua especialidade é criar ganchos que prendem nos primeiros 0.5s de leitura.
+                niche_tag = game_name.lower().replace(' ', '').replace(':', '') if game_name else 'twitch'
+                system_prompt = f"""Você é copywriter de TikTok especialista em clips de Twitch BR.
+Sua missão: criar UMA frase-gancho que faz a pessoa parar o scroll.
 
-ESTILO: Frases curtas e cortantes. Gírias BR atuais. Caps lock estratégico em 1-2 palavras.
-Máximo 2-3 linhas. Pode usar 1-2 emoji no máximo.
+ESTILO:
+- Frase curta e cortante (max 150 chars)
+- PT-BR coloquial, gírias atuais
+- Caps lock em 1-2 palavras chave para impacto
+- Se houve reação forte (grito, riso, susto, xingo), DESTAQUE isso
+- Mencione o streamer pelo nome naturalmente
+- 1-2 emoji no máximo (ou nenhum)
 
-REGRAS:
-- A caption DEVE refletir o conteúdo REAL (use a transcrição e títulos dos clipes)
-- NUNCA invente eventos ou falas
-- NÃO comece com "Neste vídeo..." ou "Veja só..."
-- Responda APENAS em JSON: {{"caption": "...", "hashtags": ["#tag1", "#tag2"]}}
-- Gere de 3 a 5 hashtags (MÁXIMO 5): mix de alcance (#fyp #gaming) + nicho (#{game_name.lower().replace(' ', '').replace(':', '') if game_name else 'twitch'})"""
+PROIBIDO:
+- Inventar falas ou eventos que não existem na transcrição
+- Começar com "Neste vídeo...", "Veja só...", "Olha o que..."
+- Usar prefixos como "hot take:", "opinião impopular:"
+- Aspas ao redor da caption inteira
+
+Responda APENAS em JSON: {{"caption": "...", "hashtags": ["#tag1", "#tag2"]}}
+Gere 3-5 hashtags: mix de alcance (#fyp #viral) + nicho (#{niche_tag})"""
 
                 prompt = f"""[CONTEXTO DO VÍDEO]
 {video_context}
@@ -409,7 +442,7 @@ REGRAS:
                 result = oracle_client.generate_content(
                     prompt_input=full_prompt,
                     model="llama-3.3-70b-versatile",
-                    temperature=0.85,
+                    temperature=0.7,
                 )
 
                 import json, re

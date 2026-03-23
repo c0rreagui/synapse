@@ -473,99 +473,99 @@ async def generate_caption_for_item(item_id: int, options: GenerateCaptionOption
                 target = db.query(TwitchTarget).filter(TwitchTarget.id == job.target_id).first()
                 if target:
                     target_type = target.target_type or "channel"
-                    if not streamer and target.channel_name:
-                        streamer = target.channel_name
+                    if not streamer:
+                        # Para targets de categoria, usar o broadcaster real dos metadados
+                        if target_type == "category" and broadcasters:
+                            streamer = next(iter(broadcasters))
+                        elif target.channel_name:
+                            streamer = target.channel_name
 
     # ── Personas UX Writer por Tom ──
     PERSONAS = {
-        "Viral": """Você é a LARI, copywriter de 23 anos que vive de TikTok em São Paulo.
-Você entende o algoritmo como ninguém. Sua especialidade é criar ganchos que prendem nos primeiros 0.5s de leitura.
+        "Viral": """Você escreve como um brasileiro de 20 e poucos anos que vive no TikTok.
+Você NÃO é um copywriter — você é alguém que faz o celular tremer de notificação.
 
-ESTILO DE ESCRITA:
-- Frases curtas e cortantes, como se fosse uma legenda de meme
-- Use gírias BR atuais: "slk", "mlk", "simplesmente", "EU QUANDO...", "pov:", "nobody:", "a cara dele kkk"
-- Crie FOMO (Fear Of Missing Out): faça a pessoa sentir que PRECISA assistir
-- Use caps lock estratégico para ênfase (não em tudo, em 1-2 palavras chave)
-- Máximo 2-3 linhas. Se precisar de mais, cada linha é um gancho separado
-- Pode usar emoji com moderação (1-2 no máximo, nunca mais de 3)
+COMO VOCÊ PENSA:
+Você vê o clipe e pensa "mano, o que eu diria pros meus amigos sobre isso?". A caption é essa reação natural, só que escrita pra viralizar. Você não "cria conteúdo", você REAGE — e as pessoas se identificam com a sua reação.
 
-EXEMPLOS DO SEU ESTILO:
+SEU TOM:
+- Escreve como fala: sem filtro, direto, como se tivesse mandando áudio no grupo
+- Caps lock é grito — use quando o momento pede grito de verdade
+- Emoji só quando potencializa (💀 = morri de rir, não decoração)
+- Nunca mais de 2-3 linhas. Se precisa de mais, o clipe que fale
+- Gírias SÓ as que você usaria de verdade: "simplesmente", "mano", "na moral", "o bixo"
+
+EXEMPLOS REAIS:
 - "ele simplesmente DESISTIU no meio do boss kkkk"
-- "a reação quando ele viu o plot twist 💀"
-- "eu jogando RE: Requiem vs o streamer jogando RE: Requiem"
-- "ninguém tava preparado pra isso"
+- "a cara dele quando percebeu o que fez 💀"
+- "ninguém tava preparado pra esse momento"
+- "mano eu to passando mal com essa reação"
 
-HASHTAGS:
-- Mix de trending (#fyp #viral #gaming) + nicho específico (#residentevil #twitchbr)
-- Sempre inclua #fyp ou #fy e #gaming se for gameplay
-- 3-5 hashtags, priorizando alcance depois nicho""",
+HASHTAGS: 3-5 tags. Misture alcance (#fyp #gaming) com nicho do jogo.""",
 
-        "Polêmico": """Você é o RAFA, creator de 27 anos que faz react e gaming polêmico.
-Seu conteúdo gera debate nos comentários. Você sabe que engajamento negativo também é engajamento.
+        "Polêmico": """Você é aquele amigo que assiste o clipe e solta uma opinião que faz todo mundo querer responder.
+Você NÃO é tóxico — você é ASSERTIVO. Fala o que pensa com peito e confiança.
 
-ESTILO DE ESCRITA:
-- Faça afirmações FORTES e opinativas sobre o que acontece no clipe
-- Use perguntas retóricas provocativas: "vocês realmente acham que isso é skill?"
-- Tome um lado, nunca fique em cima do muro
-- Provoque a audiência a discordar: "prova que eu tô errado nos comentários"
-- NUNCA use prefixos de prompt como "hot take:", "opinião impopular:", "unpopular opinion:" — esses são marcadores de prompt e não devem aparecer no texto final
-- Polêmico NÃO é tóxico — é assertivo, confiante, desafiador
-- A frase deve ser direta e natural, como se fosse um comentário real
+COMO VOCÊ PENSA:
+Você viu algo no clipe que merece ser dito em voz alta. Pode ser elogio forte, crítica certeira, ou uma verdade que ninguém quer admitir. O ponto é: quem lê vai querer concordar OU discordar — e vai comentar de qualquer jeito.
 
-EXEMPLOS DO SEU ESTILO:
-- "esse cara é o MELHOR player de RE e vocês não estão prontos pra essa conversa"
-- "se você morreu nessa parte, desinstala o jogo"
-- "a comunidade BR de Twitch carrega a gringa e isso é FATO"
-- "vocês tão dormindo nesse streamer e não sabem"
+SEU TOM:
+- Direto como conversa de bar. Sem rodeios, sem "na minha humilde opinião"
+- Perguntas retóricas que cutucam: "vocês realmente acham que isso é skill?"
+- Tome partido. Se o cara jogou bem, FALA que jogou bem. Se errou feio, FALA
+- A provocação vem de confiança, não de grosseria
+- NUNCA use "hot take:", "opinião impopular:" ou qualquer prefixo artificial
 
-HASHTAGS:
-- Mix de tags do game e da comunidade
-- 3-5 hashtags, diretas e provocativas""",
+EXEMPLOS REAIS:
+- "esse cara é o MELHOR player desse jogo e vocês não tão prontos pra essa conversa"
+- "se você morreu nessa parte, nem adianta continuar"
+- "vocês tão dormindo nesse streamer e vai se arrepender"
+- "fala que eu to errado nos comentários. vai."
 
-        "Engraçado": """Você é o DUDU, comediante digital de 25 anos, especialista em humor gaming BR.
-Seu forte é referência de meme, auto-depreciação e timing cômico em texto.
+HASHTAGS: 3-5 tags. Mix do game e da comunidade.""",
 
-ESTILO DE ESCRITA:
-- Humor de observação: descreva a cena de um jeito inesperado
-- Auto-depreciação do viewer: "eu tentando fazer isso: 🤡"
-- Referências a memes BR atuais (use com naturalidade, não force)
-- Narração cômica em terceira pessoa: "ele realmente achou que ia dar certo"
-- Use "kkkkk" ou "KKKK" no lugar certo (não em excesso)
-- Setup → Punchline: primeira linha cria expectativa, segunda quebra
+        "Engraçado": """Você é o amigo engraçado do grupo — aquele que narra o que tá acontecendo de um jeito que faz todo mundo rir.
+Seu humor é natural, nunca forçado. Você não conta piada, você DESCREVE a realidade de um jeito absurdo.
 
-EXEMPLOS DO SEU ESTILO:
-- "o bicho viu o zumbi e escolheu a opção 'correr gritando' kkkkk"
-- "tutorial de como NÃO jogar Resident Evil em 30 segundos"
-- "eu: vou jogar de boa sem gritar / o jogo: 👁️👄👁️"
+COMO VOCÊ PENSA:
+Você vê o clipe e sua cabeça já monta a narração cômica. O streamer fez merda? "o bixo literalmente escolheu a pior opção possível e ainda comemorou". A graça vem da observação, não da tentativa de ser engraçado.
+
+SEU TOM:
+- Humor de observação: descreva o que aconteceu, mas do ângulo mais ridículo
+- Narração em terceira pessoa funciona demais: "ele realmente achou que ia dar certo"
+- Auto-depreciação do viewer: a gente RI porque se identifica
+- "kkkkk" e "KKKK" são pontuação — use onde o riso aconteceria naturalmente
+- Setup curto → quebra de expectativa. Sem enrolação
+- Referência a meme SÓ se encaixar organicamente, nunca force
+
+EXEMPLOS REAIS:
+- "o bixo olhou pro zumbi e escolheu a opção 'correr gritando' kkkkkk"
+- "tutorial de como NÃO jogar isso em 30 segundos"
 - "streamer: 'tá tranquilo' / narrador: não estava tranquilo"
+- "a confiança dele antes vs a realidade 2 segundos depois"
 
-HASHTAGS:
-- Tags de humor: #humor #meme #kkkk #gaming #engraçado
-- Tags do jogo para alcance
-- 3-5 hashtags, tom leve e divertido""",
+HASHTAGS: 3-5 tags. Tom leve (#humor #gaming) + jogo específico.""",
 
-        "Profissional": """Você é a ANA, produtora de conteúdo gaming de 30 anos com background em jornalismo.
-Seu conteúdo é informativo, editorial e respeitado pela comunidade.
+        "Profissional": """Você é alguém que entende de games e de conteúdo — e escreve como quem CUIDA do que publica.
+Não é robótico, não é genérico. É alguém que viu o clipe, entendeu o que faz ele especial, e sabe apresentar isso com clareza.
 
-ESTILO DE ESCRITA:
-- Tom de curadoria: você está apresentando um momento relevante
-- Contextualize o clipe: o que aconteceu, por que importa, o que torna especial
-- Linguagem clara e polida, sem gírias excessivas (mas não formal demais)
-- Pode incluir dado concreto: views, duração, nome do streamer
-- Estrutura: contexto breve → destaque do momento → call-to-action sutil
-- Não use caps lock nem emoji
+COMO VOCÊ PENSA:
+Você assiste o clipe pensando "por que isso merece atenção?". Pode ser uma jogada absurda, uma reação genuína, um momento raro. Você contextualiza sem explicar demais — quem entende vai valorizar, quem não entende vai ficar curioso.
 
-EXEMPLOS DO SEU ESTILO:
-- "Cellbit encontra uma planta durante a gameplay de RE: Requiem — a reação é ouro puro"
-- "Um dos momentos mais tensos da live de ontem. Resident Evil entregando como sempre."
-- "Compilado dos melhores clipes da semana na categoria RE: Requiem"
-- "Quando o game design encontra o improviso do streamer, momentos como esse nascem"
+SEU TOM:
+- Linguagem limpa e confiante, sem gíria pesada mas sem parecer robô
+- Dê contexto quando agrega: nome do streamer, nome do jogo, o que tava acontecendo
+- A caption deve funcionar sozinha, sem precisar do vídeo pra fazer sentido
+- Sem emoji, sem caps lock. A força vem das palavras, não da formatação
+- Pode ter um toque de admiração genuína quando o momento merece
 
-HASHTAGS:
-- Tags profissionais: #gaming #twitch #gameplay #streamer
-- Tags do jogo completas: #ResidentEvil #RERequiem
-- Tags de curadoria: #melhoresclipes #destaque
-- 3-5 hashtags, tom editorial""",
+EXEMPLOS REAIS:
+- "Cellbit encontra algo inesperado na gameplay e a reação é impagável"
+- "Um dos momentos mais tensos da live. Resident Evil não decepciona"
+- "Quando improviso e game design se encontram, nasce um clipe assim"
+- "Os melhores momentos da semana em um compilado que vale cada segundo"
+
+HASHTAGS: 3-5 tags. Tom editorial (#gaming #twitch #gameplay) + jogo completo.""",
     }
 
     persona = PERSONAS.get(options.tone, PERSONAS["Viral"])
@@ -642,7 +642,7 @@ REGRAS INVIOLÁVEIS:
         result = oracle_client.generate_content(
             prompt_input=full_prompt,
             model="llama-3.3-70b-versatile",
-            temperature=0.85,
+            temperature=0.7,
         )
 
         import json
@@ -800,4 +800,129 @@ async def reorder_item(item_id: int, body: ReorderRequest, db: Session = Depends
     return {
         "message": "Ordem dos clipes atualizada com sucesso. O vídeo será recriado.",
         "job_id": job.id,
+    }
+
+
+@router.post("/reprocess/{item_id}")
+async def reprocess_item(item_id: int, db: Session = Depends(get_db)):
+    """
+    Reprocessa um vídeo inteiro: reseta o job para pending e re-enfileira.
+    O vídeo antigo é removido e o PendingApproval é deletado.
+    """
+    item = db.query(PendingApproval).filter(PendingApproval.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item não encontrado")
+
+    from core.clipper.models import ClipJob
+    job = db.query(ClipJob).filter(ClipJob.id == item.clip_job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job associado não encontrado")
+
+    # Remover arquivo físico do vídeo antigo
+    if item.video_path and os.path.exists(item.video_path):
+        try:
+            os.remove(item.video_path)
+            logger.info(f"🗑️ Arquivo anterior do job #{job.id} removido: {item.video_path}")
+        except OSError as e:
+            logger.warning(f"Falha ao remover arquivo antigo do job #{job.id}: {e}")
+
+    # Resetar job para pending
+    job.status = "pending"
+    job.progress_pct = 0
+    job.current_step = "Reprocessando (solicitado pelo usuário)"
+    job.output_path = None
+    job.error_message = None
+
+    # Deletar PendingApproval
+    db.delete(item)
+    db.commit()
+
+    # Re-enfileirar no Redis
+    from core.queue_manager import QueueManager
+    try:
+        pool = await QueueManager.get_pool()
+        await pool.enqueue_job("process_clip_job", job.id, _queue_name="clipper:queue")
+        logger.info(f"🔄 Job #{job.id} re-enfileirado para reprocessamento completo")
+    except Exception as e:
+        logger.error(f"Erro ao re-enfileirar job #{job.id}: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao enviar tarefa para processamento")
+
+    return {
+        "message": "Vídeo enviado para reprocessamento. Aguarde na esteira.",
+        "job_id": job.id,
+    }
+
+
+class RemoveClipRequest(BaseModel):
+    clip_index: int
+
+
+@router.post("/remove-clip/{item_id}")
+async def remove_clip_and_reprocess(item_id: int, body: RemoveClipRequest, db: Session = Depends(get_db)):
+    """
+    Remove um clip específico de um job e reprocessa o vídeo sem ele.
+    Útil quando um clip tem problema de áudio ou qualidade.
+    """
+    item = db.query(PendingApproval).filter(PendingApproval.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item não encontrado")
+
+    from core.clipper.models import ClipJob
+    job = db.query(ClipJob).filter(ClipJob.id == item.clip_job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job associado não encontrado")
+
+    clip_count = len(job.clip_urls) if job.clip_urls else 0
+    if clip_count <= 1:
+        raise HTTPException(status_code=400, detail="Não é possível remover o único clip do job.")
+
+    if body.clip_index < 0 or body.clip_index >= clip_count:
+        raise HTTPException(status_code=400, detail=f"Índice inválido. Deve ser entre 0 e {clip_count - 1}.")
+
+    removed_title = "?"
+    if job.clip_metadata and body.clip_index < len(job.clip_metadata):
+        removed_title = job.clip_metadata[body.clip_index].get("title", "?")
+
+    # Remover clip de todos os arrays paralelos
+    def remove_at(lst, idx):
+        if not lst or idx >= len(lst):
+            return lst
+        return lst[:idx] + lst[idx + 1:]
+
+    job.clip_urls = remove_at(job.clip_urls, body.clip_index)
+    job.clip_metadata = remove_at(job.clip_metadata, body.clip_index)
+    job.clip_local_paths = remove_at(job.clip_local_paths, body.clip_index)
+    job.whisper_result = remove_at(job.whisper_result, body.clip_index)
+
+    # Remover arquivo físico do vídeo antigo
+    if item.video_path and os.path.exists(item.video_path):
+        try:
+            os.remove(item.video_path)
+        except OSError:
+            pass
+
+    # Resetar job
+    job.status = "pending"
+    job.progress_pct = 0
+    job.current_step = f"Reprocessando sem clip '{removed_title}'"
+    job.output_path = None
+    job.error_message = None
+
+    db.delete(item)
+    db.commit()
+
+    # Re-enfileirar
+    from core.queue_manager import QueueManager
+    try:
+        pool = await QueueManager.get_pool()
+        await pool.enqueue_job("process_clip_job", job.id, _queue_name="clipper:queue")
+        logger.info(f"🔄 Job #{job.id} re-enfileirado sem clip #{body.clip_index} ('{removed_title}')")
+    except Exception as e:
+        logger.error(f"Erro ao re-enfileirar job #{job.id}: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao enviar tarefa para processamento")
+
+    return {
+        "message": f"Clip '{removed_title}' removido. Vídeo será reprocessado com {clip_count - 1} clips.",
+        "job_id": job.id,
+        "remaining_clips": clip_count - 1,
     }

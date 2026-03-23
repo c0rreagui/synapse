@@ -47,6 +47,8 @@ class Scheduler:
     def __init__(self):
         # Database is auto-initialized by core.database
         self.semaphore = asyncio.Semaphore(1) # [SYN-FIX] Limit to 1 concurrent upload to save RAM
+        self._keepalive_counter = 0
+        self._keepalive_interval = 480  # 480 * 30s = 4 horas
 
 
     @with_db_retries()
@@ -475,15 +477,26 @@ class Scheduler:
     async def start_loop(self):
         """Starts the background scheduler loop."""
         print("[SCHEDULER] Loop Started...")
-        
+
         # [SYN-FIX] Run cleanup on startup
         self.cleanup_phantom_events()
-        
+
         while True:
             try:
                 await self.check_due_items()
             except Exception as e:
                 print(f"Scheduler Loop Error: {e}")
+
+            # Session Keepalive periódico
+            self._keepalive_counter += 1
+            if self._keepalive_counter >= self._keepalive_interval:
+                self._keepalive_counter = 0
+                try:
+                    from core.session_keepalive import keepalive_all_profiles
+                    await keepalive_all_profiles()
+                except Exception as e:
+                    print(f"[SCHEDULER] Session keepalive error: {e}")
+
             await asyncio.sleep(30) # Check every 30 seconds
 
     @with_db_retries()
@@ -682,16 +695,16 @@ class Scheduler:
                 )
                 return
 
-            # 0b. Lightweight Pre-flight: Check if cookies exist and are not expired
-            print(f"[SCHEDULER] Running lightweight cookie check for {item.profile_slug}...")
+            # 0b. Pre-flight: Check if session is alive
+            print(f"[SCHEDULER] Running session check for {item.profile_slug}...")
             session_file = get_session_path(item.profile_slug)
-            
+
             # Helper to fail quickly
             async def fail_preflight(msg):
                 print(f"[SCHEDULER] Pre-flight failed: {msg}")
                 await self._finalize_scheduled_item(
-                    item.id, 
-                    ScheduleStatus.PAUSED_LOGIN_REQUIRED, 
+                    item.id,
+                    ScheduleStatus.PAUSED_LOGIN_REQUIRED,
                     {"message": msg}
                 )
 
@@ -699,6 +712,7 @@ class Scheduler:
                 await fail_preflight("Session file not found")
                 return
 
+            # Fase 1: check local (cookies existem?)
             try:
                 with open(session_file, 'r', encoding='utf-8') as _f:
                     _data = json.load(_f)
@@ -706,9 +720,20 @@ class Scheduler:
                 if not check_cookies_validity(_cookies):
                     await fail_preflight("Session cookies expired (pre-flight)")
                     return
-                print(f"[SCHEDULER] Cookie check passed for {item.profile_slug}")
             except Exception as cookie_err:
-                print(f"[SCHEDULER] Cookie check error (proceeding anyway): {cookie_err}")
+                print(f"[SCHEDULER] Cookie file error (proceeding anyway): {cookie_err}")
+
+            # Fase 2: check HTTP real (sessão viva no TikTok?)
+            try:
+                from core.session_keepalive import keepalive_profile
+                ka_result = await keepalive_profile(item.profile_slug)
+                if ka_result.get("status") == "expired":
+                    await fail_preflight("Sessão TikTok expirada (keepalive check)")
+                    return
+                print(f"[SCHEDULER] Session check passed for {item.profile_slug}")
+            except Exception as ka_err:
+                # Se o keepalive falhar (rede, etc), seguir com o upload mesmo assim
+                print(f"[SCHEDULER] Keepalive check failed (proceeding anyway): {ka_err}")
 
             # 1. Update status to QUEUED (ATOMIC CHECK-AND-SET)
             acquired = await self._claim_scheduled_item(item.id, new_status=ScheduleStatus.QUEUED)

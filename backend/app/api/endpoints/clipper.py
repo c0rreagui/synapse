@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel, HttpUrl, ConfigDict
 from typing import List, Optional
@@ -297,17 +299,31 @@ async def prioritize_job(job_id: int, db: Session = Depends(get_db)):
 
 @router.post("/jobs/{job_id}/cancel")
 def cancel_job(job_id: int, db: Session = Depends(get_db)):
-    """Cancela um job pendente."""
+    """Cancela e remove um job da fila. Aceita qualquer status exceto completed."""
     job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job nao encontrado")
-    if job.status != "pending":
-        raise HTTPException(status_code=400, detail=f"Apenas jobs pendentes podem ser cancelados (status atual: {job.status})")
 
-    job.status = "failed"
-    job.error_message = "Cancelado pelo usuario"
+    # Limpar arquivos de clips associados
+    import glob as _glob
+    clips_dir = "/app/data/clipper/clips"
+    pattern = os.path.join(clips_dir, f"job{job_id}_clip*")
+    for cf in _glob.glob(pattern):
+        try:
+            os.remove(cf)
+        except OSError:
+            pass
+
+    # Limpar output se existir
+    if job.output_path and os.path.exists(job.output_path):
+        try:
+            os.remove(job.output_path)
+        except OSError:
+            pass
+
+    db.delete(job)
     db.commit()
-    return {"message": f"Job #{job_id} cancelado"}
+    return {"message": f"Job #{job_id} removido"}
 
 
 # ─── POST /jobs/cancel-bulk — Cancelar jobs em massa ──────────────────────
@@ -317,17 +333,51 @@ class BulkCancelRequest(BaseModel):
 
 @router.post("/jobs/cancel-bulk")
 def cancel_jobs_bulk(req: BulkCancelRequest, db: Session = Depends(get_db)):
-    """Cancela multiplos jobs pendentes de uma vez."""
+    """Cancela e remove multiplos jobs de uma vez."""
     jobs = db.query(ClipJob).filter(
         ClipJob.id.in_(req.job_ids),
-        ClipJob.status == "pending"
     ).all()
 
+    import glob as _glob
+    clips_dir = "/app/data/clipper/clips"
     cancelled = []
     for job in jobs:
-        job.status = "failed"
-        job.error_message = "Cancelado pelo usuario (bulk)"
+        # Limpar clips
+        for cf in _glob.glob(os.path.join(clips_dir, f"job{job.id}_clip*")):
+            try:
+                os.remove(cf)
+            except OSError:
+                pass
         cancelled.append(job.id)
+        db.delete(job)
 
     db.commit()
     return {"cancelled": cancelled, "count": len(cancelled)}
+
+
+@router.post("/jobs/cancel-all")
+def cancel_all_jobs(db: Session = Depends(get_db)):
+    """Remove todos os jobs não-completados da fila (pending, waiting_clips, downloading, etc)."""
+    jobs = db.query(ClipJob).filter(
+        ClipJob.status.notin_(["completed"])
+    ).all()
+
+    import glob as _glob
+    clips_dir = "/app/data/clipper/clips"
+    count = 0
+    for job in jobs:
+        for cf in _glob.glob(os.path.join(clips_dir, f"job{job.id}_clip*")):
+            try:
+                os.remove(cf)
+            except OSError:
+                pass
+        if job.output_path and os.path.exists(job.output_path):
+            try:
+                os.remove(job.output_path)
+            except OSError:
+                pass
+        db.delete(job)
+        count += 1
+
+    db.commit()
+    return {"message": f"{count} jobs removidos da fila", "count": count}

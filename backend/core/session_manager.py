@@ -167,28 +167,49 @@ async def check_session_health_lightweight(profile_id: str) -> bool:
 def check_cookies_validity(cookies: List[Dict[str, Any]]) -> bool:
     """
     Checks if the cookies contain valid (non-expired) session identifiers.
+    Verifica sessionid + usa sid_guard para extrair expiração real quando
+    o campo expires não existe no cookie (comum em exports do Playwright).
     """
     try:
-        required_cookies = ["sessionid"] # sessionid_ss is optional/redundant often
-        found_cookies = {}
-        
         current_time = time.time()
-        
-        for p in cookies:
-            name = p.get("name")
-            if name in required_cookies:
-                # Check expiration
-                expiry = p.get("expirationDate") or p.get("expires")
-                if expiry and expiry > 0:
-                     # Check if expired
-                     if expiry < current_time:
-                         return False # Expired
-                
-                found_cookies[name] = True
+        has_sessionid = False
+        sid_guard_expiry = None
 
-        # Check if all required are found
-        return all(found_cookies.get(name) for name in required_cookies)
-        
+        for c in cookies:
+            if not isinstance(c, dict):
+                continue
+            name = c.get("name", "")
+
+            # Verificar sessionid
+            if name == "sessionid":
+                has_sessionid = True
+                # Checar expiração direta se disponível
+                expiry = c.get("expirationDate") or c.get("expires")
+                if expiry and expiry > 0 and expiry < current_time:
+                    return False  # Expirado
+
+            # Extrair expiração do sid_guard (formato: "hash|timestamp|ttl|date_str")
+            # Ex: "6fb3a0b068...|1773581735|15552000|Fri, 11-Sep-2026 ..."
+            # timestamp + ttl = data de expiração real
+            if name == "sid_guard":
+                try:
+                    parts = c.get("value", "").split("|")
+                    if len(parts) >= 3:
+                        created_ts = int(parts[1])
+                        ttl_seconds = int(parts[2])
+                        sid_guard_expiry = created_ts + ttl_seconds
+                except (ValueError, IndexError):
+                    pass
+
+        if not has_sessionid:
+            return False
+
+        # Se temos expiração via sid_guard e já passou, sessão expirada
+        if sid_guard_expiry and sid_guard_expiry < current_time:
+            return False
+
+        return True
+
     except Exception:
         return False
 

@@ -625,6 +625,7 @@ def _filter_already_processed(target_id: int, clips: List[Dict]) -> List[Dict]:
 CHUNK_TARGET_DURATION = 90.0   # Duração alvo por postagem (1.5 minutos)
 CHUNK_MIN_DURATION = 64.5      # Mínimo ~65s (crossfade consome ~2-3s, resultado final >= 61s). Uses 64.5 to handle floating point imprecision (e.g. 64.999s)
 MAX_JOBS_PER_SCAN = 3          # Máximo de jobs criados por target por ciclo de scan
+MAX_CLIPS_PER_JOB = 6          # Limite absoluto de clips por job (safety: evita jobs gigantes que enchem disco)
 WAITING_JOB_TIMEOUT_HOURS = 72 # Timeout para jobs em waiting_clips
 
 
@@ -663,7 +664,7 @@ def _chunk_clips_by_duration(
         current_chunk.append(clip)
         current_duration += clip_dur
 
-        if current_duration >= target_duration:
+        if current_duration >= target_duration or len(current_chunk) >= MAX_CLIPS_PER_JOB:
             chunks.append(current_chunk)
             current_chunk = []
             current_duration = 0.0
@@ -902,11 +903,14 @@ async def _feed_waiting_jobs(
                 float(c.get("duration", 30)) for c in (job.clip_metadata or [])
             )
 
-            # Alimentar com novos clips até atingir 61s
+            # Alimentar com novos clips até atingir 61s (respeitando limite por job)
+            current_clip_count = len(job.clip_urls or [])
             added_clips = []
             for clip in list(remaining):
                 if clip["url"] in existing_urls:
                     continue
+                if current_clip_count + len(added_clips) >= MAX_CLIPS_PER_JOB:
+                    break
                 clip_dur = float(clip.get("duration", 30))
                 added_clips.append(clip)
                 existing_dur += clip_dur
