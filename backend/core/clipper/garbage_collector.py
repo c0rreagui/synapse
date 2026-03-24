@@ -347,6 +347,8 @@ def _clean_old_failed_jobs():
         ).all()
         if old_failed:
             count = len(old_failed)
+            job_ids = [j.id for j in old_failed]
+            db.query(PendingApproval).filter(PendingApproval.clip_job_id.in_(job_ids)).delete(synchronize_session=False)
             for job in old_failed:
                 db.delete(job)
             db.commit()

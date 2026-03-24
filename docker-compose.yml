@@ -58,6 +58,7 @@ services:
     restart: always
     ports:
       - "8000:8000"
+      - "6080:6080"
     volumes:
       - ./backend:/app # Live Reload do código
       - ./brain:/app/brain # Memória persistente (Docs)

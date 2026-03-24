@@ -8,6 +8,7 @@ from datetime import datetime
 from core.database import get_db, safe_session
 from sqlalchemy.orm import Session
 from core.clipper.models import TwitchTarget, ClipJob, JobStatus
+from core.models import PendingApproval
 from core.clipper.monitor import register_target, check_target
 from core.limiter import limiter
 from core.logger import logger
@@ -191,8 +192,6 @@ async def update_twitch_target(target_id: int, target_update: TargetUpdate, db: 
         raise HTTPException(status_code=500, detail=str(e))
 
 
-from core.models import PendingApproval
-
 @router.delete("/targets/{target_id}")
 async def delete_twitch_target(target_id: int, db: Session = Depends(get_db)):
     """
@@ -321,6 +320,9 @@ def cancel_job(job_id: int, db: Session = Depends(get_db)):
         except OSError:
             pass
 
+    # Limpar referências em pending_approvals (FK constraint)
+    db.query(PendingApproval).filter(PendingApproval.clip_job_id == job.id).delete()
+
     db.delete(job)
     db.commit()
     return {"message": f"Job #{job_id} removido"}
@@ -348,6 +350,8 @@ def cancel_jobs_bulk(req: BulkCancelRequest, db: Session = Depends(get_db)):
                 os.remove(cf)
             except OSError:
                 pass
+        # Limpar referências em pending_approvals (FK constraint)
+        db.query(PendingApproval).filter(PendingApproval.clip_job_id == job.id).delete()
         cancelled.append(job.id)
         db.delete(job)
 
@@ -376,6 +380,8 @@ def cancel_all_jobs(db: Session = Depends(get_db)):
                 os.remove(job.output_path)
             except OSError:
                 pass
+        # Limpar referências em pending_approvals (FK constraint)
+        db.query(PendingApproval).filter(PendingApproval.clip_job_id == job.id).delete()
         db.delete(job)
         count += 1
 
