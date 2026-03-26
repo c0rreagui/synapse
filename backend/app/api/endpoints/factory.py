@@ -13,6 +13,7 @@ Consome a tabela `pending_approvals` e orquestra:
 import os
 import asyncio
 import logging
+import random
 from datetime import datetime, timedelta
 from typing import List, Optional
 from zoneinfo import ZoneInfo
@@ -55,6 +56,7 @@ class PendingItemResponse(BaseModel):
     status: str
     created_at: datetime
     target_army_id: Optional[int] = None
+    target_name: Optional[str] = None
     available_profiles: Optional[List[dict]] = None
     clips: Optional[List[ClipDetail]] = None  # Individual clip metadata for reordering
 
@@ -130,8 +132,9 @@ def list_pending(db: Session = Depends(get_db)):
 
     results = []
     for item in items:
-        # Resolver army_id via ClipJob → TwitchTarget
+        # Resolver army_id e target_name via ClipJob → TwitchTarget
         target_army_id = None
+        target_name = None
         if item.clip_job_id:
             from core.clipper.models import ClipJob, TwitchTarget
             job = db.query(ClipJob).filter(ClipJob.id == item.clip_job_id).first()
@@ -139,6 +142,7 @@ def list_pending(db: Session = Depends(get_db)):
                 target = db.query(TwitchTarget).filter(TwitchTarget.id == job.target_id).first()
                 if target:
                     target_army_id = target.army_id
+                    target_name = target.channel_name
 
         # Extrair transcript do ClipJob.whisper_result para uso na geração de caption
         transcript_text = None
@@ -185,6 +189,7 @@ def list_pending(db: Session = Depends(get_db)):
             status=item.status,
             created_at=item.created_at,
             target_army_id=target_army_id,
+            target_name=target_name,
             available_profiles=available_profiles,
             clips=clips_detail,
         ))
@@ -480,9 +485,49 @@ async def generate_caption_for_item(item_id: int, options: GenerateCaptionOption
                         elif target.channel_name:
                             streamer = target.channel_name
 
+    # ── Detectar categoria para hashtags dinâmicas ──
+    NON_GAMING_CATEGORIES = {
+        "just chatting", "irl", "talk shows & podcasts", "asmr",
+        "music", "art", "beauty & body art", "food & drink",
+        "sports", "travel & outdoors", "fitness & health",
+        "pools, hot tubs, and beaches", "makers & crafting",
+        "special events", "politics", "science & technology",
+    }
+    is_gaming = True  # default
+    category_lower = game_name.lower().strip() if game_name else ""
+    if category_lower in NON_GAMING_CATEGORIES or not game_name:
+        is_gaming = False
+
+    # Hashtag guidance dinâmica baseada na categoria real
+    if is_gaming:
+        hashtag_guidance_viral = f"3-5 tags. Misture alcance (#fyp) com nicho do jogo (#{category_lower.replace(' ', '').replace(':', '')}). NÃO use tags genéricas de categorias que não sejam do vídeo."
+        hashtag_guidance_polemico = f"3-5 tags. Mix do jogo e da comunidade gamer. Use o nome real do jogo como tag."
+        hashtag_guidance_engracado = f"3-5 tags. Tom leve (#humor) + jogo específico (#{category_lower.replace(' ', '').replace(':', '')}). NÃO coloque #gaming se o foco é humor."
+        hashtag_guidance_pro = f"3-5 tags. Tom editorial (#twitch #gameplay) + nome completo do jogo."
+    else:
+        # IRL / Just Chatting / Non-gaming
+        hashtag_guidance_viral = f"3-5 tags. Misture alcance (#fyp) com nicho da categoria (#{category_lower.replace(' ', '').replace(':', '') or 'twitch'}). NUNCA use #gaming se o conteúdo não é sobre jogos."
+        hashtag_guidance_polemico = f"3-5 tags. Focadas na comunidade e no tipo de conteúdo. NUNCA use #gaming."
+        hashtag_guidance_engracado = f"3-5 tags. Tom leve (#humor #react) + tags do nicho. NUNCA use #gaming."
+        hashtag_guidance_pro = f"3-5 tags. Tom editorial (#twitch #livestream) + contexto do conteúdo. NUNCA use #gaming se não é sobre jogos."
+
+    # ── Anti-repetição: seed aleatório para variar o output ──
+    creativity_seed = random.randint(1000, 9999)
+    creativity_angles = [
+        "Foque na REAÇÃO mais intensa do clipe.",
+        "Destaque o MOMENTO mais inesperado.",
+        "Construa a caption como se fosse uma NARRAÇÃO cinematográfica.",
+        "Escreva como se estivesse contando pra um amigo que não assistiu.",
+        "Foque no CONTRASTE entre o que o streamer esperava e o que aconteceu.",
+        "Comece pelo RESULTADO e deixe o contexto pra curiosidade.",
+        "Use a fala mais marcante do streamer como base.",
+        "Escreva como legenda de meme — curta e com impacto.",
+    ]
+    chosen_angle = random.choice(creativity_angles)
+
     # ── Personas UX Writer por Tom ──
     PERSONAS = {
-        "Viral": """Você escreve como um brasileiro de 20 e poucos anos que vive no TikTok.
+        "Viral": f"""Você escreve como um brasileiro de 20 e poucos anos que vive no TikTok.
 Você NÃO é um copywriter — você é alguém que faz o celular tremer de notificação.
 
 COMO VOCÊ PENSA:
@@ -494,16 +539,20 @@ SEU TOM:
 - Emoji só quando potencializa (💀 = morri de rir, não decoração)
 - Nunca mais de 2-3 linhas. Se precisa de mais, o clipe que fale
 - Gírias SÓ as que você usaria de verdade: "simplesmente", "mano", "na moral", "o bixo"
+- NUNCA comece a caption com a mesma frase/estrutura de outras captions. Cada uma deve ser ÚNICA.
 
-EXEMPLOS REAIS:
+EXEMPLOS DE ESTRUTURA (varie entre eles, NUNCA repita a mesma abertura):
 - "ele simplesmente DESISTIU no meio do boss kkkk"
 - "a cara dele quando percebeu o que fez 💀"
 - "ninguém tava preparado pra esse momento"
 - "mano eu to passando mal com essa reação"
 
-HASHTAGS: 3-5 tags. Misture alcance (#fyp #gaming) com nicho do jogo.""",
+HASHTAGS: {hashtag_guidance_viral}
 
-        "Polêmico": """Você é aquele amigo que assiste o clipe e solta uma opinião que faz todo mundo querer responder.
+[SEED DE CRIATIVIDADE: {creativity_seed}] — Use esse número como inspiração subconsciente para gerar algo ÚNICO.
+[ÂNGULO: {chosen_angle}]""",
+
+        "Polêmico": f"""Você é aquele amigo que assiste o clipe e solta uma opinião que faz todo mundo querer responder.
 Você NÃO é tóxico — você é ASSERTIVO. Fala o que pensa com peito e confiança.
 
 COMO VOCÊ PENSA:
@@ -511,20 +560,24 @@ Você viu algo no clipe que merece ser dito em voz alta. Pode ser elogio forte, 
 
 SEU TOM:
 - Direto como conversa de bar. Sem rodeios, sem "na minha humilde opinião"
-- Perguntas retóricas que cutucam: "vocês realmente acham que isso é skill?"
-- Tome partido. Se o cara jogou bem, FALA que jogou bem. Se errou feio, FALA
+- Perguntas retóricas que cutucam
+- Tome partido. Se o cara mandou bem, FALA. Se errou feio, FALA
 - A provocação vem de confiança, não de grosseria
 - NUNCA use "hot take:", "opinião impopular:" ou qualquer prefixo artificial
+- NUNCA comece igual a captions anteriores. Cada uma é ÚNICA.
 
-EXEMPLOS REAIS:
-- "esse cara é o MELHOR player desse jogo e vocês não tão prontos pra essa conversa"
+EXEMPLOS DE ESTRUTURA (varie, NUNCA repita):
+- "esse cara é o MELHOR e vocês não tão prontos pra essa conversa"
 - "se você morreu nessa parte, nem adianta continuar"
 - "vocês tão dormindo nesse streamer e vai se arrepender"
 - "fala que eu to errado nos comentários. vai."
 
-HASHTAGS: 3-5 tags. Mix do game e da comunidade.""",
+HASHTAGS: {hashtag_guidance_polemico}
 
-        "Engraçado": """Você é o amigo engraçado do grupo — aquele que narra o que tá acontecendo de um jeito que faz todo mundo rir.
+[SEED DE CRIATIVIDADE: {creativity_seed}]
+[ÂNGULO: {chosen_angle}]""",
+
+        "Engraçado": f"""Você é o amigo engraçado do grupo — aquele que narra o que tá acontecendo de um jeito que faz todo mundo rir.
 Seu humor é natural, nunca forçado. Você não conta piada, você DESCREVE a realidade de um jeito absurdo.
 
 COMO VOCÊ PENSA:
@@ -537,16 +590,20 @@ SEU TOM:
 - "kkkkk" e "KKKK" são pontuação — use onde o riso aconteceria naturalmente
 - Setup curto → quebra de expectativa. Sem enrolação
 - Referência a meme SÓ se encaixar organicamente, nunca force
+- NUNCA comece igual a captions anteriores. Cada uma é ÚNICA.
 
-EXEMPLOS REAIS:
+EXEMPLOS DE ESTRUTURA (varie, NUNCA repita):
 - "o bixo olhou pro zumbi e escolheu a opção 'correr gritando' kkkkkk"
 - "tutorial de como NÃO jogar isso em 30 segundos"
 - "streamer: 'tá tranquilo' / narrador: não estava tranquilo"
 - "a confiança dele antes vs a realidade 2 segundos depois"
 
-HASHTAGS: 3-5 tags. Tom leve (#humor #gaming) + jogo específico.""",
+HASHTAGS: {hashtag_guidance_engracado}
 
-        "Profissional": """Você é alguém que entende de games e de conteúdo — e escreve como quem CUIDA do que publica.
+[SEED DE CRIATIVIDADE: {creativity_seed}]
+[ÂNGULO: {chosen_angle}]""",
+
+        "Profissional": f"""Você é alguém que entende de conteúdo — e escreve como quem CUIDA do que publica.
 Não é robótico, não é genérico. É alguém que viu o clipe, entendeu o que faz ele especial, e sabe apresentar isso com clareza.
 
 COMO VOCÊ PENSA:
@@ -554,18 +611,22 @@ Você assiste o clipe pensando "por que isso merece atenção?". Pode ser uma jo
 
 SEU TOM:
 - Linguagem limpa e confiante, sem gíria pesada mas sem parecer robô
-- Dê contexto quando agrega: nome do streamer, nome do jogo, o que tava acontecendo
+- Dê contexto quando agrega: nome do streamer, o que tava acontecendo
 - A caption deve funcionar sozinha, sem precisar do vídeo pra fazer sentido
 - Sem emoji, sem caps lock. A força vem das palavras, não da formatação
 - Pode ter um toque de admiração genuína quando o momento merece
+- NUNCA comece igual a captions anteriores. Cada uma é ÚNICA.
 
-EXEMPLOS REAIS:
-- "Cellbit encontra algo inesperado na gameplay e a reação é impagável"
-- "Um dos momentos mais tensos da live. Resident Evil não decepciona"
-- "Quando improviso e game design se encontram, nasce um clipe assim"
-- "Os melhores momentos da semana em um compilado que vale cada segundo"
+EXEMPLOS DE ESTRUTURA (varie, NUNCA repita):
+- "Nome encontra algo inesperado e a reação é impagável"
+- "Um dos momentos mais tensos da live. Conteúdo puro."
+- "Quando improviso e talento se encontram, nasce um clipe assim"
+- "Os melhores momentos em um compilado que vale cada segundo"
 
-HASHTAGS: 3-5 tags. Tom editorial (#gaming #twitch #gameplay) + jogo completo.""",
+HASHTAGS: {hashtag_guidance_pro}
+
+[SEED DE CRIATIVIDADE: {creativity_seed}]
+[ÂNGULO: {chosen_angle}]""",
     }
 
     persona = PERSONAS.get(options.tone, PERSONAS["Viral"])
@@ -613,11 +674,12 @@ REGRAS INVIOLÁVEIS:
 3. Escreva em PT-BR coloquial e natural (como um brasileiro real escreveria no TikTok).
 4. NÃO comece com prefixos de prompt como "hot take:", "opinião impopular:", "unpopular opinion:", "neste vídeo...", "veja só...", "confira...". A frase deve ser direta.
 5. Responda APENAS em JSON válido: {{"caption": "sua caption aqui", "hashtags": ["#tag1", "#tag2"]}}
-{"6. Gere entre 3 e 5 hashtags (MÁXIMO 5). Misture alcance (#fyp #gaming) com nicho (#" + game_name.lower().replace(' ', '').replace(':', '') + ")" if options.include_hashtags else "6. NÃO inclua hashtags, retorne lista vazia"}
+{f"6. Gere entre 3 e 5 hashtags (MÁXIMO 5). Use APENAS tags relevantes ao conteúdo REAL do vídeo. Se a categoria é '{game_name or 'desconhecida'}', as hashtags devem refletir ESSE contexto. NUNCA inclua #gaming se o conteúdo não é sobre jogos (ex: Just Chatting, IRL, react)." if options.include_hashtags else "6. NÃO inclua hashtags, retorne lista vazia"}
 7. A caption deve funcionar como GANCHO — quem lê tem que querer assistir o vídeo. Foque no momento mais impactante/engraçado/tenso.
 8. MENCIONE o streamer pelo nome ({streamer}) de forma natural. Ex: "{streamer} perdeu a cabeça quando..."
 9. Se o clipe tem uma reação forte (grito, riso, susto), DESTAQUE isso na caption.
 10. NUNCA use aspas ao redor da caption inteira. Escreva como texto direto.
+11. OBRIGATÓRIO: Sua caption deve ser COMPLETAMENTE DIFERENTE de qualquer outra que você já tenha escrito. Varie a estrutura, o ângulo narrativo, e as primeiras palavras.
 """
 
     instruction = options.instruction or f"Escreva a descrição perfeita para esse vídeo no tom {options.tone}"
@@ -642,7 +704,7 @@ REGRAS INVIOLÁVEIS:
         result = oracle_client.generate_content(
             prompt_input=full_prompt,
             model="llama-3.3-70b-versatile",
-            temperature=0.7,
+            temperature=0.85,
         )
 
         import json
@@ -758,16 +820,28 @@ async def reorder_item(item_id: int, body: ReorderRequest, db: Session = Depends
     if sorted(body.order) != list(range(clip_count)):
         raise HTTPException(status_code=400, detail=f"Ordem inválida. Esperado permutação de {list(range(clip_count))}, recebido {body.order}")
 
-    # Aplicar reordenação em todos os arrays paralelos
-    def reorder_list(lst, order):
+    # Para o front-end, body.order contém a lista de 'index' originais dos clipes na ordem desejada
+    # Precisamos mapear o 'index' (ID lógico) para a posição atual no array (ID físico)
+    if not job.clip_metadata:
+        raise HTTPException(status_code=400, detail="Sem metadata para mapear ordem")
+        
+    current_positions = { c.get('index', i): i for i, c in enumerate(job.clip_metadata) }
+    
+    try:
+        new_positions = [current_positions[orig_idx] for orig_idx in body.order]
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=f"Índice original {e} não encontrado")
+
+    # Aplicar reordenação nas listas paralelas baseado nas posições absolutas corretas
+    def reorder_list(lst, pos_array):
         if not lst:
             return lst
-        return [lst[i] for i in order]
+        return [lst[pos] for pos in pos_array]
 
-    job.clip_urls = reorder_list(job.clip_urls, body.order)
-    job.clip_metadata = reorder_list(job.clip_metadata, body.order)
-    job.clip_local_paths = reorder_list(job.clip_local_paths, body.order)
-    job.whisper_result = reorder_list(job.whisper_result, body.order)
+    job.clip_urls = reorder_list(job.clip_urls, new_positions)
+    job.clip_metadata = reorder_list(job.clip_metadata, new_positions)
+    job.clip_local_paths = reorder_list(job.clip_local_paths, new_positions)
+    job.whisper_result = reorder_list(job.whisper_result, new_positions)
 
     # Resetar o status do job para pending para ser pego pelo Worker
     job.status = "pending"
