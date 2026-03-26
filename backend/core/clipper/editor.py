@@ -143,7 +143,7 @@ def _apply_antishadowban(
     """
     color = ASB_COLOR_PRESETS[color_idx % len(ASB_COLOR_PRESETS)]
     extra = [
-        f"{output_label}setpts=PTS/{speed}[_asb_spd]",
+        f"{output_label}setpts=(PTS-STARTPTS)/{speed}[_asb_spd]",
         f"[_asb_spd]noise=c0s={grain}:c1s={grain}:c2s={grain}:allf=t+u[_asb_grn]",
         f"[_asb_grn]{color}[_asb_out]",
     ]
@@ -568,7 +568,7 @@ async def edit_clip(
     )
 
     # Audio: atempo compensa a variação de speed + loudnorm para TikTok
-    af_filter = f"atempo={asb_speed},loudnorm=I=-14:LRA=11:TP=-1.5"
+    af_filter = f"asetpts=PTS-STARTPTS,atempo={asb_speed},loudnorm=I=-14:LRA=11:TP=-1.5"
 
     logger.info(
         f"ASB: speed={asb_speed}x, grain={asb_grain}, "
@@ -592,6 +592,8 @@ async def edit_clip(
         "-level:v", "4.1",
         "-preset", PRESET,
         "-crf", CRF,
+        "-r", "60",
+        "-fps_mode", "cfr",
         "-b:v", VIDEO_BITRATE,
         "-maxrate", VIDEO_BITRATE,
         "-bufsize", "10M",

@@ -124,7 +124,9 @@ async def crossfade_two_clips(
     if has_audio1 and has_audio2:
         # Ambos tem audio: normalizar formato antes do crossfade
         filter_complex = (
-            f"[0:v][1:v]xfade=transition=fade:duration={fade_duration}:offset={offset}[v];"
+            f"[0:v]settb=1/60,setpts=PTS-STARTPTS[v0];"
+            f"[1:v]settb=1/60,setpts=PTS-STARTPTS[v1];"
+            f"[v0][v1]xfade=transition=fade:duration={fade_duration}:offset={offset}[v];"
             f"[0:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[a0];"
             f"[1:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[a1];"
             f"[a0][a1]acrossfade=d={fade_duration}:c1=tri:c2=tri[a]"
@@ -133,7 +135,9 @@ async def crossfade_two_clips(
         # Apenas um tem audio: gerar silencio pro outro
         if has_audio1:
             filter_complex = (
-                f"[0:v][1:v]xfade=transition=fade:duration={fade_duration}:offset={offset}[v];"
+                f"[0:v]settb=1/60,setpts=PTS-STARTPTS[v0];"
+                f"[1:v]settb=1/60,setpts=PTS-STARTPTS[v1];"
+                f"[v0][v1]xfade=transition=fade:duration={fade_duration}:offset={offset}[v];"
                 f"[0:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[a0];"
                 f"anullsrc=channel_layout=stereo:sample_rate=44100[silent];"
                 f"[silent]atrim=0:{clip2_dur}[a1];"
@@ -141,7 +145,9 @@ async def crossfade_two_clips(
             )
         else:
             filter_complex = (
-                f"[0:v][1:v]xfade=transition=fade:duration={fade_duration}:offset={offset}[v];"
+                f"[0:v]settb=1/60,setpts=PTS-STARTPTS[v0];"
+                f"[1:v]settb=1/60,setpts=PTS-STARTPTS[v1];"
+                f"[v0][v1]xfade=transition=fade:duration={fade_duration}:offset={offset}[v];"
                 f"anullsrc=channel_layout=stereo:sample_rate=44100[silent];"
                 f"[silent]atrim=0:{clip1_dur}[a0];"
                 f"[1:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[a1];"
@@ -152,7 +158,9 @@ async def crossfade_two_clips(
         # Nenhum tem audio: crossfade apenas video, gerar audio silencioso
         total_dur = clip1_dur + clip2_dur - fade_duration
         filter_complex = (
-            f"[0:v][1:v]xfade=transition=fade:duration={fade_duration}:offset={offset}[v];"
+            f"[0:v]settb=1/60,setpts=PTS-STARTPTS[v0];"
+            f"[1:v]settb=1/60,setpts=PTS-STARTPTS[v1];"
+            f"[v0][v1]xfade=transition=fade:duration={fade_duration}:offset={offset}[v];"
             f"anullsrc=channel_layout=stereo:sample_rate=44100,atrim=0:{total_dur}[a]"
         )
         logger.warning("Crossfade: nenhum clip tem audio, gerando silencio total")
