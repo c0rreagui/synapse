@@ -102,15 +102,17 @@ async def _process_clip_job_inner(ctx, job_id: int):
         _fail_job_db(job_id, "Arquivos locais ou transcricoes nao encontrados.", "Falha ao preparar para edicao.")
         return
 
-    # Buscar channel_name, auto_approve e target_id
+    # Buscar channel_name, auto_approve, target_id e layout_mode
     channel_name = None
     target_auto_approve = False
     target_id = None
     target_type = "channel"
+    layout_mode = "auto"
     with safe_session() as db:
         job_obj = db.query(ClipJob).filter(ClipJob.id == job_id).first()
         if job_obj and job_obj.target_id:
             target_id = job_obj.target_id
+            layout_mode = getattr(job_obj, 'layout_mode', 'auto') or 'auto'
             target = db.query(TwitchTarget).filter(TwitchTarget.id == job_obj.target_id).first()
             if target:
                 channel_name = target.channel_name
@@ -137,6 +139,29 @@ async def _process_clip_job_inner(ctx, job_id: int):
     # 3. Gerar ASS & 4. FFmpeg Edit (por clipe individual)
     edited_paths = []
 
+    # ── Anti-Shadowban: gerar params UMA VEZ por job (consistência entre clips) ──
+    import random as _random
+    from core.clipper.editor import generate_asb_params
+    asb_params = generate_asb_params()
+
+    # Estilo de legenda sorteado por job (variabilidade visual entre vídeos)
+    asb_style = _random.choice(["opus", "neon", "cyan"])
+
+    logger.info(
+        f"Job #{job_id} ASB: speed={asb_params['speed']}x, "
+        f"grain={asb_params['grain']}, color={asb_params['color_idx']}, "
+        f"ratio={asb_params['facecam_ratio']:.0%}/{asb_params['gameplay_ratio']:.0%}, "
+        f"subtitle_style={asb_style}"
+    )
+
+    # Extrair títulos dos clips para metadados ricos
+    clip_titles = []
+    with safe_session() as db:
+        job_for_titles = db.query(ClipJob).filter(ClipJob.id == job_id).first()
+        if job_for_titles and job_for_titles.clip_metadata:
+            for meta in job_for_titles.clip_metadata:
+                clip_titles.append(meta.get("title", ""))
+
     # Atualiza DB para "editing"
     with safe_session() as db:
         job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
@@ -146,13 +171,34 @@ async def _process_clip_job_inner(ctx, job_id: int):
             job.progress_pct = 50
             db.commit()
 
+    # Resolver layout_mode efetivo para cada clip
+    def _resolve_layout(clip_idx: int) -> str:
+        """Resolve layout_mode: auto → baseado no game do clip metadata."""
+        if layout_mode != "auto":
+            return layout_mode
+        # Auto: detectar pelo game do clip
+        with safe_session() as db:
+            job_meta = db.query(ClipJob.clip_metadata).filter(ClipJob.id == job_id).scalar()
+            if job_meta and clip_idx < len(job_meta):
+                game = (job_meta[clip_idx].get("game") or "").lower()
+                if "just chatting" in game:
+                    return "podcast"
+                if "irl" in game or "in real life" in game:
+                    return "street"
+        return "gameplay"  # default: split facecam + gameplay
+
     for idx, (path, trans) in enumerate(valid_pairs):
         ass_path = None
+        clip_layout = _resolve_layout(idx)
+        clip_title = clip_titles[idx] if idx < len(clip_titles) else None
         try:
+            # Hook textual: título do clip nos 3 primeiros seg (apenas no 1o clip do job)
+            hook = clip_title if idx == 0 else None
             ass_path = generate_ass_for_multiple(
                 transcriptions=[trans],
-                style_name="opus",
-                time_offsets=[0.0]
+                style_name=asb_style,
+                time_offsets=[0.0],
+                hook_title=hook,
             )
 
             edit_res = await edit_clip(
@@ -160,6 +206,9 @@ async def _process_clip_job_inner(ctx, job_id: int):
                 ass_path=ass_path,
                 timeout_seconds=900,
                 channel_name=channel_name,
+                layout_mode=clip_layout,
+                asb_params=asb_params,
+                clip_title=clip_title,
             )
 
             if edit_res.get("success"):
@@ -307,20 +356,37 @@ async def _process_clip_job_inner(ctx, job_id: int):
         except Exception:
             pass
 
-    # Sanity check: vídeo com mais de 5 min é claramente um bug no stitch/loop
-    MAX_OUTPUT_DURATION = 300  # 5 minutos
+    # ── Limite de duração: 160s — acima disso, trim via FFmpeg ──
+    MAX_OUTPUT_DURATION = 160  # 2min40s
     if duration > MAX_OUTPUT_DURATION:
-        logger.error(
+        logger.warning(
             f"Job #{job_id}: Vídeo com {duration:.0f}s (>{MAX_OUTPUT_DURATION}s). "
-            f"Bug no stitch/loop-tail. Descartando."
+            f"Trimming para {MAX_OUTPUT_DURATION}s."
         )
-        if output_path and os.path.exists(output_path):
-            try:
+        trimmed_path = output_path.replace(".mp4", "_trimmed.mp4")
+        try:
+            import subprocess
+            trim_cmd = [
+                "ffmpeg", "-y", "-i", output_path,
+                "-t", str(MAX_OUTPUT_DURATION),
+                "-c", "copy",
+                "-avoid_negative_ts", "make_zero",
+                trimmed_path,
+            ]
+            proc = subprocess.run(trim_cmd, capture_output=True, timeout=60)
+            if proc.returncode == 0 and os.path.exists(trimmed_path):
                 os.remove(output_path)
-            except OSError:
-                pass
-        _fail_job_db(job_id, f"Output duration {duration:.0f}s exceeds max {MAX_OUTPUT_DURATION}s", "Bug: vídeo muito longo")
-        return
+                os.rename(trimmed_path, output_path)
+                duration = await _get_duration(output_path)
+                logger.info(f"Job #{job_id}: Trimmed para {duration:.1f}s")
+            else:
+                logger.error(f"Job #{job_id}: FFmpeg trim falhou")
+                _fail_job_db(job_id, f"Trim failed for {duration:.0f}s video", "Falha no trim")
+                return
+        except Exception as e:
+            logger.error(f"Job #{job_id}: Erro no trim: {e}")
+            _fail_job_db(job_id, f"Trim error: {e}", "Falha no trim")
+            return
 
     with safe_session() as db:
         job = db.query(ClipJob).filter(ClipJob.id == job_id).first()

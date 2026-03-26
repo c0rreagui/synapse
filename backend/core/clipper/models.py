@@ -60,8 +60,9 @@ class TwitchTarget(Base):
     auto_approve = Column(Boolean, default=False)  # Se True, pula curadoria e envia direto pro Scheduler
     check_interval_minutes = Column(Integer, default=15)
     max_clips_per_check = Column(Integer, default=100)  # Maximo Twitch API = 100
-    min_clip_views = Column(Integer, default=10)  # Filtro de qualidade para suportar canais menores
+    min_clip_views = Column(Integer, default=200)  # Mínimo de views por clip (evitar encher disco)
     lookback_hours = Column(Integer, default=24)  # Janela de busca maior para achar os clipes
+    layout_mode = Column(String, default="auto")  # auto | podcast | street | gameplay
 
     # Estado do monitoramento
     last_checked_at = Column(DateTime, nullable=True)
@@ -104,6 +105,9 @@ class ClipJob(Base):
 
     # Resultados intermediarios
     whisper_result = Column(JSON, nullable=True)    # Transcricao word-level
+
+    # Layout do video (herdado do target ou auto-detectado)
+    layout_mode = Column(String, default="auto")  # auto | podcast | street | gameplay
 
     # Produto final
     output_path = Column(String, nullable=True)

@@ -4,8 +4,8 @@ Videos endpoint - Lista videos processados, agendados e concluidos
 import os
 import json
 from datetime import datetime
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from typing import List, Dict, Any
 
 router = APIRouter()
@@ -16,30 +16,91 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 DONE_DIR = os.path.join(BASE_DIR, "done")
 ERRORS_DIR = os.path.join(BASE_DIR, "errors")
 PENDING_DIR = os.path.join(BASE_DIR, "data", "pending")
+EXPORTS_DIR = os.path.join(BASE_DIR, "data", "exports")
 
 
 @router.get("/stream/{filename}")
-async def stream_video(filename: str):
-    """Stream a video file for preview. Searches pending, then done."""
+async def stream_video(filename: str, request: Request):
+    """
+    Stream a video file with full HTTP Range support (206 Partial Content).
+    Required for Safari/iOS video playback.
+    Searches: exports → pending → done.
+    """
     # Security: prevent path traversal
     if ".." in filename or "/" in filename or "\\" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
-    
-    # Search order: pending first (most common for approval), then done
+
+    # Search order: exports (most common for approval), pending, then done
     search_paths = [
+        os.path.join(EXPORTS_DIR, filename),
         os.path.join(PENDING_DIR, filename),
         os.path.join(DONE_DIR, filename),
     ]
-    
-    for video_path in search_paths:
-        if os.path.exists(video_path):
-            return FileResponse(
-                video_path,
-                media_type="video/mp4",
-                headers={"Accept-Ranges": "bytes"}
+
+    video_path = None
+    for path in search_paths:
+        if os.path.exists(path):
+            video_path = path
+            break
+
+    if not video_path:
+        raise HTTPException(status_code=404, detail=f"Video not found: {filename}")
+
+    file_size = os.path.getsize(video_path)
+    range_header = request.headers.get("range")
+
+    if range_header:
+        # Parse Range: bytes=START-END
+        try:
+            range_spec = range_header.replace("bytes=", "").strip()
+            parts = range_spec.split("-")
+            start = int(parts[0]) if parts[0] else 0
+            end = int(parts[1]) if len(parts) > 1 and parts[1] else file_size - 1
+        except (ValueError, IndexError):
+            raise HTTPException(status_code=416, detail="Invalid Range header")
+
+        if start >= file_size or end >= file_size or start > end:
+            return Response(
+                status_code=416,
+                headers={"Content-Range": f"bytes */{file_size}"},
             )
-    
-    raise HTTPException(status_code=404, detail=f"Video not found: {filename}")
+
+        content_length = end - start + 1
+
+        def iter_file():
+            with open(video_path, "rb") as f:
+                f.seek(start)
+                remaining = content_length
+                while remaining > 0:
+                    chunk_size = min(64 * 1024, remaining)  # 64KB chunks
+                    data = f.read(chunk_size)
+                    if not data:
+                        break
+                    remaining -= len(data)
+                    yield data
+
+        return StreamingResponse(
+            iter_file(),
+            status_code=206,
+            media_type="video/mp4",
+            headers={
+                "Content-Range": f"bytes {start}-{end}/{file_size}",
+                "Accept-Ranges": "bytes",
+                "Content-Length": str(content_length),
+                "Cache-Control": "public, max-age=3600",
+            },
+        )
+
+    # No Range header — return full file
+    return FileResponse(
+        video_path,
+        media_type="video/mp4",
+        headers={
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(file_size),
+            "Cache-Control": "public, max-age=3600",
+        },
+    )
 
 
 

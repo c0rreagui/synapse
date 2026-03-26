@@ -182,6 +182,7 @@ services:
       - ./frontend:/app # Live Reload do código
       - /app/node_modules # Evita conflito com node_modules do Windows
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - BACKEND_INTERNAL_URL=http://backend:8000
+      - NEXT_PUBLIC_API_URL=
     depends_on:
       - backend

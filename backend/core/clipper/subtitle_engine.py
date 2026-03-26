@@ -145,6 +145,8 @@ def _ass_timestamp(seconds: float) -> str:
 
 def _build_ass_header(style: SubtitleStyle, video_width: int = 1080, video_height: int = 1920) -> str:
     """Gera o cabecalho do arquivo .ass com definicoes de estilo."""
+    # Hook style: texto grande no topo para os 3 primeiros segundos (retenção)
+    hook_font_size = int(style.font_size * 1.3)  # ~110px
     return f"""[Script Info]
 Title: Synapse Auto Subtitles
 ScriptType: v4.00+
@@ -158,6 +160,7 @@ YCbCr Matrix: TV.709
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Active,{style.font},{style.font_size},{style.active_color},{style.active_color},{style.outline_color},{style.shadow_color},-1,0,0,0,100,100,1,0,1,{style.outline_size},{style.shadow_depth},5,40,40,{style.margin_bottom},1
 Style: Inactive,{style.font},{style.font_size},{style.inactive_color},{style.inactive_color},{style.outline_color},{style.shadow_color},-1,0,0,0,100,100,1,0,1,{style.outline_size},{style.shadow_depth},5,40,40,{style.margin_bottom},1
+Style: Hook,{style.font},{hook_font_size},{style.active_color},{style.active_color},{style.outline_color},{style.shadow_color},-1,0,0,0,100,100,2,0,1,{style.outline_size + 2},{style.shadow_depth + 2},8,60,60,280,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -181,6 +184,43 @@ def _build_word_active_tag(style: SubtitleStyle) -> str:
 def _build_word_inactive_tag(style: SubtitleStyle) -> str:
     """Tag ASS para cor da palavra inativa (ja falada ou proxima)."""
     return f"{{\\1c{style.inactive_color}}}"
+
+
+# ─── Hook Textual (Retenção nos 3 primeiros segundos) ─────────────────
+
+HOOK_DURATION = 3.0       # Segundos que o hook fica na tela
+HOOK_FADE_IN_MS = 200     # Fade-in em ms
+HOOK_FADE_OUT_MS = 300    # Fade-out em ms
+HOOK_MAX_CHARS = 60       # Truncar títulos longos
+
+
+def _build_hook_event(hook_title: Optional[str]) -> str:
+    """
+    Gera um evento ASS de hook textual nos primeiros 3 segundos.
+    Texto grande com fade-in/fade-out para prender atenção no scroll.
+    """
+    # Limpar e truncar
+    if not hook_title:
+        return ""
+    title = hook_title.strip()
+    if not title:
+        return ""
+    if len(title) > HOOK_MAX_CHARS:
+        title = title[:HOOK_MAX_CHARS - 3].rsplit(" ", 1)[0] + "..."
+
+    # Uppercase para impacto
+    title = title.upper()
+
+    start = _ass_timestamp(0.0)
+    end = _ass_timestamp(HOOK_DURATION)
+
+    # Fade in + fade out + escala pop-in sutil
+    fx = (
+        f"{{\\fad({HOOK_FADE_IN_MS},{HOOK_FADE_OUT_MS})"
+        f"\\fscx120\\fscy120\\t(0,{HOOK_FADE_IN_MS},\\fscx100\\fscy100)}}"
+    )
+
+    return f"Dialogue: 1,{start},{end},Hook,,0,0,0,,{fx}{title}"
 
 
 # ─── Gerador Principal ──────────────────────────────────────────────────
@@ -226,6 +266,7 @@ def generate_ass(
     output_path: Optional[str] = None,
     video_width: int = 1080,
     video_height: int = 1920,
+    hook_title: Optional[str] = None,
 ) -> str:
     """
     Gera arquivo .ass com legendas animadas a partir do resultado do Whisper.
@@ -241,6 +282,7 @@ def generate_ass(
         output_path: Caminho de saida. Se None, gera em SUBS_DIR.
         video_width: Largura do video target
         video_height: Altura do video target
+        hook_title: Titulo do clip para hook textual nos 3 primeiros seg.
 
     Returns:
         Caminho absoluto do arquivo .ass gerado
@@ -266,6 +308,13 @@ def generate_ass(
 
     # Construir .ass
     ass_content = _build_ass_header(style, video_width, video_height)
+
+    # Hook textual: título grande nos 3 primeiros segundos (retenção)
+    if hook_title:
+        hook_event = _build_hook_event(hook_title)
+        if hook_event:
+            ass_content += hook_event + "\n"
+
     blocks = _group_words_into_blocks(words)
     dialogue_lines = _generate_dialogue_lines(blocks, style)
     ass_content += "\n".join(dialogue_lines)
@@ -327,6 +376,7 @@ def generate_ass_for_multiple(
     style_name: str = "opus",
     output_path: Optional[str] = None,
     time_offsets: Optional[List[float]] = None,
+    hook_title: Optional[str] = None,
 ) -> str:
     """
     Gera um unico .ass para multiplos clipes (pos-stitching).
@@ -340,6 +390,7 @@ def generate_ass_for_multiple(
         output_path: Caminho de saida
         time_offsets: Lista de offsets em segundos para cada transcricao.
                       Se None, assume [0, duracao_clip1, duracao_clip1+clip2, ...]
+        hook_title: Titulo para hook textual nos 3 primeiros segundos
 
     Returns:
         Caminho do .ass gerado
@@ -368,4 +419,4 @@ def generate_ass_for_multiple(
         "word_count": len(merged_words),
     }
 
-    return generate_ass(merged_result, style_name=style_name, output_path=output_path)
+    return generate_ass(merged_result, style_name=style_name, output_path=output_path, hook_title=hook_title)

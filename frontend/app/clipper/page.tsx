@@ -9,7 +9,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API = "";
 
 const TIKTOK_CAPTION_LIMIT = 2200;
 
@@ -49,6 +49,7 @@ interface Target {
     target_type?: string;
     category_id?: string;
     army_id?: number | null;
+    layout_mode?: string;
 }
 
 interface Army {
@@ -318,7 +319,7 @@ export default function ClipperPage() {
 
     const fetchArmies = async () => {
         try {
-            const data = await apiClient.get<Army[]>('/api/v1/armies/');
+            const data = await apiClient.get<Army[]>('/api/v1/armies');
             setArmies(data || []);
         } catch (err) {
             console.warn("Failed to fetch armies (API might be down)");
@@ -385,7 +386,7 @@ export default function ClipperPage() {
         }
         setIsLoading(true);
         try {
-            await apiClient.post('/api/v1/armies/', newArmy);
+            await apiClient.post('/api/v1/armies', newArmy);
             toast.success("Exército formado com sucesso!");
             setNewArmy({ name: '', color: '#00f0ff', icon: 'swords', profile_ids: [] });
             await fetchArmies();
@@ -578,7 +579,9 @@ export default function ClipperPage() {
         try {
             const response = await apiClient.post(`/api/v1/factory/remove-clip/${videoId}`, { clip_index: clipIndex });
             await fetchPendingVideos();
-            toast.success((response as any).data?.message || 'Clip removido!', { id: toastId });
+            await fetchPending();
+            const remaining = (response as any).data?.remaining_clips || '?';
+            toast.success(`Clip removido! Vídeo voltou para a esteira com ${remaining} clips. Aguarde o reprocessamento.`, { id: toastId, duration: 5000 });
         } catch (error: any) {
             toast.error(error?.data?.detail || 'Erro ao remover clip', { id: toastId });
         }
@@ -1219,6 +1222,26 @@ export default function ClipperPage() {
                                                             <span className="flex items-center gap-1" title="Intervalo entre verificações (minutos)">
                                                                 <span className="material-symbols-outlined text-[10px]">schedule</span>
                                                                 <span className="text-slate-300">{target.check_interval_minutes ?? 30}min</span>
+                                                            </span>
+                                                            <span className="flex items-center gap-1" title="Layout do vídeo">
+                                                                <span className="material-symbols-outlined text-[10px]">aspect_ratio</span>
+                                                                <select
+                                                                    value={target.layout_mode ?? 'auto'}
+                                                                    onChange={async (e) => {
+                                                                        const newMode = e.target.value;
+                                                                        try {
+                                                                            await apiClient.patch(`/api/clipper/targets/${target.id}`, { layout_mode: newMode });
+                                                                            setTargets(prev => prev.map(t => t.id === target.id ? { ...t, layout_mode: newMode } : t));
+                                                                            toast.success(`Layout alterado para ${newMode}`);
+                                                                        } catch { toast.error('Erro ao alterar layout'); }
+                                                                    }}
+                                                                    className="bg-black/40 border border-white/10 text-slate-300 text-[9px] rounded px-1 py-0 font-mono cursor-pointer hover:border-cyan-500/50 transition-colors"
+                                                                >
+                                                                    <option value="auto">auto</option>
+                                                                    <option value="podcast">podcast</option>
+                                                                    <option value="street">street</option>
+                                                                    <option value="gameplay">gameplay</option>
+                                                                </select>
                                                             </span>
                                                         </div>
 
@@ -1945,11 +1968,13 @@ export default function ClipperPage() {
                                     <div className="relative w-full aspect-[9/16] max-h-[300px] md:max-h-[400px] bg-black border-b border-white/5 overflow-hidden flex items-center justify-center">
                                         <span className="material-symbols-outlined text-white/5 text-6xl">play_circle</span>
                                         <video
-                                            src={`${API}/exports/${video.video_path.split('/').pop()}`}
                                             className="absolute inset-0 w-full h-full object-contain bg-black opacity-90 group-hover:opacity-100 transition-opacity z-20 cursor-pointer"
                                             controls
+                                            playsInline
                                             preload="metadata"
-                                        />
+                                        >
+                                            <source src={`/api/v1/videos/stream/${video.video_path.split('/').pop()}`} type="video/mp4" />
+                                        </video>
                                     </div>
 
                                     <div className="p-4 flex-1 flex flex-col gap-3">

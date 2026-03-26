@@ -432,6 +432,7 @@ async def check_target(target_id: int) -> Optional[int]:
         max_clips = target.max_clips_per_check
         min_views = target.min_clip_views
         lookback_hours = getattr(target, 'lookback_hours', 6) or 6
+        layout_mode = getattr(target, 'layout_mode', 'auto') or 'auto'
 
     # ─── Canal: busca direta (sem mudança) ──────────────────────────────
     if target_type != "category":
@@ -461,7 +462,7 @@ async def check_target(target_id: int) -> Optional[int]:
             logger.info(f"[{channel_name}] Clipes encontrados, mas todos ja processados.")
             return None
 
-        job_ids = await _create_clip_jobs(target_id, channel_name, new_clips)
+        job_ids = await _create_clip_jobs(target_id, channel_name, new_clips, layout_mode)
         return job_ids[0] if job_ids else None
 
     # ─── Categoria: Arquitetura Híbrida (SYN-127) ──────────────────────
@@ -537,7 +538,7 @@ async def check_target(target_id: int) -> Optional[int]:
             logger.info(f"[{channel_name}] Fluxo A: Clipes encontrados, mas todos ja processados.")
             return None
 
-        job_ids = await _create_clip_jobs(target_id, channel_name, new_clips)
+        job_ids = await _create_clip_jobs(target_id, channel_name, new_clips, layout_mode)
         return job_ids[0] if job_ids else None
 
     else:
@@ -565,7 +566,7 @@ async def check_target(target_id: int) -> Optional[int]:
             logger.info(f"[{channel_name}] Fluxo B: Clipes encontrados, mas todos ja processados.")
             return None
 
-        job_ids = await _create_clip_jobs(target_id, channel_name, new_clips)
+        job_ids = await _create_clip_jobs(target_id, channel_name, new_clips, layout_mode)
         return job_ids[0] if job_ids else None
 
 
@@ -624,6 +625,7 @@ def _filter_already_processed(target_id: int, clips: List[Dict]) -> List[Dict]:
 # ─── Constantes de Chunking ──────────────────────────────────────────────
 CHUNK_TARGET_DURATION = 90.0   # Duração alvo por postagem (1.5 minutos)
 CHUNK_MIN_DURATION = 64.5      # Mínimo ~65s (crossfade consome ~2-3s, resultado final >= 61s). Uses 64.5 to handle floating point imprecision (e.g. 64.999s)
+CHUNK_MAX_DURATION = 160.0     # Máximo absoluto de duração por job (evita vídeos muito longos)
 MAX_JOBS_PER_SCAN = 3          # Máximo de jobs criados por target por ciclo de scan
 MAX_CLIPS_PER_JOB = 6          # Limite absoluto de clips por job (safety: evita jobs gigantes que enchem disco)
 WAITING_JOB_TIMEOUT_HOURS = 72 # Timeout para jobs em waiting_clips
@@ -664,7 +666,7 @@ def _chunk_clips_by_duration(
         current_chunk.append(clip)
         current_duration += clip_dur
 
-        if current_duration >= target_duration or len(current_chunk) >= MAX_CLIPS_PER_JOB:
+        if current_duration >= target_duration or len(current_chunk) >= MAX_CLIPS_PER_JOB or current_duration >= CHUNK_MAX_DURATION:
             chunks.append(current_chunk)
             current_chunk = []
             current_duration = 0.0
@@ -690,7 +692,7 @@ def _chunk_clips_by_duration(
 
 MAX_QUEUE_JOBS = 10  # Limite de jobs ativos na esteira (evita encher disco)
 
-async def _create_clip_jobs(target_id: int, channel_name: str, new_clips: List[Dict]) -> List[int]:
+async def _create_clip_jobs(target_id: int, channel_name: str, new_clips: List[Dict], layout_mode: str = "auto") -> List[int]:
     """
     Agrupa clipes em chunks de ~90s (mín 61s) e cria um ClipJob por chunk.
     Clips que não atingem 61s são alimentados a jobs waiting_clips existentes
@@ -788,6 +790,7 @@ async def _create_clip_jobs(target_id: int, channel_name: str, new_clips: List[D
                     clip_metadata=chunk,
                     status="pending",
                     retry_count=retry_count,
+                    layout_mode=layout_mode,
                 )
                 db.add(job)
                 db.commit()
@@ -815,6 +818,7 @@ async def _create_clip_jobs(target_id: int, channel_name: str, new_clips: List[D
                         status="pending",
                         current_step=f"Leftover pronto: {len(leftover)} clips, {leftover_dur:.0f}s",
                         progress_pct=0,
+                        layout_mode=layout_mode,
                     )
                     db.add(ready_job)
                     db.commit()
@@ -840,6 +844,7 @@ async def _create_clip_jobs(target_id: int, channel_name: str, new_clips: List[D
                         status="waiting_clips",
                         current_step=f"Aguardando mais clips ({leftover_dur:.0f}s / 61s mínimo)",
                         progress_pct=int(min(leftover_dur / 61.0 * 100, 99)),
+                        layout_mode=layout_mode,
                     )
                     db.add(waiting_job)
                     db.commit()

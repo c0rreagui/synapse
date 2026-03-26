@@ -37,6 +37,7 @@ class ArmyResponse(BaseModel):
     profiles: List[ProfileMinimal] = []
 
 @router.get("/", response_model=List[ArmyResponse])
+@router.get("", response_model=List[ArmyResponse], include_in_schema=False)
 def list_armies(db: Session = Depends(get_db)):
     armies = db.query(Army).all()
     out = []
@@ -52,6 +53,7 @@ def list_armies(db: Session = Depends(get_db)):
     return out
 
 @router.post("/", response_model=ArmyResponse)
+@router.post("", response_model=ArmyResponse, include_in_schema=False)
 def create_army(schema: ArmyCreate, db: Session = Depends(get_db)):
     db_army = Army(
         name=schema.name,

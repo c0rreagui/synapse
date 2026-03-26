@@ -15,6 +15,7 @@ COPY . .
 
 # Faz o build de produção do Next.js
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV BACKEND_INTERNAL_URL=http://backend:8000
 RUN npm run build
 
 # Expõe a porta 3000

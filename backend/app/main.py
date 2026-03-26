@@ -27,7 +27,7 @@ if os.getenv("SENTRY_DSN"):
     )
     print("SYSTEM: Sentry Monitoring Enabled 🚨")
 
-app = FastAPI(title="Auto Content Empire API")
+app = FastAPI(title="Auto Content Empire API", redirect_slashes=False)
 
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler

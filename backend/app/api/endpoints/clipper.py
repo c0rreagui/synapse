@@ -44,6 +44,7 @@ class TargetResponse(BaseModel):
     max_clips_per_check: int = 100
     check_interval_minutes: int = 15
     auto_approve: bool = False
+    layout_mode: str = "auto"
 
 class ClipMetadataPydantic(BaseModel):
     title: Optional[str] = None
@@ -96,7 +97,8 @@ async def create_twitch_target(request: Request, target: TargetCreate):
             min_clip_views=res.get("min_clip_views", 10),
             max_clips_per_check=res.get("max_clips_per_check", 100),
             check_interval_minutes=15,
-            auto_approve=target.auto_approve
+            auto_approve=target.auto_approve,
+            layout_mode="auto",
         )
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
@@ -117,18 +119,23 @@ def list_twitch_targets(db: Session = Depends(get_db)):
 async def force_check_target(request: Request, target_id: int, background_tasks: BackgroundTasks):
     """
     Força a checagem imediata de clipes para um canal (para debug ou requisição on-demand).
-    Aqui ele busca o clip e já enfilera se achar.
+    Roda em background para não causar timeout (targets de categoria podem demorar 30s+).
     """
-    try:
-        idx = await check_target(target_id)
-        if idx:
-            # O proximo passo ideal seria: await redis.enqueue_job("process_clip_job", idx, _queue_name="clipper:queue")
-            # Mas como ja e validado, sera capturado pelo cron do monitor nativamente tambem.
-            return {"message": "Checagem concluída. Clipes encontrados e job de processamento enfileirado", "job_id": idx}
-        else:
-            return {"message": "Checagem concluída. Nenhum novo clip foi encontrado que bata com os requisitos."}
-    except Exception as e:
-         raise HTTPException(status_code=500, detail=str(e))
+    with safe_session() as db:
+        target = db.query(TwitchTarget).filter(TwitchTarget.id == target_id).first()
+        if not target:
+            raise HTTPException(status_code=404, detail="Target não encontrado")
+        if not target.active:
+            raise HTTPException(status_code=400, detail="Target está desativado")
+
+    async def _run_check():
+        try:
+            await check_target(target_id)
+        except Exception as e:
+            logger.error(f"Erro no scan manual do target #{target_id}: {e}")
+
+    background_tasks.add_task(_run_check)
+    return {"message": "Varredura manual iniciada em background. Resultados aparecerão em breve."}
 
 
 class TargetUpdate(BaseModel):
@@ -139,6 +146,7 @@ class TargetUpdate(BaseModel):
     army_id: Optional[int] = None
     target_type: Optional[str] = None
     auto_approve: Optional[bool] = None
+    layout_mode: Optional[str] = None
 
 @router.patch("/targets/{target_id}", response_model=TargetResponse)
 async def update_twitch_target(target_id: int, target_update: TargetUpdate, db: Session = Depends(get_db)):
@@ -164,7 +172,9 @@ async def update_twitch_target(target_id: int, target_update: TargetUpdate, db: 
             target.target_type = target_update.target_type
         if target_update.auto_approve is not None:
             target.auto_approve = target_update.auto_approve
-            
+        if target_update.layout_mode is not None:
+            target.layout_mode = target_update.layout_mode
+
         db.commit()
         db.refresh(target)
         return TargetResponse(
@@ -185,7 +195,8 @@ async def update_twitch_target(target_id: int, target_update: TargetUpdate, db: 
             min_clip_views=target.min_clip_views,
             max_clips_per_check=target.max_clips_per_check,
             check_interval_minutes=target.check_interval_minutes,
-            auto_approve=target.auto_approve
+            auto_approve=target.auto_approve,
+            layout_mode=getattr(target, 'layout_mode', 'auto') or 'auto',
         )
     except Exception as e:
         db.rollback()
