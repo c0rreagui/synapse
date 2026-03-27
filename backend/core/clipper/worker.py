@@ -124,16 +124,14 @@ async def _process_clip_job_inner(ctx, job_id: int):
                     if real_streamer:
                         channel_name = real_streamer
 
-    # Filtrar apenas pares clip+transcricao com palavras (B05/B25 fix)
-    valid_pairs = []
-    for path, trans in zip(local_paths, transcriptions):
-        if trans.get("word_count", 0) > 0:
-            valid_pairs.append((path, trans))
-        else:
-            logger.warning(f"Job #{job_id}: Clip {path} sem palavras transcritas, pulando edicao.")
+    # Incluir todos os clips (clips sem palavras são editados sem legendas)
+    valid_pairs = list(zip(local_paths, transcriptions))
+    wordless = [p for p, t in valid_pairs if t.get("word_count", 0) == 0]
+    if wordless:
+        logger.info(f"Job #{job_id}: {len(wordless)} clip(s) sem palavras — serão editados sem legendas.")
 
     if not valid_pairs:
-        _fail_job_db(job_id, "Nenhum clipe teve palavras transcritas com sucesso.", "Falha: transcricoes vazias.")
+        _fail_job_db(job_id, "Nenhum clipe encontrado para edição.", "Falha: lista de clips vazia.")
         return
 
     # 3. Gerar ASS & 4. FFmpeg Edit (por clipe individual)
@@ -194,12 +192,16 @@ async def _process_clip_job_inner(ctx, job_id: int):
         try:
             # Hook textual: título do clip nos 3 primeiros seg (apenas no 1o clip do job)
             hook = clip_title if idx == 0 else None
-            ass_path = generate_ass_for_multiple(
-                transcriptions=[trans],
-                style_name=asb_style,
-                time_offsets=[0.0],
-                hook_title=hook,
-            )
+            # Gerar legendas apenas para clips com palavras transcritas
+            if trans.get("word_count", 0) > 0:
+                ass_path = generate_ass_for_multiple(
+                    transcriptions=[trans],
+                    style_name=asb_style,
+                    time_offsets=[0.0],
+                    hook_title=hook,
+                )
+            else:
+                ass_path = None
 
             edit_res = await edit_clip(
                 video_path=path,

@@ -624,7 +624,7 @@ def _filter_already_processed(target_id: int, clips: List[Dict]) -> List[Dict]:
 
 # ─── Constantes de Chunking ──────────────────────────────────────────────
 CHUNK_TARGET_DURATION = 90.0   # Duração alvo por postagem (1.5 minutos)
-CHUNK_MIN_DURATION = 64.5      # Mínimo ~65s (crossfade consome ~2-3s, resultado final >= 61s). Uses 64.5 to handle floating point imprecision (e.g. 64.999s)
+CHUNK_MIN_DURATION = 62.0      # Mínimo 62s (crossfade = 0.5s × (N-1) clips, max 1.5s p/ 4 clips). Stitcher loop-fallback garante >= 61s final.
 CHUNK_MAX_DURATION = 160.0     # Máximo absoluto de duração por job (evita vídeos muito longos)
 MAX_JOBS_PER_SCAN = 3          # Máximo de jobs criados por target por ciclo de scan
 MAX_CLIPS_PER_JOB = 4          # Limite de clips por job (mantém qualidade e duração adequada)
