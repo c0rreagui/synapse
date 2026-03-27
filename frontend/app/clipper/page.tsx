@@ -272,6 +272,8 @@ export default function ClipperPage() {
     const [blocklist, setBlocklist] = useState<string[]>([]);
     const [blocklistInput, setBlocklistInput] = useState('');
     const [blocklistSaving, setBlocklistSaving] = useState(false);
+    const [blocklistOpen, setBlocklistOpen] = useState(false);
+    const blocklistRef = useRef<HTMLDivElement>(null);
 
     // ── UX Enhancement States ──
     const [targetSearch, setTargetSearch] = useState('');
@@ -1041,54 +1043,6 @@ export default function ClipperPage() {
                         </div>
                     </section>
 
-                    {/* ═══ BLOCKLIST GLOBAL ═══ */}
-                    <section className="px-4 md:px-8 mt-2">
-                        <div className="bg-black/40 border border-red-500/20 rounded-xl p-4">
-                            <div className="flex items-center gap-2 mb-3">
-                                <span className="material-symbols-outlined text-red-400 text-[18px]">block</span>
-                                <h3 className="text-[11px] font-mono font-bold uppercase tracking-wider text-red-400">Blocklist de Streamers</h3>
-                                <span className="text-[9px] font-mono text-slate-500 ml-auto">{blocklist.length} bloqueado{blocklist.length !== 1 ? 's' : ''}</span>
-                            </div>
-                            <div className="flex gap-2 mb-3">
-                                <input
-                                    type="text"
-                                    value={blocklistInput}
-                                    onChange={(e) => setBlocklistInput(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleAddBlockedStreamer()}
-                                    placeholder="Nome do streamer..."
-                                    className="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-red-500/50 placeholder:text-slate-600 transition-colors"
-                                />
-                                <button
-                                    onClick={handleAddBlockedStreamer}
-                                    disabled={!blocklistInput.trim() || blocklistSaving}
-                                    className="px-4 py-2 text-[10px] font-mono font-bold uppercase bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
-                                >
-                                    <span className="material-symbols-outlined text-[14px]">person_off</span>
-                                    BLOQUEAR
-                                </button>
-                            </div>
-                            {blocklist.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5">
-                                    {blocklist.map(name => (
-                                        <span key={name} className="inline-flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 text-red-300 text-[10px] font-mono px-2.5 py-1 rounded-full group hover:border-red-500/40 transition-colors">
-                                            {name}
-                                            <button
-                                                onClick={() => handleRemoveBlockedStreamer(name)}
-                                                className="text-red-500/40 hover:text-red-400 transition-colors"
-                                                title={`Desbloquear ${name}`}
-                                            >
-                                                <span className="material-symbols-outlined text-[12px]">close</span>
-                                            </button>
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
-                            {blocklist.length === 0 && (
-                                <p className="text-[10px] font-mono text-slate-600 text-center py-1">Nenhum streamer bloqueado. Clips de todos os criadores serão aceitos.</p>
-                            )}
-                        </div>
-                    </section>
-
                     {/* Targets Componentized by Army */}
                     <section className="flex-1 overflow-y-auto custom-scrollbar pb-10 px-4 md:px-8">
                         {targets.length === 0 ? (
@@ -1105,9 +1059,9 @@ export default function ClipperPage() {
                             </div>
                         ) : null}
 
-                        {/* Search Bar + Expand/Collapse All */}
+                        {/* Search Bar + Blocklist Popover + Expand/Collapse All */}
                         {targets.length > 0 && (
-                            <div className="flex items-center gap-3 mt-8 mb-4">
+                            <div className="flex items-center gap-2 mt-8 mb-4">
                                 <div className="flex-1 relative">
                                     <span className="material-symbols-outlined text-[16px] text-slate-500 absolute left-3 top-1/2 -translate-y-1/2">search</span>
                                     <input
@@ -1123,6 +1077,73 @@ export default function ClipperPage() {
                                         </button>
                                     )}
                                 </div>
+
+                                {/* Blocklist Popover */}
+                                <div className="relative" ref={blocklistRef}>
+                                    <button
+                                        onClick={() => setBlocklistOpen(!blocklistOpen)}
+                                        className={`p-2 rounded-lg border transition-colors flex items-center gap-1.5 shrink-0 ${
+                                            blocklistOpen || blocklist.length > 0
+                                                ? 'border-red-500/30 text-red-400 bg-red-500/10 hover:bg-red-500/20'
+                                                : 'border-white/10 text-slate-400 hover:bg-white/5 hover:text-white'
+                                        }`}
+                                        title={`Blocklist (${blocklist.length})`}
+                                    >
+                                        <span className="material-symbols-outlined text-[14px]">person_off</span>
+                                        {blocklist.length > 0 && (
+                                            <span className="text-[9px] font-mono font-bold">{blocklist.length}</span>
+                                        )}
+                                    </button>
+
+                                    {blocklistOpen && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setBlocklistOpen(false)} />
+                                            <div className="absolute right-0 top-full mt-2 z-50 w-80 bg-[#0a0a0f] border border-red-500/20 rounded-xl shadow-2xl shadow-red-500/5 p-4">
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <span className="material-symbols-outlined text-red-400 text-[16px]">block</span>
+                                                    <h3 className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-400">Blocklist</h3>
+                                                    <span className="text-[9px] font-mono text-slate-500 ml-auto">{blocklist.length}</span>
+                                                </div>
+                                                <div className="flex gap-2 mb-3">
+                                                    <input
+                                                        type="text"
+                                                        value={blocklistInput}
+                                                        onChange={(e) => setBlocklistInput(e.target.value)}
+                                                        onKeyDown={(e) => e.key === 'Enter' && handleAddBlockedStreamer()}
+                                                        placeholder="Nome do streamer..."
+                                                        autoFocus
+                                                        className="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-red-500/50 placeholder:text-slate-600 transition-colors"
+                                                    />
+                                                    <button
+                                                        onClick={handleAddBlockedStreamer}
+                                                        disabled={!blocklistInput.trim() || blocklistSaving}
+                                                        className="px-3 py-1.5 text-[9px] font-mono font-bold uppercase bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                                    >
+                                                        <span className="material-symbols-outlined text-[14px]">add</span>
+                                                    </button>
+                                                </div>
+                                                {blocklist.length > 0 ? (
+                                                    <div className="flex flex-wrap gap-1.5 max-h-[200px] overflow-y-auto custom-scrollbar">
+                                                        {blocklist.map(name => (
+                                                            <span key={name} className="inline-flex items-center gap-1 bg-red-500/10 border border-red-500/20 text-red-300 text-[10px] font-mono px-2 py-0.5 rounded-full hover:border-red-500/40 transition-colors">
+                                                                {name}
+                                                                <button
+                                                                    onClick={() => handleRemoveBlockedStreamer(name)}
+                                                                    className="text-red-500/40 hover:text-red-400 transition-colors"
+                                                                >
+                                                                    <span className="material-symbols-outlined text-[11px]">close</span>
+                                                                </button>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-[9px] font-mono text-slate-600 text-center py-1">Nenhum streamer bloqueado</p>
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+
                                 <button
                                     onClick={() => {
                                         const allKeys = Object.keys(targetsByArmy);
