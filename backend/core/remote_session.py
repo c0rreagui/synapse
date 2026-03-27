@@ -140,6 +140,24 @@ async def start_session(profile_slug: str, host_url: str = "") -> Dict[str, Any]
         pw_profile_dir = f"/app/data/browser_profiles/{profile_slug}_playwright"
         os.makedirs(pw_profile_dir, exist_ok=True)
 
+        # Configurar download path padrão via Chromium Preferences
+        import json as _json
+        default_dir = os.path.join(pw_profile_dir, "Default")
+        os.makedirs(default_dir, exist_ok=True)
+        prefs_path = os.path.join(default_dir, "Preferences")
+        prefs = {}
+        if os.path.exists(prefs_path):
+            try:
+                with open(prefs_path, "r") as f:
+                    prefs = _json.load(f)
+            except Exception:
+                prefs = {}
+        prefs.setdefault("download", {})
+        prefs["download"]["default_directory"] = "/app/downloads"
+        prefs["download"]["prompt_for_download"] = False
+        with open(prefs_path, "w") as f:
+            _json.dump(prefs, f)
+
         # Remove stale lock files from previous sessions
         for lock_file in ["SingletonLock", "SingletonSocket", "SingletonCookie"]:
             lock_path = os.path.join(pw_profile_dir, lock_file)
@@ -155,8 +173,12 @@ async def start_session(profile_slug: str, host_url: str = "") -> Dict[str, Any]
 
         ua = identity.get("user_agent") or get_random_user_agent()
 
+        # Pasta de downloads acessível pelo file picker
+        downloads_dir = "/app/downloads"
+        os.makedirs(downloads_dir, exist_ok=True)
+
         context = await pw.chromium.launch_persistent_context(
-            user_data_dir=pw_profile_dir,
+            pw_profile_dir,
             headless=False,
             channel="chromium",
             viewport={"width": 1920, "height": 1080},
@@ -165,6 +187,7 @@ async def start_session(profile_slug: str, host_url: str = "") -> Dict[str, Any]
             user_agent=ua,
             locale=DEFAULT_LOCALE,
             timezone_id=DEFAULT_TIMEZONE,
+            downloads_path=downloads_dir,
             args=[
                 "--no-sandbox",
                 "--disable-gpu",

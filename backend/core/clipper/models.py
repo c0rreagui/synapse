@@ -124,6 +124,18 @@ class ClipJob(Base):
     completed_at = Column(DateTime, nullable=True)
 
 
+class ClipperBlockedStreamer(Base):
+    """
+    Streamer bloqueado globalmente — clips deste criador são descartados
+    antes de entrar em qualquer ClipJob.
+    """
+    __tablename__ = "clipper_blocked_streamers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    streamer_name = Column(String, unique=True, nullable=False, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class TwitchKnownStreamer(Base):
     """
     Streamer PT-BR descoberto pelo Radar de Lives (SYN-126).

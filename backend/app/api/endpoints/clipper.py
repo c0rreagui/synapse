@@ -7,7 +7,7 @@ from datetime import datetime
 
 from core.database import get_db, safe_session
 from sqlalchemy.orm import Session
-from core.clipper.models import TwitchTarget, ClipJob, JobStatus
+from core.clipper.models import TwitchTarget, ClipJob, JobStatus, ClipperBlockedStreamer
 from core.models import PendingApproval
 from core.clipper.monitor import register_target, check_target
 from core.limiter import limiter
@@ -398,3 +398,39 @@ def cancel_all_jobs(db: Session = Depends(get_db)):
 
     db.commit()
     return {"message": f"{count} jobs removidos da fila", "count": count}
+
+
+# ─── Blocklist Global de Streamers ──────────────────────────────────────
+
+class BlocklistUpdate(BaseModel):
+    streamers: List[str]
+
+@router.get("/blocklist")
+def get_blocklist(db: Session = Depends(get_db)):
+    """Retorna a lista global de streamers bloqueados."""
+    rows = db.query(ClipperBlockedStreamer).order_by(ClipperBlockedStreamer.streamer_name).all()
+    return {"streamers": [r.streamer_name for r in rows]}
+
+@router.put("/blocklist")
+def set_blocklist(payload: BlocklistUpdate, db: Session = Depends(get_db)):
+    """Substitui a blocklist inteira (sync com o frontend chip input)."""
+    # Normalizar nomes (lowercase, trim)
+    new_names = list({name.strip().lower() for name in payload.streamers if name.strip()})
+
+    # Buscar existentes
+    existing = {r.streamer_name for r in db.query(ClipperBlockedStreamer).all()}
+
+    # Remover os que saíram
+    to_remove = existing - set(new_names)
+    if to_remove:
+        db.query(ClipperBlockedStreamer).filter(
+            ClipperBlockedStreamer.streamer_name.in_(to_remove)
+        ).delete(synchronize_session=False)
+
+    # Adicionar os novos
+    to_add = set(new_names) - existing
+    for name in sorted(to_add):
+        db.add(ClipperBlockedStreamer(streamer_name=name))
+
+    db.commit()
+    return {"streamers": sorted(new_names), "added": len(to_add), "removed": len(to_remove)}

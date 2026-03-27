@@ -117,6 +117,7 @@ interface PendingVideo {
     status: string;
     created_at: string;
     target_army_id: number | null;
+    target_name: string | null;
     available_profiles: ProfileOption[] | null;
 }
 
@@ -267,6 +268,11 @@ export default function ClipperPage() {
     const [targetToDelete, setTargetToDelete] = useState<number | null>(null);
     const [armyToDelete, setArmyToDelete] = useState<number | null>(null);
 
+    // ── Blocklist State ──
+    const [blocklist, setBlocklist] = useState<string[]>([]);
+    const [blocklistInput, setBlocklistInput] = useState('');
+    const [blocklistSaving, setBlocklistSaving] = useState(false);
+
     // ── UX Enhancement States ──
     const [targetSearch, setTargetSearch] = useState('');
     const [hashtagInput, setHashtagInput] = useState('');
@@ -326,12 +332,53 @@ export default function ClipperPage() {
         }
     };
 
+    const fetchBlocklist = async () => {
+        try {
+            const data = await apiClient.get<{ streamers: string[] }>('/api/clipper/blocklist');
+            setBlocklist(data.streamers || []);
+        } catch (err) {
+            console.warn("Failed to fetch blocklist");
+        }
+    };
+
+    const saveBlocklist = async (newList: string[]) => {
+        setBlocklistSaving(true);
+        try {
+            const data = await apiClient.put<{ streamers: string[] }>('/api/clipper/blocklist', { streamers: newList });
+            setBlocklist(data.streamers || newList);
+            toast.success(`Blocklist atualizada (${newList.length})`);
+        } catch (err) {
+            toast.error('Erro ao salvar blocklist');
+        } finally {
+            setBlocklistSaving(false);
+        }
+    };
+
+    const handleAddBlockedStreamer = () => {
+        const name = blocklistInput.trim().toLowerCase();
+        if (!name || blocklist.includes(name)) {
+            setBlocklistInput('');
+            return;
+        }
+        const newList = [...blocklist, name].sort();
+        setBlocklist(newList);
+        setBlocklistInput('');
+        saveBlocklist(newList);
+    };
+
+    const handleRemoveBlockedStreamer = (name: string) => {
+        const newList = blocklist.filter(s => s !== name);
+        setBlocklist(newList);
+        saveBlocklist(newList);
+    };
+
     const targetsIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         fetchTargets();
         fetchProfiles();
         fetchArmies();
+        fetchBlocklist();
         targetsIntervalRef.current = setInterval(fetchTargets, 10000);
         return () => {
             if (targetsIntervalRef.current) {
@@ -843,7 +890,7 @@ export default function ClipperPage() {
                 <div className="absolute bottom-0 right-0 w-1/3 h-px bg-gradient-to-l from-cyan-400/50 to-transparent"></div>
                 <div className="relative">
                     <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold tracking-tighter text-white font-display">
-                        Vigilância do <span className="text-cyan-400 block text-xl md:text-3xl lg:text-4xl tracking-[0.2em] font-mono mt-2 font-normal drop-shadow-[0_0_10px_rgba(0,240,255,0.8)]">Espaço Profundo</span>
+                        Vigilância do <span className="text-cyan-400 inline text-xl md:text-3xl lg:text-4xl tracking-[0.2em] font-mono font-normal drop-shadow-[0_0_10px_rgba(0,240,255,0.8)]">Espaço Profundo</span>
                     </h1>
                 </div>
                 <div className="hidden md:flex flex-col items-end gap-1">
@@ -991,6 +1038,54 @@ export default function ClipperPage() {
                                     )}
                                 </button>
                             </div>
+                        </div>
+                    </section>
+
+                    {/* ═══ BLOCKLIST GLOBAL ═══ */}
+                    <section className="px-4 md:px-8 mt-2">
+                        <div className="bg-black/40 border border-red-500/20 rounded-xl p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                                <span className="material-symbols-outlined text-red-400 text-[18px]">block</span>
+                                <h3 className="text-[11px] font-mono font-bold uppercase tracking-wider text-red-400">Blocklist de Streamers</h3>
+                                <span className="text-[9px] font-mono text-slate-500 ml-auto">{blocklist.length} bloqueado{blocklist.length !== 1 ? 's' : ''}</span>
+                            </div>
+                            <div className="flex gap-2 mb-3">
+                                <input
+                                    type="text"
+                                    value={blocklistInput}
+                                    onChange={(e) => setBlocklistInput(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleAddBlockedStreamer()}
+                                    placeholder="Nome do streamer..."
+                                    className="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-red-500/50 placeholder:text-slate-600 transition-colors"
+                                />
+                                <button
+                                    onClick={handleAddBlockedStreamer}
+                                    disabled={!blocklistInput.trim() || blocklistSaving}
+                                    className="px-4 py-2 text-[10px] font-mono font-bold uppercase bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+                                >
+                                    <span className="material-symbols-outlined text-[14px]">person_off</span>
+                                    BLOQUEAR
+                                </button>
+                            </div>
+                            {blocklist.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5">
+                                    {blocklist.map(name => (
+                                        <span key={name} className="inline-flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 text-red-300 text-[10px] font-mono px-2.5 py-1 rounded-full group hover:border-red-500/40 transition-colors">
+                                            {name}
+                                            <button
+                                                onClick={() => handleRemoveBlockedStreamer(name)}
+                                                className="text-red-500/40 hover:text-red-400 transition-colors"
+                                                title={`Desbloquear ${name}`}
+                                            >
+                                                <span className="material-symbols-outlined text-[12px]">close</span>
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            {blocklist.length === 0 && (
+                                <p className="text-[10px] font-mono text-slate-600 text-center py-1">Nenhum streamer bloqueado. Clips de todos os criadores serão aceitos.</p>
+                            )}
                         </div>
                     </section>
 
@@ -1978,32 +2073,72 @@ export default function ClipperPage() {
                                     </div>
 
                                     <div className="p-4 flex-1 flex flex-col gap-3">
-                                        {/* Title + Status Badge */}
+                                        {/* Title + Status Badge + Time in Queue */}
                                         <div className="flex justify-between items-start gap-2">
                                             <h3 className="text-white font-bold text-xs truncate uppercase tracking-wider flex-1" title={video.title || `Job #${video.clip_job_id}`}>
                                                 {video.title || `Clip Job #${video.clip_job_id}`}
                                             </h3>
-                                            <span className="text-[9px] font-mono text-amber-500 border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 rounded whitespace-nowrap">PENDENTE</span>
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                <span className="text-[9px] font-mono text-slate-600 whitespace-nowrap" title={new Date(video.created_at).toLocaleString('pt-BR')}>
+                                                    {(() => {
+                                                        const mins = Math.floor((Date.now() - new Date(video.created_at).getTime()) / 60000);
+                                                        if (mins < 60) return `${mins}min`;
+                                                        const hrs = Math.floor(mins / 60);
+                                                        if (hrs < 24) return `${hrs}h`;
+                                                        return `${Math.floor(hrs / 24)}d`;
+                                                    })()}
+                                                </span>
+                                                <span className="text-[9px] font-mono text-amber-500 border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 rounded whitespace-nowrap">PENDENTE</span>
+                                            </div>
                                         </div>
 
-                                        {/* Streamer */}
-                                        <p className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5">
-                                            <span className="material-symbols-outlined text-[14px]">person</span>
-                                            {video.streamer_name || 'Desconhecido'}
-                                        </p>
+                                        {/* Streamer + Target + Army Badge */}
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="flex flex-col gap-1 min-w-0">
+                                                <p className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5 truncate">
+                                                    <span className="material-symbols-outlined text-[14px]">person</span>
+                                                    {video.streamer_name || 'Desconhecido'}
+                                                    {video.target_name && video.target_name !== video.streamer_name && (
+                                                        <span className="text-cyan-500/60">
+                                                            <span className="material-symbols-outlined text-[12px] ml-1">target</span> {video.target_name}
+                                                        </span>
+                                                    )}
+                                                </p>
+                                            </div>
+                                            {video.target_army_id && (() => {
+                                                const army = armies.find(a => a.id === video.target_army_id);
+                                                if (!army) return null;
+                                                return (
+                                                    <span
+                                                        className="text-[9px] font-mono px-2 py-0.5 rounded-full border shrink-0 flex items-center gap-1"
+                                                        style={{ color: army.color, borderColor: `${army.color}40`, backgroundColor: `${army.color}15` }}
+                                                        title={`Exército: ${army.name}`}
+                                                    >
+                                                        <span className="material-symbols-outlined text-[11px]">{army.icon}</span>
+                                                        {army.name}
+                                                    </span>
+                                                );
+                                            })()}
+                                        </div>
 
-                                        {/* Duration + Size */}
-                                        <div className="flex items-center gap-3 text-[10px] text-slate-600 font-mono">
+                                        {/* Duration + Size + Clip Count */}
+                                        <div className="flex items-center gap-3 text-[11px] text-slate-500 font-mono">
                                             {video.duration_seconds && (
                                                 <span className="flex items-center gap-1">
-                                                    <span className="material-symbols-outlined text-[12px]">timer</span>
+                                                    <span className="material-symbols-outlined text-[13px]">timer</span>
                                                     {Math.floor(video.duration_seconds / 60)}:{String(video.duration_seconds % 60).padStart(2, '0')}
                                                 </span>
                                             )}
                                             {video.file_size_bytes && (
                                                 <span className="flex items-center gap-1">
-                                                    <span className="material-symbols-outlined text-[12px]">hard_drive</span>
+                                                    <span className="material-symbols-outlined text-[13px]">hard_drive</span>
                                                     {(video.file_size_bytes / 1024 / 1024).toFixed(1)} MB
+                                                </span>
+                                            )}
+                                            {video.clips && video.clips.length > 0 && (
+                                                <span className="flex items-center gap-1">
+                                                    <span className="material-symbols-outlined text-[13px]">movie</span>
+                                                    {video.clips.length} {video.clips.length === 1 ? 'clip' : 'clips'}
                                                 </span>
                                             )}
                                         </div>

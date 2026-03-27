@@ -27,7 +27,7 @@ from arq import create_pool
 from arq.connections import RedisSettings
 
 from core.database import safe_session
-from core.clipper.models import TwitchTarget, ClipJob
+from core.clipper.models import TwitchTarget, ClipJob, ClipperBlockedStreamer
 from core.config import TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET
 
 logger = logging.getLogger("ClipperMonitor")
@@ -657,6 +657,25 @@ def _chunk_clips_by_duration(
     """
     if not clips:
         return [], []
+
+    # Filtrar streamers bloqueados (blocklist global)
+    blocked_names: set = set()
+    try:
+        with safe_session() as db:
+            blocked_names = {r.streamer_name for r in db.query(ClipperBlockedStreamer).all()}
+    except Exception as e:
+        logger.warning(f"Falha ao carregar blocklist: {e}")
+
+    if blocked_names:
+        before = len(clips)
+        clips = [
+            c for c in clips
+            if c.get("creator_name", "").lower() not in blocked_names
+               and c.get("broadcaster_name", "").lower() not in blocked_names
+        ]
+        removed = before - len(clips)
+        if removed:
+            logger.info(f"Blocklist: {removed} clip(s) removido(s) de streamers bloqueados")
 
     # Filtrar clips muito curtos (< 10s)
     valid_clips = []
