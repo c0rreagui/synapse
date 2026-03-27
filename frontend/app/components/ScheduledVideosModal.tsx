@@ -49,6 +49,22 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
     }, [isOpen]);
 
     const [deletingConfirmationId, setDeletingConfirmationId] = useState<string | null>(null);
+    const [revertingId, setRevertingId] = useState<string | null>(null);
+
+    const handleRevert = async (id: string) => {
+        setRevertingId(id);
+        try {
+            await apiClient.post(`/api/v1/factory/revert/${id}`);
+            setEvents(prev => prev.filter(e => e.id !== id));
+            toast.success("Vídeo devolvido à fila de aprovação");
+            await fetchEvents();
+            if (onUpdate) onUpdate();
+        } catch (e) {
+            toast.error("Erro ao reverter agendamento");
+        } finally {
+            setRevertingId(null);
+        }
+    };
 
     const handleDeleteClick = (id: string) => {
         setDeletingConfirmationId(id);
@@ -497,8 +513,19 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                                                                                     </div>
                                                                                 </div>
 
-                                                                                <div className="mt-3 flex items-center justify-end">
-                                                                                    {/* Actions */}
+                                                                                <div className="mt-3 flex items-center justify-end gap-1">
+                                                                                    {/* Revert to Approval */}
+                                                                                    {event.status === 'pending' && (
+                                                                                        <button
+                                                                                            onClick={() => handleRevert(event.id)}
+                                                                                            disabled={revertingId === event.id}
+                                                                                            className="p-1.5 rounded-lg transition-colors opacity-0 group-hover:opacity-100 flex items-center gap-1 text-gray-600 hover:text-amber-500 hover:bg-amber-500/10 disabled:opacity-50 text-[9px] font-mono"
+                                                                                            title="Devolver para aprovação"
+                                                                                        >
+                                                                                            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
+                                                                                        </button>
+                                                                                    )}
+                                                                                    {/* Delete */}
                                                                                     <button
                                                                                         onClick={() => handleDeleteClick(event.id)}
                                                                                         className="p-1.5 rounded-lg transition-colors opacity-0 group-hover:opacity-100 flex items-center gap-2 text-gray-600 hover:text-red-500 hover:bg-red-500/10"

@@ -1000,3 +1000,93 @@ async def remove_clip_and_reprocess(item_id: int, body: RemoveClipRequest, db: S
         "job_id": job.id,
         "remaining_clips": clip_count - 1,
     }
+
+
+# ─── POST /revert/{schedule_item_id} — Reverter agendamento para aprovação ──
+
+@router.post("/revert/{schedule_item_id}")
+async def revert_to_approval(schedule_item_id: int, db: Session = Depends(get_db)):
+    """
+    Reverte um vídeo agendado de volta para a fila de aprovação.
+    - Deleta o ScheduleItem do scheduler
+    - Move arquivo de /data/approved/ para /data/pending/
+    - Reseta PendingApproval.status para 'pending'
+    - Limpa VideoQueue vinculado
+    """
+    from core.models import ScheduleItem, VideoQueue
+
+    item = db.query(ScheduleItem).filter(ScheduleItem.id == schedule_item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Agendamento não encontrado")
+    if item.status in ("posted", "processing"):
+        raise HTTPException(status_code=400, detail=f"Não é possível reverter: status '{item.status}'")
+
+    video_path = item.video_path
+    profile_slug = item.profile_slug
+
+    # 1. Mover arquivo de approved/ de volta para pending/
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    APPROVED_DIR = os.path.join(BASE_DIR, "data", "approved")
+    PENDING_DIR = os.path.join(BASE_DIR, "data", "pending")
+    os.makedirs(PENDING_DIR, exist_ok=True)
+
+    filename = os.path.basename(video_path) if video_path else None
+    moved = False
+    if filename:
+        approved_path = os.path.join(APPROVED_DIR, filename)
+        pending_path = os.path.join(PENDING_DIR, filename)
+        if os.path.exists(approved_path):
+            import shutil
+            shutil.move(approved_path, pending_path)
+            moved = True
+            logger.info(f"Revert: movido {filename} de approved/ para pending/")
+            # Mover metadata JSON se existir
+            json_name = os.path.splitext(filename)[0] + ".json"
+            json_approved = os.path.join(APPROVED_DIR, json_name)
+            if os.path.exists(json_approved):
+                shutil.move(json_approved, os.path.join(PENDING_DIR, json_name))
+        elif os.path.exists(video_path):
+            # Arquivo já está em outro lugar, copiar para pending
+            import shutil
+            shutil.copy2(video_path, pending_path)
+            moved = True
+
+    # 2. Encontrar e resetar PendingApproval vinculado
+    pending_item = None
+    # Tentar via VideoQueue -> clip_job_id ou via video_path
+    vq = db.query(VideoQueue).filter(VideoQueue.schedule_item_id == schedule_item_id).first()
+    if vq:
+        # Buscar PendingApproval pelo video_path do VideoQueue
+        pending_item = db.query(PendingApproval).filter(
+            PendingApproval.video_path.contains(filename) if filename else False
+        ).first()
+        vq.schedule_item_id = None
+        vq.status = "cancelled"
+
+    if not pending_item and filename:
+        # Buscar por qualquer path que contenha o filename
+        all_pending = db.query(PendingApproval).filter(PendingApproval.status == "approved").all()
+        for p in all_pending:
+            if p.video_path and os.path.basename(p.video_path) == filename:
+                pending_item = p
+                break
+
+    if pending_item:
+        pending_item.status = "pending"
+        # Atualizar path para o novo local em pending/
+        if moved and filename:
+            pending_item.video_path = os.path.join(PENDING_DIR, filename)
+        logger.info(f"Revert: PendingApproval #{pending_item.id} resetado para 'pending'")
+
+    # 3. Deletar ScheduleItem
+    db.delete(item)
+    db.commit()
+
+    logger.info(f"Revert: ScheduleItem #{schedule_item_id} deletado, vídeo devolvido à curadoria")
+
+    return {
+        "message": "Agendamento revertido. Vídeo devolvido à fila de aprovação.",
+        "schedule_item_id": schedule_item_id,
+        "pending_approval_reset": pending_item.id if pending_item else None,
+        "file_moved": moved,
+    }
