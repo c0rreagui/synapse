@@ -627,8 +627,12 @@ CHUNK_TARGET_DURATION = 90.0   # Duração alvo por postagem (1.5 minutos)
 CHUNK_MIN_DURATION = 64.5      # Mínimo ~65s (crossfade consome ~2-3s, resultado final >= 61s). Uses 64.5 to handle floating point imprecision (e.g. 64.999s)
 CHUNK_MAX_DURATION = 160.0     # Máximo absoluto de duração por job (evita vídeos muito longos)
 MAX_JOBS_PER_SCAN = 3          # Máximo de jobs criados por target por ciclo de scan
-MAX_CLIPS_PER_JOB = 6          # Limite absoluto de clips por job (safety: evita jobs gigantes que enchem disco)
+MAX_CLIPS_PER_JOB = 4          # Limite de clips por job (mantém qualidade e duração adequada)
+MIN_CLIP_DURATION = 10.0       # Clips abaixo de 10s são descartados (muito curtos para engajamento)
+PREFERRED_CLIP_DURATION = 20.0 # Clips >= 20s têm prioridade na seleção
+MAX_CLIPS_PER_CREATOR = 2      # Máximo de clips do mesmo criador por job (diversidade)
 WAITING_JOB_TIMEOUT_HOURS = 72 # Timeout para jobs em waiting_clips
+MIN_VIABLE_DURATION = 30.0     # Duração mínima de conteúdo único para promover waiting_clips expirado
 
 
 def _chunk_clips_by_duration(
@@ -654,11 +658,64 @@ def _chunk_clips_by_duration(
     if not clips:
         return [], []
 
+    # Filtrar clips muito curtos (< 10s)
+    valid_clips = []
+    for c in clips:
+        try:
+            dur = float(c.get("duration") or 30)
+        except (ValueError, TypeError):
+            dur = 30.0
+        if dur < MIN_CLIP_DURATION:
+            logger.info(f"Descartando clip curto ({dur:.1f}s < {MIN_CLIP_DURATION}s): {c.get('title', '?')}")
+            continue
+        valid_clips.append(c)
+
+    if not valid_clips:
+        return [], []
+
+    # Recency boost: clips mais recentes ganham multiplicador de views
+    # Clip de 1h atrás com 300 views vale mais que clip de 20h com 400 views
+    now_utc = datetime.now(timezone.utc)
+    for c in valid_clips:
+        raw_views = c.get("view_count", 0)
+        created_str = c.get("created_at", "")
+        hours_ago = 24.0  # fallback
+        if created_str:
+            try:
+                created = datetime.fromisoformat(created_str.replace("Z", "+00:00"))
+                hours_ago = max((now_utc - created).total_seconds() / 3600, 0.5)
+            except (ValueError, TypeError):
+                pass
+        # Decay: views * (1 / sqrt(hours_ago)) — clips recentes amplificados
+        c["_score"] = raw_views * (1.0 / (hours_ago ** 0.5))
+
+    # Priorizar por score (views + recência), depois >= 20s, depois duração
+    valid_clips.sort(key=lambda c: (
+        c.get("_score", 0),
+        float(c.get("duration", 0)) >= PREFERRED_CLIP_DURATION,
+        float(c.get("duration", 0)),
+    ), reverse=True)
+
+    # Creator diversity: limitar clips do mesmo criador
+    creator_count: Dict[str, int] = {}
+    diverse_clips: List[Dict] = []
+    overflow_clips: List[Dict] = []
+    for c in valid_clips:
+        creator = c.get("creator_name", "").lower()
+        count = creator_count.get(creator, 0)
+        if count < MAX_CLIPS_PER_CREATOR:
+            diverse_clips.append(c)
+            creator_count[creator] = count + 1
+        else:
+            overflow_clips.append(c)
+    # Clips excedentes vão pro final (ainda podem ser usados se sobrar espaço)
+    valid_clips = diverse_clips + overflow_clips
+
     chunks: List[List[Dict]] = []
     current_chunk: List[Dict] = []
     current_duration = 0.0
 
-    for clip in clips:
+    for clip in valid_clips:
         try:
             clip_dur = float(clip.get("duration") or 30)
         except (ValueError, TypeError):
@@ -917,6 +974,9 @@ async def _feed_waiting_jobs(
                 if current_clip_count + len(added_clips) >= MAX_CLIPS_PER_JOB:
                     break
                 clip_dur = float(clip.get("duration", 30))
+                if clip_dur < MIN_CLIP_DURATION:
+                    remaining.remove(clip)
+                    continue
                 added_clips.append(clip)
                 existing_dur += clip_dur
                 remaining.remove(clip)
@@ -1020,7 +1080,7 @@ async def _consolidate_waiting_jobs() -> None:
                 donor_meta = donor.clip_metadata or []
 
                 for url, meta in zip(donor_urls, donor_meta):
-                    if url not in merged_urls:
+                    if url not in merged_urls and len(merged_urls) < MAX_CLIPS_PER_JOB:
                         merged_urls.append(url)
                         merged_meta.append(meta)
 
@@ -1089,11 +1149,26 @@ async def _promote_expired_waiting_jobs() -> None:
 
         from core.config import REDIS_HOST, REDIS_PORT
 
+        promoted = []
+        discarded = []
         for job in expired:
             total_dur = sum(float(c.get("duration", 30)) for c in (job.clip_metadata or []))
+
+            if total_dur < MIN_VIABLE_DURATION:
+                # Conteúdo único muito curto — loop ficaria repetitivo e lixo
+                job.status = "failed"
+                job.error_message = f"Expirou com apenas {total_dur:.0f}s (min={MIN_VIABLE_DURATION:.0f}s). Descartado."
+                job.current_step = "Descartado: conteúdo insuficiente após 72h."
+                discarded.append(job.id)
+                logger.warning(
+                    f"🗑️ Job #{job.id} expirou com {total_dur:.0f}s < {MIN_VIABLE_DURATION:.0f}s mínimo. Descartado."
+                )
+                continue
+
             job.status = "pending"
             job.current_step = f"Timeout 72h atingido ({total_dur:.0f}s). Processando com loop."
             job.progress_pct = 0
+            promoted.append(job)
             logger.warning(
                 f"⏰ Job #{job.id} expirou waiting_clips após 72h: "
                 f"{len(job.clip_urls or [])} clips, {total_dur:.0f}s. Forçando processamento."
@@ -1101,16 +1176,17 @@ async def _promote_expired_waiting_jobs() -> None:
 
         db.commit()
 
-        # Enfileirar todos
-        try:
-            pool = await create_pool(RedisSettings(host=REDIS_HOST, port=REDIS_PORT))
+        # Enfileirar apenas os promovidos (não os descartados)
+        if promoted:
             try:
-                for job in expired:
-                    await pool.enqueue_job("process_clip_job", job.id, _queue_name="clipper:queue")
-            finally:
-                await pool.close()
-        except Exception as e:
-            logger.error(f"Falha ao enfileirar jobs expirados: {e}")
+                pool = await create_pool(RedisSettings(host=REDIS_HOST, port=REDIS_PORT))
+                try:
+                    for job in promoted:
+                        await pool.enqueue_job("process_clip_job", job.id, _queue_name="clipper:queue")
+                finally:
+                    await pool.close()
+            except Exception as e:
+                logger.error(f"Falha ao enfileirar jobs expirados: {e}")
 
 
 async def monitor_loop(interval_seconds: int = 60):

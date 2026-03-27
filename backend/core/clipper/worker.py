@@ -259,6 +259,11 @@ async def _process_clip_job_inner(ctx, job_id: int):
         _fail_job_db(job_id, f"Stitch error: {stitch_res.get('error')}", "Falha na costura.")
         return
 
+    # Tracking: registrar estratégia do stitcher nos metadados
+    stitch_strategy = stitch_res.get("strategy", "unknown")
+    if stitch_strategy != "crossfade":
+        logger.warning(f"Job #{job_id}: Stitcher usou fallback '{stitch_strategy}' (não crossfade)")
+
     stitched_path = stitch_res.get("output_path")
     from core.clipper.stitcher import _get_duration, create_seamless_loop, _apply_loop_tail
     stitched_duration = await _get_duration(stitched_path)
@@ -397,6 +402,17 @@ async def _process_clip_job_inner(ctx, job_id: int):
             job.output_path = output_path
             job.completed_at = datetime.now(timezone.utc)
             job.duration_seconds = duration
+            # Registrar estratégia do stitcher e ASB params nos metadados
+            pipeline_meta = {
+                "stitch_strategy": stitch_strategy,
+                "asb_speed": asb_params.get("speed"),
+                "asb_grain": asb_params.get("grain"),
+                "asb_style": asb_style,
+                "facecam_ratio": asb_params.get("facecam_ratio"),
+            }
+            if job.clip_metadata and isinstance(job.clip_metadata, list):
+                # Preservar metadata original, adicionar pipeline info
+                job.clip_metadata = job.clip_metadata + [{"_pipeline": pipeline_meta}]
             db.commit()
 
     # ── Limpar clips brutos deste job (já foram stitchados) ──

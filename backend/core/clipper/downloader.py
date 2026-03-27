@@ -186,6 +186,47 @@ async def download_clip(
         }
 
 
+async def _has_audio_stream(file_path: str) -> bool:
+    """Verifica se um arquivo de vídeo possui stream de áudio via ffprobe."""
+    try:
+        cmd = [
+            "ffprobe", "-v", "quiet",
+            "-select_streams", "a",
+            "-show_entries", "stream=codec_type",
+            "-of", "csv=p=0",
+            file_path,
+        ]
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await asyncio.wait_for(process.communicate(), timeout=10)
+        return bool(stdout.decode().strip())
+    except Exception as e:
+        logger.warning(f"Falha ao verificar audio de {file_path}: {e}")
+        return True  # Assume que tem audio (fail-safe)
+
+
+def _cleanup_partial_files(output_path: str) -> None:
+    """Remove arquivos .part e temporários associados a um download."""
+    base = os.path.splitext(output_path)[0]
+    for ext in [".part", ".mp4.part", ".mkv.part", ".webm.part", ".ytdl"]:
+        part_path = base + ext
+        if os.path.exists(part_path):
+            try:
+                os.remove(part_path)
+                logger.info(f"Limpeza: removido {os.path.basename(part_path)}")
+            except OSError:
+                pass
+    # Também limpar o path exato + .part
+    if os.path.exists(output_path + ".part"):
+        try:
+            os.remove(output_path + ".part")
+        except OSError:
+            pass
+
+
 async def _get_duration(file_path: str) -> float:
     """
     Obtem a duracao de um arquivo de video usando ffprobe.
@@ -229,7 +270,7 @@ async def download_job_clips(job_id: int) -> Dict[str, Any]:
         return {"success": False, "local_paths": [], "total_duration": 0, "errors": ["Sem URLs."]}
 
     # Safety net: limitar clips por job para evitar download de centenas de clips
-    MAX_CLIPS = 6
+    MAX_CLIPS = 4
     if len(clip_urls) > MAX_CLIPS:
         logger.warning(f"Job #{job_id}: {len(clip_urls)} clips excede limite de {MAX_CLIPS}. Truncando.")
         clip_urls = clip_urls[:MAX_CLIPS]
@@ -245,12 +286,35 @@ async def download_job_clips(job_id: int) -> Dict[str, Any]:
         result = await download_clip(url, output_path)
 
         if result["success"]:
+            # Validação de áudio: clips sem áudio falham no Whisper
+            has_audio = await _has_audio_stream(result["path"])
+            if not has_audio:
+                logger.warning(f"Job #{job_id}: Clip {i} sem stream de audio, pulando: {title}")
+                errors.append(f"Clip {i} ({url}): sem audio")
+                continue
             local_paths.append(result["path"])
             total_duration += result.get("duration", 0)
         else:
             errors.append(f"Clip {i} ({url}): {result['error']}")
+            _cleanup_partial_files(output_path)
 
         _update_job_progress(job_id, i + 1, len(clip_urls))
+
+    # Duration check: se downloads parciais resultaram em duração muito curta,
+    # não vale continuar (transcrição + edição serão desperdiçados)
+    MIN_VIABLE_DOWNLOAD_DURATION = 15.0  # Mínimo absoluto pós-download
+    if local_paths and total_duration < MIN_VIABLE_DOWNLOAD_DURATION:
+        logger.warning(
+            f"Job #{job_id}: Duração pós-download muito curta ({total_duration:.1f}s < {MIN_VIABLE_DOWNLOAD_DURATION}s). "
+            f"Apenas {len(local_paths)}/{len(clip_urls)} clips válidos."
+        )
+        _fail_job(job_id, f"Duração insuficiente pós-download: {total_duration:.1f}s ({len(local_paths)} clips)")
+        return {
+            "success": False,
+            "local_paths": local_paths,
+            "total_duration": total_duration,
+            "errors": errors + [f"Duração total {total_duration:.1f}s < {MIN_VIABLE_DOWNLOAD_DURATION}s mínimo"],
+        }
 
     _finalize_job_download(job_id, local_paths, total_duration, errors)
 
