@@ -59,8 +59,18 @@ export default function ProfilesPage() {
     const [viewerImage, setViewerImage] = useState<string | null>(null);
 
     // REMOTE SESSION STATE
-    const [remoteSession, setRemoteSession] = useState<{ active: boolean; novnc_url?: string; profile_slug?: string } | null>(null);
+    const [remoteSession, setRemoteSession] = useState<{ active: boolean; novnc_url?: string; profile_slug?: string; session_type?: string } | null>(null);
     const [startingRemote, setStartingRemote] = useState(false);
+
+    // VNC FÁBRICA STATE
+    const [showFactoryModal, setShowFactoryModal] = useState(false);
+    const [factoryStep, setFactoryStep] = useState<1 | 2 | 3>(1);
+    const [factoryProxyId, setFactoryProxyId] = useState<number | null>(null);
+    const [factoryLabel, setFactoryLabel] = useState('');
+    const [factorySession, setFactorySession] = useState<{ active: boolean; novnc_url?: string } | null>(null);
+    const [factoryCapturing, setFactoryCapturing] = useState(false);
+    const [startingFactory, setStartingFactory] = useState(false);
+    const [factoryResult, setFactoryResult] = useState<{ profile_id: string; username?: string; label: string } | null>(null);
 
     // IMPORT STATE EXTENDED
     const [importUsername, setImportUsername] = useState('');
@@ -475,6 +485,81 @@ export default function ProfilesPage() {
         }
     };
 
+    // VNC FÁBRICA HANDLERS
+    const resetFactoryModal = () => {
+        setShowFactoryModal(false);
+        setFactoryStep(1);
+        setFactoryProxyId(null);
+        setFactoryLabel('');
+        setFactorySession(null);
+        setFactoryResult(null);
+        setFactoryCapturing(false);
+    };
+
+    const handleStartFactorySession = async () => {
+        if (!factoryProxyId) {
+            toast.error('Selecione um proxy antes de iniciar.');
+            return;
+        }
+        setStartingFactory(true);
+        try {
+            const data = await apiClient.post<any>('/api/v1/vnc-factory/start', { proxy_id: factoryProxyId });
+            setFactorySession(data);
+            setRemoteSession({ active: true, session_type: 'factory', novnc_url: data.novnc_url });
+            setFactoryStep(2);
+            toast.success('Sessão fábrica iniciada', {
+                description: 'Faça login no TikTok via VNC e clique em Capturar.',
+            });
+        } catch (e: any) {
+            toast.error('Erro ao iniciar VNC Fábrica', {
+                description: e?.data?.detail || 'Verifique se há outra sessão ativa.',
+            });
+        } finally {
+            setStartingFactory(false);
+        }
+    };
+
+    const handleCaptureFactoryProfile = async () => {
+        setFactoryCapturing(true);
+        try {
+            const data = await apiClient.post<any>('/api/v1/vnc-factory/capture', {
+                label: factoryLabel || undefined,
+                proxy_id: factoryProxyId,
+            });
+            setFactoryResult(data);
+            setFactoryStep(3);
+            setFactorySession(null);
+            setRemoteSession({ active: false });
+            fetchProfiles();
+            toast.success('Perfil capturado!', {
+                description: `${data.username ? `@${data.username}` : data.label} adicionado ao sistema.`,
+            });
+        } catch (e: any) {
+            const status = e?.status || e?.response?.status;
+            const detail = e?.data?.detail || 'Erro desconhecido';
+            if (status === 422) {
+                toast.error('Login ainda não concluído', { description: 'Complete o login no TikTok antes de capturar.' });
+            } else {
+                toast.error('Falha ao capturar perfil', { description: detail });
+            }
+        } finally {
+            setFactoryCapturing(false);
+        }
+    };
+
+    const handleStopFactorySession = async () => {
+        try {
+            await apiClient.post('/api/v1/vnc-factory/stop');
+            setFactorySession(null);
+            setRemoteSession({ active: false });
+            setFactoryStep(1);
+            setFactoryResult(null);
+            toast.success('Sessão fábrica encerrada');
+        } catch (e: any) {
+            toast.error('Erro ao encerrar fábrica', { description: e?.data?.detail || 'Erro desconhecido' });
+        }
+    };
+
     // Poll remote session status on mount
     useEffect(() => {
         fetchRemoteSessionStatus();
@@ -669,13 +754,25 @@ export default function ProfilesPage() {
                             <p className="text-synapse-primary font-mono text-xs tracking-widest uppercase opacity-60">Continuous Chronological Stream Node Grid</p>
                         </div>
                     </div>
-                    <NeonButton
-                        variant="ghost"
-                        onClick={handleSelectAll}
-                        className="text-xs"
-                    >
-                        {selectedIds.size === profiles.length && profiles.length > 0 ? 'Desmarcar Todos' : 'Selecionar Todos'}
-                    </NeonButton>
+                    <div className="flex items-center gap-3">
+                        <NeonButton
+                            variant="ghost"
+                            onClick={handleSelectAll}
+                            className="text-xs"
+                        >
+                            {selectedIds.size === profiles.length && profiles.length > 0 ? 'Desmarcar Todos' : 'Selecionar Todos'}
+                        </NeonButton>
+                        <NeonButton
+                            variant="primary"
+                            onClick={() => { setFactoryStep(1); setShowFactoryModal(true); }}
+                            disabled={remoteSession?.active === true}
+                            className="text-xs flex items-center gap-1.5"
+                            title={remoteSession?.active ? 'Encerre a sessão VNC ativa antes de criar um novo perfil' : 'Criar novo perfil via VNC Fábrica'}
+                        >
+                            <PlusIcon className="w-3.5 h-3.5" />
+                            Criar via VNC
+                        </NeonButton>
+                    </div>
                 </div>
             </div>
 
@@ -1453,6 +1550,147 @@ export default function ProfilesPage() {
                     </NeonButton>
                 </div>
             </Modal >
+
+            {/* ═══ VNC FÁBRICA MODAL ═══ */}
+            <Modal
+                isOpen={showFactoryModal}
+                onClose={resetFactoryModal}
+                title="VNC Fábrica — Criar Novo Perfil"
+            >
+                {/* Step indicator */}
+                <div className="flex items-center gap-2 mb-6">
+                    {([{ n: 1, label: 'Proxy' }, { n: 2, label: 'Login' }, { n: 3, label: 'Sucesso' }] as { n: 1 | 2 | 3; label: string }[]).map(({ n, label }) => (
+                        <div key={n} className="flex items-center gap-2">
+                            <div className={clsx(
+                                'w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border transition-colors',
+                                factoryStep >= n
+                                    ? 'bg-synapse-primary/20 border-synapse-primary text-synapse-primary'
+                                    : 'bg-white/5 border-white/10 text-gray-600'
+                            )}>
+                                {factoryStep > n ? '✓' : n}
+                            </div>
+                            <span className={clsx(
+                                'text-xs font-mono uppercase tracking-wider transition-colors',
+                                factoryStep >= n ? 'text-synapse-primary' : 'text-gray-600'
+                            )}>{label}</span>
+                            {n < 3 && <div className={clsx('w-6 h-px', factoryStep > n ? 'bg-synapse-primary/50' : 'bg-white/10')} />}
+                        </div>
+                    ))}
+                </div>
+
+                {/* ETAPA 1: Seleção de Proxy */}
+                {factoryStep === 1 && (
+                    <div className="space-y-4">
+                        <p className="text-sm text-gray-400">
+                            Selecione o proxy ISP fixo para este perfil. A sessão VNC será iniciada com esse proxy desde o início — garantindo que o TikTok associe a conta ao IP correto.
+                        </p>
+                        <div>
+                            <label className="block text-xs text-gray-400 mb-2 uppercase font-bold tracking-wider">
+                                Proxy <span className="text-red-400">*</span>
+                            </label>
+                            <select
+                                value={factoryProxyId ?? ''}
+                                onChange={(e) => setFactoryProxyId(e.target.value ? parseInt(e.target.value) : null)}
+                                className="w-full px-4 py-3 rounded-lg bg-black/50 border border-white/10 text-white focus:border-synapse-primary outline-none"
+                            >
+                                <option value="">-- Selecione um proxy --</option>
+                                {proxies.filter((p: any) => p.active).map((proxy: any) => (
+                                    <option key={proxy.id} value={proxy.id}>
+                                        {proxy.nickname ? `${proxy.nickname} — ${proxy.server}` : `${proxy.name} — ${proxy.server}`}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs text-gray-400 mb-2 uppercase font-bold tracking-wider">
+                                Label do Perfil <span className="text-gray-600 normal-case font-normal">(opcional)</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={factoryLabel}
+                                onChange={(e) => setFactoryLabel(e.target.value)}
+                                placeholder="Ex: Canal Principal BR"
+                                className="w-full px-4 py-3 rounded-lg bg-black/50 border border-white/10 text-white focus:border-synapse-primary outline-none"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-3 pt-2">
+                            <NeonButton variant="ghost" onClick={resetFactoryModal}>Cancelar</NeonButton>
+                            <NeonButton
+                                variant="primary"
+                                onClick={handleStartFactorySession}
+                                disabled={!factoryProxyId || startingFactory}
+                            >
+                                {startingFactory
+                                    ? <><ArrowPathIcon className="w-4 h-4 animate-spin mr-2 inline" />Iniciando...</>
+                                    : 'Iniciar Sessão VNC'}
+                            </NeonButton>
+                        </div>
+                    </div>
+                )}
+
+                {/* ETAPA 2: VNC ativo + Capturar */}
+                {factoryStep === 2 && factorySession?.novnc_url && (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between bg-violet-500/10 border border-violet-500/20 rounded-lg px-4 py-2">
+                            <div className="flex items-center gap-2">
+                                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_#34d399]" />
+                                <span className="text-violet-300 font-mono text-xs font-bold uppercase tracking-widest">Sessão Fábrica Ativa</span>
+                            </div>
+                            <button
+                                onClick={handleStopFactorySession}
+                                className="text-xs text-red-400 hover:text-red-300 font-mono uppercase border border-red-500/30 px-3 py-1 rounded hover:bg-red-500/10 transition-all"
+                            >
+                                Encerrar
+                            </button>
+                        </div>
+
+                        <div className="rounded-lg overflow-hidden border border-violet-500/20" style={{ height: '480px' }}>
+                            <iframe
+                                src={factorySession.novnc_url}
+                                className="w-full h-full border-0"
+                                title="VNC Fábrica — Login TikTok"
+                                allow="clipboard-read; clipboard-write"
+                            />
+                        </div>
+
+                        <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg px-4 py-3 text-xs text-yellow-300/80 font-mono space-y-1">
+                            <p>1. Faça login no TikTok via VNC acima.</p>
+                            <p>2. Aguarde a página inicial carregar (confirma login bem-sucedido).</p>
+                            <p>3. Clique em <strong>"Capturar Perfil"</strong> abaixo.</p>
+                        </div>
+
+                        <div className="flex justify-end">
+                            <NeonButton
+                                variant="primary"
+                                onClick={handleCaptureFactoryProfile}
+                                disabled={factoryCapturing}
+                                className="flex items-center gap-2"
+                            >
+                                {factoryCapturing
+                                    ? <><ArrowPathIcon className="w-4 h-4 animate-spin mr-1 inline" />Capturando...</>
+                                    : 'Capturar Perfil'}
+                            </NeonButton>
+                        </div>
+                    </div>
+                )}
+
+                {/* ETAPA 3: Sucesso */}
+                {factoryStep === 3 && factoryResult && (
+                    <div className="text-center py-6 space-y-4">
+                        <div className="size-20 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto">
+                            <CheckCircleIcon className="size-10 text-emerald-400" />
+                        </div>
+                        <h3 className="text-xl font-bold text-white">Perfil Capturado!</h3>
+                        <p className="text-gray-400 text-sm">
+                            {factoryResult.username ? `@${factoryResult.username}` : factoryResult.label} foi adicionado ao sistema com proxy vinculado.
+                        </p>
+                        <p className="text-xs text-gray-600 font-mono">{factoryResult.profile_id}</p>
+                        <div className="flex justify-center pt-2">
+                            <NeonButton variant="primary" onClick={resetFactoryModal}>Fechar</NeonButton>
+                        </div>
+                    </div>
+                )}
+            </Modal>
         </>
     );
 }

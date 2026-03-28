@@ -139,7 +139,7 @@ app.add_middleware(
 )
 
 from fastapi.staticfiles import StaticFiles
-from .api.endpoints import content, ingestion, profiles, logs, queue, armies, videos, status, scheduler, oracle, analytics, viral_sounds, audio, logic, batch, templates, validate_cookies, settings, health, auto_scheduler, telemetry, proxies
+from .api.endpoints import content, ingestion, profiles, logs, queue, armies, videos, status, scheduler, oracle, analytics, viral_sounds, audio, logic, batch, templates, validate_cookies, settings, health, auto_scheduler, telemetry, proxies, factory_vnc
 from .api import debug_router
 from .api import websocket as ws_router
 
@@ -178,6 +178,7 @@ app.include_router(health.router, prefix="/api/health", tags=["health"]) # Sonar
 app.include_router(auto_scheduler.router, prefix="/api/v1", tags=["auto-scheduler"])
 app.include_router(telemetry.router, prefix="/api/v1/telemetry", tags=["telemetry"])
 app.include_router(proxies.router, prefix="/api/v1/proxies", tags=["proxies"])
+app.include_router(factory_vnc.router, prefix="/api/v1/vnc-factory", tags=["vnc-factory"])
 app.include_router(debug_router.router, prefix="/api/v1", tags=["debug"])
 from .api.endpoints.clipper import router as clipper_router
 app.include_router(clipper_router, prefix="/api/clipper", tags=["clipper"])
