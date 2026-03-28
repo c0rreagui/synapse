@@ -132,10 +132,14 @@ def get_profile_identity(profile_slug: str) -> Dict[str, Any]:
     """
     from core.retry_utils import MissingProxyError
 
+    # Per-profile viewport from fingerprint (deterministic, avoids all-same 1920x1080)
+    from core.browser import _generate_fingerprint
+    fp = _generate_fingerprint(profile_slug)
+
     identity = {
         "proxy": None,
         "user_agent": DEFAULT_UA,
-        "viewport": {"width": 1920, "height": 1080},
+        "viewport": fp["viewport"],  # Per-profile default from fingerprint
         "locale": DEFAULT_LOCALE,
         "timezone": DEFAULT_TIMEZONE,
         "geolocation": None,

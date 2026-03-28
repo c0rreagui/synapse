@@ -139,7 +139,22 @@ async def check_session_health_lightweight(profile_id: str) -> bool:
         # is a desktop-only route. Mobile UAs get redirected to App Store.
         desktop_ua = DEFAULT_UA 
         
-        async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as client:
+        # Resolve proxy for this profile to avoid direct VPS IP exposure
+        proxy_url = None
+        try:
+            from core.network_utils import get_profile_identity
+            identity = get_profile_identity(profile_id)
+            if identity.get("proxy"):
+                p = identity["proxy"]
+                if p.get("username") and p.get("password"):
+                    server = p["server"].replace("http://", "").replace("https://", "")
+                    proxy_url = f"http://{p['username']}:{p['password']}@{server}"
+                else:
+                    proxy_url = p["server"]
+        except Exception:
+            pass
+
+        async with httpx.AsyncClient(follow_redirects=True, timeout=10.0, proxy=proxy_url) as client:
             headers = get_scrape_headers(user_agent=desktop_ua)
             response = await client.get(get_upload_url(), cookies=cookies_dict, headers=headers)
             
@@ -418,12 +433,18 @@ def import_session(label: str | None, cookies_json: str, username: str | None = 
                             cookie["sameSite"] = "Lax"
                     else:
                         cookie["sameSite"] = "Lax"
-                        
-                    # Remove unsupported properties
+
+                    # Validate cookie domain (only accept TikTok-related domains)
+                    domain = cookie.get("domain", "")
+                    valid_domains = [".tiktok.com", ".tiktokv.com", ".tiktokcdn.com", ".byteoversea.com", ".byteimg.com"]
+                    if domain and not any(d in domain for d in valid_domains):
+                        continue  # Skip non-TikTok cookies silently
+
+                    # Remove unsupported properties (keep Playwright-compatible fields only)
                     for key in list(cookie.keys()):
                         if key not in ("name", "value", "domain", "path", "expires", "httpOnly", "secure", "sameSite"):
                             del cookie[key]
-                    
+
                     # Rename expirationDate to expires if present
                     if "expirationDate" in cookie:
                         cookie["expires"] = cookie.pop("expirationDate")

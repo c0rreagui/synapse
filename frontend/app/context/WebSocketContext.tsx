@@ -57,7 +57,15 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         }
 
         isConnectingRef.current = true;
-        const apiBase = getApiUrl().replace('http', 'ws').replace('https', 'wss');
+        const apiUrl = getApiUrl();
+        let apiBase: string;
+        if (apiUrl?.startsWith('http')) {
+            apiBase = apiUrl.replace('http', 'ws').replace('https', 'wss');
+        } else if (typeof globalThis.window !== 'undefined') {
+            apiBase = `ws://${globalThis.window.location.hostname}:8000`;
+        } else {
+            apiBase = '';
+        }
         const ws = new WebSocket(`${apiBase}/ws/updates`);
 
         ws.onopen = () => {

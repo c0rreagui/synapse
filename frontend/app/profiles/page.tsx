@@ -18,7 +18,17 @@ import ProfileRepairModal from '../components/ProfileRepairModal'; // [SYN-UX] N
 import { getApiUrl } from '../utils/apiClient';
 import { apiClient } from '../lib/api';
 
-const API_BASE = `${getApiUrl()}/api/v1`;
+// Build WebSocket URL: connect directly to backend (Next.js rewrites don't support WS)
+const getWsUrl = () => {
+    const apiUrl = getApiUrl();
+    if (apiUrl && apiUrl.startsWith('http')) {
+        return apiUrl.replace('http', 'ws');
+    }
+    if (typeof window !== 'undefined') {
+        return `ws://${window.location.hostname}:8000`;
+    }
+    return '';
+};
 
 export default function ProfilesPage() {
     const [profiles, setProfiles] = useState<TikTokProfile[]>([]);
@@ -203,7 +213,7 @@ export default function ProfilesPage() {
         const connectWs = () => {
             if (!isMounted) return;
             try {
-                const wsUrl = getApiUrl().replace('http', 'ws').replace('https', 'wss') + '/api/v1/telemetry/stream';
+                const wsUrl = getWsUrl() + '/api/v1/telemetry/stream';
                 ws = new WebSocket(wsUrl);
 
                 ws.onopen = () => {

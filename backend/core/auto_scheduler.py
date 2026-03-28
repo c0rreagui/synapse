@@ -5,6 +5,7 @@ Orquestra o agendamento incremental de videos no TikTok Studio nativo.
 import asyncio
 import logging
 import os
+import random
 from datetime import datetime, timedelta
 from typing import List, Optional
 from zoneinfo import ZoneInfo
@@ -31,8 +32,14 @@ def calculate_next_slots(
     Retorna lista de datetimes (sem timezone, para compatibilidade com DB).
     """
     now = datetime.now(SP_TZ)
-    # Comecar sempre a partir de amanha para ter margem de 24h
-    check_date: datetime = now + timedelta(days=1)
+    # Começar a partir de hoje se ainda há slots futuros (>= 2h de margem),
+    # senão amanhã — evita padrão previsível de "sempre D+1"
+    min_margin_hours = 2
+    latest_possible_hour = max(schedule_hours) if schedule_hours else 18
+    if now.hour + min_margin_hours <= latest_possible_hour:
+        check_date: datetime = now
+    else:
+        check_date: datetime = now + timedelta(days=1)
 
     # Ordenar os horarios para distribuicao correta ao longo do dia
     sorted_hours = sorted(h for h in set(schedule_hours) if 0 <= h <= 23) if schedule_hours else [18]
@@ -76,14 +83,28 @@ def calculate_next_slots(
 
         occupied = _get_occupied_times(day_start, day_end) | _get_queued_times(day_start, day_end)
 
-        for hour in sorted_hours:
+        # Variação semanal: fins de semana podem ter menos slots (humanos postam menos)
+        weekday = check_date.weekday()  # 0=Mon, 6=Sun
+        day_hours = list(sorted_hours)
+        weekend_skip_chance = {5: 0.25, 6: 0.4}.get(weekday, 0)  # Sáb 25%, Dom 40%
+        if weekend_skip_chance and len(day_hours) > 1 and random.random() < weekend_skip_chance:
+            day_hours = random.sample(day_hours, max(1, len(day_hours) // 2))
+
+        for hour in sorted(day_hours):
             if len(slots) >= count:
                 break
 
+            # Jitter: minuto aleatório (1-45) e segundo aleatório para parecer humano
+            jitter_min = random.randint(1, 45)
+            jitter_sec = random.randint(0, 59)
             slot_dt = datetime(
                 check_date.year, check_date.month, check_date.day,
-                hour, 0, 0, tzinfo=SP_TZ
+                hour, jitter_min, jitter_sec, tzinfo=SP_TZ
             )
+
+            # Skip slots in the past (when check_date is today)
+            if slot_dt <= now:
+                continue
 
             slot_naive_hour = slot_dt.replace(tzinfo=None, minute=0, second=0)
             if slot_naive_hour not in occupied:

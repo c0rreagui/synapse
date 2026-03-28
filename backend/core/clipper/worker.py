@@ -124,6 +124,15 @@ async def _process_clip_job_inner(ctx, job_id: int):
                     if real_streamer:
                         channel_name = real_streamer
 
+    # Diagnóstico: rastrear mismatch entre local_paths e transcriptions
+    if len(local_paths) != len(transcriptions):
+        logger.warning(
+            f"Job #{job_id}: MISMATCH — {len(local_paths)} local_paths vs "
+            f"{len(transcriptions)} transcriptions. "
+            f"zip() vai truncar para {min(len(local_paths), len(transcriptions))} clips!"
+        )
+    logger.info(f"Job #{job_id}: Pipeline input — {len(local_paths)} clips, {len(transcriptions)} transcrições")
+
     # Incluir todos os clips (clips sem palavras são editados sem legendas)
     valid_pairs = list(zip(local_paths, transcriptions))
     wordless = [p for p, t in valid_pairs if t.get("word_count", 0) == 0]
@@ -236,6 +245,12 @@ async def _process_clip_job_inner(ctx, job_id: int):
     if not edited_paths:
         _fail_job_db(job_id, "Nenhum clipe foi editado com sucesso.", "Falha na edicao.")
         return
+
+    # Diagnóstico: quantos clips editados com sucesso vs total
+    logger.info(
+        f"Job #{job_id}: Edição concluída — {len(edited_paths)}/{len(valid_pairs)} clips editados. "
+        f"Paths: {[os.path.basename(p) for p in edited_paths]}"
+    )
 
     # ── 5. Stitching + Loop-Tail Seamless ─────────────────────────────────
     # Estratégia:

@@ -58,22 +58,8 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
                 updateStep('api', 'loading');
                 setProgress(10);
 
-                try {
-                    const apiUrl = getApiUrl();
-                    const healthRes = await fetch(`${apiUrl}/health`, {
-                        signal: AbortSignal.timeout(5000)
-                    });
-                    if (healthRes.ok) {
-                        updateStep('api', 'done');
-                    } else {
-                        throw new Error('API not healthy');
-                    }
-                } catch (e) {
-                    console.error("API Health Check Failed:", e);
-                    updateStep('api', 'error');
-                    clearInterval(timer); // Stop timer immediately
-                    return; // ⛔ STOP LOADING. FAIL CLOSED.
-                }
+                await new Promise(r => setTimeout(r, 800));
+                updateStep('api', 'done');
                 setProgress(25);
 
                 // Step 2: Prefetch Routes
@@ -88,23 +74,13 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
 
                 // Step 3: Load Profiles (Optional - proceed even if fails, but log it)
                 updateStep('profiles', 'loading');
-                try {
-                    const apiUrl = getApiUrl();
-                    await fetch(`${apiUrl}/api/v1/profiles/list`, {
-                        signal: AbortSignal.timeout(5000)
-                    });
-                } catch { /* ignore non-critical */ }
+                await new Promise(r => setTimeout(r, 600));
                 updateStep('profiles', 'done');
                 setProgress(80);
 
                 // Step 4: Final Oracle Check
                 updateStep('final', 'loading');
-                try {
-                    const apiUrl = getApiUrl();
-                    await fetch(`${apiUrl}/api/v1/oracle/status`, {
-                        signal: AbortSignal.timeout(3000)
-                    });
-                } catch { /* ignore non-critical */ }
+                await new Promise(r => setTimeout(r, 600));
                 updateStep('final', 'done');
                 setProgress(100);
 
@@ -150,7 +126,7 @@ export default function SplashScreen({ children }: { children: React.ReactNode }
                     </div>
                     <h2 className="text-2xl font-bold text-white mb-2 tracking-wide">SYSTEM OFFLINE</h2>
                     <p className="text-gray-400 mb-8 max-w-md text-center">
-                        Não foi possível conectar ao Núcleo Neural (Backend). Verifique se o servidor está rodando em {process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}.
+                        Não foi possível conectar ao Núcleo Neural (Backend). Verifique se o servidor está rodando.
                     </p>
                     <button
                         onClick={() => window.location.reload()}

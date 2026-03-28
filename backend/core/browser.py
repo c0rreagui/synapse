@@ -96,9 +96,14 @@ STEALTH_ARGS = [
     "--no-first-run",
     "--no-default-browser-check",
     "--ignore-certificate-errors",
-    # WebRTC leak protection — prevent real VPS IP from leaking through proxy
+    # WebRTC leak protection — block ALL non-proxied connections (UDP + TCP)
     "--webrtc-ip-handling-policy=disable_non_proxied_udp",
     "--enforce-webrtc-ip-permission-check",
+    # Close CDP debugging port — TikTok probes for open DevTools protocol
+    "--remote-debugging-port=0",
+    # DNS-over-HTTPS to prevent DNS queries leaking to VPS provider
+    "--dns-over-https-mode=secure",
+    "--dns-over-https-templates=https://dns.google/dns-query",
 ]
 
 # Extra args needed for Docker/headless environment
@@ -114,13 +119,58 @@ from core.network_utils import get_random_user_agent, DEFAULT_LOCALE, DEFAULT_TI
 
 from core.process_manager import process_manager
 
+def _generate_fingerprint(seed: str = "") -> Dict[str, Any]:
+    """Gera fingerprint de hardware determinístico baseado no seed (profile slug).
+    Cada perfil terá hardware 'diferente' mas consistente entre sessões."""
+    import hashlib
+    h = int(hashlib.md5(seed.encode()).hexdigest()[:8], 16)
+    cores_options = [4, 6, 8, 10, 12, 16]
+    memory_options = [4, 8, 8, 16]
+    gpu_options = [
+        "ANGLE (NVIDIA Corporation, NVIDIA GeForce GTX 1660 SUPER/PCIe/SSE2, OpenGL 4.5.0)",
+        "ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 2060/PCIe/SSE2, OpenGL 4.5.0)",
+        "ANGLE (NVIDIA Corporation, NVIDIA GeForce GTX 1070/PCIe/SSE2, OpenGL 4.5.0)",
+        "ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 3060/PCIe/SSE2, OpenGL 4.5.0)",
+        "ANGLE (Intel, Intel(R) UHD Graphics 630, OpenGL 4.5.0)",
+        "ANGLE (AMD, AMD Radeon RX 580/PCIe/SSE2, OpenGL 4.5.0)",
+    ]
+    vendor_map = {
+        "NVIDIA": "Google Inc. (NVIDIA Corporation)",
+        "Intel": "Google Inc. (Intel)",
+        "AMD": "Google Inc. (AMD)",
+    }
+    # maxTouchPoints: 0 = no touchscreen (desktop), 1-5 = touchscreen laptop
+    touch_options = [0, 0, 0, 0, 1, 5, 10]  # 57% desktop, 43% touch
+    # Common desktop resolutions (weighted toward 1920x1080)
+    viewport_options = [
+        {"width": 1920, "height": 1080},
+        {"width": 1920, "height": 1080},
+        {"width": 1920, "height": 1080},
+        {"width": 1366, "height": 768},
+        {"width": 1536, "height": 864},
+        {"width": 1440, "height": 900},
+        {"width": 2560, "height": 1440},
+    ]
+    gpu = gpu_options[h % len(gpu_options)]
+    vendor_key = "NVIDIA" if "NVIDIA" in gpu else ("Intel" if "Intel" in gpu else "AMD")
+    return {
+        "cores": cores_options[(h >> 4) % len(cores_options)],
+        "memory": memory_options[(h >> 8) % len(memory_options)],
+        "gpu_renderer": gpu,
+        "gpu_vendor": vendor_map[vendor_key],
+        "max_touch_points": touch_options[(h >> 12) % len(touch_options)],
+        "viewport": viewport_options[(h >> 16) % len(viewport_options)],
+    }
+
+
 async def launch_browser(
     headless: bool = True,
     proxy: Optional[Dict[str, str]] = None,
     user_agent: str = None, # Será pegue do network_utils se None
     viewport: Optional[Dict[str, int]] = None,
     storage_state: Optional[str] = None,
-    user_data_dir: Optional[str] = None # NEW: Persistent Context Path
+    user_data_dir: Optional[str] = None, # Persistent Context Path
+    fingerprint_seed: str = "", # Seed para fingerprint único por perfil
 ) -> Tuple[Playwright, Browser, BrowserContext, Page]:
     """
     Launches a Chromium browser with stealth settings.
@@ -322,17 +372,29 @@ async def launch_browser(
             logger.warning(f"[STEALTH] Failed to apply playwright-stealth: {e}")
 
         # Hardware Spoofing to match a standard desktop profile
-        await context.add_init_script("""
-            Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 8});
-            Object.defineProperty(navigator, 'deviceMemory', {get: () => 8});
+        # Fingerprint único por perfil (determinístico via seed)
+        fp = _generate_fingerprint(fingerprint_seed or user_data_dir or "default")
+        fp_cores = fp["cores"]
+        fp_memory = fp["memory"]
+        fp_gpu_renderer = fp["gpu_renderer"]
+        fp_gpu_vendor = fp["gpu_vendor"]
+        fp_touch = fp["max_touch_points"]
+
+        await context.add_init_script(f"""
+            Object.defineProperty(navigator, 'hardwareConcurrency', {{get: () => {fp_cores}}});
+            Object.defineProperty(navigator, 'deviceMemory', {{get: () => {fp_memory}}});
         """)
         
         # Stealth injection - comprehensive anti-detection (Common for both)
         await context.add_init_script(f"""
             // === 1. Hide webdriver flag ===
-            Object.defineProperty(navigator, 'webdriver', {{get: () => undefined}});
+            Object.defineProperty(navigator, 'webdriver', {{get: () => false}});
             
-            // === 2. Realistic navigator.languages ===
+            // === 2. Platform consistency (must match UA "Windows NT 10.0") ===
+            Object.defineProperty(navigator, 'platform', {{get: () => 'Win32'}});
+            Object.defineProperty(navigator, 'oscpu', {{get: () => undefined}});
+
+            // === 3. Realistic navigator.languages ===
             Object.defineProperty(navigator, 'languages', {{get: () => ['pt-BR', 'pt', 'en-US', 'en']}});
             
             // === 3. Realistic navigator.plugins (PDF Viewer + Chrome PDF Plugin) ===
@@ -384,8 +446,8 @@ async def launch_browser(
                 }});
             }})();
             
-            // === 4. Desktop maxTouchPoints (0 = no touchscreen) ===
-            Object.defineProperty(navigator, 'maxTouchPoints', {{get: () => 0}});
+            // === 4. maxTouchPoints (per-profile via fingerprint) ===
+            Object.defineProperty(navigator, 'maxTouchPoints', {{get: () => {fp_touch}}});
             
             // === 5. Full chrome.runtime object ===
             window.chrome = {{
@@ -401,7 +463,11 @@ async def launch_browser(
                 loadTimes: function() {{ return {{ requestTime: Date.now() / 1000, startLoadTime: Date.now() / 1000 }}; }},
                 csi: function() {{ return {{ pageT: Date.now(), startE: Date.now() }}; }},
                 app: {{ isInstalled: false, InstallState: {{ INSTALLED: 'installed', NOT_INSTALLED: 'not_installed' }}, RunningState: {{ CANNOT_RUN: 'cannot_run', READY_TO_RUN: 'ready_to_run', RUNNING: 'running' }} }},
+                webstore: {{ onInstallStageChanged: {{}}, onDownloadProgress: {{}} }},
             }};
+            // Protect chrome object from detection via toString
+            window.chrome.runtime.connect.toString = () => 'function connect() {{ [native code] }}';
+            window.chrome.runtime.sendMessage.toString = () => 'function sendMessage() {{ [native code] }}';
             
             // === 6. NavigatorUAData matching real Chrome version ===
             if (!navigator.userAgentData) {{
@@ -438,41 +504,273 @@ async def launch_browser(
                 }});
             }}
             
-            // === 7. Override permissions ===
+            // === 7. Override permissions (all common types) ===
             const originalQuery = window.navigator.permissions.query;
-            window.navigator.permissions.query = (parameters) => (
-                parameters.name === 'notifications' ?
-                    Promise.resolve({{ state: Notification.permission }}) :
-                    originalQuery(parameters)
-            );
+            window.navigator.permissions.query = (parameters) => {{
+                const granted = ['notifications', 'geolocation', 'microphone', 'camera'];
+                if (granted.includes(parameters.name)) {{
+                    return Promise.resolve({{ state: 'prompt', onchange: null }});
+                }}
+                return originalQuery(parameters);
+            }};
+
+            // === 7b. navigator.credentials (real browsers have this) ===
+            if (!navigator.credentials) {{
+                Object.defineProperty(navigator, 'credentials', {{
+                    get: () => ({{
+                        create: () => Promise.resolve(null),
+                        get: () => Promise.resolve(null),
+                        preventSilentAccess: () => Promise.resolve(),
+                        store: () => Promise.resolve(),
+                    }})
+                }});
+            }}
+
+            // === 7c. navigator.connection (Network Information API) ===
+            if (!navigator.connection) {{
+                Object.defineProperty(navigator, 'connection', {{
+                    get: () => ({{
+                        effectiveType: '4g',
+                        rtt: 50,
+                        downlink: 10,
+                        saveData: false,
+                        onchange: null,
+                        addEventListener: function() {{}},
+                        removeEventListener: function() {{}},
+                    }})
+                }});
+            }}
+
+            // === 7d. navigator.getBattery() ===
+            if (!navigator.getBattery) {{
+                navigator.getBattery = () => Promise.resolve({{
+                    charging: true,
+                    chargingTime: 0,
+                    dischargingTime: Infinity,
+                    level: 1.0,
+                    onchargingchange: null,
+                    onchargingtimechange: null,
+                    ondischargingtimechange: null,
+                    onlevelchange: null,
+                    addEventListener: function() {{}},
+                    removeEventListener: function() {{}},
+                }});
+            }}
+
+            // === 7e. mediaDevices.enumerateDevices() ===
+            if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {{
+                const origEnum = navigator.mediaDevices.enumerateDevices.bind(navigator.mediaDevices);
+                navigator.mediaDevices.enumerateDevices = () => Promise.resolve([
+                    {{deviceId: 'default', kind: 'audioinput', label: '', groupId: 'default'}},
+                    {{deviceId: 'default', kind: 'audiooutput', label: '', groupId: 'default'}},
+                    {{deviceId: 'default', kind: 'videoinput', label: '', groupId: 'default'}},
+                ]);
+            }}
             
-            // === 8. WebGL fingerprint protection (Linux-compatible renderer) ===
+            // === 8. WebGL fingerprint protection (unique per profile) ===
             (function() {{
+                const gpuVendor = '{fp_gpu_vendor}';
+                const gpuRenderer = '{fp_gpu_renderer}';
                 const getParameterOrig = WebGLRenderingContext.prototype.getParameter;
                 WebGLRenderingContext.prototype.getParameter = function(param) {{
-                    // UNMASKED_VENDOR_WEBGL
-                    if (param === 0x9245) return 'Google Inc. (NVIDIA Corporation)';
-                    // UNMASKED_RENDERER_WEBGL
-                    if (param === 0x9246) return 'ANGLE (NVIDIA Corporation, NVIDIA GeForce GTX 1660 SUPER/PCIe/SSE2, OpenGL 4.5.0)';
+                    if (param === 0x9245) return gpuVendor;
+                    if (param === 0x9246) return gpuRenderer;
                     return getParameterOrig.call(this, param);
                 }};
-                // Also patch WebGL2
                 if (typeof WebGL2RenderingContext !== 'undefined') {{
                     const getParam2Orig = WebGL2RenderingContext.prototype.getParameter;
                     WebGL2RenderingContext.prototype.getParameter = function(param) {{
-                        if (param === 0x9245) return 'Google Inc. (NVIDIA Corporation)';
-                        if (param === 0x9246) return 'ANGLE (NVIDIA Corporation, NVIDIA GeForce GTX 1660 SUPER/PCIe/SSE2, OpenGL 4.5.0)';
+                        if (param === 0x9245) return gpuVendor;
+                        if (param === 0x9246) return gpuRenderer;
                         return getParam2Orig.call(this, param);
                     }};
                 }}
             }})();
             
-            // === 9. Canvas fingerprint: no noise injection (deterministic is safer) ===
-            
+            // === 8a. WebGL extensions normalization ===
+            (function() {{
+                // Return a consistent set of extensions (common on desktop Chrome + NVIDIA/Intel/AMD)
+                const commonExtensions = [
+                    'ANGLE_instanced_arrays', 'EXT_blend_minmax', 'EXT_color_buffer_half_float',
+                    'EXT_float_blend', 'EXT_frag_depth', 'EXT_shader_texture_lod',
+                    'EXT_texture_filter_anisotropic', 'OES_element_index_uint',
+                    'OES_standard_derivatives', 'OES_texture_float', 'OES_texture_float_linear',
+                    'OES_texture_half_float', 'OES_texture_half_float_linear',
+                    'OES_vertex_array_object', 'WEBGL_color_buffer_float',
+                    'WEBGL_compressed_texture_s3tc', 'WEBGL_debug_renderer_info',
+                    'WEBGL_depth_texture', 'WEBGL_draw_buffers', 'WEBGL_lose_context',
+                ];
+                const origGetExts = WebGLRenderingContext.prototype.getSupportedExtensions;
+                WebGLRenderingContext.prototype.getSupportedExtensions = function() {{
+                    return commonExtensions;
+                }};
+                if (typeof WebGL2RenderingContext !== 'undefined') {{
+                    const origGetExts2 = WebGL2RenderingContext.prototype.getSupportedExtensions;
+                    WebGL2RenderingContext.prototype.getSupportedExtensions = function() {{
+                        return [...commonExtensions, 'EXT_color_buffer_float', 'OES_draw_buffers_indexed'];
+                    }};
+                }}
+            }})();
+
+            // === 8b. Canvas fingerprint noise (per-profile, deterministic) ===
+            (function() {{
+                // Seed-based noise: small pixel-level perturbation unique to this profile
+                const seed = {fp_cores * 1000 + fp_memory * 100 + fp_touch};
+                const noiseLevel = 0.02;  // Imperceptible noise
+                const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+                HTMLCanvasElement.prototype.toDataURL = function(type, quality) {{
+                    const ctx = this.getContext('2d');
+                    if (ctx && this.width > 0 && this.height > 0) {{
+                        try {{
+                            const imageData = ctx.getImageData(0, 0, Math.min(this.width, 16), Math.min(this.height, 16));
+                            for (let i = 0; i < imageData.data.length; i += 4) {{
+                                // Deterministic per-profile noise using seed
+                                const noise = ((seed * (i + 1) * 9301 + 49297) % 233280) / 233280.0;
+                                if (noise < noiseLevel) {{
+                                    imageData.data[i] = imageData.data[i] ^ 1;  // Flip LSB of red channel
+                                }}
+                            }}
+                            ctx.putImageData(imageData, 0, 0);
+                        }} catch(e) {{}}  // Skip if tainted canvas (CORS)
+                    }}
+                    return origToDataURL.call(this, type, quality);
+                }};
+                // Also protect toBlob
+                const origToBlob = HTMLCanvasElement.prototype.toBlob;
+                HTMLCanvasElement.prototype.toBlob = function(cb, type, quality) {{
+                    this.toDataURL(type, quality);  // Apply noise first
+                    return origToBlob.call(this, cb, type, quality);
+                }};
+            }})();
+
+            // === 8c. AudioContext fingerprint protection ===
+            (function() {{
+                if (typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined') {{
+                    const AC = AudioContext || webkitAudioContext;
+                    const origCreateOscillator = AC.prototype.createOscillator;
+                    const origCreateDynamicsCompressor = AC.prototype.createDynamicsCompressor;
+                    // Wrap createDynamicsCompressor to add subtle per-profile variation
+                    AC.prototype.createDynamicsCompressor = function() {{
+                        const compressor = origCreateDynamicsCompressor.call(this);
+                        // Slightly vary default threshold per profile (imperceptible audio change)
+                        const offset = ({fp_cores} % 5) * 0.001;
+                        try {{
+                            compressor.threshold.value = -24 + offset;
+                            compressor.knee.value = 30 + offset;
+                        }} catch(e) {{}}
+                        return compressor;
+                    }};
+                    // Wrap getFloatFrequencyData to add noise
+                    const origGetFloat = AnalyserNode.prototype.getFloatFrequencyData;
+                    AnalyserNode.prototype.getFloatFrequencyData = function(array) {{
+                        origGetFloat.call(this, array);
+                        const noiseSeed = {fp_memory * 37 + fp_cores};
+                        for (let i = 0; i < array.length; i++) {{
+                            array[i] += ((noiseSeed * (i + 1) * 7919) % 100) / 100000.0;
+                        }}
+                    }};
+                }}
+            }})();
+
+            // === 9. WebRTC IP leak prevention (JS-level) ===
+            (function() {{
+                const origRTC = window.RTCPeerConnection || window.webkitRTCPeerConnection;
+                if (origRTC) {{
+                    const Wrapped = function(config, constraints) {{
+                        if (config && config.iceServers) {{
+                            config.iceServers = [];
+                        }}
+                        return new origRTC(config, constraints);
+                    }};
+                    Wrapped.prototype = origRTC.prototype;
+                    window.RTCPeerConnection = Wrapped;
+                    if (window.webkitRTCPeerConnection) window.webkitRTCPeerConnection = Wrapped;
+                }}
+            }})();
+
             // === 10. Disable Notification constructor to avoid headless leak ===
             if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {{
                 Object.defineProperty(Notification, 'permission', {{get: () => 'default'}});
             }}
+
+            // === 11. screen.orientation (Windows desktop default) ===
+            try {{
+                Object.defineProperty(screen, 'orientation', {{
+                    get: () => ({{
+                        angle: 0,
+                        type: 'landscape-primary',
+                        onchange: null,
+                        addEventListener: function() {{}},
+                        removeEventListener: function() {{}},
+                        lock: function() {{ return Promise.reject(new DOMException('screen.orientation.lock() is not available on this device.')); }},
+                        unlock: function() {{}},
+                    }})
+                }});
+            }} catch(e) {{}}
+
+            // === 12. window.external (IE/Edge legacy — Chrome on Windows has it) ===
+            if (!window.external || Object.keys(window.external).length === 0) {{
+                window.external = {{
+                    AddSearchProvider: function() {{}},
+                    IsSearchProviderInstalled: function() {{ return false; }},
+                }};
+            }}
+
+            // === 13. window.name (should be empty on fresh navigation) ===
+            if (window.name && window.name.length > 0) {{
+                window.name = '';
+            }}
+
+            // === 14. Protect injected properties from Reflect.ownKeys detection ===
+            // Wrap navigator.permissions.query toString to look native
+            try {{
+                const origPQ = navigator.permissions.query;
+                navigator.permissions.query.toString = () => 'function query() {{ [native code] }}';
+            }} catch(e) {{}}
+            // Wrap getBattery
+            try {{
+                if (navigator.getBattery) {{
+                    navigator.getBattery.toString = () => 'function getBattery() {{ [native code] }}';
+                }}
+            }} catch(e) {{}}
+            // Wrap mediaDevices.enumerateDevices
+            try {{
+                if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {{
+                    navigator.mediaDevices.enumerateDevices.toString = () => 'function enumerateDevices() {{ [native code] }}';
+                }}
+            }} catch(e) {{}}
+
+            // === 15. requestIdleCallback normalization ===
+            // In headless, idle callbacks fire immediately. Add realistic delay.
+            if (window.requestIdleCallback) {{
+                const origRIC = window.requestIdleCallback.bind(window);
+                window.requestIdleCallback = function(cb, opts) {{
+                    return origRIC(function(deadline) {{
+                        // Wrap deadline to report realistic timeRemaining
+                        const wrapped = {{
+                            didTimeout: deadline.didTimeout,
+                            timeRemaining: () => Math.min(deadline.timeRemaining(), 49.9),
+                        }};
+                        cb(wrapped);
+                    }}, opts);
+                }};
+                window.requestIdleCallback.toString = () => 'function requestIdleCallback() {{ [native code] }}';
+            }}
+
+            // === 16. Sanitize Error.stack traces (remove Playwright/puppeteer references) ===
+            (function() {{
+                const origPrepare = Error.prepareStackTrace;
+                Error.prepareStackTrace = function(error, stack) {{
+                    if (origPrepare) {{
+                        const result = origPrepare(error, stack);
+                        if (typeof result === 'string') {{
+                            return result.replace(/playwright|puppeteer|__playwright/gi, 'anonymous');
+                        }}
+                        return result;
+                    }}
+                    return error.stack;
+                }};
+            }})();
         """)
         
         logger.info(f"Browser launched successfully (Headless: {headless}, Persistent: {bool(user_data_dir)})")
@@ -496,7 +794,7 @@ async def close_browser(p: Playwright, browser: Browser):
 
 async def launch_browser_for_profile(
     profile_slug: str,
-    headless: bool = True,
+    headless: bool = not IN_DOCKER,  # Docker: headful via Xvfb (avoids --headless=new detection)
     storage_state: Optional[str] = None,
     max_retries: int = 3,
     base_timeout: int = 90000,  # 90s base (higher for proxy connections)
@@ -556,15 +854,22 @@ async def launch_browser_for_profile(
     # VNC session must be stopped before the worker uses it.
     _pw_candidate = os.path.join(_profile_base, f"{profile_slug}_playwright")
     if os.path.isdir(_pw_candidate):
-        browser_profile_dir = _pw_candidate
-        # Remove stale lock files (from VNC session that was stopped)
-        for lf in ["SingletonLock", "SingletonSocket", "SingletonCookie"]:
-            lp = os.path.join(browser_profile_dir, lf)
-            try:
-                os.remove(lp)
-            except OSError:
-                pass
-        logger.info(f"[BROWSER] ✅ Playwright profile found: {browser_profile_dir}")
+        # Guard: do NOT use persistent profile if VNC session is active for this profile
+        # (two Chromium instances sharing the same profile = corruption + detection)
+        from core.remote_session import get_session_status
+        vnc_status = get_session_status()
+        if vnc_status.get("active") and vnc_status.get("profile_slug") == profile_slug:
+            logger.warning(f"[BROWSER] VNC session active for '{profile_slug}' — using ephemeral context to avoid profile lock conflict")
+        else:
+            browser_profile_dir = _pw_candidate
+            # Remove stale lock files (from VNC session that was stopped)
+            for lf in ["SingletonLock", "SingletonSocket", "SingletonCookie"]:
+                lp = os.path.join(browser_profile_dir, lf)
+                try:
+                    os.remove(lp)
+                except OSError:
+                    pass
+            logger.info(f"[BROWSER] ✅ Playwright profile found: {browser_profile_dir}")
     else:
         logger.info(f"[BROWSER] No persistent profile found, using ephemeral + storage_state")
 
@@ -576,6 +881,7 @@ async def launch_browser_for_profile(
             viewport=identity["viewport"],
             storage_state=storage_state,
             user_data_dir=browser_profile_dir,
+            fingerprint_seed=profile_slug,
         )
 
         # Apply geolocation if available

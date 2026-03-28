@@ -141,30 +141,45 @@ async def upload_video_monitored(
         from core.status_manager import status_manager
         status_manager.update_status("busy", step="rendering", progress=50, logs=["Renderizando ambiente seguro..."])
 
-        # [SYN-SEC] Pre-Flight IP Leak Check (via HTTP, not browser navigation)
-        logger.info("🔍 [PRE-FLIGHT] Verificando vazamento de IP via HTTP...")
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=10) as client:
-                resp = await client.get("https://api.ipify.org?format=json")
-                logger.info(f"🌐 IP Publico (httpx): {resp.text.strip()}")
-        except Exception as e:
-            logger.warning(f"⚠️ Falha no Pre-Flight IP Check (ignorando): {e}")
-        
-        # ========== PRE-WARMUP (ESTRATÉGIA 3: HUMAN WARM-UP) ==========
-        logger.info("🔥 Iniciando aquecimento (Warm-up) na home para evitar flags de bot...")
+        # ========== PRE-WARMUP (HUMAN WARM-UP) ==========
+        logger.info("🔥 Iniciando aquecimento (Warm-up) para simular sessão humana...")
         from core.status_manager import status_manager
         status_manager.update_status("busy", step="uploading", progress=55, logs=["Aquecendo sessão do TikTok..."])
         try:
-            await page.goto("https://www.tiktok.com/", timeout=60000)
-            await page.wait_for_timeout(random.uniform(2000, 4000))
-            # Scroll aleatorio para simular humano lendo feed
-            for _ in range(random.randint(2, 4)):
-                # Mover mouse antes de rolar
-                await page.mouse.move(random.randint(100, 800), random.randint(100, 600), steps=10)
-                await page.wait_for_timeout(random.uniform(200, 800))
-                await page.mouse.wheel(0, random.randint(300, 800))
-                await page.wait_for_timeout(random.uniform(1000, 3000))
+            # Variar URL de entrada (não sempre a home)
+            warmup_urls = [
+                "https://www.tiktok.com/",
+                "https://www.tiktok.com/foryou",
+                "https://www.tiktok.com/explore",
+            ]
+            warmup_url = random.choice(warmup_urls)
+            await page.goto(warmup_url, timeout=60000)
+            await page.wait_for_timeout(random.uniform(2500, 5000))
+
+            # Scroll com padrão humano (variação de velocidade, pausas, direções)
+            scroll_count = random.randint(2, 5)
+            for i in range(scroll_count):
+                # Mouse movement com steps variáveis (humanos não são uniformes)
+                steps = random.randint(5, 25)
+                await page.mouse.move(
+                    random.randint(200, 1200),
+                    random.randint(150, 700),
+                    steps=steps,
+                )
+                await page.wait_for_timeout(random.uniform(300, 1200))
+
+                # Scroll variado (vertical + leve horizontal às vezes)
+                h_scroll = random.choice([0, 0, 0, random.randint(-50, 50)])
+                v_scroll = random.randint(200, 900)
+                await page.mouse.wheel(h_scroll, v_scroll)
+
+                # Pausa mais longa entre scrolls (simulando leitura)
+                await page.wait_for_timeout(random.uniform(1500, 4500))
+
+                # Chance de voltar scroll (humanos fazem isso)
+                if random.random() < 0.2:
+                    await page.mouse.wheel(0, -random.randint(100, 300))
+                    await page.wait_for_timeout(random.uniform(800, 2000))
         except Exception as warmup_err:
             logger.warning(f"⚠️ Erro no warmup (ignorando): {warmup_err}")
 

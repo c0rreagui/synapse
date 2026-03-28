@@ -97,6 +97,7 @@ interface ClipDetail {
     duration: number | null;
     views: number | null;
     creator: string | null;
+    broadcaster: string | null;
     game: string | null;
 }
 
@@ -139,6 +140,9 @@ function SortableClip({ clip, onRemove, canRemove }: { clip: ClipDetail; onRemov
         >
             <span {...attributes} {...listeners} className="material-symbols-outlined text-slate-500 text-[14px] cursor-grab active:cursor-grabbing">drag_indicator</span>
             <div className="flex-1 min-w-0">
+                {clip.broadcaster && (
+                    <p className="text-[9px] text-purple-400 font-mono truncate mb-0.5">{clip.broadcaster}</p>
+                )}
                 <p className="text-[10px] text-white font-mono truncate">{clip.title || `Clip #${clip.index + 1}`}</p>
                 <div className="flex gap-2 mt-0.5">
                     <span className="text-[9px] text-emerald-400 font-mono flex items-center gap-0.5">

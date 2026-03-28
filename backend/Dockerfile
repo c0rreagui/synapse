@@ -45,8 +45,8 @@ RUN mkdir -p /usr/share/fonts/inter /tmp/inter && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Instala Playwright + browser Chromium
-RUN pip install playwright && playwright install chromium
+# Instala Playwright + stealth + browser Chromium
+RUN pip install playwright playwright-stealth && playwright install chromium
 
 # Expõe portas: 8000 (API) + 6080 (noVNC)
 EXPOSE 8000 6080

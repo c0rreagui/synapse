@@ -50,7 +50,7 @@ export const NeoSidebar = React.forwardRef<HTMLDivElement, NeoSidebarProps>(
         React.useEffect(() => {
             const checkProfileHealth = async () => {
                 try {
-                    const res = await fetch('http://localhost:8000/api/v1/profiles');
+                    const res = await fetch('/api/v1/profiles');
                     const data = await res.json();
                     // Detect profiles with errors: health_status error OR has error screenshot
                     const inactive = data.filter((p: any) =>
@@ -156,7 +156,7 @@ export const NeoSidebar = React.forwardRef<HTMLDivElement, NeoSidebarProps>(
                                 const toastId = toast.loading('Abrindo browser para reparo...');
 
                                 try {
-                                    const res = await fetch(`http://localhost:8000/api/v1/profiles/repair/${firstInactiveId}`, { method: 'POST' });
+                                    const res = await fetch(`/api/v1/profiles/repair/${firstInactiveId}`, { method: 'POST' });
                                     if (res.ok) {
                                         toast.success('Browser aberto no servidor!', {
                                             id: toastId,
@@ -235,7 +235,7 @@ function StatusFooter({ collapsed }: { collapsed?: boolean }) {
         const checkStatus = async () => {
             // Check Sonar
             try {
-                const res = await fetch('http://localhost:8000/api/health/sonar');
+                const res = await fetch('/api/health/sonar');
                 const data = await res.json();
                 setSonarStatus(data.status || 'offline');
                 if (data.last_beat) {

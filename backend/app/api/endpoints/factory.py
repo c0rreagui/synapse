@@ -38,6 +38,7 @@ class ClipDetail(BaseModel):
     duration: Optional[float] = None
     views: Optional[int] = None
     creator: Optional[str] = None
+    broadcaster: Optional[str] = None
     game: Optional[str] = None
 
 class PendingItemResponse(BaseModel):
@@ -170,6 +171,7 @@ def list_pending(db: Session = Depends(get_db)):
                         duration=meta.get("duration"),
                         views=meta.get("views") or meta.get("view_count"),
                         creator=meta.get("creator") or meta.get("creator_name"),
+                        broadcaster=meta.get("broadcaster_name"),
                         game=meta.get("game") or meta.get("game_name"),
                     ))
 

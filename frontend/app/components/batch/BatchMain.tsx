@@ -176,10 +176,8 @@ export function BatchMain() {
 
                 const visualFrames = await captureFullVideoFrames(file.preview);
 
-                // 2. Define API URL
-                const API_URL = (typeof window !== 'undefined' && window.location.hostname === 'localhost')
-                    ? 'http://127.0.0.1:8000'
-                    : (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000');
+                // 2. Define API URL (relative - proxied by Next.js)
+                const API_URL = '';
 
                 // 2. Audio Transcription (Hearing)
                 let transcript = "";

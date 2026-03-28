@@ -61,10 +61,19 @@ FACECAM_RATIO_PRESETS = [
     (0.50, 0.50),  # Split igual
 ]
 
-# Encoding TikTok-friendly
+# Encoding TikTok-friendly (com leve variação anti-fingerprint)
+def _randomized_encoding():
+    """Retorna parâmetros de encoding com variação sutil para cada vídeo."""
+    crf = str(random.randint(19, 22))
+    bitrate_k = random.randint(4500, 5500)
+    video_br = f"{bitrate_k}k"
+    audio_br = random.choice(["192k", "196k", "188k"])
+    preset = random.choice(["medium", "medium", "slow"])  # 66% medium, 33% slow
+    return crf, video_br, audio_br, preset
+
 VIDEO_BITRATE = "5M"
 AUDIO_BITRATE = "192k"
-PRESET = "medium"  # Balance velocidade/qualidade
+PRESET = "medium"
 CRF = "20"
 
 
@@ -576,8 +585,8 @@ async def edit_clip(
         f"title={'yes' if clip_title else 'no'}"
     )
 
-    # Metadados ricos (plataformas leem title/comment no container MP4)
-    meta_title = clip_title or os.path.splitext(os.path.basename(video_path))[0]
+    # Encoding com variação anti-fingerprint
+    r_crf, r_vbr, r_abr, r_preset = _randomized_encoding()
 
     # Comando FFmpeg
     cmd = [
@@ -590,18 +599,17 @@ async def edit_clip(
         "-c:v", "libx264",
         "-profile:v", "high",
         "-level:v", "4.1",
-        "-preset", PRESET,
-        "-crf", CRF,
+        "-preset", r_preset,
+        "-crf", r_crf,
         "-r", "60",
         "-fps_mode", "cfr",
-        "-b:v", VIDEO_BITRATE,
-        "-maxrate", VIDEO_BITRATE,
+        "-b:v", r_vbr,
+        "-maxrate", r_vbr,
         "-bufsize", "10M",
         "-c:a", "aac",
-        "-b:a", AUDIO_BITRATE,
+        "-b:a", r_abr,
         "-ar", "44100",
-        "-metadata", f"title={meta_title}",
-        "-metadata", "encoder=Synapse Studio",
+        "-map_metadata", "-1",
         "-movflags", "+faststart",  # Otimiza para streaming
         "-pix_fmt", "yuv420p",      # Compatibilidade maxima (iOS Safari)
         output_path,

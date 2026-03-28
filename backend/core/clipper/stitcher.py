@@ -20,6 +20,7 @@ import uuid
 import asyncio
 import json
 import logging
+import random
 import shutil
 import time
 from hashlib import md5
@@ -35,8 +36,10 @@ ASSETS_DIR = os.path.join(DATA_DIR, "clipper", "assets")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(ASSETS_DIR, exist_ok=True)
 
-# Configuracao
-CROSSFADE_DURATION = 0.5       # Duracao do crossfade entre clipes
+# Configuracao (com variação anti-fingerprint)
+CROSSFADE_DURATION = 0.5       # Base — variado em runtime via _rand_crossfade()
+def _rand_crossfade():
+    return round(random.uniform(0.35, 0.65), 2)
 
 # Encoding
 VIDEO_BITRATE = "5M"
@@ -94,9 +97,11 @@ async def crossfade_two_clips(
     clip1_path: str,
     clip2_path: str,
     output_path: str,
-    fade_duration: float = CROSSFADE_DURATION,
+    fade_duration: float = None,
     timeout_seconds: int = 300,
 ) -> Dict[str, Any]:
+    if fade_duration is None:
+        fade_duration = _rand_crossfade()
     """
     Costura dois clipes com crossfade de audio e video.
     Resiliente a clips sem audio ou com audio incompativel.
@@ -181,6 +186,7 @@ async def crossfade_two_clips(
         "-c:a", "aac",
         "-b:a", "192k",
         "-pix_fmt", "yuv420p",
+        "-map_metadata", "-1",
         "-movflags", "+faststart",
         output_path,
     ]
@@ -263,6 +269,7 @@ async def concat_simple(
         "-c:a", "aac",
         "-b:a", "192k",
         "-pix_fmt", "yuv420p",
+        "-map_metadata", "-1",
         "-movflags", "+faststart",
         output_path,
     ]
@@ -596,6 +603,7 @@ async def _apply_loop_tail(
         "-c:a", "aac",
         "-b:a", "192k",
         "-pix_fmt", "yuv420p",
+        "-map_metadata", "-1",
         "-movflags", "+faststart",
         output_path,
     ]
@@ -678,6 +686,7 @@ async def _trim_to_duration(
         "-b:v", VIDEO_BITRATE,
         "-c:a", "aac", "-b:a", "192k",
         "-pix_fmt", "yuv420p",
+        "-map_metadata", "-1",
         "-movflags", "+faststart",
         trim_path,
     ]

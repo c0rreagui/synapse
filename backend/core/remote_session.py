@@ -4,6 +4,7 @@ Allows operators to manually interact with a browser running on the VPS
 via noVNC (web-based VNC client). Used primarily for CAPTCHA solving.
 """
 import os
+import secrets
 import signal
 import asyncio
 import logging
@@ -19,15 +20,28 @@ _active_session: Optional[Dict[str, Any]] = None
 DISPLAY_NUM = 99
 VNC_PORT = 5900
 NOVNC_PORT = 6080
+SESSION_TIMEOUT_HOURS = 4  # Auto-cleanup sessions older than this
 
 
 def _kill_pid(pid: int):
-    """Safely kill a process tree by PID."""
+    """Safely kill a process — try graceful SIGTERM first, then SIGKILL."""
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except OSError:
+        return
+    # Give process 2s to exit gracefully
+    import time
+    for _ in range(4):
+        time.sleep(0.5)
+        try:
+            os.kill(pid, 0)  # Check if still alive
+        except OSError:
+            return  # Process exited
+    # Force kill if still alive
     try:
         os.kill(pid, signal.SIGKILL)
     except OSError:
         pass
-    # Also try to reap zombies
     try:
         os.waitpid(pid, os.WNOHANG)
     except OSError:
@@ -39,6 +53,20 @@ def get_session_status() -> Dict[str, Any]:
     global _active_session
     if not _active_session:
         return {"active": False}
+
+    # Auto-timeout: kill sessions that have been running too long
+    started_at = _active_session.get("started_at")
+    if started_at:
+        import datetime
+        try:
+            start_dt = datetime.datetime.fromisoformat(started_at)
+            elapsed_hours = (datetime.datetime.now() - start_dt).total_seconds() / 3600
+            if elapsed_hours > SESSION_TIMEOUT_HOURS:
+                logger.warning(f"[REMOTE] Session exceeded {SESSION_TIMEOUT_HOURS}h timeout ({elapsed_hours:.1f}h). Auto-stopping.")
+                stop_session()
+                return {"active": False}
+        except (ValueError, TypeError):
+            pass
 
     # Verify processes are still alive
     for key in ["xvfb_pid", "vnc_pid", "novnc_pid"]:
@@ -127,6 +155,27 @@ async def start_session(profile_slug: str, host_url: str = "") -> Dict[str, Any]
         identity = get_profile_identity(profile_slug)
         session_path = get_session_path(profile_slug)
 
+        # Quick proxy health check before launching browser
+        if identity.get("proxy"):
+            try:
+                import httpx
+                proxy_cfg = identity["proxy"]
+                server = proxy_cfg["server"]
+                proto = "https" if "https" in server else "http"
+                host_part = server.replace("http://", "").replace("https://", "")
+                username = proxy_cfg.get("username", "")
+                password = proxy_cfg.get("password", "")
+                if username and password:
+                    proxy_url = f"{proto}://{username}:{password}@{host_part}"
+                else:
+                    proxy_url = f"{proto}://{host_part}"
+                async with httpx.AsyncClient(proxy=proxy_url, timeout=10) as client:
+                    resp = await client.get("https://httpbin.org/ip")
+                    proxy_ip = resp.json().get("origin", "?")
+                    logger.info(f"[REMOTE] Proxy health OK: {proxy_ip}")
+            except Exception as proxy_err:
+                logger.warning(f"[REMOTE] Proxy health check failed: {proxy_err} — prosseguindo mesmo assim")
+
         # 3. Launch browser via Playwright (persistent context for cookie injection)
         from playwright.async_api import async_playwright
 
@@ -159,19 +208,23 @@ async def start_session(profile_slug: str, host_url: str = "") -> Dict[str, Any]
             _json.dump(prefs, f)
 
         # Remove stale lock files from previous sessions
+        # Use lexists() instead of exists() because SingletonLock is a symlink
+        # and exists() returns False for broken symlinks (target = old container hostname)
         for lock_file in ["SingletonLock", "SingletonSocket", "SingletonCookie"]:
             lock_path = os.path.join(pw_profile_dir, lock_file)
-            if os.path.exists(lock_path):
+            if os.path.lexists(lock_path):
                 try:
                     os.remove(lock_path)
+                    logger.info(f"[REMOTE] Removed stale lock: {lock_file}")
                 except OSError:
                     pass
 
         # Use same User-Agent and stealth settings as the worker browser
         from core.network_utils import get_random_user_agent, DEFAULT_LOCALE, DEFAULT_TIMEZONE
-        from core.browser import CHROME_VERSION, CHROME_MAJOR, STEALTH_ARGS
+        from core.browser import CHROME_VERSION, CHROME_MAJOR, STEALTH_ARGS, _generate_fingerprint
 
         ua = identity.get("user_agent") or get_random_user_agent()
+        fp = _generate_fingerprint(profile_slug)
 
         # Pasta de downloads acessível pelo file picker
         downloads_dir = "/app/downloads"
@@ -226,11 +279,13 @@ async def start_session(profile_slug: str, host_url: str = "") -> Dict[str, Any]
             pass
 
         await context.add_init_script(f"""
-            Object.defineProperty(navigator, 'webdriver', {{get: () => undefined}});
+            Object.defineProperty(navigator, 'webdriver', {{get: () => false}});
+            Object.defineProperty(navigator, 'platform', {{get: () => 'Win32'}});
+            Object.defineProperty(navigator, 'oscpu', {{get: () => undefined}});
             Object.defineProperty(navigator, 'languages', {{get: () => ['pt-BR', 'pt', 'en-US', 'en']}});
-            Object.defineProperty(navigator, 'hardwareConcurrency', {{get: () => 8}});
-            Object.defineProperty(navigator, 'deviceMemory', {{get: () => 8}});
-            Object.defineProperty(navigator, 'maxTouchPoints', {{get: () => 0}});
+            Object.defineProperty(navigator, 'hardwareConcurrency', {{get: () => {fp["cores"]}}});
+            Object.defineProperty(navigator, 'deviceMemory', {{get: () => {fp["memory"]}}});
+            Object.defineProperty(navigator, 'maxTouchPoints', {{get: () => {fp["max_touch_points"]}}});
             if (!navigator.userAgentData) {{
                 Object.defineProperty(navigator, 'userAgentData', {{
                     get: () => ({{
@@ -249,22 +304,60 @@ async def start_session(profile_slug: str, host_url: str = "") -> Dict[str, Any]
                     }})
                 }});
             }}
-        """)
-        await page.goto("https://www.tiktok.com/tiktokstudio/upload", wait_until="domcontentloaded", timeout=30000)
-        logger.info("[REMOTE] Browser navigated to TikTok Studio")
 
-        # Store playwright objects for cleanup
+            // WebGL fingerprint (per-profile)
+            (function() {{
+                const gpuVendor = '{fp["gpu_vendor"]}';
+                const gpuRenderer = '{fp["gpu_renderer"]}';
+                const getParameterOrig = WebGLRenderingContext.prototype.getParameter;
+                WebGLRenderingContext.prototype.getParameter = function(param) {{
+                    if (param === 0x9245) return gpuVendor;
+                    if (param === 0x9246) return gpuRenderer;
+                    return getParameterOrig.call(this, param);
+                }};
+                if (typeof WebGL2RenderingContext !== 'undefined') {{
+                    const getParam2Orig = WebGL2RenderingContext.prototype.getParameter;
+                    WebGL2RenderingContext.prototype.getParameter = function(param) {{
+                        if (param === 0x9245) return gpuVendor;
+                        if (param === 0x9246) return gpuRenderer;
+                        return getParam2Orig.call(this, param);
+                    }};
+                }}
+            }})();
+
+            // screen.orientation (Windows desktop)
+            try {{
+                Object.defineProperty(screen, 'orientation', {{
+                    get: () => ({{
+                        angle: 0,
+                        type: 'landscape-primary',
+                        onchange: null,
+                        addEventListener: function() {{}},
+                        removeEventListener: function() {{}},
+                    }})
+                }});
+            }} catch(e) {{}}
+
+            // window.external (Chrome on Windows)
+            if (!window.external || Object.keys(window.external).length === 0) {{
+                window.external = {{
+                    AddSearchProvider: function() {{}},
+                    IsSearchProviderInstalled: function() {{ return false; }},
+                }};
+            }}
+        """)
+        # Store playwright objects for cleanup (antes da navegação)
         pids["_pw"] = pw
         pids["_context"] = context
 
-        await asyncio.sleep(2)  # Let page render
+        # 5. Start x11vnc (VNC server) with per-session password + localhost-only
+        vnc_password = secrets.token_urlsafe(8)
 
-        # 5. Start x11vnc (VNC server)
         vnc = subprocess.Popen(
             [
                 "x11vnc",
                 "-display", f":{DISPLAY_NUM}",
-                "-nopw",  # No password (internal network / SSH tunnel)
+                "-passwd", vnc_password,
                 "-forever",
                 "-shared",
                 "-rfbport", str(VNC_PORT),
@@ -272,13 +365,15 @@ async def start_session(profile_slug: str, host_url: str = "") -> Dict[str, Any]
                 "-noxrecord",
                 "-noxfixes",
                 "-noxdamage",
+                "-localhost",  # Only accept connections from localhost (websockify)
             ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
         pids["vnc_pid"] = vnc.pid
+        pids["_vnc_password"] = vnc_password
         await asyncio.sleep(1)
-        logger.info(f"[REMOTE] x11vnc started on port {VNC_PORT} (PID {vnc.pid})")
+        logger.info(f"[REMOTE] x11vnc started on port {VNC_PORT} (PID {vnc.pid}) [password protected, localhost only]")
 
         # 6. Start noVNC websockify
         novnc = subprocess.Popen(
@@ -295,8 +390,8 @@ async def start_session(profile_slug: str, host_url: str = "") -> Dict[str, Any]
         await asyncio.sleep(1)
         logger.info(f"[REMOTE] noVNC websockify started on port {NOVNC_PORT} (PID {novnc.pid})")
 
-        # Build noVNC URL
-        novnc_url = f"http://{host_url}:{NOVNC_PORT}/vnc.html?autoconnect=true&resize=scale"
+        # Build noVNC URL (password auto-filled so operator doesn't need to type it)
+        novnc_url = f"http://{host_url}:{NOVNC_PORT}/vnc.html?autoconnect=true&resize=scale&password={vnc_password}"
 
         import datetime
         _active_session = {
@@ -307,6 +402,17 @@ async def start_session(profile_slug: str, host_url: str = "") -> Dict[str, Any]
         }
 
         logger.info(f"[REMOTE] ✅ Session ready: {novnc_url}")
+
+        # Navegação fire-and-forget: não bloqueia o response da API
+        async def _navigate_background():
+            try:
+                await page.goto("https://www.tiktok.com/tiktokstudio/upload", wait_until="domcontentloaded", timeout=45000)
+                logger.info("[REMOTE] Browser navigated to TikTok Studio (background)")
+            except Exception as nav_err:
+                logger.warning(f"[REMOTE] Navegação background falhou: {nav_err}")
+
+        _active_session["_nav_task"] = asyncio.create_task(_navigate_background())
+
         return {
             "active": True,
             "novnc_url": novnc_url,
@@ -332,12 +438,26 @@ def stop_session() -> Dict[str, Any]:
     profile = _active_session.get("profile_slug", "unknown")
     logger.info(f"[REMOTE] Stopping session for {profile}")
 
-    # Close Playwright context gracefully (saves cookies/state)
+    # Save cookies to session JSON before closing
     pw_context = _active_session.get("_context")
     pw = _active_session.get("_pw")
     if pw_context:
         try:
             import asyncio
+            from core.session_manager import get_session_path
+            session_path = get_session_path(profile)
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.ensure_future(pw_context.storage_state(path=session_path))
+                logger.info(f"[REMOTE] Cookies salvos em {session_path}")
+            else:
+                loop.run_until_complete(pw_context.storage_state(path=session_path))
+                logger.info(f"[REMOTE] Cookies salvos em {session_path}")
+        except Exception as e:
+            logger.warning(f"[REMOTE] Falha ao salvar cookies: {e}")
+
+        # Close Playwright context gracefully
+        try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
                 asyncio.ensure_future(pw_context.close())
@@ -362,8 +482,9 @@ def stop_session() -> Dict[str, Any]:
             _kill_pid(pid)
             logger.info(f"[REMOTE] Killed {key}: {pid}")
 
-    # Kill any remaining chromium processes
-    subprocess.run(["pkill", "-9", "chromium"], capture_output=True)
+    # Kill any remaining orphan processes from this session
+    for proc_name in ["chromium", "chrome", "x11vnc", "websockify"]:
+        subprocess.run(["pkill", "-9", proc_name], capture_output=True)
 
     _active_session = None
     return {

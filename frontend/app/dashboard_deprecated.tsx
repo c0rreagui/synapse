@@ -40,7 +40,7 @@ export default function IngestionPage() {
     }
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/v1/ingest/upload', {
+      const response = await fetch('/api/v1/ingest/upload', {
         method: 'POST',
         body: formData,
       });
