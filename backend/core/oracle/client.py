@@ -31,15 +31,28 @@ class OracleClient:
             time.sleep(self.min_interval - elapsed)
         self.last_request_time = time.time()
 
-    def generate_content(self, prompt_input, **kwargs):
+    def generate_content(self, prompt_input=None, **kwargs):
         """
         Unified wrapper for Groq models.
         Routes to Vision model if input contains images.
+        
+        Supports two calling patterns:
+        1. generate_content("prompt string", temperature=0.8)
+        2. generate_content(messages=[{role: "system", content: "..."}, {role: "user", content: "..."}], temperature=0.8)
         """
         if not self.client:
              raise Exception("Oracle Offline: Groq Client not initialized.")
 
         self._enforce_rate_limit()
+
+        # Check if caller passed pre-built messages array
+        if "messages" in kwargs and kwargs["messages"]:
+            pre_messages = kwargs.pop("messages")
+            try:
+                return self._generate_groq_with_messages(pre_messages, **kwargs)
+            except Exception as e:
+                print(f"Groq Generation Error (messages mode): {e}")
+                raise e
 
         # Check for Vision Payload (PIL Image)
         is_vision = False
@@ -54,6 +67,54 @@ class OracleClient:
         except Exception as e:
             print(f"Groq Generation Error: {e}")
             raise e
+
+    def _generate_groq_with_messages(self, messages: list, **kwargs):
+        """
+        Generate content using pre-built messages array.
+        Supports system/user message separation for better instruction following.
+        """
+        primary_model = kwargs.pop("model", "llama-3.3-70b-versatile")
+        models_to_try = [primary_model]
+        if primary_model == "llama-3.3-70b-versatile":
+            models_to_try.append("llama-3.1-8b-instant")
+
+        last_error = None
+        for model in models_to_try:
+            params = {
+                "model": model,
+                "messages": messages,
+                "temperature": kwargs.get("temperature", 0.7),
+                "max_completion_tokens": kwargs.get("max_completion_tokens", 1024),
+                "top_p": kwargs.get("top_p", 1),
+                "stream": False,
+                "stop": None,
+            }
+
+            # Enable JSON mode if any message content mentions JSON
+            all_content = " ".join(str(m.get("content", "")) for m in messages)
+            if "json" in all_content.lower() and "response_format" not in params:
+                params["response_format"] = {"type": "json_object"}
+
+            try:
+                completion = self.client.chat.completions.create(**params)
+
+                class MockResponse:
+                    def __init__(self, text): self.text = text
+
+                return MockResponse(completion.choices[0].message.content)
+
+            except Exception as e:
+                error_str = str(e).lower()
+                if any(x in error_str for x in ["rate_limit", "429", "500", "502", "503", "504", "connection", "timeout"]):
+                    print(f"⚠️ Error ({e}) on {model}. Trying fallback...")
+                    last_error = e
+                    time.sleep(1)
+                    continue
+                else:
+                    raise e
+
+        if last_error:
+            raise last_error
 
     def _generate_groq(self, prompt_input, is_vision: bool, **kwargs):
         messages = []

@@ -2239,30 +2239,92 @@ export default function ClipperPage() {
                                                         rows={3}
                                                     />
 
-                                                    {/* Hashtags */}
-                                                    {(captionDrafts[video.id]?.hashtags?.length ?? 0) > 0 && (
-                                                        <div className="flex flex-wrap gap-1.5">
-                                                            {captionDrafts[video.id]?.hashtags.map((tag, i) => (
-                                                                <span key={i} className="text-[9px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                                                    {tag.startsWith('#') ? tag : `#${tag}`}
-                                                                    <button
-                                                                        onClick={() => {
+                                                    {/* Hashtags + Custom Input */}
+                                                    <div className="space-y-2">
+                                                        {(captionDrafts[video.id]?.hashtags?.length ?? 0) > 0 && (
+                                                            <div className="flex flex-wrap gap-1.5">
+                                                                {captionDrafts[video.id]?.hashtags.map((tag, i) => (
+                                                                    <span key={i} className="text-[9px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                                        {tag.startsWith('#') ? tag : `#${tag}`}
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setCaptionDrafts(prev => ({
+                                                                                    ...prev,
+                                                                                    [video.id]: {
+                                                                                        ...prev[video.id],
+                                                                                        hashtags: prev[video.id].hashtags.filter((_, idx) => idx !== i)
+                                                                                    }
+                                                                                }));
+                                                                            }}
+                                                                            className="text-cyan-500/50 hover:text-red-400 transition-colors"
+                                                                        >
+                                                                            <span className="material-symbols-outlined text-[10px]">close</span>
+                                                                        </button>
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Custom Hashtag Input */}
+                                                        {(captionDrafts[video.id]?.hashtags?.length ?? 0) < 10 && (
+                                                            <div className="flex items-center gap-1.5">
+                                                                <div className="flex-1 relative">
+                                                                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-amber-400/60 text-[10px] font-mono">#</span>
+                                                                    <input
+                                                                        type="text"
+                                                                        value={hashtagInput}
+                                                                        onChange={(e) => setHashtagInput(e.target.value.replace(/[^a-zA-Z0-9À-ÿ_]/g, '').slice(0, 20))}
+                                                                        onKeyDown={(e) => {
+                                                                            if (e.key === 'Enter' && hashtagInput.trim()) {
+                                                                                e.preventDefault();
+                                                                                const newTag = `#${hashtagInput.trim().toLowerCase()}`;
+                                                                                const currentTags = captionDrafts[video.id]?.hashtags || [];
+                                                                                if (!currentTags.some(t => t.toLowerCase() === newTag.toLowerCase()) && currentTags.length < 10) {
+                                                                                    setCaptionDrafts(prev => ({
+                                                                                        ...prev,
+                                                                                        [video.id]: {
+                                                                                            ...prev[video.id],
+                                                                                            caption: prev[video.id]?.caption || '',
+                                                                                            hashtags: [...currentTags, newTag]
+                                                                                        }
+                                                                                    }));
+                                                                                    setHashtagInput('');
+                                                                                }
+                                                                            }
+                                                                        }}
+                                                                        placeholder="Adicionar hashtag..."
+                                                                        className="w-full bg-black/30 border border-amber-500/20 rounded text-amber-300 text-[10px] font-mono pl-6 pr-2 py-1.5 focus:border-amber-500/50 focus:outline-none placeholder:text-slate-600"
+                                                                    />
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (!hashtagInput.trim()) return;
+                                                                        const newTag = `#${hashtagInput.trim().toLowerCase()}`;
+                                                                        const currentTags = captionDrafts[video.id]?.hashtags || [];
+                                                                        if (!currentTags.some(t => t.toLowerCase() === newTag.toLowerCase()) && currentTags.length < 10) {
                                                                             setCaptionDrafts(prev => ({
                                                                                 ...prev,
                                                                                 [video.id]: {
                                                                                     ...prev[video.id],
-                                                                                    hashtags: prev[video.id].hashtags.filter((_, idx) => idx !== i)
+                                                                                    caption: prev[video.id]?.caption || '',
+                                                                                    hashtags: [...currentTags, newTag]
                                                                                 }
                                                                             }));
-                                                                        }}
-                                                                        className="text-cyan-500/50 hover:text-red-400 transition-colors"
-                                                                    >
-                                                                        <span className="material-symbols-outlined text-[10px]">close</span>
-                                                                    </button>
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    )}
+                                                                            setHashtagInput('');
+                                                                        }
+                                                                    }}
+                                                                    disabled={!hashtagInput.trim()}
+                                                                    className="w-7 h-7 flex items-center justify-center bg-amber-500/10 border border-amber-500/20 rounded text-amber-400 hover:bg-amber-500/20 hover:border-amber-500/40 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                                                    title="Adicionar hashtag"
+                                                                >
+                                                                    <span className="material-symbols-outlined text-[14px]">add</span>
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                        {(captionDrafts[video.id]?.hashtags?.length ?? 0) >= 10 && (
+                                                            <p className="text-[8px] font-mono text-amber-500/50">Limite de 10 hashtags atingido</p>
+                                                        )}
+                                                    </div>
 
                                                     {/* Transcript Preview (collapsed) */}
                                                     {video.transcript && (

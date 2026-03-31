@@ -11,6 +11,7 @@ Consome a tabela `pending_approvals` e orquestra:
 """
 
 import os
+import json
 import asyncio
 import logging
 import random
@@ -663,6 +664,32 @@ HASHTAGS: {hashtag_guidance_pro}
         "long": "300-500 caracteres. Storytelling completo com contexto, emoção e CTA.",
     }
 
+    # ── Few-shot examples por tom (ancoram formato + qualidade) ──
+    FEW_SHOT = {
+        "Viral": [
+            {"caption": "o bixo morreu 3 vezes seguidas e ainda tava rindo KKKKK esse é o tipo de jogador que eu respeito 💀", "hashtags": ["#fyp", "#twitch", "#gaming", "#fails"]},
+            {"caption": "simplesmente a melhor reação que eu já vi numa live. ele NÃO acreditou no que aconteceu", "hashtags": ["#viral", "#twitchclips", "#react"]},
+        ],
+        "Polêmico": [
+            {"caption": "se você acha que isso foi sorte, você nunca jogou na vida. respeita o talento", "hashtags": ["#gaming", "#skill", "#twitch"]},
+            {"caption": "todo mundo falando que ele errou mas NINGUÉM teria feito melhor. pode falar", "hashtags": ["#opinião", "#twitch", "#gamer"]},
+        ],
+        "Engraçado": [
+            {"caption": "tutorial completo de como NÃO fazer speedrun em 47 segundos kkkkkk", "hashtags": ["#humor", "#gaming", "#fails", "#twitch"]},
+            {"caption": "ele olhou pro boss e o boss olhou de volta. nenhum dos dois sabia o que fazer 💀", "hashtags": ["#gaming", "#meme", "#twitchclips"]},
+        ],
+        "Profissional": [
+            {"caption": "Quando concentração e reflexo se encontram no momento exato. Clipe cirúrgico.", "hashtags": ["#twitch", "#gameplay", "#highlights"]},
+            {"caption": "Um daqueles momentos que lembram por que a gente assiste live. Conteúdo genuíno do início ao fim.", "hashtags": ["#livestream", "#twitch", "#conteúdo"]},
+        ],
+    }
+
+    few_shot_examples = FEW_SHOT.get(options.tone, FEW_SHOT["Viral"])
+    few_shot_str = "\n".join([
+        f'Exemplo {i+1}: {json.dumps(ex, ensure_ascii=False)}'
+        for i, ex in enumerate(few_shot_examples)
+    ])
+
     system_prompt = f"""{persona}
 
 ─── MISSÃO ───
@@ -670,11 +697,14 @@ Crie UMA descrição para TikTok/Shorts baseada no conteúdo REAL do vídeo abai
 
 TAMANHO: {length_guide.get(options.length, length_guide['short'])}
 
+EXEMPLOS DE OUTPUT (use como referência de FORMATO e QUALIDADE, mas crie algo ORIGINAL):
+{few_shot_str}
+
 REGRAS INVIOLÁVEIS:
 1. A caption DEVE refletir o que REALMENTE acontece no vídeo. Use a transcrição como fonte primária — cite falas reais, reações específicas, momentos exatos.
 2. NUNCA invente eventos, falas ou situações. Se a transcrição diz "ai meu deus", use isso. Se não há transcrição, baseie-se APENAS nos títulos dos clipes.
 3. Escreva em PT-BR coloquial e natural (como um brasileiro real escreveria no TikTok).
-4. NÃO comece com prefixos de prompt como "hot take:", "opinião impopular:", "unpopular opinion:", "neste vídeo...", "veja só...", "confira...". A frase deve ser direta.
+4. NÃO comece com prefixos de prompt como "hot take:", "opinião impopular:", "neste vídeo...", "veja só...", "confira...". A frase deve ser direta.
 5. Responda APENAS em JSON válido: {{"caption": "sua caption aqui", "hashtags": ["#tag1", "#tag2"]}}
 {f"6. Gere entre 3 e 5 hashtags (MÁXIMO 5). Use APENAS tags relevantes ao conteúdo REAL do vídeo. Se a categoria é '{game_name or 'desconhecida'}', as hashtags devem refletir ESSE contexto. NUNCA inclua #gaming se o conteúdo não é sobre jogos (ex: Just Chatting, IRL, react)." if options.include_hashtags else "6. NÃO inclua hashtags, retorne lista vazia"}
 7. A caption deve funcionar como GANCHO — quem lê tem que querer assistir o vídeo. Foque no momento mais impactante/engraçado/tenso.
@@ -686,7 +716,7 @@ REGRAS INVIOLÁVEIS:
 
     instruction = options.instruction or f"Escreva a descrição perfeita para esse vídeo no tom {options.tone}"
 
-    prompt = f"""[INSTRUÇÃO DO CURADOR] {instruction}
+    user_prompt = f"""[INSTRUÇÃO DO CURADOR] {instruction}
 
 [CONTEXTO DO VÍDEO]
 {video_context}
@@ -695,35 +725,84 @@ REGRAS INVIOLÁVEIS:
 {transcript_text if transcript_text else "(Sem áudio transcrito — baseie-se nos títulos e metadados dos clipes)"}
 
 [DICA] Analise a transcrição com atenção. Identifique o MOMENTO-CHAVE (o pico emocional, a fala mais marcante, a reação mais forte) e construa a caption ao redor desse momento. A caption deve fazer o viewer parar o scroll.
+
+Responda SOMENTE com o JSON. Nenhum texto antes ou depois.
 """
 
-    # ── Chamar Oracle ──
+    # ── Chamar Oracle com system/user message separation ──
     try:
         from core.oracle import oracle_client
 
-        full_prompt = f"{system_prompt}\n\n---\n\n{prompt}"
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
 
         result = oracle_client.generate_content(
-            prompt_input=full_prompt,
+            messages=messages,
             model="llama-3.3-70b-versatile",
-            temperature=0.85,
+            temperature=0.9,
+            max_completion_tokens=2048,
         )
 
-        import json
+        import json as json_mod
         content = result.text if hasattr(result, 'text') else str(result)
 
-        try:
-            parsed = json.loads(content)
-        except json.JSONDecodeError:
-            import re
-            match = re.search(r'\{[^{}]*"caption"[^{}]*\}', content, re.DOTALL)
-            if match:
-                parsed = json.loads(match.group())
-            else:
-                parsed = {"caption": content.strip(), "hashtags": []}
+        # Robust JSON parsing with multiple fallback strategies
+        parsed = None
 
-        caption = parsed.get("caption", "")
+        # Strategy 1: Direct JSON parse
+        try:
+            parsed = json_mod.loads(content)
+        except json_mod.JSONDecodeError:
+            pass
+
+        # Strategy 2: Extract from markdown code fence ```json ... ```
+        if not parsed:
+            import re
+            fence_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
+            if fence_match:
+                try:
+                    parsed = json_mod.loads(fence_match.group(1))
+                except json_mod.JSONDecodeError:
+                    pass
+
+        # Strategy 3: Find JSON object with caption key (handles nested braces)
+        if not parsed:
+            import re
+            # Match from {"caption" to the last } that balances
+            match = re.search(r'\{[^{}]*"caption"\s*:\s*"[^"]*"[^{}]*\}', content, re.DOTALL)
+            if match:
+                try:
+                    parsed = json_mod.loads(match.group())
+                except json_mod.JSONDecodeError:
+                    pass
+
+        # Strategy 4: Greedy brace extraction
+        if not parsed:
+            import re
+            match = re.search(r'\{.*"caption".*\}', content, re.DOTALL)
+            if match:
+                try:
+                    parsed = json_mod.loads(match.group())
+                except json_mod.JSONDecodeError:
+                    pass
+
+        # Strategy 5: Raw text fallback
+        if not parsed:
+            # Clean up common LLM artifacts
+            clean = content.strip()
+            if clean.startswith('"') and clean.endswith('"'):
+                clean = clean[1:-1]
+            parsed = {"caption": clean, "hashtags": []}
+            logger.warning(f"Caption fallback to raw text for item #{item_id}")
+
+        caption = parsed.get("caption", "").strip()
         hashtags = parsed.get("hashtags", [])[:5]  # Limite: 3-5 hashtags
+
+        # Clean caption: remove enclosing quotes if LLM added them
+        if caption.startswith('"') and caption.endswith('"'):
+            caption = caption[1:-1]
 
         # Persistir no PendingApproval
         item.caption = caption
