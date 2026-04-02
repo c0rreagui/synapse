@@ -124,7 +124,7 @@ interface PendingVideo {
 
 type Tab = 'targets' | 'queue' | 'armies' | 'approval';
 
-function SortableClip({ clip, onRemove, canRemove }: { clip: ClipDetail; onRemove?: (index: number, title: string) => void; canRemove?: boolean }) {
+function SortableClip({ clip, onRemove, canRemove, layoutMode, onLayoutChange }: { clip: ClipDetail; onRemove?: (index: number, title: string) => void; canRemove?: boolean; layoutMode?: string; onLayoutChange?: (mode: string) => void }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: clip.index });
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -144,7 +144,7 @@ function SortableClip({ clip, onRemove, canRemove }: { clip: ClipDetail; onRemov
                     <p className="text-[9px] text-purple-400 font-mono truncate mb-0.5">{clip.broadcaster}</p>
                 )}
                 <p className="text-[10px] text-white font-mono truncate">{clip.title || `Clip #${clip.index + 1}`}</p>
-                <div className="flex gap-2 mt-0.5">
+                <div className="flex gap-2 mt-0.5 items-center">
                     <span className="text-[9px] text-emerald-400 font-mono flex items-center gap-0.5">
                         <span className="material-symbols-outlined text-[10px]">timer</span>
                         {clip.duration ? Math.floor(clip.duration) : '--'}s
@@ -153,6 +153,20 @@ function SortableClip({ clip, onRemove, canRemove }: { clip: ClipDetail; onRemov
                         <span className="material-symbols-outlined text-[10px]">visibility</span>
                         {clip.views || '--'}
                     </span>
+                    {onLayoutChange && (
+                        <select 
+                            value={layoutMode || 'auto'}
+                            onChange={(e) => onLayoutChange(e.target.value)}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
+                            className="bg-black/50 border border-white/10 text-slate-300 text-[9px] font-mono p-0.5 rounded outline-none cursor-pointer"
+                        >
+                            <option value="auto">Auto</option>
+                            <option value="gameplay">Gameplay</option>
+                            <option value="street">Street</option>
+                            <option value="podcast">Podcast</option>
+                        </select>
+                    )}
                 </div>
             </div>
             {canRemove && onRemove && (
@@ -170,7 +184,7 @@ function SortableClip({ clip, onRemove, canRemove }: { clip: ClipDetail; onRemov
     );
 }
 
-function ClipReorderList({ initialClips, onReorder, onRemoveClip }: { initialClips: ClipDetail[], onReorder: (newOrder: number[]) => Promise<void>, onRemoveClip?: (clipIndex: number, clipTitle: string) => void }) {
+function ClipReorderList({ initialClips, onReorder, onRemoveClip, videoId, layoutOverrides, onLayoutChange }: { initialClips: ClipDetail[], onReorder: (newOrder: number[]) => Promise<void>, onRemoveClip?: (clipIndex: number, clipTitle: string) => void, videoId?: number, layoutOverrides?: Record<number, string>, onLayoutChange?: (clipIndex: number, mode: string) => void }) {
     const [clips, setClips] = useState(initialClips);
     const [isSaving, setIsSaving] = useState(false);
     
@@ -214,8 +228,15 @@ function ClipReorderList({ initialClips, onReorder, onRemoveClip }: { initialCli
             <div className="max-h-[150px] overflow-y-auto custom-scrollbar pr-1">
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                     <SortableContext items={clips.map(c => c.index)} strategy={verticalListSortingStrategy}>
-                        {clips.map(clip => (
-                            <SortableClip key={clip.index} clip={clip} onRemove={onRemoveClip} canRemove={clips.length > 1} />
+                        {clips.map((clip: ClipDetail) => (
+                            <SortableClip 
+                                key={clip.index} 
+                                clip={clip} 
+                                onRemove={onRemoveClip} 
+                                canRemove={clips.length > 1} 
+                                layoutMode={layoutOverrides ? layoutOverrides[clip.index] : 'auto'}
+                                onLayoutChange={onLayoutChange ? (mode: string) => onLayoutChange(clip.index, mode) : undefined}
+                            />
                         ))}
                     </SortableContext>
                 </DndContext>
@@ -248,6 +269,19 @@ export default function ClipperPage() {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [queueLoading, setQueueLoading] = useState(true);
     const [vitals, setVitals] = useState<{ cpu_percent: number; uptime: string } | null>(null);
+
+    // Layout Overrides per Video (mapping videoId -> clipIndex -> layoutMode)
+    const [layoutOverrides, setLayoutOverrides] = useState<Record<number, Record<number, string>>>({});
+    
+    const handleLayoutChange = (videoId: number, clipIndex: number, mode: string) => {
+        setLayoutOverrides(prev => ({
+            ...prev,
+            [videoId]: {
+                ...(prev[videoId] || {}),
+                [clipIndex]: mode
+            }
+        }));
+    };
 
     // Approval Queue Data
     const [pendingVideos, setPendingVideos] = useState<PendingVideo[]>([]);
@@ -617,8 +651,10 @@ export default function ClipperPage() {
 
     const handleReprocess = async (videoId: number) => {
         const toastId = toast.loading('Enviando para reprocessamento...');
+        const overrides = layoutOverrides[videoId] || {};
+        const payload = Object.keys(overrides).length > 0 ? { layout_mode_overrides: overrides } : undefined;
         try {
-            const response = await apiClient.post(`/api/v1/factory/reprocess/${videoId}`);
+            const response = await apiClient.post(`/api/v1/factory/reprocess/${videoId}`, payload);
             await fetchPendingVideos();
             toast.success((response as any).data?.message || 'Vídeo enviado para reprocessamento!', { id: toastId });
         } catch (error: any) {
@@ -742,20 +778,44 @@ export default function ClipperPage() {
             await fetchPendingVideos();
 
             const res = result as any;
-            const profileName = res?.profile || selectedProfileSlug || 'auto';
-            const scheduledTime = res?.scheduled_time;
-            const failedCount = res?.failed || 0;
-            const scheduledCount = res?.scheduled || 0;
-            const timeStr = scheduledTime
-                ? ` para ${new Date(scheduledTime).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
-                : '';
-
-            if (failedCount > 0 && scheduledCount === 0) {
-                toast.error(`Aprovado mas falhou ao agendar no perfil @${profileName}. Verifique o scheduler.`);
-            } else if (failedCount > 0) {
-                toast.success(`Vídeo aprovado no perfil @${profileName}${timeStr}, mas ${failedCount} tentativa(s) falharam.`);
+            
+            if (res.results && Array.isArray(res.results)) {
+                let successProfiles: string[] = [];
+                let failedProfiles: string[] = [];
+                
+                res.results.forEach((r: any) => {
+                    const fail = r.result?.failed || 0;
+                    const sched = r.result?.scheduled || 0;
+                    if (fail > 0 && sched === 0) failedProfiles.push(r.profile);
+                    else successProfiles.push(r.profile);
+                });
+                
+                if (successProfiles.length > 0 && failedProfiles.length === 0) {
+                    toast.success(`Vídeo aprovado e agendado para o(s) perfil(is): ${successProfiles.map(p => '@' + p).join(', ')}`);
+                } else if (successProfiles.length > 0 && failedProfiles.length > 0) {
+                    toast.success(`Aprovado para: ${successProfiles.map(p => '@' + p).join(', ')}. Falhou para: ${failedProfiles.map(p => '@' + p).join(', ')}`);
+                } else if (failedProfiles.length > 0) {
+                    toast.error(`Aprovado mas falhou ao agendar para: ${failedProfiles.map(p => '@' + p).join(', ')}. Verifique o scheduler.`);
+                } else {
+                    toast.success(res.message || "Vídeo aprovado e agendado com sucesso!");
+                }
             } else {
-                toast.success(`Vídeo aprovado e agendado no perfil @${profileName}${timeStr}!`);
+                // Fallback for older single-profile response logic
+                const profileName = res?.profile || selectedProfileSlug || 'auto';
+                const scheduledTime = res?.scheduled_time;
+                const failedCount = res?.failed || 0;
+                const scheduledCount = res?.scheduled || 0;
+                const timeStr = scheduledTime
+                    ? ` para ${new Date(scheduledTime).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
+                    : '';
+
+                if (failedCount > 0 && scheduledCount === 0) {
+                    toast.error(`Aprovado mas falhou ao agendar no perfil @${profileName}. Verifique o scheduler.`);
+                } else if (failedCount > 0) {
+                    toast.success(`Vídeo aprovado no perfil @${profileName}${timeStr}, mas ${failedCount} tentativa(s) falharam.`);
+                } else {
+                    toast.success(`Vídeo aprovado e agendado no perfil @${profileName}${timeStr}!`);
+                }
             }
         } catch (error: any) {
             toast.error(error?.data?.detail || 'Erro ao aprovar vídeo. Tente novamente.');
@@ -2360,6 +2420,9 @@ export default function ClipperPage() {
                                                 initialClips={video.clips}
                                                 onReorder={async (newOrder) => await handleReorderClips(video.id, newOrder)}
                                                 onRemoveClip={(clipIndex, clipTitle) => handleRemoveClip(video.id, clipIndex, clipTitle)}
+                                                videoId={video.id}
+                                                layoutOverrides={layoutOverrides[video.id] || {}}
+                                                onLayoutChange={(clipIdx, mode) => handleLayoutChange(video.id, clipIdx, mode)}
                                             />
                                         )}
 

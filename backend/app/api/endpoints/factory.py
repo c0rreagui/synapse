@@ -65,22 +65,16 @@ class PendingItemResponse(BaseModel):
 
 # ─── Helpers ─────────────────────────────────────────────────────────────
 
-def _resolve_profile_for_approval(item: PendingApproval, db: Session, profile_slug: Optional[str] = None) -> "Profile":
+def _resolve_profiles_for_approval(item: PendingApproval, db: Session, profile_slug: Optional[str] = None) -> List["Profile"]:
     """
-    Resolve qual Profile usar para agendar o video aprovado.
+    Resolve quais Profiles usar para agendar o video aprovado.
 
     Prioridade:
-    1. profile_slug explicito (frontend escolheu)
-    2. Profile vinculado ao Army do TwitchTarget do job
+    1. Profiles vinculados ao Army do TwitchTarget do job
+    2. profile_slug explicito (frontend escolheu)
     3. Primeiro Profile ativo como fallback
     """
-    # 1. Slug explicito
-    if profile_slug:
-        profile = db.query(Profile).filter(Profile.slug == profile_slug, Profile.active == True).first()
-        if profile:
-            return profile
-
-    # 2. Via cadeia: ClipJob → TwitchTarget → army_id → Army.profiles
+    # 1. Via cadeia: ClipJob → TwitchTarget → army_id → Army.profiles
     if item.clip_job_id:
         from core.clipper.models import ClipJob, TwitchTarget
         job = db.query(ClipJob).filter(ClipJob.id == item.clip_job_id).first()
@@ -89,14 +83,21 @@ def _resolve_profile_for_approval(item: PendingApproval, db: Session, profile_sl
             if target and target.army_id:
                 army = db.query(Army).filter(Army.id == target.army_id).first()
                 if army and army.profiles:
-                    # Pegar o primeiro profile ativo do army
-                    for p in army.profiles:
-                        if p.active:
-                            return p
+                    # Pegar TODOS os profiles ativos do army
+                    active_profiles = [p for p in army.profiles if p.active]
+                    if active_profiles:
+                        return active_profiles
+
+    # 2. Slug explicito
+    if profile_slug:
+        profile = db.query(Profile).filter(Profile.slug == profile_slug, Profile.active == True).first()
+        if profile:
+            return [profile]
+        return []
 
     # 3. Fallback: primeiro profile ativo
     profile = db.query(Profile).filter(Profile.active == True).first()
-    return profile
+    return [profile] if profile else []
 
 
 def _get_available_profiles_for_item(item: PendingApproval, db: Session) -> List[dict]:
@@ -244,9 +245,9 @@ async def approve_item(
 
         SP_TZ = ZoneInfo("America/Sao_Paulo")
 
-        # Resolver profile inteligentemente
-        profile = _resolve_profile_for_approval(item, db, body.profile_slug)
-        if not profile:
+        # Resolver profiles inteligentemente
+        profiles = _resolve_profiles_for_approval(item, db, body.profile_slug)
+        if not profiles:
             raise HTTPException(status_code=400, detail="Nenhum perfil ativo encontrado para agendamento")
 
         # Horários padrão de publicação
@@ -256,102 +257,114 @@ async def approve_item(
         final_caption = item.caption or item.title or ""
         final_hashtags = item.hashtags or []
 
-        # 1. Inserir na Smart Queue
-        queue_items = create_queue(
-            profile_slug=profile.slug,
-            videos=[{
-                "path": item.video_path,
-                "caption": final_caption,
-                "hashtags": final_hashtags,
-                "privacy_level": "public_to_everyone",
-            }],
-            posts_per_day=len(schedule_hours),
-            schedule_hours=schedule_hours,
-            db=db,
-        )
-
-        scheduled_time = None
         from core.models import ScheduleItem
 
-        if body.schedule_mode == "specific" and body.schedule_date and body.schedule_time:
-            # Modo específico: agendar para data/hora exata
-            hour, minute = map(int, str(body.schedule_time).split(":"))
-            target_dt = datetime.fromisoformat(str(body.schedule_date)).replace(
-                hour=hour, minute=minute, second=0
-            )
-            # Criar ScheduleItem diretamente com o horário escolhido
-            sched_item = ScheduleItem(
-                profile_slug=profile.slug,
-                video_path=item.video_path,
-                scheduled_time=target_dt,
-                status="pending",
-                metadata_info={
+        results = []
+        overall_scheduled_time = None
+
+        for p in profiles:
+            # 1. Inserir na Smart Queue
+            queue_items = create_queue(
+                profile_slug=p.slug,
+                videos=[{
+                    "path": item.video_path,
                     "caption": final_caption,
                     "hashtags": final_hashtags,
                     "privacy_level": "public_to_everyone",
-                    "source": "approve_specific",
-                }
-            )
-            db.add(sched_item)
-            db.flush()
-            if queue_items:
-                queue_items[0].scheduled_at = target_dt
-                queue_items[0].status = "scheduled"
-                queue_items[0].schedule_item_id = sched_item.id
-            db.commit()
-            scheduled_time = target_dt.isoformat()
-            result = {"scheduled": 1, "failed": 0, "queued_remaining": 0}
-
-        elif body.schedule_mode == "now":
-            # Modo imediato: próximo slot em 1 minuto (scheduler polls a cada 30s)
-            now = datetime.now(SP_TZ)
-            target_dt = (now + timedelta(minutes=1)).replace(tzinfo=None)
-            # Criar ScheduleItem para execução em ~1 minuto
-            sched_item = ScheduleItem(
-                profile_slug=profile.slug,
-                video_path=item.video_path,
-                scheduled_time=target_dt,
-                status="pending",
-                metadata_info={
-                    "caption": final_caption,
-                    "hashtags": final_hashtags,
-                    "privacy_level": "public_to_everyone",
-                    "source": "approve_now",
-                }
-            )
-            db.add(sched_item)
-            db.flush()
-            if queue_items:
-                queue_items[0].scheduled_at = target_dt
-                queue_items[0].status = "scheduled"
-                queue_items[0].schedule_item_id = sched_item.id
-            db.commit()
-            scheduled_time = target_dt.isoformat()
-            result = {"scheduled": 1, "failed": 0, "queued_remaining": 0}
-
-        else:
-            # Modo smart (padrão): distribuição automática via calculate_next_slots
-            result = await schedule_next_batch(
-                profile_slug=profile.slug,
-                batch_size=1,
+                }],
+                posts_per_day=len(schedule_hours),
+                schedule_hours=schedule_hours,
                 db=db,
             )
+
+            p_scheduled_time = None
+            result = None
+
+            if body.schedule_mode == "specific" and body.schedule_date and body.schedule_time:
+                # Modo específico: agendar para data/hora exata
+                hour, minute = map(int, str(body.schedule_time).split(":"))
+                target_dt = datetime.fromisoformat(str(body.schedule_date)).replace(
+                    hour=hour, minute=minute, second=0
+                )
+                # Criar ScheduleItem diretamente com o horário escolhido
+                sched_item = ScheduleItem(
+                    profile_slug=p.slug,
+                    video_path=item.video_path,
+                    scheduled_time=target_dt,
+                    status="pending",
+                    metadata_info={
+                        "caption": final_caption,
+                        "hashtags": final_hashtags,
+                        "privacy_level": "public_to_everyone",
+                        "source": "approve_specific",
+                    }
+                )
+                db.add(sched_item)
+                db.flush()
+                if queue_items:
+                    queue_items[0].scheduled_at = target_dt
+                    queue_items[0].status = "scheduled"
+                    queue_items[0].schedule_item_id = sched_item.id
+                db.commit()
+                p_scheduled_time = target_dt.isoformat()
+                result = {"scheduled": 1, "failed": 0, "queued_remaining": 0}
+
+            elif body.schedule_mode == "now":
+                # Modo imediato: próximo slot em 1 minuto (scheduler polls a cada 30s)
+                now = datetime.now(SP_TZ)
+                target_dt = (now + timedelta(minutes=1)).replace(tzinfo=None)
+                # Criar ScheduleItem para execução em ~1 minuto
+                sched_item = ScheduleItem(
+                    profile_slug=p.slug,
+                    video_path=item.video_path,
+                    scheduled_time=target_dt,
+                    status="pending",
+                    metadata_info={
+                        "caption": final_caption,
+                        "hashtags": final_hashtags,
+                        "privacy_level": "public_to_everyone",
+                        "source": "approve_now",
+                    }
+                )
+                db.add(sched_item)
+                db.flush()
+                if queue_items:
+                    queue_items[0].scheduled_at = target_dt
+                    queue_items[0].status = "scheduled"
+                    queue_items[0].schedule_item_id = sched_item.id
+                db.commit()
+                p_scheduled_time = target_dt.isoformat()
+                result = {"scheduled": 1, "failed": 0, "queued_remaining": 0}
+
+            else:
+                # Modo smart (padrão): distribuição automática via calculate_next_slots
+                result = await schedule_next_batch(
+                    profile_slug=p.slug,
+                    batch_size=1,
+                    db=db,
+                )
+
+            if not p_scheduled_time and queue_items and hasattr(queue_items[0], 'scheduled_at') and queue_items[0].scheduled_at:
+                p_scheduled_time = queue_items[0].scheduled_at.isoformat()
+            
+            if not overall_scheduled_time:
+                overall_scheduled_time = p_scheduled_time
+
+            logger.info(f"Item #{item_id} aprovado [{body.schedule_mode}] -> perfil @{p.slug} | resultado: {result}")
+            results.append({"profile": p.slug, "result": result})
 
         # 3. Marcar como aprovado
         item.status = "approved"
         db.commit()
 
-        if not scheduled_time and queue_items and hasattr(queue_items[0], 'scheduled_at') and queue_items[0].scheduled_at:
-            scheduled_time = queue_items[0].scheduled_at.isoformat()
-
-        logger.info(f"Item #{item_id} aprovado [{body.schedule_mode}] -> perfil @{profile.slug} | resultado: {result}")
-
         return {
-            "message": "Vídeo aprovado e inserido na Smart Queue",
-            "profile": profile.slug,
+            "message": f"Vídeo aprovado e inserido na Smart Queue para {len(profiles)} perfil(s)",
+            "profile": profiles[0].slug,
+            "profiles": [p.slug for p in profiles],
             "schedule_mode": body.schedule_mode,
-            "scheduled_time": scheduled_time,
-            "queue_result": result,
+            "scheduled_time": overall_scheduled_time,
+            "queue_result": results[0]["result"] if results else None,
+            "results": results
         }
 
     except HTTPException:
@@ -957,11 +970,15 @@ async def reorder_item(item_id: int, body: ReorderRequest, db: Session = Depends
         "job_id": job.id,
     }
 
+class ReprocessRequest(BaseModel):
+    layout_mode_overrides: Optional[dict[str, str]] = None
+
 
 @router.post("/reprocess/{item_id}")
-async def reprocess_item(item_id: int, db: Session = Depends(get_db)):
+async def reprocess_item(item_id: int, req: Optional[ReprocessRequest] = None, db: Session = Depends(get_db)):
     """
     Reprocessa um vídeo inteiro: reseta o job para pending e re-enfileira.
+    Opcionalmente recebe overrides de layout por clipe.
     O vídeo antigo é removido e o PendingApproval é deletado.
     """
     item = db.query(PendingApproval).filter(PendingApproval.id == item_id).first()
@@ -987,6 +1004,11 @@ async def reprocess_item(item_id: int, db: Session = Depends(get_db)):
     job.current_step = "Reprocessando (solicitado pelo usuário)"
     job.output_path = None
     job.error_message = None
+    if req and req.layout_mode_overrides:
+        job.layout_mode_overrides = req.layout_mode_overrides
+    else:
+        # Se não enviou nada, podemos manter os antigos ou limpar. Melhor limpar para garantir.
+        job.layout_mode_overrides = {}
 
     # Deletar PendingApproval
     db.delete(item)
