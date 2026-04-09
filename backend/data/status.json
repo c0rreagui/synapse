@@ -1,13 +1,15 @@
 {
-  "state": "paused",
-  "last_updated": "2026-03-19T13:43:58.009935",
-  "timestamp": 1773938638.0099483,
+  "state": "busy",
+  "last_updated": "2026-03-25T14:09:04.206768",
+  "timestamp": 1774458544.2068014,
   "job": {
-    "name": "None",
-    "progress": 0,
-    "step": "Circuit Breaker Open",
+    "name": "stitch_b659f88c22ea_looptail.mp4",
+    "progress": 40,
+    "step": "Iniciando Upload Automatico",
     "logs": [
-      "Too many failures. System paused."
+      "Abrindo navegador...",
+      "Perfil: tiktok_profile_1772754644880",
+      "Privacidade: public_to_everyone"
     ]
   },
   "bots": [
@@ -17,7 +19,7 @@
       "role": "UPLOADER",
       "status": "online",
       "current_task": "Idle",
-      "uptime": "0h 19m",
+      "uptime": "1h 16m",
       "description": "Unidade de transmissao de alta largura de banda. Garantindo metricas globais de propagacao.",
       "avatar": "/avatars/atlas.png"
     },
@@ -27,7 +29,7 @@
       "role": "FACTORY",
       "status": "online",
       "current_task": "Watching inputs...",
-      "uptime": "0h 19m",
+      "uptime": "1h 16m",
       "description": "Nucleo de sintese neural. Montando dados brutos em construcoes cognitivas.",
       "avatar": "/avatars/forge.png"
     },
@@ -37,7 +39,7 @@
       "role": "MONITOR",
       "status": "online",
       "current_task": "System Check",
-      "uptime": "0h 19m",
+      "uptime": "1h 16m",
       "description": "Sentinela onisciente. Analisando anomalias de telemetria em tempo real.",
       "avatar": "/avatars/watcher.png"
     }

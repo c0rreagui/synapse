@@ -164,29 +164,31 @@ export default function MetricsModal({ isOpen, onClose, initialTab = 'processing
             <Dialog onClose={onClose} className="relative z-50">
                 <Transition.Child
                     as={Fragment}
-                    enter="ease-out duration-300"
+                    enter="ease-out duration-200"
                     enterFrom="opacity-0"
                     enterTo="opacity-100"
-                    leave="ease-in duration-200"
+                    leave="ease-in duration-150"
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                 >
-                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" />
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
                 </Transition.Child>
 
                 <div className="fixed inset-0 flex items-center justify-center p-4">
                     <Transition.Child
                         as={Fragment}
-                        enter="ease-out duration-300"
-                        enterFrom="opacity-0 scale-95"
+                        enter="ease-[cubic-bezier(0.34,1.56,0.64,1)] duration-300"
+                        enterFrom="opacity-0 scale-[0.92]"
                         enterTo="opacity-100 scale-100"
-                        leave="ease-in duration-200"
+                        leave="ease-in duration-150"
                         leaveFrom="opacity-100 scale-100"
-                        leaveTo="opacity-0 scale-95"
+                        leaveTo="opacity-0 scale-[0.95]"
                     >
-                        <Dialog.Panel className="w-full max-w-3xl rounded-xl bg-[#0f0a15] border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+                        <Dialog.Panel className="relative w-full max-w-3xl rounded-[20px] overflow-hidden flex flex-col max-h-[80vh] bg-gradient-to-b from-[rgba(22,15,35,0.92)] to-[rgba(11,8,18,0.97)] backdrop-blur-[40px] saturate-[180%] border border-white/[0.08] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.85),0_0_80px_rgba(139,92,246,0.05),inset_0_1px_0_rgba(255,255,255,0.07)]">
+                            {/* Borda prismática */}
+                            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none z-10" />
                             {/* Header */}
-                            <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/5">
+                            <div className="flex items-center justify-between p-5 border-b border-white/[0.05]">
                                 <Dialog.Title className="text-xl font-bold text-white flex items-center gap-2">
                                     <DocumentIcon className="w-6 h-6 text-synapse-primary" />
                                     <span>Detalhes do Pipeline</span>
@@ -197,8 +199,8 @@ export default function MetricsModal({ isOpen, onClose, initialTab = 'processing
                                         <span className="text-[10px] font-mono font-bold uppercase tracking-wider group-hover:text-synapse-cyan">Exportar CSV</span>
                                     </button>
                                     <div className="w-[1px] h-6 bg-white/10 hidden sm:block"></div>
-                                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
-                                        <XMarkIcon className="w-6 h-6" />
+                                    <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center bg-white/[0.04] hover:bg-white/[0.10] border border-white/[0.06] text-gray-400 hover:text-white transition-all duration-200">
+                                        <XMarkIcon className="w-4 h-4" />
                                     </button>
                                 </div>
                             </div>

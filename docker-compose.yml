@@ -107,6 +107,7 @@ services:
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-synapse_admin}
       - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-synapse_secret_key}
+      - GROQ_API_KEY=${GROQ_API_KEY}
     depends_on:
       - db
       - redis
@@ -139,6 +140,7 @@ services:
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-synapse_admin}
       - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-synapse_secret_key}
+      - GROQ_API_KEY=${GROQ_API_KEY}
     depends_on:
       - db
       - redis
@@ -167,6 +169,7 @@ services:
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-synapse_admin}
       - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-synapse_secret_key}
+      - GROQ_API_KEY=${GROQ_API_KEY}
     depends_on:
       - db
       - redis

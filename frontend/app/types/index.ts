@@ -225,6 +225,7 @@ export interface BotStatus {
 
 export interface TikTokProfile {
     id: string;
+    db_id?: number;
     label: string;
     username?: string;
     avatar_url?: string;

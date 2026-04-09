@@ -102,28 +102,6 @@ async def _process_clip_job_inner(ctx, job_id: int):
         _fail_job_db(job_id, "Arquivos locais ou transcricoes nao encontrados.", "Falha ao preparar para edicao.")
         return
 
-    # Buscar channel_name, auto_approve, target_id e layout_mode
-    channel_name = None
-    target_auto_approve = False
-    target_id = None
-    target_type = "channel"
-    layout_mode = "auto"
-    with safe_session() as db:
-        job_obj = db.query(ClipJob).filter(ClipJob.id == job_id).first()
-        if job_obj and job_obj.target_id:
-            target_id = job_obj.target_id
-            layout_mode = getattr(job_obj, 'layout_mode', 'auto') or 'auto'
-            target = db.query(TwitchTarget).filter(TwitchTarget.id == job_obj.target_id).first()
-            if target:
-                channel_name = target.channel_name
-                target_type = getattr(target, 'target_type', 'channel') or 'channel'
-                target_auto_approve = getattr(target, 'auto_approve', False) or False
-                # Para targets de categoria, extrair o nome do streamer real do metadata
-                if target_type == "category" and job_obj.clip_metadata:
-                    real_streamer = job_obj.clip_metadata[0].get("broadcaster_name")
-                    if real_streamer:
-                        channel_name = real_streamer
-
     # Diagnóstico: rastrear mismatch entre local_paths e transcriptions
     if len(local_paths) != len(transcriptions):
         logger.warning(
@@ -143,6 +121,45 @@ async def _process_clip_job_inner(ctx, job_id: int):
         _fail_job_db(job_id, "Nenhum clipe encontrado para edição.", "Falha: lista de clips vazia.")
         return
 
+    # Buscar dados principais em uma única transação
+    channel_name = None
+    target_auto_approve = False
+    target_id = None
+    target_type = "channel"
+    layout_mode = "auto"
+    clip_titles = []
+    clip_metadata = []
+    layout_overrides = {}
+
+    with safe_session() as db:
+        job_obj = db.query(ClipJob).filter(ClipJob.id == job_id).first()
+        if job_obj:
+            clip_metadata = job_obj.clip_metadata or []
+            layout_overrides = job_obj.layout_mode_overrides or {}
+            layout_mode = getattr(job_obj, 'layout_mode', 'auto') or 'auto'
+            
+            # Extrair títulos dos clips para metadados ricos
+            clip_titles = [meta.get("title", "") for meta in clip_metadata]
+
+            if job_obj.target_id:
+                target_id = job_obj.target_id
+                target = db.query(TwitchTarget).filter(TwitchTarget.id == job_obj.target_id).first()
+                if target:
+                    channel_name = target.channel_name
+                    target_type = getattr(target, 'target_type', 'channel') or 'channel'
+                    target_auto_approve = getattr(target, 'auto_approve', False) or False
+                    # Para targets de categoria, extrair o nome do streamer real do metadata
+                    if target_type == "category" and clip_metadata:
+                        real_streamer = clip_metadata[0].get("broadcaster_name")
+                        if real_streamer:
+                            channel_name = real_streamer
+
+            # Atualiza DB para "editing"
+            job_obj.status = "editing"
+            job_obj.current_step = f"Editando 0/{len(valid_pairs)} clipes..."
+            job_obj.progress_pct = 50
+            db.commit()
+
     # 3. Gerar ASS & 4. FFmpeg Edit (por clipe individual)
     edited_paths = []
 
@@ -161,37 +178,36 @@ async def _process_clip_job_inner(ctx, job_id: int):
         f"subtitle_style={asb_style}"
     )
 
-    # Extrair títulos dos clips para metadados ricos
-    clip_titles = []
-    with safe_session() as db:
-        job_for_titles = db.query(ClipJob).filter(ClipJob.id == job_id).first()
-        if job_for_titles and job_for_titles.clip_metadata:
-            for meta in job_for_titles.clip_metadata:
-                clip_titles.append(meta.get("title", ""))
-
-    # Atualiza DB para "editing"
-    with safe_session() as db:
-        job = db.query(ClipJob).filter(ClipJob.id == job_id).first()
-        if job:
-            job.status = "editing"
-            job.current_step = f"Editando 0/{len(valid_pairs)} clipes..."
-            job.progress_pct = 50
-            db.commit()
-
-    # Resolver layout_mode efetivo para cada clip
+    # Resolver layout_mode efetivo para cada clip usando dados em memória
     def _resolve_layout(clip_idx: int) -> str:
-        """Resolve layout_mode: auto → baseado no game do clip metadata."""
-        if layout_mode != "auto":
+        """Resolve layout_mode: auto → baseado no game do clip metadata (com overrides).
+
+        Priority:
+          1. Per-clip override (layout_mode_overrides[str(clip_idx)])
+          2. Job-level layout_mode — only when NO per-clip overrides exist at all
+             (if overrides exist for other clips, unspecified clips fall to auto-detect)
+          3. Game-based auto-detection from clip metadata
+          4. Default: gameplay
+        """
+        # 1. Override específico pro clipe
+        idx_str = str(clip_idx)
+        if idx_str in layout_overrides and layout_overrides[idx_str] != "auto":
+            return layout_overrides[idx_str]
+
+        # 2. Job-level mode — only honoured when there are NO per-clip overrides at all.
+        # When at least one clip has an explicit override, unspecified clips fall through
+        # to game-based auto-detection instead of inheriting the (possibly stale) job mode.
+        if not layout_overrides and layout_mode != "auto":
             return layout_mode
-        # Auto: detectar pelo game do clip
-        with safe_session() as db:
-            job_meta = db.query(ClipJob.clip_metadata).filter(ClipJob.id == job_id).scalar()
-            if job_meta and clip_idx < len(job_meta):
-                game = (job_meta[clip_idx].get("game") or "").lower()
-                if "just chatting" in game:
-                    return "podcast"
-                if "irl" in game or "in real life" in game:
-                    return "street"
+
+        # 3. Detectar pelo metadata (game) do clip
+        if clip_idx < len(clip_metadata):
+            game = (clip_metadata[clip_idx].get("game") or "").lower()
+            if "just chatting" in game:
+                return "podcast"
+            if "irl" in game or "in real life" in game:
+                return "street"
+
         return "gameplay"  # default: split facecam + gameplay
 
     for idx, (path, trans) in enumerate(valid_pairs):
@@ -208,6 +224,7 @@ async def _process_clip_job_inner(ctx, job_id: int):
                     style_name=asb_style,
                     time_offsets=[0.0],
                     hook_title=hook,
+                    layout_mode=clip_layout,
                 )
             else:
                 ass_path = None
@@ -482,60 +499,74 @@ async def _process_clip_job_inner(ctx, job_id: int):
 
         # Pré-gerar caption via Oracle (best-effort, não bloqueia o pipeline)
         try:
-            transcript_text = ""
             game_name = ""
-            clip_titles = []
+            clip_blocks = []
+            has_content = False
             with safe_session() as db:
                 job_for_caption = db.query(ClipJob).filter(ClipJob.id == job_id).first()
                 if job_for_caption:
-                    if job_for_caption.whisper_result:
-                        parts = [t.get("text", "") for t in (job_for_caption.whisper_result or []) if t.get("text")]
-                        transcript_text = " ".join(parts)
-                    if job_for_caption.clip_metadata:
-                        for meta in job_for_caption.clip_metadata:
-                            if meta.get("game"):
-                                game_name = meta["game"]
-                            if meta.get("title"):
-                                clip_titles.append(meta["title"])
+                    metadata_list = job_for_caption.clip_metadata or []
+                    transcriptions_list = job_for_caption.whisper_result or []
+                    for i, meta in enumerate(metadata_list):
+                        if meta.get("game"):
+                            game_name = meta["game"]
+                        broadcaster = meta.get("broadcaster_name") or meta.get("creator_name") or ""
+                        clip_title = meta.get("title") or ""
+                        views = meta.get("view_count") or meta.get("views") or 0
+                        trans = transcriptions_list[i] if i < len(transcriptions_list) else {}
+                        clip_text = (trans.get("text") or "").strip()
 
-            if transcript_text or clip_titles:
+                        header = f"CLIP {i + 1}"
+                        if broadcaster:
+                            header += f" — @{broadcaster}"
+                        if clip_title:
+                            header += f' | "{clip_title}"'
+                        if views:
+                            header += f" | {int(views):,} views"
+                        block = header + "\n"
+                        block += f'Transcrição: "{clip_text}"' if clip_text else "(sem áudio transcrito)"
+                        clip_blocks.append(block)
+                        if clip_text or clip_title:
+                            has_content = True
+
+            if has_content:
                 from core.oracle import oracle_client
 
                 streamer = channel_name or "Streamer"
-                context_lines = []
-                if game_name:
-                    context_lines.append(f"Jogo: {game_name}")
-                context_lines.append(f"Streamer: {streamer}")
-                if clip_titles:
-                    context_lines.append(f"Títulos dos clipes: {' | '.join(clip_titles)}")
-                video_context = "\n".join(context_lines)
-
                 niche_tag = game_name.lower().replace(' ', '').replace(':', '') if game_name else 'twitch'
+                clips_detail = "\n\n".join(clip_blocks) if clip_blocks else "(sem dados de clipes)"
+
+                NON_GAMING = {"just chatting", "irl", "talk shows & podcasts", "asmr", "music", "art",
+                              "beauty & body art", "food & drink", "sports", "travel & outdoors",
+                              "fitness & health", "pools, hot tubs, and beaches", "politics"}
+                is_gaming = game_name.lower().strip() not in NON_GAMING and bool(game_name)
+                niche_guidance = (
+                    f"games/gameplay → gírias gamer; tom enérgico; use #{niche_tag}" if is_gaming
+                    else f"Just Chatting/IRL → drama/humor humano; NUNCA jargão gamer; use #{niche_tag or 'twitch'}"
+                )
+
                 system_prompt = f"""Você é copywriter de TikTok especialista em clips de Twitch BR.
-Sua missão: criar UMA frase-gancho que faz a pessoa parar o scroll.
+Missão: criar UMA frase-gancho de até 150 chars que faz a pessoa PARAR o scroll.
 
-ESTILO:
-- Frase curta e cortante (max 150 chars)
-- PT-BR coloquial, gírias atuais
-- Caps lock em 1-2 palavras chave para impacto
-- Se houve reação forte (grito, riso, susto, xingo), DESTAQUE isso
-- Mencione o streamer pelo nome naturalmente
-- 1-2 emoji no máximo (ou nenhum)
-
-PROIBIDO:
-- Inventar falas ou eventos que não existem na transcrição
-- Começar com "Neste vídeo...", "Veja só...", "Olha o que..."
-- Usar prefixos como "hot take:", "opinião impopular:"
-- Aspas ao redor da caption inteira
+REGRAS DE OURO:
+- OBRIGATÓRIO: destaque a emoção principal com CAIXA ALTA no gancho (ex: "PERDEU o controle")
+- Use falas reais da transcrição — não invente nada
+- Adapte ao nicho: {niche_guidance}
+- Mencione {streamer} pelo nome de forma natural
+- PT-BR coloquial, gírias atuais, 0-2 emoji
+- PROIBIDO: "Neste vídeo...", "Veja só...", prefixos explicativos, aspas ao redor da caption
 
 Responda APENAS em JSON: {{"caption": "...", "hashtags": ["#tag1", "#tag2"]}}
-Gere 3-5 hashtags: mix de alcance (#fyp #viral) + nicho (#{niche_tag})"""
+Hashtags: 3-5 tags — mix de alcance (#fyp) + nicho específico (#{niche_tag})"""
 
-                prompt = f"""[CONTEXTO DO VÍDEO]
-{video_context}
+                prompt = f"""[CONTEXTO]
+Streamer: {streamer} | Categoria: {game_name or "N/A"} | {len(clip_blocks)} clipe(s)
 
-[TRANSCRIÇÃO WHISPER]
-{transcript_text if transcript_text else "(Sem áudio — baseie-se nos títulos dos clipes)"}"""
+[CLIPES — TRANSCRIÇÕES SEPARADAS]
+{clips_detail}
+
+Identifique o MOMENTO-CHAVE (fala mais forte, reação mais intensa) e construa a caption ao redor dele.
+Responda SOMENTE com o JSON."""
 
                 full_prompt = f"{system_prompt}\n\n---\n\n{prompt}"
                 result = oracle_client.generate_content(
@@ -571,43 +602,76 @@ Gere 3-5 hashtags: mix de alcance (#fyp #viral) + nicho (#{niche_tag})"""
             try:
                 from core.auto_scheduler import create_queue, schedule_next_batch
                 from core.models import Profile, Army
+                from core.clipper.uniquifier import generate_variants, InsufficientDiskError
+                from core.caption_engine import generate_caption_variations
 
                 with safe_session() as db:
-                    # Resolver profile via Army do target (prioridade) ou fallback
-                    profile = None
+                    # Resolver TODOS os profiles via Army do target (prioridade) ou fallback
+                    active_profiles = []
                     target = db.query(TwitchTarget).filter(TwitchTarget.id == target_id).first()
                     if target and target.army_id:
                         army = db.query(Army).filter(Army.id == target.army_id).first()
                         if army and army.profiles:
-                            for p in army.profiles:
-                                if p.active:
-                                    profile = p
-                                    break
+                            active_profiles = [p for p in army.profiles if p.active]
 
-                    if not profile:
-                        profile = db.query(Profile).filter(Profile.active == True).first()
+                    if not active_profiles:
+                        fallback = db.query(Profile).filter(Profile.active == True).first()
+                        if fallback:
+                            active_profiles = [fallback]
 
-                    if profile:
-                        create_queue(
-                            profile_slug=profile.slug,
-                            videos=[{
-                                "path": output_path,
-                                "caption": f"{channel_name or 'Clip'} #{job_id}",
-                                "hashtags": [],
-                                "privacy_level": "public_to_everyone",
-                            }],
-                            posts_per_day=2,
-                            schedule_hours=[12, 18],
-                            db=db,
+                    if active_profiles:
+                        # Gerar variantes únicas por perfil
+                        profile_slugs = [p.slug for p in active_profiles]
+                        variants = await generate_variants(
+                            source_path=output_path,
+                            profile_slugs=profile_slugs,
                         )
-                        result = await schedule_next_batch(
-                            profile_slug=profile.slug,
-                            batch_size=1,
-                            db=db,
+                        variant_map = {v["profile_slug"]: v for v in variants}
+
+                        # Recuperar caption gerada (se existir)
+                        appr = db.query(PendingApproval).filter(PendingApproval.id == approval_id).first()
+                        base_caption = (appr.caption if appr and appr.caption else f"{channel_name or 'Clip'} #{job_id}")
+                        base_hashtags = (appr.hashtags if appr and appr.hashtags else [])
+
+                        # Gerar variações de caption
+                        caption_vars = await generate_caption_variations(
+                            base_caption=base_caption,
+                            hashtags=base_hashtags,
+                            count=len(active_profiles),
                         )
-                        logger.info(f"Job #{job_id} Auto-Enfileirado no perfil @{profile.slug}: {result}")
+
+                        for i, p in enumerate(active_profiles):
+                            v = variant_map.get(p.slug, {})
+                            p_video_path = v.get("variant_path", output_path) if v.get("success") else output_path
+                            p_caption = caption_vars[i]["caption"] if i < len(caption_vars) else base_caption
+
+                            create_queue(
+                                profile_slug=p.slug,
+                                videos=[{
+                                    "path": p_video_path,
+                                    "caption": p_caption,
+                                    "hashtags": base_hashtags,
+                                    "privacy_level": "public_to_everyone",
+                                }],
+                                posts_per_day=2,
+                                schedule_hours=[12, 18],
+                                db=db,
+                            )
+                            result = await schedule_next_batch(
+                                profile_slug=p.slug,
+                                batch_size=1,
+                                db=db,
+                            )
+                            variant_tag = " [variante]" if v.get("success") and p_video_path != output_path else ""
+                            logger.info(f"Job #{job_id} Auto-Enfileirado no perfil @{p.slug}{variant_tag}: {result}")
+                        logger.info(f"Job #{job_id} Auto-Enfileirado para {len(active_profiles)} perfil(s): {[p.slug for p in active_profiles]}")
                     else:
                         logger.warning(f"Job #{job_id}: Nenhum profile ativo para auto-enfileirar.")
+            except InsufficientDiskError as disk_err:
+                logger.warning(
+                    f"Job #{job_id}: Disco insuficiente para gerar variantes — "
+                    f"mantendo como pendente para aprovação manual. {disk_err}"
+                )
             except Exception as sq_err:
                 logger.error(f"Erro ao enfileirar Job #{job_id} no Scheduler: {sq_err}", exc_info=True)
         else:

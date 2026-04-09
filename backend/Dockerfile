@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install -y \
     x11vnc \
     novnc \
     websockify \
+    xdotool \
     && rm -rf /var/lib/apt/lists/*
 
 # Instala fonte Inter (Black/ExtraBold) do Google Fonts para legendas
@@ -47,6 +48,17 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Instala Playwright + stealth + browser Chromium
 RUN pip install playwright playwright-stealth && playwright install chromium
+
+# Instala Dolphin{anty} antidetect browser
+RUN apt-get update && apt-get install -y wget && \
+    wget -q "https://dolphin-anty-cdn.com/anty-app/dolphin-anty-linux-amd64-latest.deb" \
+         -O /tmp/dolphin.deb && \
+    dpkg -i /tmp/dolphin.deb || apt-get -f install -y && \
+    rm /tmp/dolphin.deb && \
+    rm -rf /var/lib/apt/lists/*
+
+# Downloads: /root/Downloads → /app/downloads (persisted via volume mount)
+RUN mkdir -p /app/downloads && ln -sfn /app/downloads /root/Downloads
 
 # Expõe portas: 8000 (API) + 6080 (noVNC)
 EXPOSE 8000 6080

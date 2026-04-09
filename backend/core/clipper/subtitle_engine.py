@@ -17,6 +17,7 @@ Formato ASS:
 """
 
 import os
+import copy
 import uuid
 import logging
 import textwrap
@@ -85,6 +86,7 @@ class SubtitleStyle:
         margin_bottom: int = MARGIN_BOTTOM,
         popin_ms: int = POPIN_DURATION_MS,
         popin_scale_start: int = POPIN_SCALE_START,
+        alignment: int = 5,
     ):
         self.name = name
         self.font = font
@@ -98,6 +100,7 @@ class SubtitleStyle:
         self.margin_bottom = margin_bottom
         self.popin_ms = popin_ms
         self.popin_scale_start = popin_scale_start
+        self.alignment = alignment
 
 
 # Estilos pre-definidos
@@ -158,8 +161,8 @@ YCbCr Matrix: TV.709
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Active,{style.font},{style.font_size},{style.active_color},{style.active_color},{style.outline_color},{style.shadow_color},-1,0,0,0,100,100,1,0,1,{style.outline_size},{style.shadow_depth},5,40,40,{style.margin_bottom},1
-Style: Inactive,{style.font},{style.font_size},{style.inactive_color},{style.inactive_color},{style.outline_color},{style.shadow_color},-1,0,0,0,100,100,1,0,1,{style.outline_size},{style.shadow_depth},5,40,40,{style.margin_bottom},1
+Style: Active,{style.font},{style.font_size},{style.active_color},{style.active_color},{style.outline_color},{style.shadow_color},-1,0,0,0,100,100,1,0,1,{style.outline_size},{style.shadow_depth},{style.alignment},40,40,{style.margin_bottom},1
+Style: Inactive,{style.font},{style.font_size},{style.inactive_color},{style.inactive_color},{style.outline_color},{style.shadow_color},-1,0,0,0,100,100,1,0,1,{style.outline_size},{style.shadow_depth},{style.alignment},40,40,{style.margin_bottom},1
 Style: Hook,{style.font},{hook_font_size},{style.active_color},{style.active_color},{style.outline_color},{style.shadow_color},-1,0,0,0,100,100,2,0,1,{style.outline_size + 2},{style.shadow_depth + 2},8,60,60,280,1
 
 [Events]
@@ -267,6 +270,7 @@ def generate_ass(
     video_width: int = 1080,
     video_height: int = 1920,
     hook_title: Optional[str] = None,
+    layout_mode: str = "gameplay",
 ) -> str:
     """
     Gera arquivo .ass com legendas animadas a partir do resultado do Whisper.
@@ -283,11 +287,24 @@ def generate_ass(
         video_width: Largura do video target
         video_height: Altura do video target
         hook_title: Titulo do clip para hook textual nos 3 primeiros seg.
+        layout_mode: Layout do vídeo. "street" reposiciona legendas para a
+                     safe zone inferior (Alignment=2, MarginV=384 = 20vh);
+                     default "gameplay" mantém centro (Alignment=5).
 
     Returns:
         Caminho absoluto do arquivo .ass gerado
     """
     style = STYLES.get(style_name, STYLES["opus"])
+
+    # Street (IRL) layout: bottom-anchored captions in the lower safe zone.
+    # Alignment=2 (bottom-center) + MarginV=20% of height places the baseline
+    # at ~80% from top — inside the lower third (66%-82%) and above platform UI.
+    # Relative calc ensures it works at any resolution (1920, 1280, etc).
+    if layout_mode == "street":
+        style = copy.copy(style)
+        style.alignment = 2    # bottom-center
+        style.margin_bottom = round(video_height * 0.20)  # 20% up from bottom edge
+
     words = whisper_result.get("words", [])
 
     # Filtro de Ruido Tipografico: remover , . ; : mantendo ? e !
@@ -377,6 +394,7 @@ def generate_ass_for_multiple(
     output_path: Optional[str] = None,
     time_offsets: Optional[List[float]] = None,
     hook_title: Optional[str] = None,
+    layout_mode: str = "gameplay",
 ) -> str:
     """
     Gera um unico .ass para multiplos clipes (pos-stitching).
@@ -391,6 +409,7 @@ def generate_ass_for_multiple(
         time_offsets: Lista de offsets em segundos para cada transcricao.
                       Se None, assume [0, duracao_clip1, duracao_clip1+clip2, ...]
         hook_title: Titulo para hook textual nos 3 primeiros segundos
+        layout_mode: Layout do vídeo — ver `generate_ass()` para detalhes.
 
     Returns:
         Caminho do .ass gerado
@@ -419,4 +438,4 @@ def generate_ass_for_multiple(
         "word_count": len(merged_words),
     }
 
-    return generate_ass(merged_result, style_name=style_name, output_path=output_path, hook_title=hook_title)
+    return generate_ass(merged_result, style_name=style_name, output_path=output_path, hook_title=hook_title, layout_mode=layout_mode)

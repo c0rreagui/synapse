@@ -266,6 +266,93 @@ async def update_profile_endpoint(profile_id: str, request: UpdateProfileRequest
         raise HTTPException(status_code=404, detail="Perfil não encontrado.")
     return {"status": "success", "message": f"Perfil {profile_id} atualizado."}
 
+# ─── Dolphin{anty} Integration ──────────────────────────────────────────
+
+class DolphinNameRequest(BaseModel):
+    dolphin_profile_name: str
+
+@router.put("/{profile_id}/dolphin-name")
+async def set_dolphin_profile_name(profile_id: str, request: DolphinNameRequest):
+    """Define o nome do perfil no Dolphin{anty} para automação de uploads."""
+    from fastapi.concurrency import run_in_threadpool
+    from core.database import SessionLocal
+    from core.models import Profile
+
+    def _update():
+        db = SessionLocal()
+        try:
+            profile = db.query(Profile).filter(
+                (Profile.slug == profile_id) | (Profile.username == profile_id)
+            ).first()
+            if not profile:
+                return None
+            profile.dolphin_profile_name = request.dolphin_profile_name
+            db.commit()
+            return profile.slug
+        finally:
+            db.close()
+
+    slug = await run_in_threadpool(_update)
+    if not slug:
+        raise HTTPException(status_code=404, detail="Perfil não encontrado.")
+    return {"status": "success", "slug": slug, "dolphin_profile_name": request.dolphin_profile_name}
+
+
+@router.get("/{profile_id}/dolphin-name")
+async def get_dolphin_info(profile_id: str):
+    """Retorna dolphin_profile_name e lista perfis disponíveis no Dolphin local."""
+    from fastapi.concurrency import run_in_threadpool
+    from core.database import SessionLocal
+    from core.models import Profile
+    import glob as _glob
+    import os as _os
+
+    def _get_profile():
+        db = SessionLocal()
+        try:
+            p = db.query(Profile).filter(
+                (Profile.slug == profile_id) | (Profile.username == profile_id)
+            ).first()
+            if not p:
+                return None
+            return {"slug": p.slug, "dolphin_profile_name": getattr(p, "dolphin_profile_name", None)}
+        finally:
+            db.close()
+
+    def _list_dolphin_profiles():
+        """List Dolphin profile directory IDs from the local filesystem.
+        Dolphin stores profile display names in its own DB, not in Chrome Preferences.
+        The inspection script (Fase 1) is needed to map IDs to display names.
+        """
+        dolphin_dir = "/root/.config/dolphin_anty/browser_profiles"
+        profiles = []
+        for prefs_path in _glob.glob(f"{dolphin_dir}/**/Preferences", recursive=True):
+            try:
+                profile_dir = _os.path.basename(_os.path.dirname(_os.path.dirname(prefs_path)))
+                has_tiktok_cookies = _os.path.exists(
+                    _os.path.join(_os.path.dirname(prefs_path), "Cookies")
+                )
+                profiles.append({
+                    "dolphin_id": profile_dir,
+                    "has_cookies_db": has_tiktok_cookies,
+                })
+            except Exception:
+                pass
+        return profiles
+
+    profile_data = await run_in_threadpool(_get_profile)
+    if not profile_data:
+        raise HTTPException(status_code=404, detail="Perfil não encontrado.")
+
+    dolphin_profiles = await run_in_threadpool(_list_dolphin_profiles)
+
+    return {
+        **profile_data,
+        "dolphin_local_profiles": dolphin_profiles,
+        "hint": "Use PUT /{profile_id}/dolphin-name para definir o dolphin_profile_name.",
+    }
+
+
 # ─── SYN-88: Bulk Endpoints ─────────────────────────────────────────────
 
 class BulkProfileRequest(BaseModel):
@@ -510,12 +597,12 @@ async def remote_session_start(profile_id: str):
     Start a remote browser session for a profile.
     Opens TikTok Studio via VNC so the operator can solve CAPTCHA manually.
     """
-    from core.remote_session import start_session
+    from core.remote_session import start_dolphin_session
 
     # Resolve host URL from environment or use the VPS IP
     host_url = os.environ.get("VPS_HOST", "46.225.62.76")
 
-    result = await start_session(profile_slug=profile_id, host_url=host_url)
+    result = await start_dolphin_session(profile_slug=profile_id, host_url=host_url)
 
     if "error" in result:
         raise HTTPException(status_code=409, detail=result["error"])

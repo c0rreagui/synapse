@@ -12,6 +12,8 @@ interface Proxy {
     password?: string;
     active: boolean;
     fingerprint_ua?: string;
+    fingerprint_locale?: string;
+    fingerprint_timezone?: string;
 }
 
 export default function ProxySettings() {
@@ -162,6 +164,16 @@ export default function ProxySettings() {
                                 <label className="block text-[10px] text-slate-400 font-mono mb-1">FINGERPRINT_UA_OVERRIDE (optional)</label>
                                 <input type="text" className="w-full bg-[#050a14] border border-slate-700 p-2 text-xs font-mono text-white focus:border-emerald-500 outline-none"
                                     value={currentProxy.fingerprint_ua || ""} onChange={e => setCurrentProxy({ ...currentProxy, fingerprint_ua: e.target.value })} placeholder="Mozilla/5.0 (Windows NT 10.0; Win64; x64)..." />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] text-slate-400 font-mono mb-1">LOCALE_OVERRIDE (optional)</label>
+                                <input type="text" className="w-full bg-[#050a14] border border-slate-700 p-2 text-xs font-mono text-white focus:border-emerald-500 outline-none"
+                                    value={currentProxy.fingerprint_locale || ""} onChange={e => setCurrentProxy({ ...currentProxy, fingerprint_locale: e.target.value })} placeholder="en-US  (deixe vazio para pt-BR padrão)" />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] text-slate-400 font-mono mb-1">TIMEZONE_OVERRIDE (optional)</label>
+                                <input type="text" className="w-full bg-[#050a14] border border-slate-700 p-2 text-xs font-mono text-white focus:border-emerald-500 outline-none"
+                                    value={currentProxy.fingerprint_timezone || ""} onChange={e => setCurrentProxy({ ...currentProxy, fingerprint_timezone: e.target.value })} placeholder="America/New_York  (deixe vazio para Sao_Paulo padrão)" />
                             </div>
                         </div>
 

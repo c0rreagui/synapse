@@ -631,7 +631,8 @@ MAX_CLIPS_PER_JOB = 4          # Limite de clips por job (mantém qualidade e du
 MIN_CLIP_DURATION = 10.0       # Clips abaixo de 10s são descartados (muito curtos para engajamento)
 PREFERRED_CLIP_DURATION = 20.0 # Clips >= 20s têm prioridade na seleção
 MAX_CLIPS_PER_CREATOR = 2      # Máximo de clips do mesmo criador por job (diversidade)
-WAITING_JOB_TIMEOUT_HOURS = 72 # Timeout para jobs em waiting_clips
+WAITING_JOB_TIMEOUT_HOURS = 6  # Timeout para jobs em waiting_clips (era 72h — clips perdem relevância rápido)
+MAX_WAITING_JOBS_PER_TARGET = 3  # Cap de jobs waiting_clips por target (evita acúmulo infinito)
 MIN_VIABLE_DURATION = 30.0     # Duração mínima de conteúdo único para promover waiting_clips expirado
 
 
@@ -777,9 +778,10 @@ async def _create_clip_jobs(target_id: int, channel_name: str, new_clips: List[D
     Cada job pronto resulta em 1 vídeo final = 1 postagem na fila de aprovação.
     """
     # ── Limite de esteira: não criar novos jobs se já atingiu o máximo ──
+    # waiting_clips NÃO conta — são registros inertes que não consomem CPU/disco/FFmpeg.
     with safe_session() as db:
         active_count = db.query(ClipJob).filter(
-            ClipJob.status.in_(["pending", "downloading", "transcribing", "editing", "stitching", "waiting_clips"])
+            ClipJob.status.in_(["pending", "downloading", "transcribing", "editing", "stitching"])
         ).count()
     if active_count >= MAX_QUEUE_JOBS:
         logger.warning(f"⛔ Esteira cheia: {active_count}/{MAX_QUEUE_JOBS} jobs ativos. Ignorando {len(new_clips)} clips novos.")
@@ -911,25 +913,35 @@ async def _create_clip_jobs(target_id: int, channel_name: str, new_clips: List[D
                 except Exception as e:
                     logger.error(f"❌ Falha ao enfileirar Job #{job_id} (leftover): {e}")
             else:
-                # Leftover < 61s → waiting_clips
+                # Leftover < 61s → waiting_clips (respeitando cap por target)
                 with safe_session() as db:
-                    waiting_job = ClipJob(
-                        target_id=target_id,
-                        clip_urls=[c["url"] for c in leftover],
-                        clip_metadata=leftover,
-                        status="waiting_clips",
-                        current_step=f"Aguardando mais clips ({leftover_dur:.0f}s / 61s mínimo)",
-                        progress_pct=int(min(leftover_dur / 61.0 * 100, 99)),
-                        layout_mode=layout_mode,
-                    )
-                    db.add(waiting_job)
-                    db.commit()
-                    db.refresh(waiting_job)
-                    logger.info(
-                        f"⏳ Job #{waiting_job.id} criado em waiting_clips: "
-                        f"{len(leftover)} clip(s), {leftover_dur:.0f}s (faltam {61 - leftover_dur:.0f}s)"
-                    )
-                    job_ids.append(waiting_job.id)
+                    waiting_count = db.query(ClipJob).filter(
+                        ClipJob.target_id == target_id,
+                        ClipJob.status == "waiting_clips",
+                    ).count()
+                    if waiting_count >= MAX_WAITING_JOBS_PER_TARGET:
+                        logger.info(
+                            f"⏭️ Cap de waiting_clips atingido ({waiting_count}/{MAX_WAITING_JOBS_PER_TARGET}) "
+                            f"para target {target_id}. Descartando {len(leftover)} leftover clip(s)."
+                        )
+                    else:
+                        waiting_job = ClipJob(
+                            target_id=target_id,
+                            clip_urls=[c["url"] for c in leftover],
+                            clip_metadata=leftover,
+                            status="waiting_clips",
+                            current_step=f"Aguardando mais clips ({leftover_dur:.0f}s / 61s mínimo)",
+                            progress_pct=int(min(leftover_dur / 61.0 * 100, 99)),
+                            layout_mode=layout_mode,
+                        )
+                        db.add(waiting_job)
+                        db.commit()
+                        db.refresh(waiting_job)
+                        logger.info(
+                            f"⏳ Job #{waiting_job.id} criado em waiting_clips: "
+                            f"{len(leftover)} clip(s), {leftover_dur:.0f}s (faltam {61 - leftover_dur:.0f}s)"
+                        )
+                        job_ids.append(waiting_job.id)
 
     finally:
         await pool.close()

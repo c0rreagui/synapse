@@ -200,28 +200,30 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
             <Dialog as="div" className="relative z-50" onClose={onClose}>
                 <Transition.Child
                     as={Fragment}
-                    enter="ease-out duration-300"
+                    enter="ease-out duration-200"
                     enterFrom="opacity-0"
                     enterTo="opacity-100"
-                    leave="ease-in duration-200"
+                    leave="ease-in duration-150"
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                 >
-                    <div className="fixed inset-0 bg-black/90 backdrop-blur-md" />
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
                 </Transition.Child>
 
                 <div className="fixed inset-0 overflow-y-auto">
                     <div className="flex min-h-full items-center justify-center p-4">
                         <Transition.Child
                             as={Fragment}
-                            enter="ease-out duration-300"
-                            enterFrom="opacity-0 scale-95"
+                            enter="ease-[cubic-bezier(0.34,1.56,0.64,1)] duration-300"
+                            enterFrom="opacity-0 scale-[0.92]"
                             enterTo="opacity-100 scale-100"
-                            leave="ease-in duration-200"
+                            leave="ease-in duration-150"
                             leaveFrom="opacity-100 scale-100"
-                            leaveTo="opacity-0 scale-95"
+                            leaveTo="opacity-0 scale-[0.95]"
                         >
-                            <Dialog.Panel className="w-full max-w-5xl transform overflow-hidden rounded-2xl bg-[#09090b] border border-white/10 p-0 text-left align-middle shadow-2xl transition-all">
+                            <Dialog.Panel className="relative w-full max-w-5xl transform overflow-hidden rounded-[20px] bg-gradient-to-b from-[rgba(22,15,35,0.92)] to-[rgba(11,8,18,0.97)] backdrop-blur-[40px] saturate-[180%] border border-white/[0.08] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.85),0_0_80px_rgba(139,92,246,0.05),inset_0_1px_0_rgba(255,255,255,0.07)] p-0 text-left align-middle transition-all">
+                                {/* Borda prismática — efeito Apple top edge */}
+                                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none z-10" />
                                 <div className="flex justify-between items-center p-6 border-b border-white/5 bg-gradient-to-r from-synapse-purple/5 to-transparent">
                                     <div>
                                         <Dialog.Title as="h3" className="text-xl font-bold text-white flex items-center gap-3">
@@ -232,9 +234,9 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                                     </div>
                                     <button
                                         onClick={onClose}
-                                        className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                                        className="w-8 h-8 rounded-xl flex items-center justify-center bg-white/[0.04] hover:bg-white/[0.10] border border-white/[0.06] text-gray-400 hover:text-white transition-all duration-200"
                                     >
-                                        <XMarkIcon className="w-5 h-5" />
+                                        <XMarkIcon className="w-4 h-4" />
                                     </button>
                                 </div>
 
@@ -268,7 +270,7 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                                 </div>
 
                                 {/* Content */}
-                                <div className="h-[550px] overflow-y-auto custom-scrollbar p-6 space-y-6 bg-[#0c0c0e] scroll-smooth">
+                                <div className="h-[550px] overflow-y-auto custom-scrollbar p-6 space-y-6 scroll-smooth">
                                     {loading ? (
                                         <div className="flex items-center justify-center h-full text-gray-500">
                                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-synapse-purple mr-3"></div>
@@ -297,7 +299,7 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                                                 const dateObj = new Date(dateKey + 'T12:00:00'); // Force noon to avoid timezone shift on simple date parse
                                                 return (
                                                     <div key={dateKey} className="relative">
-                                                        <div className="sticky top-0 z-10 bg-[#0c0c0e]/95 backdrop-blur-sm border-b border-white/5 py-2 mb-3 flex items-center justify-between">
+                                                        <div className="sticky top-0 z-10 bg-[rgba(11,8,18,0.95)] backdrop-blur-sm border-b border-white/5 py-2 mb-3 flex items-center justify-between">
                                                             <h4 className="text-sm font-bold text-gray-400 font-mono flex items-center gap-2">
                                                                 <CalendarIcon className="w-4 h-4 text-synapse-purple" />
                                                                 {format(new Date(groupEvents[0].scheduled_time), "EEEE, d 'de' MMMM", { locale: ptBR })}
@@ -330,10 +332,10 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
                                                                         <div className="absolute -left-4 top-1/2 -translate-y-1/2 w-4 h-px bg-white/5" />
                                                                         <div className={clsx(
                                                                             "absolute -left-[19px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full border-2 transition-colors z-20",
-                                                                            isFailed ? "bg-[#0c0c0e] border-red-500" :
-                                                                                isPaused ? "bg-[#0c0c0e] border-amber-500 animate-pulse" :
+                                                                            isFailed ? "bg-[rgba(11,8,18,0.95)] border-red-500" :
+                                                                                isPaused ? "bg-[rgba(11,8,18,0.95)] border-amber-500 animate-pulse" :
                                                                                     isDone ? "bg-green-500 border-green-500" :
-                                                                                        "bg-[#0c0c0e] border-white/10 group-hover:border-synapse-purple"
+                                                                                        "bg-[rgba(11,8,18,0.95)] border-white/10 group-hover:border-synapse-purple"
                                                                         )} />
 
                                                                         {/* Simulated Thumbnail / File Icon */}
@@ -515,7 +517,7 @@ export default function ScheduledVideosModal({ isOpen, onClose, profiles, onDele
 
                                                                                 <div className="mt-3 flex items-center justify-end gap-1">
                                                                                     {/* Revert to Approval */}
-                                                                                    {event.status === 'pending' && (
+                                                                                    {(event.status === 'pending' || event.status === 'failed' || event.status === 'error') && (
                                                                                         <button
                                                                                             onClick={() => handleRevert(event.id)}
                                                                                             disabled={revertingId === event.id}

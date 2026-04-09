@@ -187,8 +187,15 @@ function SortableClip({ clip, onRemove, canRemove, layoutMode, onLayoutChange }:
 function ClipReorderList({ initialClips, onReorder, onRemoveClip, videoId, layoutOverrides, onLayoutChange }: { initialClips: ClipDetail[], onReorder: (newOrder: number[]) => Promise<void>, onRemoveClip?: (clipIndex: number, clipTitle: string) => void, videoId?: number, layoutOverrides?: Record<number, string>, onLayoutChange?: (clipIndex: number, mode: string) => void }) {
     const [clips, setClips] = useState(initialClips);
     const [isSaving, setIsSaving] = useState(false);
-    
-    useEffect(() => { setClips(initialClips); }, [initialClips]);
+    const isDirtyRef = useRef(false);
+
+    // Sync from server ONLY when user has no unsaved local changes.
+    // This prevents the 10s polling from resetting drag-and-drop edits.
+    useEffect(() => {
+        if (!isDirtyRef.current) {
+            setClips(initialClips);
+        }
+    }, [initialClips]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -198,6 +205,7 @@ function ClipReorderList({ initialClips, onReorder, onRemoveClip, videoId, layou
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
         if (active.id !== over?.id) {
+            isDirtyRef.current = true;
             setClips((items) => {
                 const oldIndex = items.findIndex((i) => i.index === active.id);
                 const newIndex = items.findIndex((i) => i.index === over?.id);
@@ -212,6 +220,7 @@ function ClipReorderList({ initialClips, onReorder, onRemoveClip, videoId, layou
         setIsSaving(true);
         try {
             await onReorder(clips.map(c => c.index));
+            isDirtyRef.current = false;
         } catch (err) {
             console.error('Reorder save failed:', err);
         } finally {
@@ -293,6 +302,7 @@ export default function ClipperPage() {
     const [selectedDate, setSelectedDate] = useState('');
     const [selectedTime, setSelectedTime] = useState('12:00');
     const [submittingApproval, setSubmittingApproval] = useState(false);
+    const [approvalStep, setApprovalStep] = useState('');
     const [confirmReject, setConfirmReject] = useState<number | null>(null);
     const [selectedProfileSlug, setSelectedProfileSlug] = useState<string>('');
 
@@ -746,6 +756,20 @@ export default function ClipperPage() {
         }
 
         setSubmittingApproval(true);
+        setApprovalStep('Salvando caption...');
+
+        // Progress stepper — etapas simuladas baseadas em tempo
+        // Backend gera variantes FFmpeg (~15s/perfil) + captions LLM
+        const progressSteps = [
+            { delay: 2000, msg: 'Gerando variantes únicas...' },
+            { delay: 8000, msg: 'Aplicando filtros anti-detecção...' },
+            { delay: 18000, msg: 'Criando legendas exclusivas...' },
+            { delay: 35000, msg: 'Agendando publicações...' },
+            { delay: 60000, msg: 'Finalizando...' },
+        ];
+        const stepTimers = progressSteps.map(s =>
+            setTimeout(() => setApprovalStep(s.msg), s.delay)
+        );
 
         try {
             // Salvar caption pendente antes de aprovar (se editada)
@@ -756,6 +780,8 @@ export default function ClipperPage() {
                     hashtags: draft.hashtags,
                 });
             }
+
+            setApprovalStep('Gerando variantes únicas...');
 
             const approveBody: Record<string, any> = {
                 schedule_mode: postType,
@@ -768,7 +794,7 @@ export default function ClipperPage() {
                 approveBody.schedule_time = selectedTime || '12:00';
             }
 
-            const result = await apiClient.post(`/api/v1/factory/approve/${selectedVideo.id}`, approveBody);
+            const result = await apiClient.post(`/api/v1/factory/approve/${selectedVideo.id}`, approveBody, { signal: AbortSignal.timeout(120000) });
 
             setShowApprovalModal(false);
             setSelectedVideo(null);
@@ -777,23 +803,27 @@ export default function ClipperPage() {
             setSelectedTime('12:00');
             await fetchPendingVideos();
 
+            stepTimers.forEach(clearTimeout);
+
             const res = result as any;
-            
+            const variantsGen = res.variants_generated || 0;
+            const variantSuffix = variantsGen > 0 ? ` (${variantsGen} variante${variantsGen > 1 ? 's' : ''} única${variantsGen > 1 ? 's' : ''})` : '';
+
             if (res.results && Array.isArray(res.results)) {
                 let successProfiles: string[] = [];
                 let failedProfiles: string[] = [];
-                
+
                 res.results.forEach((r: any) => {
                     const fail = r.result?.failed || 0;
                     const sched = r.result?.scheduled || 0;
                     if (fail > 0 && sched === 0) failedProfiles.push(r.profile);
                     else successProfiles.push(r.profile);
                 });
-                
+
                 if (successProfiles.length > 0 && failedProfiles.length === 0) {
-                    toast.success(`Vídeo aprovado e agendado para o(s) perfil(is): ${successProfiles.map(p => '@' + p).join(', ')}`);
+                    toast.success(`Vídeo aprovado para ${successProfiles.map(p => '@' + p).join(', ')}${variantSuffix}`);
                 } else if (successProfiles.length > 0 && failedProfiles.length > 0) {
-                    toast.success(`Aprovado para: ${successProfiles.map(p => '@' + p).join(', ')}. Falhou para: ${failedProfiles.map(p => '@' + p).join(', ')}`);
+                    toast.success(`Aprovado para: ${successProfiles.map(p => '@' + p).join(', ')}${variantSuffix}. Falhou: ${failedProfiles.map(p => '@' + p).join(', ')}`);
                 } else if (failedProfiles.length > 0) {
                     toast.error(`Aprovado mas falhou ao agendar para: ${failedProfiles.map(p => '@' + p).join(', ')}. Verifique o scheduler.`);
                 } else {
@@ -818,9 +848,19 @@ export default function ClipperPage() {
                 }
             }
         } catch (error: any) {
-            toast.error(error?.data?.detail || 'Erro ao aprovar vídeo. Tente novamente.');
+            stepTimers.forEach(clearTimeout);
+            if (error?.statusCode === 507) {
+                toast.error(
+                    error?.data?.detail ||
+                    'Espaço em disco insuficiente para gerar variantes únicas. Aguarde a limpeza automática ou libere espaço.',
+                    { duration: 8000 }
+                );
+            } else {
+                toast.error(error?.data?.detail || 'Erro ao aprovar vídeo. Tente novamente.');
+            }
         } finally {
             setSubmittingApproval(false);
+            setApprovalStep('');
         }
     };
 
@@ -896,16 +936,38 @@ export default function ClipperPage() {
         if (bulkSelected.size === 0) return;
         setSubmittingApproval(true);
         let successCount = 0;
+        let failedCount = 0;
+        const total = bulkSelected.size;
+        let current = 0;
+        let diskFull = false;
         for (const videoId of bulkSelected) {
+            current++;
+            setApprovalStep(`Processando ${current}/${total}...`);
             try {
-                await apiClient.post(`/api/v1/factory/approve/${videoId}`, { schedule_mode: 'smart' });
+                await apiClient.post(`/api/v1/factory/approve/${videoId}`, { schedule_mode: 'smart' }, { signal: AbortSignal.timeout(120000) });
                 successCount++;
-            } catch { /* skip failed */ }
+            } catch (error: any) {
+                if (error?.statusCode === 507) {
+                    diskFull = true;
+                    break;
+                }
+                failedCount++;
+            }
         }
         setBulkSelected(new Set());
         await fetchPendingVideos();
         setSubmittingApproval(false);
-        toast.success(`${successCount} vídeo(s) aprovados em lote via Smart Queue!`);
+        setApprovalStep('');
+        if (diskFull) {
+            toast.error(
+                `${successCount} aprovado(s) antes do disco encher. Aguarde a limpeza automática para aprovar os restantes.`,
+                { duration: 8000 }
+            );
+        } else if (failedCount > 0) {
+            toast.success(`${successCount} aprovado(s), ${failedCount} falha(s) — variantes únicas geradas`);
+        } else {
+            toast.success(`${successCount} vídeo(s) aprovados com variantes únicas via Smart Queue!`);
+        }
     };
     const handleBulkReject = async () => {
         if (bulkSelected.size === 0) return;
@@ -992,7 +1054,7 @@ export default function ClipperPage() {
                     {targets.length > 0 && (
                         <span className="bg-cyan-500/20 text-cyan-400 text-[10px] px-1.5 py-0.5 rounded-md">{targets.length}</span>
                     )}
-                    <span className="text-[8px] text-slate-600 ml-1 hidden lg:inline">⌥1</span>
+                    <span className="text-[9px] text-slate-500 ml-1 hidden lg:inline">⌥1</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('queue')}
@@ -1007,7 +1069,7 @@ export default function ClipperPage() {
                     {items.filter(job => !['completed', 'failed'].includes(job.status)).length > 0 && (
                         <span className="bg-amber-500/20 text-amber-400 text-[10px] px-1.5 py-0.5 rounded-md">{items.filter(job => !['completed', 'failed'].includes(job.status)).length}</span>
                     )}
-                    <span className="text-[8px] text-slate-600 ml-1 hidden lg:inline">⌥2</span>
+                    <span className="text-[9px] text-slate-500 ml-1 hidden lg:inline">⌥2</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('armies')}
@@ -1022,7 +1084,7 @@ export default function ClipperPage() {
                     {armies.length > 0 && (
                         <span className="bg-cyan-500/20 text-cyan-400 text-[10px] px-1.5 py-0.5 rounded-md">{armies.length}</span>
                     )}
-                    <span className="text-[8px] text-slate-600 ml-1 hidden lg:inline">⌥3</span>
+                    <span className="text-[9px] text-slate-500 ml-1 hidden lg:inline">⌥3</span>
                 </button>
                 <div className="w-px h-6 bg-white/10 mx-2"></div>
                 <button
@@ -1038,7 +1100,7 @@ export default function ClipperPage() {
                     {pendingVideos.length > 0 && (
                         <span className="bg-emerald-500/20 text-emerald-400 text-[10px] px-1.5 py-0.5 rounded-md animate-pulse">{pendingVideos.length}</span>
                     )}
-                    <span className="text-[8px] text-slate-600 ml-1 hidden lg:inline">⌥4</span>
+                    <span className="text-[9px] text-slate-500 ml-1 hidden lg:inline">⌥4</span>
                 </button>
             </div>
 
@@ -2718,10 +2780,15 @@ export default function ClipperPage() {
                                 className="px-6 py-2 bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 border border-emerald-500/50 hover:border-emerald-400 rounded text-sm font-bold font-mono transition-all disabled:opacity-50 flex items-center gap-2"
                             >
                                 {submittingApproval ? (
-                                    <>
-                                        <span className="material-symbols-outlined animate-spin text-[18px]">autorenew</span>
-                                        APROVANDO...
-                                    </>
+                                    <div className="flex flex-col items-center gap-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-outlined animate-spin text-[18px]">autorenew</span>
+                                            PROCESSANDO...
+                                        </div>
+                                        {approvalStep && (
+                                            <span className="text-[10px] text-emerald-400/60 font-normal animate-pulse">{approvalStep}</span>
+                                        )}
+                                    </div>
                                 ) : (
                                     <>
                                         <span className="material-symbols-outlined text-[18px]">send</span>

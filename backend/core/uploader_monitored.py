@@ -23,6 +23,48 @@ from core.locking import session_lock, SessionLockError
 
 logger = logging.getLogger(__name__)
 
+_USE_DOLPHIN_UPLOADS = os.getenv("USE_DOLPHIN_UPLOADS", "false").lower() == "true"
+
+
+async def _set_input_files_safe(page, locator, file_path: str):
+    """Set file on an input element, using CDP DOM.setFileInputFiles when connected via CDP.
+
+    Playwright's set_input_files sends file CONTENT through the CDP websocket, which
+    has a hard 50MB limit for externally-connected (non-Playwright-launched) browsers.
+    When USE_DOLPHIN_UPLOADS=true, we're connected via CDP to Dolphin Chrome, so we
+    use DOM.setFileInputFiles instead (sends file PATH, not content — no size limit).
+    """
+    if _USE_DOLPHIN_UPLOADS:
+        try:
+            client = await page.context.new_cdp_session(page)
+            try:
+                # Use Runtime.evaluate to get the first file input's CDP object ID,
+                # then use DOM.setFileInputFiles (sends path, not content — no 50MB limit)
+                result = await client.send("Runtime.evaluate", {
+                    "expression": "document.querySelector('input[type=\"file\"]')",
+                    "returnByValue": False,
+                })
+                obj_id = result.get("result", {}).get("objectId")
+                if not obj_id:
+                    raise ValueError("No file input objectId returned")
+                desc = await client.send("DOM.describeNode", {"objectId": obj_id})
+                backend_node_id = desc["node"]["backendNodeId"]
+                await client.send("DOM.setFileInputFiles", {
+                    "backendNodeId": backend_node_id,
+                    "files": [file_path],
+                })
+                logger.info(f"[DOLPHIN-UPLOAD] ✅ File set via CDP DOM.setFileInputFiles: {file_path!r}")
+                return
+            except Exception as cdp_err:
+                logger.warning(f"[DOLPHIN-UPLOAD] CDP DOM.setFileInputFiles failed ({cdp_err}), falling back to set_input_files")
+            finally:
+                await client.detach()
+        except Exception as e:
+            logger.warning(f"[DOLPHIN-UPLOAD] CDP file set prep failed ({e}), falling back to set_input_files")
+
+    await locator.set_input_files(file_path)
+
+
 async def upload_video_monitored(
     session_name: str,
     video_path: str,
@@ -399,7 +441,7 @@ async def upload_video_monitored(
             if input_count > 0:
                 logger.info(f"✅ Input file encontrado ({input_count} elemento(s)) - fazendo upload...")
                 await page.wait_for_timeout(random.uniform(800, 2000))
-                await file_input_locator.first.set_input_files(video_path)
+                await _set_input_files_safe(page, file_input_locator.first, video_path)
                 upload_successful = True
                 logger.info("📤 Upload do arquivo iniciado com sucesso!")
             else:
@@ -422,7 +464,7 @@ async def upload_video_monitored(
                     selector_count = await page.locator(selector).count()
                     if selector_count > 0:
                         logger.info(f"✅ Seletor alternativo encontrado: {selector} ({selector_count} elemento(s))")
-                        await page.locator(selector).first.set_input_files(video_path)
+                        await _set_input_files_safe(page, page.locator(selector).first, video_path)
                         upload_successful = True
                         logger.info("📤 Upload iniciado com seletor alternativo!")
                         break

@@ -1,5 +1,5 @@
 ---
-trigger: always_on
+trigger: manual
 ---
 
 # SYNAPSE - CONTRATO DE AGENTE (Agent Contract)

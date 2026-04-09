@@ -36,6 +36,10 @@ DEBUG_RETENTION_DAYS = 7     # Manter traces/screenshots por 7 dias
 MAX_CLIPS_DIR_GB = 5         # Limite máximo de espaço para clips brutos
 AUDIO_TEMP_DIR = "/app/data/clipper/audio_temp"
 SUBS_DIR = "/app/data/clipper/subs"
+VARIANTS_DIR = "/app/data/clipper/variants"
+VARIANT_RETENTION_HOURS = 24   # Manter variantes 24h após postagem
+ORPHAN_VARIANT_HOURS = 48      # Variantes sem referência: limpar após 48h
+MAX_VARIANTS_DIR_GB = 3        # Limite máximo de espaço para variantes
 
 
 def run_gc():
@@ -49,7 +53,9 @@ def run_gc():
     freed += _clean_old_debug_files()
     freed += _clean_orphan_exports()
     freed += _clean_temp_files()
+    freed += _clean_old_variants()
     freed += _enforce_clips_size_limit()
+    freed += _enforce_variants_size_limit()
 
     _clean_old_failed_jobs()
 
@@ -268,6 +274,86 @@ def _clean_temp_files() -> int:
     return freed
 
 
+def _clean_old_variants() -> int:
+    """
+    Remove variantes de vídeo (geradas pelo Uniquifier) que já não são necessárias.
+
+    Critérios:
+    1. Variante referenciada por ScheduleItem completed há > 24h → deletar
+    2. Variante órfã (sem referência em VideoQueue nem ScheduleItem) e > 48h → deletar
+    """
+    freed = 0
+    if not os.path.isdir(VARIANTS_DIR):
+        return 0
+
+    posted_cutoff = datetime.now(timezone.utc) - timedelta(hours=VARIANT_RETENTION_HOURS)
+    orphan_cutoff_ts = (datetime.now() - timedelta(hours=ORPHAN_VARIANT_HOURS)).timestamp()
+
+    # Coletar todos os video_paths referenciados (pendentes ou agendados)
+    referenced_filenames = set()
+    with safe_session() as db:
+        from core.models import VideoQueue
+        # Paths em VideoQueue (queued/scheduled)
+        vq_paths = db.query(VideoQueue.video_path).filter(
+            VideoQueue.video_path.isnot(None),
+            VideoQueue.status.in_(["queued", "scheduled"]),
+        ).all()
+        for row in vq_paths:
+            if row.video_path:
+                referenced_filenames.add(os.path.basename(row.video_path))
+
+        # Paths em ScheduleItem pendentes
+        si_pending = db.query(ScheduleItem.video_path).filter(
+            ScheduleItem.video_path.isnot(None),
+            ScheduleItem.status.in_(["pending", "uploading"]),
+        ).all()
+        for row in si_pending:
+            if row.video_path:
+                referenced_filenames.add(os.path.basename(row.video_path))
+
+        # ScheduleItems completed — elegíveis para remoção após retention
+        si_completed = db.query(ScheduleItem).filter(
+            ScheduleItem.status == "completed",
+            ScheduleItem.video_path.isnot(None),
+        ).all()
+        completed_map = {}
+        for si in si_completed:
+            if si.video_path:
+                post_time = si.updated_at or si.scheduled_time
+                completed_map[os.path.basename(si.video_path)] = post_time
+
+    removed_count = 0
+    for f in os.listdir(VARIANTS_DIR):
+        fpath = os.path.join(VARIANTS_DIR, f)
+        if not os.path.isfile(fpath) or not f.endswith(".mp4"):
+            continue
+
+        # Caso 1: Variante de upload completado há > 24h
+        if f in completed_map:
+            post_time = completed_map[f]
+            if post_time and post_time.replace(tzinfo=timezone.utc) < posted_cutoff:
+                freed += _remove_file(fpath)
+                removed_count += 1
+                continue
+
+        # Caso 2: Variante ainda referenciada (pendente) → preservar
+        if f in referenced_filenames:
+            continue
+
+        # Caso 3: Variante órfã (sem referência) e antiga > 48h
+        if f not in completed_map:
+            try:
+                if os.path.getmtime(fpath) < orphan_cutoff_ts:
+                    freed += _remove_file(fpath)
+                    removed_count += 1
+            except OSError:
+                continue
+
+    if removed_count:
+        logger.info(f"  🎭 Variantes: {removed_count} arquivos removidos ({freed / 1024 / 1024:.1f} MB)")
+    return freed
+
+
 def _enforce_clips_size_limit() -> int:
     """
     Se o diretório de clips ultrapassar MAX_CLIPS_DIR_GB, remove os clips
@@ -331,6 +417,81 @@ def _enforce_clips_size_limit() -> int:
 
     if removed_count:
         logger.info(f"  📏 Limite de espaço: {removed_count} clips antigos removidos ({freed / 1024 / 1024:.1f} MB)")
+    return freed
+
+
+def _enforce_variants_size_limit() -> int:
+    """
+    Se o diretório de variantes ultrapassar MAX_VARIANTS_DIR_GB, remove as
+    variantes mais antigas (por mtime) que NÃO estejam pendentes de upload.
+    """
+    freed = 0
+    if not os.path.isdir(VARIANTS_DIR):
+        return 0
+
+    max_bytes = MAX_VARIANTS_DIR_GB * 1024 * 1024 * 1024
+
+    # Calcular tamanho atual
+    all_variants = []
+    total_size = 0
+    for f in os.listdir(VARIANTS_DIR):
+        fpath = os.path.join(VARIANTS_DIR, f)
+        if not os.path.isfile(fpath) or not f.endswith(".mp4"):
+            continue
+        try:
+            size = os.path.getsize(fpath)
+            mtime = os.path.getmtime(fpath)
+            all_variants.append((fpath, size, mtime, f))
+            total_size += size
+        except OSError:
+            continue
+
+    if total_size <= max_bytes:
+        return 0
+
+    logger.warning(
+        f"  ⚠️ Variants dir: {total_size / 1024 / 1024 / 1024:.1f} GB "
+        f"(limite: {MAX_VARIANTS_DIR_GB} GB)"
+    )
+
+    # Coletar variantes referenciadas (pendentes de upload)
+    referenced_filenames = set()
+    with safe_session() as db:
+        from core.models import VideoQueue
+        vq_paths = db.query(VideoQueue.video_path).filter(
+            VideoQueue.video_path.isnot(None),
+            VideoQueue.status.in_(["queued", "scheduled"]),
+        ).all()
+        for row in vq_paths:
+            if row.video_path:
+                referenced_filenames.add(os.path.basename(row.video_path))
+
+        si_pending = db.query(ScheduleItem.video_path).filter(
+            ScheduleItem.video_path.isnot(None),
+            ScheduleItem.status.in_(["pending", "uploading"]),
+        ).all()
+        for row in si_pending:
+            if row.video_path:
+                referenced_filenames.add(os.path.basename(row.video_path))
+
+    # Ordenar por mtime (mais antigos primeiro) e remover até ficar abaixo do limite
+    all_variants.sort(key=lambda x: x[2])
+    removed_count = 0
+
+    for fpath, size, mtime, filename in all_variants:
+        if total_size <= max_bytes:
+            break
+        if filename in referenced_filenames:
+            continue
+        freed += _remove_file(fpath)
+        total_size -= size
+        removed_count += 1
+
+    if removed_count:
+        logger.info(
+            f"  📏 Limite variantes: {removed_count} arquivos removidos "
+            f"({freed / 1024 / 1024:.1f} MB)"
+        )
     return freed
 
 

@@ -83,6 +83,7 @@ def _upsert_known_streamers(
     Retorna o número de novos streamers inseridos.
     """
     new_count = 0
+    seen_broadcasters = set()
 
     with safe_session() as db:
         for stream in streams:
@@ -90,8 +91,10 @@ def _upsert_known_streamers(
             broadcaster_name = stream.get("user_name") or stream.get("user_login", "")
             language = stream.get("language", "pt")
 
-            if not broadcaster_id:
+            if not broadcaster_id or broadcaster_id in seen_broadcasters:
                 continue
+            
+            seen_broadcasters.add(broadcaster_id)
 
             existing = (
                 db.query(TwitchKnownStreamer)

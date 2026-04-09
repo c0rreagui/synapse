@@ -36,6 +36,8 @@ class Proxy(Base):
 
     # --- Fingerprint Overrides (Optional default per proxy node) ---
     fingerprint_ua = Column(String, nullable=True)
+    fingerprint_locale = Column(String, nullable=True)   # e.g. "en-US", "pt-BR"
+    fingerprint_timezone = Column(String, nullable=True) # e.g. "America/New_York"
     geolocation_latitude = Column(String, nullable=True)
     geolocation_longitude = Column(String, nullable=True)
 
@@ -69,6 +71,9 @@ class Profile(Base):
 
     proxy = relationship("Proxy", back_populates="profiles")
     armies = relationship("Army", secondary=army_profiles, back_populates="profiles")
+
+    # --- Dolphin{anty} Integration ---
+    dolphin_profile_name = Column(String, nullable=True)    # Nome do perfil no Dolphin (ex: "DoseAlta TV")
 
     # --- Anti-Detect: Browser Fingerprint (Per-Profile) ---
     fingerprint_ua = Column(String, nullable=True)          # User-Agent fixo para este perfil

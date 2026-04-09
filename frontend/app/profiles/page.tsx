@@ -5,12 +5,14 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 // // import Sidebar from '../components/Sidebar';
 import { TikTokProfile } from '../types';
+import type { PhantomStatus } from '../components/PhantomPanel';
 import useWebSocket from '../hooks/useWebSocket';
 import {
     ArrowLeftIcon, CheckCircleIcon, PlusIcon, TrashIcon, UserGroupIcon, ArrowPathIcon, ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import { StitchCard } from '../components/StitchCard';
 import { NeonButton } from '../components/NeonButton';
+import PhantomPanel from '../components/PhantomPanel';
 import clsx from 'clsx';
 import Modal from '../components/Modal';
 import ProfileRepairModal from '../components/ProfileRepairModal'; // [SYN-UX] New Import
@@ -29,6 +31,44 @@ const getWsUrl = () => {
     }
     return '';
 };
+
+function ProfileCardSkeleton() {
+    return (
+        <div className="holographic-card">
+            {/* floating header skeleton */}
+            <div className="holographic-header">
+                <div className="flex items-center gap-4">
+                    <div className="size-12 rounded-full bg-white/5 animate-pulse shrink-0" />
+                    <div className="flex-1 space-y-2">
+                        <div className="h-2.5 bg-white/5 animate-pulse rounded w-20" />
+                        <div className="h-2 bg-white/5 animate-pulse rounded w-14" />
+                    </div>
+                    <div className="h-2 bg-white/5 animate-pulse rounded w-10" />
+                </div>
+            </div>
+            {/* log stream skeleton */}
+            <div className="log-stream-background pointer-events-none">
+                <div className="space-y-3">
+                    {[60, 80, 45, 70, 55].map((w, i) => (
+                        <div key={i} className="flex gap-2 items-center">
+                            <div className="h-2 bg-white/5 animate-pulse rounded w-14 shrink-0" />
+                            <div className="h-2 bg-white/5 animate-pulse rounded" style={{ width: `${w}%` }} />
+                        </div>
+                    ))}
+                </div>
+            </div>
+            {/* footer skeleton */}
+            <div className="holographic-footer">
+                <div className="h-5 bg-white/5 animate-pulse rounded w-28" />
+                <div className="flex gap-1.5 ml-auto">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="w-8 h-8 bg-white/5 animate-pulse rounded" />
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
 
 export default function ProfilesPage() {
     const [profiles, setProfiles] = useState<TikTokProfile[]>([]);
@@ -93,6 +133,9 @@ export default function ProfilesPage() {
     const [validatingProxy, setValidatingProxy] = useState(false);
     const [proxyLocation, setProxyLocation] = useState<{ city: string, region: string, country: string } | null>(null);
     const [proxyError, setProxyError] = useState<string | null>(null);
+
+    // PHANTOM STATE
+    const [phantomStatuses, setPhantomStatuses] = useState<Record<number, PhantomStatus>>({});
 
     // [TELEMETRY & LOGS]
     const [systemVitals, setSystemVitals] = useState<any>(null);
@@ -319,9 +362,19 @@ export default function ProfilesPage() {
         }
     });
 
+    const fetchPhantomStatuses = useCallback(async () => {
+        try {
+            const data = await apiClient.get<Record<number, PhantomStatus>>('/api/v1/phantom/all-status');
+            setPhantomStatuses(data);
+        } catch {
+            // non-critical — Phantom may not be enabled
+        }
+    }, []);
+
     useEffect(() => {
         loadProxies();
         fetchProfiles();
+        fetchPhantomStatuses();
     }, []);
 
     const updateProxy = async (profileId: string, proxyId: number | null) => {
@@ -450,7 +503,14 @@ export default function ProfilesPage() {
     const fetchRemoteSessionStatus = useCallback(async () => {
         try {
             const data = await apiClient.get<any>('/api/v1/profiles/remote-session/status');
-            setRemoteSession(data);
+            // Sessão factory ativa mas modal fechado = sessão órfã (ex: refresh de página).
+            // Para automaticamente para não bloquear o botão "Criar via VNC".
+            if (data?.active && data?.session_type === 'factory') {
+                apiClient.post('/api/v1/vnc-factory/stop').catch(() => {});
+                setRemoteSession(null);
+            } else {
+                setRemoteSession(data);
+            }
         } catch {
             // silent — VNC not available in dev
         }
@@ -487,6 +547,10 @@ export default function ProfilesPage() {
 
     // VNC FÁBRICA HANDLERS
     const resetFactoryModal = () => {
+        // Se fechar o modal com VNC ainda ativo, encerra a sessão no backend
+        if (factorySession) {
+            apiClient.post('/api/v1/vnc-factory/stop').catch(() => {});
+        }
         setShowFactoryModal(false);
         setFactoryStep(1);
         setFactoryProxyId(null);
@@ -494,6 +558,7 @@ export default function ProfilesPage() {
         setFactorySession(null);
         setFactoryResult(null);
         setFactoryCapturing(false);
+        setRemoteSession(null); // Libera o botão "Criar via VNC"
     };
 
     const handleStartFactorySession = async () => {
@@ -751,7 +816,9 @@ export default function ProfilesPage() {
                         </Link>
                         <div>
                             <h1 className="text-4xl font-black text-white tracking-tighter uppercase">Terminal Matrix</h1>
-                            <p className="text-synapse-primary font-mono text-xs tracking-widest uppercase opacity-60">Continuous Chronological Stream Node Grid</p>
+                            <p className="text-synapse-primary font-mono text-xs tracking-widest uppercase opacity-60">
+                                {profiles.filter(p => p.session_valid).length} NÓS ATIVOS — {profiles.length} ONLINE
+                            </p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -782,8 +849,8 @@ export default function ProfilesPage() {
                 </StitchCard>
             )}
 
-            {/* ═══ VNC REMOTE SESSION BANNER ═══ */}
-            {remoteSession?.active && remoteSession.novnc_url && (
+            {/* ═══ VNC REMOTE SESSION BANNER ═══ (não renderiza durante sessão fábrica — VNC fica no modal) */}
+            {remoteSession?.active && remoteSession.novnc_url && remoteSession.session_type !== 'factory' && (
                 <div className="mb-6 rounded-lg border border-violet-500/30 bg-violet-500/5 backdrop-blur-sm overflow-hidden">
                     <div className="flex items-center justify-between px-4 py-3 bg-violet-500/10 border-b border-violet-500/20">
                         <div className="flex items-center gap-3">
@@ -819,7 +886,8 @@ export default function ProfilesPage() {
                             src={remoteSession.novnc_url}
                             className="w-full h-full border-0"
                             title="VNC Remote Session"
-                            allow="clipboard-read; clipboard-write"
+                            allow="clipboard-read; clipboard-write; fullscreen"
+                            allowFullScreen
                         />
                     </div>
                 </div>
@@ -827,7 +895,9 @@ export default function ProfilesPage() {
 
             {/* ═══ TERMINAL GRID ═══ */}
             {loading ? (
-                <p className="text-gray-500 text-center py-12 font-mono">Carregando nós...</p>
+                <div className="terminal-grid pb-24">
+                    {[1, 2, 3, 4].map(i => <ProfileCardSkeleton key={i} />)}
+                </div>
             ) : profiles.length > 0 ? (
                 <div className="terminal-grid pb-24">
                     {profiles.map((profile) => {
@@ -870,18 +940,7 @@ export default function ProfilesPage() {
                                 typeColor: isErr ? 'text-[#ff2a2a] font-bold' : isWarn ? 'text-[#ffb02a]' : 'text-synapse-primary font-bold',
                                 msg: l.message
                             };
-                        }) : (health === 'healthy' ? [
-                            { time: '14:22:01', type: 'INIT', typeColor: 'text-synapse-primary font-bold', msg: 'SYNC Sequence started...' },
-                            { time: '14:22:10', type: 'DATA', typeColor: 'text-[#00ff9d]/80', msg: 'Table update: records synced.' },
-                            { time: '14:26:12', type: 'OKAY', typeColor: 'text-[#00ff9d]/80', msg: 'Heartbeat active. Node stable.' },
-                        ] : health === 'error' ? [
-                            { time: '10:00:15', type: 'INIT', typeColor: 'text-synapse-primary', msg: 'Booting node...' },
-                            { time: '10:00:17', type: 'WARN', typeColor: 'text-[#ffb02a]', msg: 'Slow response from gateway.' },
-                        ] : [
-                            { time: '08:30:00', type: 'INIT', typeColor: 'text-synapse-primary', msg: 'Session persistence check...' },
-                            { time: '09:12:00', type: 'WARN', typeColor: 'text-[#ffb02a]', msg: '429: Too Many Requests.' },
-                            { time: '10:12:01', type: 'WAIT', typeColor: 'text-slate-400', msg: 'Cooldown active.' },
-                        ]);
+                        }) : [];
 
                         return (
                             <div
@@ -1077,6 +1136,21 @@ export default function ProfilesPage() {
                                     </div>
                                 </div>
 
+                                {/* ═══ PHANTOM PANEL ═══ */}
+                                {profile.db_id != null && (
+                                    <div
+                                        className="absolute left-0 right-0 z-20"
+                                        style={{ bottom: '72px' }}
+                                        onClick={e => e.stopPropagation()}
+                                    >
+                                        <PhantomPanel
+                                            profileDbId={profile.db_id}
+                                            initialStatus={phantomStatuses[profile.db_id] ?? null}
+                                            onStatusChange={fetchPhantomStatuses}
+                                        />
+                                    </div>
+                                )}
+
                                 {/* ═══ FOOTER — Proxy + Actions ═══ */}
                                 <div className="holographic-footer">
                                     <div className="flex items-center gap-2 flex-1">
@@ -1114,7 +1188,7 @@ export default function ProfilesPage() {
                                         {(health === 'error' || health === 'expired') && (
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setRepairProfile(profile); }}
-                                                className="px-3 py-1 bg-[#ffb02a]/10 hover:bg-[#ffb02a]/20 text-[#ffb02a] text-[9px] font-bold uppercase rounded border border-[#ffb02a]/30 flex items-center gap-1 transition-all"
+                                                className="px-3 py-1 bg-[#ffb02a]/10 hover:bg-[#ffb02a]/20 text-[#ffb02a] text-[10px] font-bold uppercase rounded border border-[#ffb02a]/30 flex items-center gap-1 transition-all"
                                                 aria-label={`Reparar perfil ${profile.label}`}
                                             >
                                                 <span className="material-symbols-outlined text-[14px]">build</span> REPAIR
@@ -1123,10 +1197,11 @@ export default function ProfilesPage() {
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleRefreshAvatar(profile.id); }}
                                             disabled={isRefreshing}
-                                            className="px-3 py-1 bg-synapse-primary/10 hover:bg-synapse-primary/20 text-synapse-primary text-[9px] font-bold uppercase rounded border border-synapse-primary/30 flex items-center gap-1 transition-all disabled:opacity-50"
+                                            className="w-8 h-8 bg-synapse-primary/10 hover:bg-synapse-primary/20 text-synapse-primary rounded border border-synapse-primary/30 flex items-center justify-center transition-all disabled:opacity-50"
                                             aria-label={isRefreshing ? 'Sincronizando nó' : 'Sincronizar nó'}
+                                            title={isRefreshing ? 'Sincronizando...' : 'Sincronizar nó'}
                                         >
-                                            <span className={clsx("material-symbols-outlined text-[14px]", isRefreshing && "animate-spin")}>sync</span> {isRefreshing ? '...' : 'SYNC'}
+                                            <span className={clsx("material-symbols-outlined text-[16px]", isRefreshing && "animate-spin")}>sync</span>
                                         </button>
                                         <button
                                             onClick={(e) => {
@@ -1139,7 +1214,7 @@ export default function ProfilesPage() {
                                             }}
                                             disabled={startingRemote || (remoteSession?.active && remoteSession.profile_slug !== profile.id)}
                                             className={clsx(
-                                                "px-3 py-1 text-[9px] font-bold uppercase rounded border flex items-center gap-1 transition-all disabled:opacity-50",
+                                                "w-8 h-8 rounded border flex items-center justify-center transition-all disabled:opacity-50",
                                                 remoteSession?.active && remoteSession.profile_slug === profile.id
                                                     ? "bg-emerald-500/20 hover:bg-red-500/20 text-emerald-400 hover:text-red-400 border-emerald-500/30 hover:border-red-500/30"
                                                     : "bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 border-violet-500/30"
@@ -1149,20 +1224,25 @@ export default function ProfilesPage() {
                                                     ? "Encerrar sessão VNC"
                                                     : remoteSession?.active
                                                         ? `Sessão VNC ativa para outro perfil (${remoteSession.profile_slug})`
-                                                        : "Abrir browser remoto via VNC (resolver CAPTCHA)"
+                                                        : "Abrir browser remoto via VNC"
+                                            }
+                                            aria-label={
+                                                remoteSession?.active && remoteSession.profile_slug === profile.id
+                                                    ? 'Encerrar sessão VNC'
+                                                    : 'Abrir sessão VNC'
                                             }
                                         >
-                                            <span className="material-symbols-outlined text-[14px]">
+                                            <span className="material-symbols-outlined text-[16px]">
                                                 {startingRemote ? 'hourglass_empty' : remoteSession?.active && remoteSession.profile_slug === profile.id ? 'stop_circle' : 'desktop_windows'}
                                             </span>
-                                            {startingRemote ? '...' : remoteSession?.active && remoteSession.profile_slug === profile.id ? 'STOP' : 'VNC'}
                                         </button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); promptDelete(profile.id); }}
-                                            className="px-3 py-1 bg-[#ff2a2a]/5 hover:bg-[#ff2a2a]/15 text-[#ff2a2a] text-[9px] font-bold uppercase rounded border border-[#ff2a2a]/20 flex items-center gap-1 transition-all"
+                                            className="w-8 h-8 bg-[#ff2a2a]/5 hover:bg-[#ff2a2a]/15 text-[#ff2a2a] rounded border border-[#ff2a2a]/20 flex items-center justify-center transition-all"
                                             aria-label={`Remover perfil ${profile.label}`}
+                                            title="Excluir perfil"
                                         >
-                                            <span className="material-symbols-outlined text-[14px]">delete</span> DROP
+                                            <span className="material-symbols-outlined text-[16px]">delete</span>
                                         </button>
                                     </div>
                                 </div>
@@ -1556,6 +1636,8 @@ export default function ProfilesPage() {
                 isOpen={showFactoryModal}
                 onClose={resetFactoryModal}
                 title="VNC Fábrica — Criar Novo Perfil"
+                size="4xl"
+                contentClassName={factoryStep === 2 ? "p-3" : undefined}
             >
                 {/* Step indicator */}
                 <div className="flex items-center gap-2 mb-6">
@@ -1630,36 +1712,37 @@ export default function ProfilesPage() {
 
                 {/* ETAPA 2: VNC ativo + Capturar */}
                 {factoryStep === 2 && factorySession?.novnc_url && (
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between bg-violet-500/10 border border-violet-500/20 rounded-lg px-4 py-2">
+                    <div className="flex flex-col gap-3">
+                        {/* Barra de status + controles — compacta */}
+                        <div className="flex items-center justify-between bg-violet-500/10 border border-violet-500/20 rounded-lg px-3 py-1.5">
                             <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_#34d399]" />
-                                <span className="text-violet-300 font-mono text-xs font-bold uppercase tracking-widest">Sessão Fábrica Ativa</span>
+                                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_#34d399]" />
+                                <span className="text-violet-300 font-mono text-[10px] font-bold uppercase tracking-widest">Sessão Fábrica Ativa</span>
                             </div>
-                            <button
-                                onClick={handleStopFactorySession}
-                                className="text-xs text-red-400 hover:text-red-300 font-mono uppercase border border-red-500/30 px-3 py-1 rounded hover:bg-red-500/10 transition-all"
-                            >
-                                Encerrar
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-yellow-300/60 font-mono">Login → aguarde home → Capturar</span>
+                                <button
+                                    onClick={handleStopFactorySession}
+                                    className="text-[10px] text-red-400 hover:text-red-300 font-mono uppercase border border-red-500/30 px-2 py-0.5 rounded hover:bg-red-500/10 transition-all"
+                                >
+                                    Encerrar
+                                </button>
+                            </div>
                         </div>
 
-                        <div className="rounded-lg overflow-hidden border border-violet-500/20" style={{ height: '480px' }}>
+                        {/* VNC iframe — altura dinâmica baseada na viewport */}
+                        <div className="rounded-lg overflow-hidden border border-violet-500/20" style={{ height: 'calc(100dvh - 300px)', minHeight: '500px' }}>
                             <iframe
                                 src={factorySession.novnc_url}
                                 className="w-full h-full border-0"
                                 title="VNC Fábrica — Login TikTok"
-                                allow="clipboard-read; clipboard-write"
+                                allow="clipboard-read; clipboard-write; fullscreen"
+                                allowFullScreen
                             />
                         </div>
 
-                        <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg px-4 py-3 text-xs text-yellow-300/80 font-mono space-y-1">
-                            <p>1. Faça login no TikTok via VNC acima.</p>
-                            <p>2. Aguarde a página inicial carregar (confirma login bem-sucedido).</p>
-                            <p>3. Clique em <strong>"Capturar Perfil"</strong> abaixo.</p>
-                        </div>
-
-                        <div className="flex justify-end">
+                        {/* Footer compacto */}
+                        <div className="flex items-center justify-end gap-3">
                             <NeonButton
                                 variant="primary"
                                 onClick={handleCaptureFactoryProfile}

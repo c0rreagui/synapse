@@ -108,6 +108,7 @@ class ClipJob(Base):
 
     # Layout do video (herdado do target ou auto-detectado)
     layout_mode = Column(String, default="auto")  # auto | podcast | street | gameplay
+    layout_mode_overrides = Column(JSON, default=dict) # Dict mapeando indice (str) para layout_mode (str)
 
     # Produto final
     output_path = Column(String, nullable=True)

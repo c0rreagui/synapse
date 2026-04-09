@@ -410,7 +410,6 @@ def _build_edit_filter_street(
 
     if ass_path:
         safe_path = ass_path.replace("\\", "/").replace(":", "\\:")
-        # Legendas no TOPO para IRL (não cobrir ação na parte inferior)
         filter_parts.append(f"[scaled]ass='{safe_path}'[final]")
         output_label = "[final]"
     else:

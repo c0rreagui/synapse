@@ -497,6 +497,15 @@ class Scheduler:
                 except Exception as e:
                     print(f"[SCHEDULER] Session keepalive error: {e}")
 
+            # 👻 Phantom Trust Engine — Periodic session dispatch
+            try:
+                from core.phantom.scheduler_integration import phantom_tick
+                await phantom_tick()
+            except ImportError:
+                pass  # Phantom module not installed
+            except Exception as e:
+                print(f"[SCHEDULER] Phantom tick error: {e}")
+
             await asyncio.sleep(30) # Check every 30 seconds
 
     @with_db_retries()

@@ -11,15 +11,15 @@ Consome a tabela `pending_approvals` e orquestra:
 """
 
 import os
+import re
 import json
-import asyncio
 import logging
 import random
 from datetime import datetime, timedelta
 from typing import List, Optional
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -100,7 +100,7 @@ def _resolve_profiles_for_approval(item: PendingApproval, db: Session, profile_s
     return [profile] if profile else []
 
 
-def _get_available_profiles_for_item(item: PendingApproval, db: Session) -> List[dict]:
+def _get_available_profiles_for_item(_item: PendingApproval, db: Session) -> List[dict]:
     """Retorna profiles disponiveis para o frontend exibir na selecao."""
     profiles = db.query(Profile).filter(Profile.active == True).all()
     result = []
@@ -259,16 +259,41 @@ async def approve_item(
 
         from core.models import ScheduleItem
 
+        # ── Uniquifier: gerar variantes únicas por perfil ──
+        from core.clipper.uniquifier import generate_variants, InsufficientDiskError
+        from core.caption_engine import generate_caption_variations
+
+        profile_slugs = [p.slug for p in profiles]
+
+        # Gerar variantes de vídeo (skip se perfil único)
+        variants = await generate_variants(
+            source_path=item.video_path,
+            profile_slugs=profile_slugs,
+        )
+        variant_map = {v["profile_slug"]: v for v in variants}
+
+        # Gerar variações de caption (skip se perfil único)
+        caption_vars = await generate_caption_variations(
+            base_caption=final_caption,
+            hashtags=final_hashtags,
+            count=len(profiles),
+        )
+
         results = []
         overall_scheduled_time = None
 
-        for p in profiles:
+        for i, p in enumerate(profiles):
+            # Resolver path e caption únicos para este perfil
+            v = variant_map.get(p.slug, {})
+            p_video_path = v.get("variant_path", item.video_path) if v.get("success") else item.video_path
+            p_caption = caption_vars[i]["caption"] if i < len(caption_vars) else final_caption
+
             # 1. Inserir na Smart Queue
             queue_items = create_queue(
                 profile_slug=p.slug,
                 videos=[{
-                    "path": item.video_path,
-                    "caption": final_caption,
+                    "path": p_video_path,
+                    "caption": p_caption,
                     "hashtags": final_hashtags,
                     "privacy_level": "public_to_everyone",
                 }],
@@ -289,11 +314,11 @@ async def approve_item(
                 # Criar ScheduleItem diretamente com o horário escolhido
                 sched_item = ScheduleItem(
                     profile_slug=p.slug,
-                    video_path=item.video_path,
+                    video_path=p_video_path,
                     scheduled_time=target_dt,
                     status="pending",
                     metadata_info={
-                        "caption": final_caption,
+                        "caption": p_caption,
                         "hashtags": final_hashtags,
                         "privacy_level": "public_to_everyone",
                         "source": "approve_specific",
@@ -316,11 +341,11 @@ async def approve_item(
                 # Criar ScheduleItem para execução em ~1 minuto
                 sched_item = ScheduleItem(
                     profile_slug=p.slug,
-                    video_path=item.video_path,
+                    video_path=p_video_path,
                     scheduled_time=target_dt,
                     status="pending",
                     metadata_info={
-                        "caption": final_caption,
+                        "caption": p_caption,
                         "hashtags": final_hashtags,
                         "privacy_level": "public_to_everyone",
                         "source": "approve_now",
@@ -346,29 +371,37 @@ async def approve_item(
 
             if not p_scheduled_time and queue_items and hasattr(queue_items[0], 'scheduled_at') and queue_items[0].scheduled_at:
                 p_scheduled_time = queue_items[0].scheduled_at.isoformat()
-            
+
             if not overall_scheduled_time:
                 overall_scheduled_time = p_scheduled_time
 
-            logger.info(f"Item #{item_id} aprovado [{body.schedule_mode}] -> perfil @{p.slug} | resultado: {result}")
-            results.append({"profile": p.slug, "result": result})
+            variant_tag = " [variante única]" if v.get("success") and p_video_path != item.video_path else ""
+            logger.info(f"Item #{item_id} aprovado [{body.schedule_mode}] -> perfil @{p.slug}{variant_tag} | resultado: {result}")
+            results.append({"profile": p.slug, "result": result, "variant": v.get("success", False)})
 
         # 3. Marcar como aprovado
         item.status = "approved"
         db.commit()
 
+        variants_count = sum(1 for r in results if r.get("variant"))
         return {
-            "message": f"Vídeo aprovado e inserido na Smart Queue para {len(profiles)} perfil(s)",
+            "message": f"Vídeo aprovado e inserido na Smart Queue para {len(profiles)} perfil(s)"
+                       + (f" ({variants_count} variantes únicas geradas)" if variants_count > 0 else ""),
             "profile": profiles[0].slug,
             "profiles": [p.slug for p in profiles],
             "schedule_mode": body.schedule_mode,
             "scheduled_time": overall_scheduled_time,
             "queue_result": results[0]["result"] if results else None,
-            "results": results
+            "results": results,
+            "variants_generated": variants_count,
         }
 
     except HTTPException:
         raise
+    except InsufficientDiskError as e:
+        db.rollback()
+        logger.warning(f"Disco insuficiente ao aprovar item #{item_id}: {e}")
+        raise HTTPException(status_code=507, detail=str(e))
     except Exception as e:
         db.rollback()
         logger.error(f"Erro ao aprovar item #{item_id}: {e}")
@@ -458,7 +491,6 @@ async def generate_caption_for_item(item_id: int, options: GenerateCaptionOption
         raise HTTPException(status_code=404, detail="Item não encontrado")
 
     # ── Extrair contexto completo do ClipJob ──
-    transcript_text = ""
     streamer = item.streamer_name or ""
     game_name = ""
     clip_titles = []
@@ -466,28 +498,48 @@ async def generate_caption_for_item(item_id: int, options: GenerateCaptionOption
     broadcasters = set()
     total_clips = 0
     target_type = ""
+    clip_blocks: list[str] = []  # Per-clip structured context for the Oracle
 
     if item.clip_job_id:
         from core.clipper.models import ClipJob, TwitchTarget
         job = db.query(ClipJob).filter(ClipJob.id == item.clip_job_id).first()
         if job:
-            # Transcript
-            if job.whisper_result:
-                parts = [t.get("text", "") for t in (job.whisper_result or []) if t.get("text")]
-                transcript_text = " ".join(parts)
+            # Build per-clip structured blocks pairing metadata[i] ↔ whisper_result[i]
+            metadata_list = job.clip_metadata or []
+            transcriptions_list = job.whisper_result or []
+            total_clips = len(metadata_list)
 
-            # Metadados dos clips (game, titles, views, broadcasters)
-            if job.clip_metadata:
-                total_clips = len(job.clip_metadata)
-                for meta in job.clip_metadata:
-                    if meta.get("game"):
-                        game_name = meta["game"]
-                    if meta.get("title"):
-                        clip_titles.append(meta["title"])
-                    if meta.get("view_count"):
-                        clip_views.append(meta["view_count"])
-                    if meta.get("broadcaster_name"):
-                        broadcasters.add(meta["broadcaster_name"])
+            for i, meta in enumerate(metadata_list):
+                if meta.get("game"):
+                    game_name = meta["game"]
+                if meta.get("title"):
+                    clip_titles.append(meta["title"])
+                if meta.get("view_count"):
+                    clip_views.append(meta["view_count"])
+                broadcaster = meta.get("broadcaster_name") or meta.get("creator_name") or ""
+                if broadcaster:
+                    broadcasters.add(broadcaster)
+
+                # Pair with whisper transcription at same index
+                trans = transcriptions_list[i] if i < len(transcriptions_list) else {}
+                clip_text = (trans.get("text") or "").strip()
+
+                header = f"CLIP {i + 1}"
+                if broadcaster:
+                    header += f" — @{broadcaster}"
+                clip_title = meta.get("title") or ""
+                if clip_title:
+                    header += f' | "{clip_title}"'
+                views = meta.get("view_count") or meta.get("views") or 0
+                if views:
+                    header += f" | {int(views):,} views"
+                duration = meta.get("duration") or 0
+                if duration:
+                    header += f" | {int(duration)}s"
+
+                block = header + "\n"
+                block += f'Transcrição: "{clip_text}"' if clip_text else "(sem áudio transcrito)"
+                clip_blocks.append(block)
 
             # Target info (tipo: canal ou categoria)
             if job.target_id:
@@ -495,7 +547,6 @@ async def generate_caption_for_item(item_id: int, options: GenerateCaptionOption
                 if target:
                     target_type = target.target_type or "channel"
                     if not streamer:
-                        # Para targets de categoria, usar o broadcaster real dos metadados
                         if target_type == "category" and broadcasters:
                             streamer = next(iter(broadcasters))
                         elif target.channel_name:
@@ -652,24 +703,22 @@ HASHTAGS: {hashtag_guidance_pro}
     if game_name:
         context_parts.append(f"Jogo/Categoria: {game_name}")
     if streamer:
-        context_parts.append(f"Canal/Streamer: {streamer}")
+        context_parts.append(f"Canal/Streamer principal: {streamer}")
     if broadcasters and len(broadcasters) > 1:
-        context_parts.append(f"Streamers nos clipes: {', '.join(broadcasters)}")
+        context_parts.append(f"Streamers nos clipes: {', '.join(sorted(broadcasters))}")
     if target_type:
         context_parts.append(f"Tipo de alvo: {'Categoria' if target_type == 'category' else 'Canal'}")
-    if clip_titles:
-        context_parts.append(f"Títulos dos clipes originais: {' | '.join(clip_titles)}")
     if clip_views:
-        total_views = sum(clip_views)
-        context_parts.append(f"Views combinadas: {total_views}")
+        context_parts.append(f"Views combinadas: {sum(clip_views):,}")
     if total_clips:
-        context_parts.append(f"Clipes combinados no vídeo: {total_clips}")
+        context_parts.append(f"Total de clipes: {total_clips}")
     if item.duration_seconds:
         mins = item.duration_seconds // 60
         secs = item.duration_seconds % 60
         context_parts.append(f"Duração do vídeo final: {mins}:{secs:02d}")
 
     video_context = "\n".join(context_parts) if context_parts else "Sem metadados adicionais."
+    clips_detail = "\n\n".join(clip_blocks) if clip_blocks else "(sem dados de clipes)"
 
     length_guide = {
         "short": "Máximo 150 caracteres na caption. Direto, cortante, uma facada de texto.",
@@ -677,23 +726,23 @@ HASHTAGS: {hashtag_guidance_pro}
         "long": "300-500 caracteres. Storytelling completo com contexto, emoção e CTA.",
     }
 
-    # ── Few-shot examples por tom (ancoram formato + qualidade) ──
+    # ── Few-shot examples por tom ──
     FEW_SHOT = {
         "Viral": [
             {"caption": "o bixo morreu 3 vezes seguidas e ainda tava rindo KKKKK esse é o tipo de jogador que eu respeito 💀", "hashtags": ["#fyp", "#twitch", "#gaming", "#fails"]},
-            {"caption": "simplesmente a melhor reação que eu já vi numa live. ele NÃO acreditou no que aconteceu", "hashtags": ["#viral", "#twitchclips", "#react"]},
+            {"caption": "a cara dele quando percebeu o que fez — ninguém tava PREPARADO pra essa reação", "hashtags": ["#viral", "#twitchclips", "#react"]},
         ],
         "Polêmico": [
-            {"caption": "se você acha que isso foi sorte, você nunca jogou na vida. respeita o talento", "hashtags": ["#gaming", "#skill", "#twitch"]},
+            {"caption": "se você acha que isso foi sorte, você nunca jogou na vida. RESPEITA o talento", "hashtags": ["#gaming", "#skill", "#twitch"]},
             {"caption": "todo mundo falando que ele errou mas NINGUÉM teria feito melhor. pode falar", "hashtags": ["#opinião", "#twitch", "#gamer"]},
         ],
         "Engraçado": [
-            {"caption": "tutorial completo de como NÃO fazer speedrun em 47 segundos kkkkkk", "hashtags": ["#humor", "#gaming", "#fails", "#twitch"]},
+            {"caption": "tutorial completo de como NÃO fazer isso em 47 segundos kkkkkk", "hashtags": ["#humor", "#gaming", "#fails", "#twitch"]},
             {"caption": "ele olhou pro boss e o boss olhou de volta. nenhum dos dois sabia o que fazer 💀", "hashtags": ["#gaming", "#meme", "#twitchclips"]},
         ],
         "Profissional": [
             {"caption": "Quando concentração e reflexo se encontram no momento exato. Clipe cirúrgico.", "hashtags": ["#twitch", "#gameplay", "#highlights"]},
-            {"caption": "Um daqueles momentos que lembram por que a gente assiste live. Conteúdo genuíno do início ao fim.", "hashtags": ["#livestream", "#twitch", "#conteúdo"]},
+            {"caption": "Um daqueles momentos que lembram por que a gente assiste live. Conteúdo genuíno.", "hashtags": ["#livestream", "#twitch", "#conteúdo"]},
         ],
     }
 
@@ -703,43 +752,60 @@ HASHTAGS: {hashtag_guidance_pro}
         for i, ex in enumerate(few_shot_examples)
     ])
 
+    _n = total_clips or 1
+    if _n > 1:
+        _missao = f"""─── MISSÃO ───
+Crie UMA descrição viral para TikTok/Shorts para um COMPILADO de {_n} clips da Twitch.
+Cada clip tem sua própria transcrição — leia TODAS antes de escrever.
+A caption deve capturar a ENERGIA/VIBE GERAL do compilado, não tratar como clip único.
+O espectador deve sentir que tem VÁRIOS momentos épicos no vídeo, não apenas um."""
+    else:
+        _missao = "─── MISSÃO ───\nCrie UMA descrição viral para TikTok/Shorts baseada no clipe abaixo."
+
     system_prompt = f"""{persona}
 
-─── MISSÃO ───
-Crie UMA descrição para TikTok/Shorts baseada no conteúdo REAL do vídeo abaixo.
+{_missao}
 
 TAMANHO: {length_guide.get(options.length, length_guide['short'])}
 
-EXEMPLOS DE OUTPUT (use como referência de FORMATO e QUALIDADE, mas crie algo ORIGINAL):
+EXEMPLOS DE OUTPUT (referência de FORMATO e QUALIDADE — crie algo ORIGINAL):
 {few_shot_str}
 
-REGRAS INVIOLÁVEIS:
-1. A caption DEVE refletir o que REALMENTE acontece no vídeo. Use a transcrição como fonte primária — cite falas reais, reações específicas, momentos exatos.
-2. NUNCA invente eventos, falas ou situações. Se a transcrição diz "ai meu deus", use isso. Se não há transcrição, baseie-se APENAS nos títulos dos clipes.
-3. Escreva em PT-BR coloquial e natural (como um brasileiro real escreveria no TikTok).
-4. NÃO comece com prefixos de prompt como "hot take:", "opinião impopular:", "neste vídeo...", "veja só...", "confira...". A frase deve ser direta.
-5. Responda APENAS em JSON válido: {{"caption": "sua caption aqui", "hashtags": ["#tag1", "#tag2"]}}
-{f"6. Gere entre 3 e 5 hashtags (MÁXIMO 5). Use APENAS tags relevantes ao conteúdo REAL do vídeo. Se a categoria é '{game_name or 'desconhecida'}', as hashtags devem refletir ESSE contexto. NUNCA inclua #gaming se o conteúdo não é sobre jogos (ex: Just Chatting, IRL, react)." if options.include_hashtags else "6. NÃO inclua hashtags, retorne lista vazia"}
-7. A caption deve funcionar como GANCHO — quem lê tem que querer assistir o vídeo. Foque no momento mais impactante/engraçado/tenso.
-8. MENCIONE o streamer pelo nome ({streamer}) de forma natural. Ex: "{streamer} perdeu a cabeça quando..."
-9. Se o clipe tem uma reação forte (grito, riso, susto), DESTAQUE isso na caption.
-10. NUNCA use aspas ao redor da caption inteira. Escreva como texto direto.
-11. OBRIGATÓRIO: Sua caption deve ser COMPLETAMENTE DIFERENTE de qualquer outra que você já tenha escrito. Varie a estrutura, o ângulo narrativo, e as primeiras palavras.
+REGRAS DE OURO:
+1. USE as transcrições como fonte primária. Cite falas reais, reações específicas, o momento exato que faz o clipe especial.
+2. NUNCA invente falas. Se a transcrição está vazia, use os títulos e metadados do clipe.
+3. OBRIGATÓRIO: destaque a ação/emoção principal com CAIXA ALTA no gancho (ex: "PERDEU o CONTROLE", "A VERDADE sobre...").
+4. Adapte a linguagem ao nicho: {"games/gameplay → gírias gamer; tom enérgico" if is_gaming else "Just Chatting/IRL → reação humana; drama ou humor cotidiano; NUNCA use jargão gamer"}.
+5. Misture hashtags de alcance (#fyp) com hashtags hiper-específicas do nicho real (#{(game_name or 'twitch').lower().replace(' ', '').replace(':', '')}).
+6. PROIBIDO: descrições longas/explicativas, prefixos ("neste vídeo...", "confira...", "hot take:").
+7. Escreva em PT-BR coloquial (como brasileiro real escreve no TikTok).
+8. NUNCA use aspas ao redor da caption. Texto direto.
+9. Responda APENAS com JSON válido: {{"caption": "...", "hashtags": ["#tag1", ...]}}
+{f'10. 3–5 hashtags MÁXIMO. Nicho real = {game_name or "twitch/livestream"}. {"NUNCA #gaming para conteúdo não-gamer." if not is_gaming else "Use o nome do jogo como tag."}' if options.include_hashtags else '10. hashtags: [] (lista vazia)'}
 """
 
-    instruction = options.instruction or f"Escreva a descrição perfeita para esse vídeo no tom {options.tone}"
+    instruction = options.instruction or f"Gere a melhor descrição possível no tom {options.tone}"
 
     user_prompt = f"""[INSTRUÇÃO DO CURADOR] {instruction}
 
-[CONTEXTO DO VÍDEO]
+[CONTEXTO GERAL]
 {video_context}
 
-[TRANSCRIÇÃO COMPLETA (WHISPER)]
-{transcript_text if transcript_text else "(Sem áudio transcrito — baseie-se nos títulos e metadados dos clipes)"}
+[CLIPES — TRANSCRIÇÕES SEPARADAS]
+{clips_detail}
 
-[DICA] Analise a transcrição com atenção. Identifique o MOMENTO-CHAVE (o pico emocional, a fala mais marcante, a reação mais forte) e construa a caption ao redor desse momento. A caption deve fazer o viewer parar o scroll.
+{f'''[ANÁLISE DE COMPILADO: {_n} CLIPS]
+Processamento obrigatório antes da redação:
+1. FIO CONDUTOR: Identifique o tema ou padrão de energia que unifica os {_n} clips (ex: caos, debate intenso, reações absurdas).
+2. TOM: Defina a emoção dominante do conjunto para calibrar a legenda.
+3. GANCHO (HOOK): Isole o momento de maior impacto para abrir o texto.
+4. REDAÇÃO: Utilize o plural e garanta que o espectador perceba que existem múltiplos eventos aguardando, gerando escassez e maximizando a retenção.''' if _n > 1 else '''[ANÁLISE DE CLIP ÚNICO]
+Processamento obrigatório antes da redação:
+1. FOCO: Identifique a fala, ação ou reação de maior pico emocional.
+2. TOM: Defina a emoção central do corte.
+3. REDAÇÃO: Construa a legenda alavancada exclusivamente neste MOMENTO-CHAVE, gerando curiosidade imediata no primeiro segundo.'''}
 
-Responda SOMENTE com o JSON. Nenhum texto antes ou depois.
+RETORNO OBRIGATÓRIO: Forneça a saída ESTRITAMENTE em formato JSON. Não inclua texto explicativo antes ou depois, nem blocos de formatação markdown.
 """
 
     # ── Chamar Oracle com system/user message separation ──
@@ -758,7 +824,6 @@ Responda SOMENTE com o JSON. Nenhum texto antes ou depois.
             max_completion_tokens=2048,
         )
 
-        import json as json_mod
         content = result.text if hasattr(result, 'text') else str(result)
 
         # Robust JSON parsing with multiple fallback strategies
@@ -766,39 +831,36 @@ Responda SOMENTE com o JSON. Nenhum texto antes ou depois.
 
         # Strategy 1: Direct JSON parse
         try:
-            parsed = json_mod.loads(content)
-        except json_mod.JSONDecodeError:
+            parsed = json.loads(content)
+        except json.JSONDecodeError:
             pass
 
         # Strategy 2: Extract from markdown code fence ```json ... ```
         if not parsed:
-            import re
             fence_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
             if fence_match:
                 try:
-                    parsed = json_mod.loads(fence_match.group(1))
-                except json_mod.JSONDecodeError:
+                    parsed = json.loads(fence_match.group(1))
+                except json.JSONDecodeError:
                     pass
 
         # Strategy 3: Find JSON object with caption key (handles nested braces)
         if not parsed:
-            import re
             # Match from {"caption" to the last } that balances
             match = re.search(r'\{[^{}]*"caption"\s*:\s*"[^"]*"[^{}]*\}', content, re.DOTALL)
             if match:
                 try:
-                    parsed = json_mod.loads(match.group())
-                except json_mod.JSONDecodeError:
+                    parsed = json.loads(match.group())
+                except json.JSONDecodeError:
                     pass
 
         # Strategy 4: Greedy brace extraction
         if not parsed:
-            import re
             match = re.search(r'\{.*"caption".*\}', content, re.DOTALL)
             if match:
                 try:
-                    parsed = json_mod.loads(match.group())
-                except json_mod.JSONDecodeError:
+                    parsed = json.loads(match.group())
+                except json.JSONDecodeError:
                     pass
 
         # Strategy 5: Raw text fallback
@@ -811,11 +873,16 @@ Responda SOMENTE com o JSON. Nenhum texto antes ou depois.
             logger.warning(f"Caption fallback to raw text for item #{item_id}")
 
         caption = parsed.get("caption", "").strip()
-        hashtags = parsed.get("hashtags", [])[:5]  # Limite: 3-5 hashtags
+        hashtags = [h for h in parsed.get("hashtags", []) if isinstance(h, str)][:5]
 
         # Clean caption: remove enclosing quotes if LLM added them
         if caption.startswith('"') and caption.endswith('"'):
             caption = caption[1:-1]
+
+        # Strip hashtags from the caption body — the LLM often appends them inline
+        # despite the JSON format instruction. Hashtags live exclusively in the
+        # separate `hashtags` field; duplicates in the caption body cause double render.
+        caption = re.sub(r'(?<!\w)#\w+', '', caption).strip()
 
         # Persistir no PendingApproval
         item.caption = caption
@@ -999,16 +1066,19 @@ async def reprocess_item(item_id: int, req: Optional[ReprocessRequest] = None, d
             logger.warning(f"Falha ao remover arquivo antigo do job #{job.id}: {e}")
 
     # Resetar job para pending
+    from sqlalchemy.orm.attributes import flag_modified
     job.status = "pending"
     job.progress_pct = 0
     job.current_step = "Reprocessando (solicitado pelo usuário)"
     job.output_path = None
     job.error_message = None
     if req and req.layout_mode_overrides:
-        job.layout_mode_overrides = req.layout_mode_overrides
+        job.layout_mode_overrides = dict(req.layout_mode_overrides)  # copy to force dirty tracking
+        flag_modified(job, "layout_mode_overrides")
+        logger.info(f"Job #{job.id} layout overrides: {job.layout_mode_overrides}")
     else:
-        # Se não enviou nada, podemos manter os antigos ou limpar. Melhor limpar para garantir.
         job.layout_mode_overrides = {}
+        flag_modified(job, "layout_mode_overrides")
 
     # Deletar PendingApproval
     db.delete(item)
@@ -1019,7 +1089,7 @@ async def reprocess_item(item_id: int, req: Optional[ReprocessRequest] = None, d
     try:
         pool = await QueueManager.get_pool()
         await pool.enqueue_job("process_clip_job", job.id, _queue_name="clipper:queue")
-        logger.info(f"🔄 Job #{job.id} re-enfileirado para reprocessamento completo")
+        logger.info(f"🔄 Job #{job.id} re-enfileirado (layout_overrides={job.layout_mode_overrides})")
     except Exception as e:
         logger.error(f"Erro ao re-enfileirar job #{job.id}: {e}")
         raise HTTPException(status_code=500, detail="Erro ao enviar tarefa para processamento")
@@ -1125,7 +1195,6 @@ async def revert_to_approval(schedule_item_id: int, db: Session = Depends(get_db
         raise HTTPException(status_code=400, detail=f"Não é possível reverter: status '{item.status}'")
 
     video_path = item.video_path
-    profile_slug = item.profile_slug
 
     # 1. Mover arquivo de approved/ de volta para pending/
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -1148,11 +1217,15 @@ async def revert_to_approval(schedule_item_id: int, db: Session = Depends(get_db
             json_approved = os.path.join(APPROVED_DIR, json_name)
             if os.path.exists(json_approved):
                 shutil.move(json_approved, os.path.join(PENDING_DIR, json_name))
-        elif os.path.exists(video_path):
-            # Arquivo já está em outro lugar, copiar para pending
+        elif os.path.exists(video_path) and os.path.abspath(video_path) != os.path.abspath(pending_path):
+            # Arquivo está em outro lugar (não é o pending_path) — copiar para pending
             import shutil
             shutil.copy2(video_path, pending_path)
             moved = True
+        elif os.path.exists(pending_path):
+            # Arquivo já está em pending/ (ex: nunca foi movido para approved/) — ok, sem mover
+            moved = True
+            logger.info(f"Revert: {filename} já está em pending/, sem necessidade de mover")
 
     # 2. Encontrar e resetar PendingApproval vinculado
     pending_item = None

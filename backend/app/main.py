@@ -54,6 +54,7 @@ async def startup_event():
     # 🗄️ Sync DB Schema — cria tabelas faltantes sem tocar as existentes (SYN-130)
     from core.database import engine, Base
     import core.models  # noqa: F401 — garante que todos os models estejam registrados
+    import core.phantom.models  # noqa: F401 — Phantom engine models
     Base.metadata.create_all(bind=engine, checkfirst=True)
     print("SYSTEM: Database schema synchronized.")
 
@@ -139,7 +140,7 @@ app.add_middleware(
 )
 
 from fastapi.staticfiles import StaticFiles
-from .api.endpoints import content, ingestion, profiles, logs, queue, armies, videos, status, scheduler, oracle, analytics, viral_sounds, audio, logic, batch, templates, validate_cookies, settings, health, auto_scheduler, telemetry, proxies, factory_vnc
+from .api.endpoints import content, ingestion, profiles, logs, queue, armies, videos, status, scheduler, oracle, analytics, viral_sounds, audio, logic, batch, templates, validate_cookies, settings, health, auto_scheduler, telemetry, proxies, factory_vnc, phantom
 from .api import debug_router
 from .api import websocket as ws_router
 
@@ -184,6 +185,7 @@ from .api.endpoints.clipper import router as clipper_router
 app.include_router(clipper_router, prefix="/api/clipper", tags=["clipper"])
 from .api.endpoints.factory import router as factory_router
 app.include_router(factory_router, prefix="/api/v1/factory", tags=["factory"])
+app.include_router(phantom.router, prefix="/api/v1/phantom", tags=["phantom"])
 app.include_router(ws_router.router, tags=["websocket"])
 
 # Mount clipper output for video preview serving

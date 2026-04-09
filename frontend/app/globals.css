@@ -47,6 +47,11 @@
   --shadow-glow-cyan: 0 0 20px rgba(6, 182, 212, 0.25);
   --shadow-glow-purple: 0 0 20px rgba(139, 92, 246, 0.25);
 
+  /* Terminal Neon — Node Wall specific palette (distinct from semantic cmd-* tokens) */
+  --terminal-green: #00ff9d;
+  --terminal-red: #ff2a2a;
+  --terminal-amber: #ffb02a;
+
   /* Structure */
   --space-sm: 8px;
   --space-md: 16px;

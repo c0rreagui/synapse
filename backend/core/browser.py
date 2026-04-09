@@ -86,13 +86,13 @@ CHROME_MAJOR = CHROME_VERSION.split(".")[0]
 DYNAMIC_UA = f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{CHROME_VERSION} Safari/537.36"
 
 STEALTH_ARGS = [
-    "--disable-blink-features=AutomationControlled",
     "--disable-infobars",
     "--no-sandbox",
     "--disable-dev-shm-usage",
     "--disable-extensions",
     "--disable-setuid-sandbox",
-    "--disable-gpu",  # Required for headless in Docker
+    # NOTE: --disable-gpu removed — only used in headless mode (DOCKER_HEADLESS_ARGS).
+    # Passing it to VNC sessions (headless=False) breaks WebGL stealth.
     "--no-first-run",
     "--no-default-browser-check",
     "--ignore-certificate-errors",
@@ -112,6 +112,7 @@ STEALTH_ARGS = [
 DOCKER_HEADLESS_ARGS = [
     "--headless=new",  # New headless mode (Chrome 109+)
     "--disable-software-rasterizer",
+    "--disable-gpu",  # Only for headless — never pass to VNC sessions
 ]
 
 # Identidade Dinâmica centralizada em core.network_utils
@@ -160,6 +161,9 @@ def _generate_fingerprint(seed: str = "") -> Dict[str, Any]:
         "gpu_vendor": vendor_map[vendor_key],
         "max_touch_points": touch_options[(h >> 12) % len(touch_options)],
         "viewport": viewport_options[(h >> 16) % len(viewport_options)],
+        # Deterministic noise seeds for canvas/audio fingerprinting (0-15 int, tiny float)
+        "canvas_noise": (h >> 20) % 16,
+        "audio_noise": ((h >> 24) & 0xFF) / 1e12,
     }
 
 
@@ -792,6 +796,9 @@ async def close_browser(p: Playwright, browser: Browser):
         await p.stop()
 
 
+USE_DOLPHIN_UPLOADS = os.getenv("USE_DOLPHIN_UPLOADS", "false").lower() == "true"
+
+
 async def launch_browser_for_profile(
     profile_slug: str,
     headless: bool = not IN_DOCKER,  # Docker: headful via Xvfb (avoids --headless=new detection)
@@ -820,6 +827,18 @@ async def launch_browser_for_profile(
     """
     from core.network_utils import get_profile_identity
     from core.retry_utils import retry_async
+
+    # Dolphin{anty} upload mode: use real Chrome + hardware-level fingerprint spoofing
+    if USE_DOLPHIN_UPLOADS:
+        try:
+            from core.remote_session import launch_browser_via_dolphin
+            logger.info(f"[BROWSER] USE_DOLPHIN_UPLOADS=true — lançando via Dolphin para '{profile_slug}'")
+            return await launch_browser_via_dolphin(profile_slug)
+        except Exception as dolphin_err:
+            logger.warning(
+                f"[BROWSER] Dolphin upload falhou ({dolphin_err}) — fallback para Playwright padrão"
+            )
+            # Falls through to standard Playwright flow below
 
     # Resolve full identity (will raise MissingProxyError in production if no proxy)
     identity = get_profile_identity(profile_slug)

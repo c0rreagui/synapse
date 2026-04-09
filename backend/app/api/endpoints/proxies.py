@@ -17,6 +17,8 @@ class ProxyCreate(BaseModel):
     username: Optional[str] = None
     password: Optional[str] = None
     fingerprint_ua: Optional[str] = None
+    fingerprint_locale: Optional[str] = None
+    fingerprint_timezone: Optional[str] = None
     geolocation_latitude: Optional[str] = None
     geolocation_longitude: Optional[str] = None
     active: bool = True
